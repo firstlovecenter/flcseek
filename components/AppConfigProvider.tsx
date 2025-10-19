@@ -1,19 +1,19 @@
 'use client';
 
 import { ConfigProvider, theme } from 'antd';
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 
 export default function AppConfigProvider({ children }: { children: ReactNode }) {
-  const [isDark, setIsDark] = useState(false);
-
   return (
     <ConfigProvider
       theme={{
-        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+        algorithm: theme.darkAlgorithm,
         token: {
-          colorPrimary: '#003366',
-          colorSuccess: '#00b300',
-          colorError: '#e60000',
+          colorPrimary: '#1890ff',
+          colorSuccess: '#52c41a',
+          colorError: '#ff4d4f',
+          colorBgContainer: '#141414',
+          colorBgElevated: '#1f1f1f',
           borderRadius: 6,
         },
       }}
