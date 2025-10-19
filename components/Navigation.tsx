@@ -157,13 +157,6 @@ export default function Navigation({ children }: NavigationProps) {
       icon: <LineChartOutlined />,
       label: <Link href="/super-admin/reports/overview">Reports</Link>,
     },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      onClick: logout,
-      style: { marginLeft: 'auto' },
-    },
   ];
 
   // Top Navigation items for Sheep Seeker
@@ -201,13 +194,6 @@ export default function Navigation({ children }: NavigationProps) {
       key: '/sheep-seeker/progress',
       icon: <FileTextOutlined />,
       label: <Link href="/sheep-seeker/progress">Progress</Link>,
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      onClick: logout,
-      style: { marginLeft: 'auto' },
     },
   ];
 
@@ -261,6 +247,13 @@ export default function Navigation({ children }: NavigationProps) {
           />
         </div>
         <Space className="desktop-user-section">
+          <Button
+            type="text"
+            icon={isDark ? <BulbOutlined /> : <BulbFilled />}
+            onClick={toggleTheme}
+            style={{ color: '#fff' }}
+            title="Toggle theme"
+          />
           <span style={{ color: '#fff', marginRight: 8 }}>
             <strong>{user?.email}</strong>
           </span>
@@ -287,6 +280,13 @@ export default function Navigation({ children }: NavigationProps) {
             onClick={handleRefresh}
             style={{ color: '#fff' }}
             title="Refresh"
+          />
+          <Button
+            type="text"
+            icon={<LogoutOutlined />}
+            onClick={handleLogout}
+            style={{ color: '#fff' }}
+            title="Logout"
           />
         </Space>
       </Header>
@@ -440,22 +440,15 @@ export default function Navigation({ children }: NavigationProps) {
           height: 56px;
         }
         
-        /* Logout button on the right */
+        /* Bottom nav layout - evenly distributed items */
         .mobile-bottom-nav .ant-menu {
           display: flex !important;
           gap: 0 !important;
           align-items: stretch !important;
         }
         
-        .mobile-bottom-nav .ant-menu-item:last-child {
-          margin-left: auto !important;
-          flex: 0 0 auto !important;
-          min-width: 60px;
-        }
-        
-        .mobile-bottom-nav .ant-menu-item:not(:last-child) {
+        .mobile-bottom-nav .ant-menu-item {
           flex: 1 1 0 !important;
-          max-width: 25% !important;
           min-width: 0 !important;
         }
       `}</style>
