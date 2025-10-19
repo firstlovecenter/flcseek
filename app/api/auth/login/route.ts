@@ -1,25 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/neon';
 import { verifyPassword, generateToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json();
+    const { email, password } = await request.json();
 
-    if (!username || !password) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: 'Username and password are required' },
+        { error: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .maybeSingle();
+    const result = await query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
 
-    if (error || !user) {
+    const user = result.rows[0];
+
+    if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -35,20 +36,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user's group if they're a group leader
+    let groupName = null;
+    if (user.role === 'sheep_seeker') {
+      const groupResult = await query(
+        'SELECT name FROM groups WHERE leader_id = $1',
+        [user.id]
+      );
+      if (groupResult.rows.length > 0) {
+        groupName = groupResult.rows[0].name;
+      }
+    }
+
     const token = generateToken({
       id: user.id,
-      username: user.username,
+      email: user.email,
       role: user.role,
-      department_name: user.department_name,
+      group_name: groupName,
     });
 
     return NextResponse.json({
       token,
       user: {
         id: user.id,
-        username: user.username,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
         role: user.role,
-        department_name: user.department_name,
+        group_name: groupName,
         phone_number: user.phone_number,
       },
     });

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { sendCompletionSMS } from '@/lib/mnotify';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 
 export async function POST(
@@ -25,63 +24,56 @@ export async function POST(
       );
     }
 
-    const { data: person, error: personError } = await supabase
-      .from('registered_people')
-      .select('*')
-      .eq('id', params.person_id)
-      .maybeSingle();
+    const personResult = await query(
+      'SELECT * FROM registered_people WHERE id = $1',
+      [params.person_id]
+    );
 
-    if (personError) throw personError;
+    const person = personResult.rows[0];
+
     if (!person) {
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
     if (
       userPayload.role === 'sheep_seeker' &&
-      person.department_name !== userPayload.department_name
+      person.group_name !== userPayload.group_name
     ) {
       return NextResponse.json(
         {
-          error: 'You can only record attendance for people in your department',
+          error: 'You can only record attendance for people in your group',
         },
         { status: 403 }
       );
     }
 
-    const { data: existingAttendance } = await supabase
-      .from('attendance_records')
-      .select('id')
-      .eq('person_id', params.person_id)
-      .eq('date_attended', date_attended)
-      .maybeSingle();
+    const existingResult = await query(
+      'SELECT id FROM attendance_records WHERE person_id = $1 AND date_attended = $2',
+      [params.person_id, date_attended]
+    );
 
-    if (existingAttendance) {
+    if (existingResult.rows.length > 0) {
       return NextResponse.json(
         { error: 'Attendance already recorded for this date' },
         { status: 409 }
       );
     }
 
-    const { data: attendance, error: insertError } = await supabase
-      .from('attendance_records')
-      .insert({
-        person_id: params.person_id,
-        date_attended,
-        recorded_by: userPayload.id,
-      })
-      .select()
-      .single();
+    const attendanceResult = await query(
+      `INSERT INTO attendance_records (person_id, date_attended, recorded_by)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [params.person_id, date_attended, userPayload.id]
+    );
 
-    if (insertError) throw insertError;
+    const attendance = attendanceResult.rows[0];
 
-    const { count } = await supabase
-      .from('attendance_records')
-      .select('*', { count: 'exact', head: true })
-      .eq('person_id', params.person_id);
+    const countResult = await query(
+      'SELECT COUNT(*) as count FROM attendance_records WHERE person_id = $1',
+      [params.person_id]
+    );
 
-    if (count === ATTENDANCE_GOAL) {
-      await sendCompletionSMS(person.full_name, person.phone_number);
-    }
+    const count = parseInt(countResult.rows[0].count);
 
     return NextResponse.json({
       message: 'Attendance recorded successfully',
@@ -108,17 +100,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: attendance, error } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('person_id', params.person_id)
-      .order('date_attended', { ascending: false });
-
-    if (error) throw error;
+    const attendanceResult = await query(
+      'SELECT * FROM attendance_records WHERE person_id = $1 ORDER BY date_attended DESC',
+      [params.person_id]
+    );
 
     return NextResponse.json({
-      attendance,
-      count: attendance.length,
+      attendance: attendanceResult.rows,
+      count: attendanceResult.rows.length,
     });
   } catch (error: any) {
     return NextResponse.json(

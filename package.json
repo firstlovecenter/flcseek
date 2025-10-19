@@ -8,13 +8,16 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "setup-db": "tsx scripts/setup-database.ts"
+    "setup-db": "tsx scripts/setup-database.ts",
+    "migrate-neon": "tsx scripts/migrate-neon.ts",
+    "populate-members": "tsx scripts/populate-members.ts"
   },
   "dependencies": {
     "@ant-design/charts": "^2.6.5",
     "@ant-design/icons": "^6.1.0",
     "@ant-design/nextjs-registry": "^1.1.0",
     "@hookform/resolvers": "^3.9.0",
+    "@neondatabase/serverless": "^1.0.2",
     "@next/swc-wasm-nodejs": "13.5.1",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -43,7 +46,6 @@
     "@radix-ui/react-toggle": "^1.1.0",
     "@radix-ui/react-toggle-group": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.2",
-    "@supabase/supabase-js": "^2.58.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "20.6.2",
@@ -57,6 +59,7 @@
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "dayjs": "^1.11.18",
+    "dotenv": "^17.2.3",
     "embla-carousel-react": "^8.3.0",
     "eslint": "8.49.0",
     "eslint-config-next": "13.5.1",
@@ -64,6 +67,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.446.0",
     "next": "13.5.1",
+    "next-pwa": "^5.6.0",
     "next-themes": "^0.3.0",
     "postcss": "8.4.30",
     "react": "18.2.0",
@@ -78,6 +82,10 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.2.2",
     "vaul": "^0.9.9",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
   }
 }

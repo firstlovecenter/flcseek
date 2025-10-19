@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { DEPARTMENTS, ATTENDANCE_GOAL } from '@/lib/constants';
+import { GROUPS, ATTENDANCE_GOAL } from '@/lib/constants';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,19 +16,18 @@ export async function GET(request: NextRequest) {
     }
 
     const summary = await Promise.all(
-      DEPARTMENTS.map(async (dept) => {
-        const { data: people, error: peopleError } = await supabase
-          .from('registered_people')
-          .select('id')
-          .eq('department_name', dept);
+      GROUPS.map(async (group) => {
+        const peopleResult = await query(
+          'SELECT id FROM registered_people WHERE group_name = $1',
+          [group]
+        );
 
-        if (peopleError) throw peopleError;
-
+        const people = peopleResult.rows;
         const totalPeople = people.length;
 
         if (totalPeople === 0) {
           return {
-            department: dept,
+            group: group,
             totalPeople: 0,
             avgProgress: 0,
             avgAttendance: 0,
@@ -39,28 +38,28 @@ export async function GET(request: NextRequest) {
         let totalAttendancePercentage = 0;
 
         for (const person of people) {
-          const { data: progress } = await supabase
-            .from('progress_records')
-            .select('is_completed')
-            .eq('person_id', person.id);
+          const progressResult = await query(
+            'SELECT is_completed FROM progress_records WHERE person_id = $1',
+            [person.id]
+          );
 
           const completedStages =
-            progress?.filter((p) => p.is_completed).length || 0;
+            progressResult.rows.filter((p: any) => p.is_completed).length;
           const progressPercentage = (completedStages / 15) * 100;
           totalProgressPercentage += progressPercentage;
 
-          const { count: attendanceCount } = await supabase
-            .from('attendance_records')
-            .select('*', { count: 'exact', head: true })
-            .eq('person_id', person.id);
+          const attendanceResult = await query(
+            'SELECT COUNT(*) as count FROM attendance_records WHERE person_id = $1',
+            [person.id]
+          );
 
-          const attendancePercentage =
-            ((attendanceCount || 0) / ATTENDANCE_GOAL) * 100;
+          const attendanceCount = parseInt(attendanceResult.rows[0].count);
+          const attendancePercentage = (attendanceCount / ATTENDANCE_GOAL) * 100;
           totalAttendancePercentage += Math.min(attendancePercentage, 100);
         }
 
         return {
-          department: dept,
+          group: group,
           totalPeople,
           avgProgress: Math.round(totalProgressPercentage / totalPeople),
           avgAttendance: Math.round(totalAttendancePercentage / totalPeople),
