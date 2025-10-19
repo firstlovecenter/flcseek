@@ -33,7 +33,7 @@ interface Person {
   full_name: string;
   phone_number: string;
   gender?: string;
-  department_name: string;
+  group_name: string;
   created_at: string;
 }
 
