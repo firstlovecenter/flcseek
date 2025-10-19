@@ -13,7 +13,7 @@ const { Title, Text } = Typography;
 interface PersonProgress {
   id: string;
   full_name: string;
-  department_name: string;
+  group_name: string;
   completedStages: number;
   percentage: number;
 }
@@ -60,7 +60,7 @@ export default function ProgressPage() {
           return {
             id: person.id,
             full_name: person.full_name,
-            department_name: person.department_name,
+            group_name: person.group_name,
             completedStages,
             percentage: Math.round((completedStages / 15) * 100),
           };

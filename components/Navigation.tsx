@@ -374,6 +374,7 @@ export default function Navigation({ children }: NavigationProps) {
           align-items: center;
           justify-content: center;
           font-size: 11px;
+          flex: 0 0 auto;
         }
         
         .mobile-bottom-nav .ant-menu-item .anticon {
@@ -388,10 +389,17 @@ export default function Navigation({ children }: NavigationProps) {
         /* Logout button on the right */
         .mobile-bottom-nav .ant-menu {
           display: flex !important;
+          gap: 0 !important;
         }
         
         .mobile-bottom-nav .ant-menu-item:last-child {
           margin-left: auto !important;
+          flex: 0 0 auto !important;
+        }
+        
+        .mobile-bottom-nav .ant-menu-item:not(:last-child) {
+          flex: 1 1 0 !important;
+          max-width: 25% !important;
         }
       `}</style>
     </Layout>

@@ -14,7 +14,7 @@ const { Title, Text } = Typography;
 interface PersonAttendance {
   id: string;
   full_name: string;
-  department_name: string;
+  group_name: string;
   attendanceCount: number;
   percentage: number;
 }
@@ -58,7 +58,7 @@ export default function AttendancePage() {
           return {
             id: person.id,
             full_name: person.full_name,
-            department_name: person.department_name,
+            group_name: person.group_name,
             attendanceCount,
             percentage: Math.min(Math.round((attendanceCount / ATTENDANCE_GOAL) * 100), 100),
           };
@@ -82,7 +82,7 @@ export default function AttendancePage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          date: selectedDate.format('YYYY-MM-DD'),
+          date_attended: selectedDate.format('YYYY-MM-DD'),
         }),
       });
 
