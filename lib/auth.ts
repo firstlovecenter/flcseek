@@ -5,9 +5,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export interface UserPayload {
   id: string;
-  username: string;
+  email: string;
   role: 'super_admin' | 'sheep_seeker';
-  department_name?: string;
+  group_name?: string;
 }
 
 export function hashPassword(password: string): string {

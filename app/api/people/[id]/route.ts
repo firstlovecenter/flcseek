@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
 
 export async function GET(
@@ -14,48 +14,100 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: person, error: personError } = await supabase
-      .from('registered_people')
-      .select('*')
-      .eq('id', params.id)
-      .maybeSingle();
+    const personResult = await query(
+      'SELECT * FROM registered_people WHERE id = $1',
+      [params.id]
+    );
 
-    if (personError) throw personError;
+    const person = personResult.rows[0];
+
     if (!person) {
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
     if (
       userPayload.role === 'sheep_seeker' &&
-      person.department_name !== userPayload.department_name
+      person.group_name !== userPayload.group_name
     ) {
       return NextResponse.json(
-        { error: 'You can only view people in your department' },
+        { error: 'You can only view people in your group' },
         { status: 403 }
       );
     }
 
-    const { data: progress, error: progressError } = await supabase
-      .from('progress_records')
-      .select('*')
-      .eq('person_id', params.id)
-      .order('stage_number', { ascending: true });
+    const progressResult = await query(
+      'SELECT * FROM progress_records WHERE person_id = $1 ORDER BY stage_number ASC',
+      [params.id]
+    );
 
-    if (progressError) throw progressError;
-
-    const { data: attendance, error: attendanceError } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('person_id', params.id)
-      .order('date_attended', { ascending: false });
-
-    if (attendanceError) throw attendanceError;
+    const attendanceResult = await query(
+      'SELECT * FROM attendance_records WHERE person_id = $1 ORDER BY date_attended DESC',
+      [params.id]
+    );
 
     return NextResponse.json({
       person,
-      progress,
-      attendance,
-      attendanceCount: attendance.length,
+      progress: progressResult.rows,
+      attendance: attendanceResult.rows,
+      attendanceCount: attendanceResult.rows.length,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    const userPayload = token ? verifyToken(token) : null;
+
+    if (!userPayload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { full_name, phone_number, gender, home_location, work_location, group_name } =
+      await request.json();
+
+    // Verify person exists and user has permission
+    const personResult = await query(
+      'SELECT * FROM registered_people WHERE id = $1',
+      [params.id]
+    );
+
+    const person = personResult.rows[0];
+
+    if (!person) {
+      return NextResponse.json({ error: 'Person not found' }, { status: 404 });
+    }
+
+    if (
+      userPayload.role === 'sheep_seeker' &&
+      person.group_name !== userPayload.group_name
+    ) {
+      return NextResponse.json(
+        { error: 'You can only update people in your group' },
+        { status: 403 }
+      );
+    }
+
+    // Update person
+    const result = await query(
+      `UPDATE registered_people 
+       SET full_name = $1, phone_number = $2, gender = $3, home_location = $4, work_location = $5, group_name = $6, updated_at = NOW()
+       WHERE id = $7
+       RETURNING *`,
+      [full_name, phone_number, gender, home_location, work_location, group_name, params.id]
+    );
+
+    return NextResponse.json({
+      message: 'Person updated successfully',
+      person: result.rows[0],
     });
   } catch (error: any) {
     return NextResponse.json(

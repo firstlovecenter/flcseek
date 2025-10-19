@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { sendStageCompletionSMS } from '@/lib/mnotify';
 
 export async function PATCH(
   request: NextRequest,
@@ -24,56 +23,39 @@ export async function PATCH(
       );
     }
 
-    const { data: person, error: personError } = await supabase
-      .from('registered_people')
-      .select('*')
-      .eq('id', params.person_id)
-      .maybeSingle();
+    const personResult = await query(
+      'SELECT * FROM registered_people WHERE id = $1',
+      [params.person_id]
+    );
 
-    if (personError) throw personError;
+    const person = personResult.rows[0];
+
     if (!person) {
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
     if (
       userPayload.role === 'sheep_seeker' &&
-      person.department_name !== userPayload.department_name
+      person.group_name !== userPayload.group_name
     ) {
       return NextResponse.json(
-        { error: 'You can only update progress for people in your department' },
+        { error: 'You can only update progress for people in your group' },
         { status: 403 }
       );
     }
 
-    const updateData: any = {
-      is_completed,
-      updated_by: userPayload.id,
-      last_updated: new Date().toISOString(),
-    };
+    const dateCompleted = is_completed ? new Date().toISOString().split('T')[0] : null;
+    const lastUpdated = new Date().toISOString();
 
-    if (is_completed) {
-      updateData.date_completed = new Date().toISOString().split('T')[0];
-    } else {
-      updateData.date_completed = null;
-    }
+    const progressResult = await query(
+      `UPDATE progress_records 
+       SET is_completed = $1, updated_by = $2, last_updated = $3, date_completed = $4
+       WHERE person_id = $5 AND stage_number = $6
+       RETURNING *`,
+      [is_completed, userPayload.id, lastUpdated, dateCompleted, params.person_id, stage_number]
+    );
 
-    const { data: progress, error: updateError } = await supabase
-      .from('progress_records')
-      .update(updateData)
-      .eq('person_id', params.person_id)
-      .eq('stage_number', stage_number)
-      .select()
-      .single();
-
-    if (updateError) throw updateError;
-
-    if (is_completed) {
-      await sendStageCompletionSMS(
-        person.full_name,
-        person.phone_number,
-        progress.stage_name
-      );
-    }
+    const progress = progressResult.rows[0];
 
     return NextResponse.json({
       message: 'Progress updated successfully',

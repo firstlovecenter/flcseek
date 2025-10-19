@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PWA Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        sizes.forEach(size => {
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#003366');
+            gradient.addColorStop(1, '#0066cc');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Draw a sheep icon (simplified)
+            ctx.fillStyle = '#ffffff';
+            
+            // Body (circle)
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Head (smaller circle)
+            ctx.beginPath();
+            ctx.arc(size/2, size/3, size/6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Text
+            ctx.fillStyle = '#003366';
+            ctx.font = `bold ${size/6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('FLC', size/2, size * 0.65);
+            
+            // Download
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}x${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        });
+        
+        // Apple touch icon
+        canvas.width = 180;
+        canvas.height = 180;
+        const gradient = ctx.createLinearGradient(0, 0, 180, 180);
+        gradient.addColorStop(0, '#003366');
+        gradient.addColorStop(1, '#0066cc');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 180, 180);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(90, 90, 60, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(90, 60, 30, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#003366';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('FLC', 90, 117);
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'apple-touch-icon.png';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        document.body.innerHTML = '<h1>Icons generated! Check your downloads folder.</h1>';
+    </script>
+</body>
+</html>

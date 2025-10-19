@@ -1,4 +1,4 @@
-export const DEPARTMENTS = [
+export const GROUPS = [
   'January',
   'February',
   'March',
@@ -10,8 +10,11 @@ export const DEPARTMENTS = [
   'September',
   'October',
   'November',
-  'December'
+  'December',
 ];
+
+// Deprecated: Use GROUPS instead
+export const DEPARTMENTS = GROUPS;
 
 export const PROGRESS_STAGES = [
   { number: 1, name: 'Completed New Believers School' },

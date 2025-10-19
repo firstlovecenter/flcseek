@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { sendWelcomeSMS } from '@/lib/mnotify';
 import { PROGRESS_STAGES } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
@@ -13,10 +12,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { full_name, phone_number, gender, department_name } =
+    const { full_name, phone_number, gender, home_location, work_location, group_name } =
       await request.json();
 
-    if (!full_name || !phone_number || !department_name) {
+    if (!full_name || !phone_number || !group_name) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -25,27 +24,22 @@ export async function POST(request: NextRequest) {
 
     if (
       userPayload.role === 'sheep_seeker' &&
-      department_name !== userPayload.department_name
+      group_name !== userPayload.group_name
     ) {
       return NextResponse.json(
-        { error: 'You can only register people in your department' },
+        { error: 'You can only register people in your group' },
         { status: 403 }
       );
     }
 
-    const { data: person, error } = await supabase
-      .from('registered_people')
-      .insert({
-        full_name,
-        phone_number,
-        gender,
-        department_name,
-        registered_by: userPayload.id,
-      })
-      .select()
-      .single();
+    const result = await query(
+      `INSERT INTO registered_people (full_name, phone_number, gender, home_location, work_location, group_name, registered_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [full_name, phone_number, gender, home_location, work_location, group_name, userPayload.id]
+    );
 
-    if (error) throw error;
+    const person = result.rows[0];
 
     const progressRecords = PROGRESS_STAGES.map((stage) => ({
       person_id: person.id,
@@ -55,9 +49,14 @@ export async function POST(request: NextRequest) {
       updated_by: userPayload.id,
     }));
 
-    await supabase.from('progress_records').insert(progressRecords);
-
-    await sendWelcomeSMS(full_name, phone_number);
+    // Insert progress records
+    for (const record of progressRecords) {
+      await query(
+        `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [record.person_id, record.stage_number, record.stage_name, record.is_completed, record.updated_by]
+      );
+    }
 
     return NextResponse.json({
       message: 'Person registered successfully',
@@ -81,23 +80,24 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const department = searchParams.get('department');
+    const group = searchParams.get('group');
 
-    let query = supabase.from('registered_people').select('*');
+    let sqlQuery = 'SELECT * FROM registered_people';
+    let params: any[] = [];
 
     if (userPayload.role === 'sheep_seeker') {
-      query = query.eq('department_name', userPayload.department_name!);
-    } else if (department) {
-      query = query.eq('department_name', department);
+      sqlQuery += ' WHERE group_name = $1';
+      params.push(userPayload.group_name);
+    } else if (group) {
+      sqlQuery += ' WHERE group_name = $1';
+      params.push(group);
     }
 
-    const { data: people, error } = await query.order('created_at', {
-      ascending: false,
-    });
+    sqlQuery += ' ORDER BY created_at DESC';
 
-    if (error) throw error;
+    const result = await query(sqlQuery, params);
 
-    return NextResponse.json({ people });
+    return NextResponse.json({ people: result.rows });
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Internal server error' },

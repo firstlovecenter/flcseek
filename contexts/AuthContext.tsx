@@ -5,16 +5,18 @@ import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
-  username: string;
+  email: string;
   role: 'super_admin' | 'sheep_seeker';
-  department_name?: string;
+  group_name?: string;
   phone_number: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
 }
@@ -38,11 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string) => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
     });
 
     if (!response.ok) {

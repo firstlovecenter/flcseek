@@ -23,9 +23,9 @@ export default function Home() {
     }
   }, [user, loading, router]);
 
-  const onFinish = async (values: { username: string; password: string }) => {
+  const onFinish = async (values: { email: string; password: string }) => {
     try {
-      await login(values.username, values.password);
+      await login(values.email, values.password);
       message.success('Login successful!');
     } catch (error: any) {
       message.error(error.message || 'Login failed');
@@ -41,24 +41,41 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
-      <Card className="w-full max-w-md shadow-2xl" style={{ borderRadius: 12 }}>
-        <div className="text-center mb-8">
-          <Title level={2} style={{ color: '#003366', marginBottom: 8 }}>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4 py-8 sm:px-6 lg:px-8">
+      <Card 
+        className="w-full max-w-md shadow-2xl" 
+        style={{ borderRadius: 12 }}
+        styles={{ body: { padding: '24px 20px' } }}
+      >
+        <div className="text-center mb-6 sm:mb-8">
+          <Title 
+            level={2} 
+            style={{ 
+              color: '#003366', 
+              marginBottom: 8,
+              fontSize: 'clamp(1.5rem, 5vw, 2rem)'
+            }}
+          >
             FLC Sheep Seeking
           </Title>
-          <Text type="secondary">Church Progress Tracking System</Text>
+          <Text type="secondary" style={{ fontSize: 'clamp(0.875rem, 3vw, 1rem)' }}>
+            Church Progress Tracking System
+          </Text>
         </div>
 
         <Form form={form} onFinish={onFinish} layout="vertical" size="large">
           <Form.Item
-            name="username"
-            rules={[{ required: true, message: 'Please enter your username' }]}
+            name="email"
+            rules={[
+              { required: true, message: 'Please enter your email' },
+              { type: 'email', message: 'Please enter a valid email address' }
+            ]}
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="Username"
-              autoComplete="username"
+              placeholder="Email"
+              autoComplete="email"
+              style={{ height: 44 }}
             />
           </Form.Item>
 
@@ -70,6 +87,7 @@ export default function Home() {
               prefix={<LockOutlined />}
               placeholder="Password"
               autoComplete="current-password"
+              style={{ height: 44 }}
             />
           </Form.Item>
 
@@ -78,15 +96,21 @@ export default function Home() {
               type="primary"
               htmlType="submit"
               block
-              style={{ height: 48, fontSize: 16, fontWeight: 600 }}
+              style={{ 
+                height: 48, 
+                fontSize: 16, 
+                fontWeight: 600,
+                minHeight: 44,
+                touchAction: 'manipulation'
+              }}
             >
               Sign In
             </Button>
           </Form.Item>
         </Form>
 
-        <div className="text-center mt-6">
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <div className="text-center mt-4 sm:mt-6">
+          <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)' }}>
             Only authorized Sheep Seekers and Super Admins can log in
           </Text>
         </div>

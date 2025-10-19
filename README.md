@@ -10,17 +10,20 @@ npm install
 ```
 
 ### 2. Set Up Database
-1. Open your Supabase dashboard
-2. Go to SQL Editor
-3. Copy and run the SQL from `supabase/migrations/001_initial_schema.sql`
-
-### 3. Configure Environment
-Update `.env` with your mNotify API credentials:
+1. Create a Neon database account at https://neon.tech
+2. Create a new project and get your connection string
+3. Create a `.env.local` file in the root directory with:
 ```env
-MNOTIFY_API_KEY=your_actual_api_key
+NEON_DATABASE_URL=your_neon_connection_string_here
+MNOTIFY_API_KEY=your_mnotify_api_key
+JWT_SECRET=your-secret-jwt-key-change-in-production
+```
+4. Run the database migration:
+```bash
+npm run migrate-neon
 ```
 
-### 4. Run the Application
+### 3. Run the Application
 ```bash
 npm run dev
 ```
@@ -42,7 +45,7 @@ Visit `http://localhost:3000` and log in with:
 
 - **Framework:** Next.js 13 with App Router
 - **UI Library:** Ant Design
-- **Database:** Supabase (PostgreSQL)
+- **Database:** Neon (PostgreSQL)
 - **Authentication:** JWT with bcrypt
 - **SMS:** mNotify API
 - **Styling:** Tailwind CSS
@@ -63,7 +66,7 @@ For detailed setup instructions, API documentation, and deployment guide, see [S
 ├── contexts/                 # React contexts (Auth)
 ├── lib/                      # Utility functions
 │   ├── auth.ts              # JWT & password hashing
-│   ├── supabase.ts          # Supabase client
+│   ├── neon.ts              # Neon database client
 │   ├── mnotify.ts           # SMS integration
 │   └── constants.ts         # App constants
 ├── supabase/migrations/     # Database migrations

@@ -1,0 +1,399 @@
+'use client';
+
+import { Layout, Menu, Avatar, Dropdown, Button, Space, Drawer } from 'antd';
+import {
+  UserOutlined,
+  LogoutOutlined,
+  DashboardOutlined,
+  TeamOutlined,
+  CalendarOutlined,
+  FileTextOutlined,
+  SettingOutlined,
+  MenuOutlined,
+  UsergroupAddOutlined,
+  HomeOutlined,
+  LineChartOutlined,
+} from '@ant-design/icons';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { useState } from 'react';
+
+const { Header, Content, Footer } = Layout;
+
+interface NavigationProps {
+  children: React.ReactNode;
+}
+
+export default function Navigation({ children }: NavigationProps) {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
+
+  const userMenuItems = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: 'Profile',
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+      danger: true,
+      onClick: handleLogout,
+    },
+  ];
+
+  // Top Navigation items for Super Admin
+  const superAdminTopMenuItems = [
+    {
+      key: '/super-admin',
+      icon: <HomeOutlined />,
+      label: <Link href="/super-admin">Dashboard</Link>,
+    },
+    {
+      key: 'people',
+      icon: <TeamOutlined />,
+      label: 'People',
+      children: [
+        {
+          key: '/super-admin/people',
+          label: <Link href="/super-admin/people">All People</Link>,
+        },
+        {
+          key: '/super-admin/people/register',
+          label: <Link href="/super-admin/people/register">Register New</Link>,
+        },
+        {
+          key: '/super-admin/people/bulk-register',
+          label: <Link href="/super-admin/people/bulk-register">Bulk Register</Link>,
+        },
+      ],
+    },
+    {
+      key: 'groups',
+      icon: <UsergroupAddOutlined />,
+      label: <Link href="/super-admin/groups">Groups</Link>,
+    },
+    {
+      key: 'reports',
+      icon: <FileTextOutlined />,
+      label: 'Reports',
+      children: [
+        {
+          key: '/super-admin/reports/overview',
+          label: <Link href="/super-admin/reports/overview">Overview</Link>,
+        },
+        {
+          key: '/super-admin/reports/progress',
+          label: <Link href="/super-admin/reports/progress">Progress Report</Link>,
+        },
+        {
+          key: '/super-admin/reports/attendance',
+          label: <Link href="/super-admin/reports/attendance">Attendance Report</Link>,
+        },
+      ],
+    },
+    {
+      key: 'users',
+      icon: <SettingOutlined />,
+      label: 'Users',
+      children: [
+        {
+          key: '/super-admin/users',
+          label: <Link href="/super-admin/users">All Users</Link>,
+        },
+        {
+          key: '/super-admin/users/create',
+          label: <Link href="/super-admin/users/create">Create User</Link>,
+        },
+      ],
+    },
+  ];
+
+  // Mobile Bottom Navigation items for Super Admin
+  const superAdminBottomMenuItems = [
+    {
+      key: '/super-admin',
+      icon: <HomeOutlined />,
+      label: <Link href="/super-admin">Home</Link>,
+    },
+    {
+      key: '/super-admin/people',
+      icon: <TeamOutlined />,
+      label: <Link href="/super-admin/people">People</Link>,
+    },
+    {
+      key: '/super-admin/groups',
+      icon: <UsergroupAddOutlined />,
+      label: <Link href="/super-admin/groups">Groups</Link>,
+    },
+    {
+      key: '/super-admin/reports/overview',
+      icon: <LineChartOutlined />,
+      label: <Link href="/super-admin/reports/overview">Reports</Link>,
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+      onClick: logout,
+      style: { marginLeft: 'auto' },
+    },
+  ];
+
+  // Top Navigation items for Sheep Seeker
+  const sheepSeekerTopMenuItems = [
+    {
+      key: '/sheep-seeker',
+      icon: <HomeOutlined />,
+      label: <Link href="/sheep-seeker">Dashboard</Link>,
+    },
+    {
+      key: '/sheep-seeker/attendance',
+      icon: <CalendarOutlined />,
+      label: <Link href="/sheep-seeker/attendance">Attendance</Link>,
+    },
+    {
+      key: '/sheep-seeker/progress',
+      icon: <FileTextOutlined />,
+      label: <Link href="/sheep-seeker/progress">Progress</Link>,
+    },
+  ];
+
+  // Mobile Bottom Navigation for Sheep Seeker
+  const sheepSeekerBottomMenuItems = [
+    {
+      key: '/sheep-seeker',
+      icon: <HomeOutlined />,
+      label: <Link href="/sheep-seeker">Home</Link>,
+    },
+    {
+      key: '/sheep-seeker/attendance',
+      icon: <CalendarOutlined />,
+      label: <Link href="/sheep-seeker/attendance">Attendance</Link>,
+    },
+    {
+      key: '/sheep-seeker/progress',
+      icon: <FileTextOutlined />,
+      label: <Link href="/sheep-seeker/progress">Progress</Link>,
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+      onClick: logout,
+      style: { marginLeft: 'auto' },
+    },
+  ];
+
+  const topMenuItems = user?.role === 'super_admin' ? superAdminTopMenuItems : sheepSeekerTopMenuItems;
+  const bottomMenuItems = user?.role === 'super_admin' ? superAdminBottomMenuItems : sheepSeekerBottomMenuItems;
+
+  // Don't show navigation on login page
+  if (pathname === '/' || !user) {
+    return <>{children}</>;
+  }
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      {/* Top Navigation - Desktop */}
+      <Header
+        style={{
+          position: 'fixed',
+          zIndex: 1000,
+          width: '100%',
+          background: '#003366',
+          padding: '0 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,.15)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flex: 1 }}>
+          <div
+            style={{
+              color: '#fff',
+              fontSize: 20,
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            FLC Sheep Seeking
+          </div>
+          <Menu
+            theme="dark"
+            mode="horizontal"
+            selectedKeys={[pathname]}
+            items={topMenuItems}
+            className="desktop-menu"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              background: 'transparent',
+              borderBottom: 'none',
+            }}
+          />
+        </div>
+        <Space className="desktop-user-section">
+          <span style={{ color: '#fff', marginRight: 8 }}>
+            <strong>{user?.email}</strong>
+          </span>
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+            <Avatar
+              style={{ backgroundColor: '#1890ff', cursor: 'pointer' }}
+              icon={<UserOutlined />}
+            />
+          </Dropdown>
+        </Space>
+      </Header>
+
+      {/* Main Content */}
+      <Content
+        style={{
+          marginTop: 64,
+          marginBottom: 0,
+          padding: 24,
+          minHeight: 'calc(100vh - 64px)',
+        }}
+        className="main-content"
+      >
+        {children}
+      </Content>
+
+      {/* Bottom Navigation - Mobile Only */}
+      <Footer
+        className="mobile-bottom-nav"
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          padding: 0,
+          background: '#fff',
+          borderTop: '1px solid #f0f0f0',
+          boxShadow: '0 -2px 8px rgba(0,0,0,.08)',
+        }}
+      >
+        <Menu
+          mode="horizontal"
+          selectedKeys={[pathname]}
+          items={bottomMenuItems}
+          style={{
+            borderBottom: 'none',
+            display: 'flex',
+            justifyContent: 'space-around',
+            background: '#fff',
+          }}
+        />
+      </Footer>
+
+      {/* Mobile Drawer for More Options */}
+      <Drawer
+        title="Menu"
+        placement="right"
+        onClose={() => setDrawerOpen(false)}
+        open={drawerOpen}
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={[pathname]}
+          items={topMenuItems}
+          onClick={() => setDrawerOpen(false)}
+        />
+      </Drawer>
+
+      {/* CSS for Layout */}
+      <style jsx global>{`
+        /* Desktop: hide bottom nav, show top menu and user section */
+        @media (min-width: 768px) {
+          .mobile-bottom-nav {
+            display: none !important;
+          }
+          .desktop-menu {
+            display: flex !important;
+          }
+          .desktop-user-section {
+            display: flex !important;
+          }
+          .main-content {
+            margin-bottom: 0 !important;
+            padding: 24px !important;
+          }
+        }
+
+        /* Mobile: show bottom nav, hide top menu and user section */
+        @media (max-width: 767px) {
+          .mobile-bottom-nav {
+            display: block !important;
+          }
+          .desktop-menu {
+            display: none !important;
+          }
+          .desktop-user-section {
+            display: none !important;
+          }
+          .main-content {
+            margin-bottom: 56px !important;
+            padding: 16px !important;
+          }
+          .ant-layout-header {
+            padding: 0 16px !important;
+          }
+        }
+        
+        .ant-layout-header {
+          padding: 0 24px !important;
+        }
+        
+        .ant-menu-horizontal {
+          line-height: 56px !important;
+        }
+        
+        /* Bottom navigation styling */
+        .mobile-bottom-nav .ant-menu-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+        }
+        
+        .mobile-bottom-nav .ant-menu-item .anticon {
+          font-size: 20px !important;
+          margin: 0 !important;
+        }
+        
+        .ant-layout-footer .ant-menu-horizontal {
+          height: 56px;
+        }
+        
+        /* Logout button on the right */
+        .mobile-bottom-nav .ant-menu {
+          display: flex !important;
+        }
+        
+        .mobile-bottom-nav .ant-menu-item:last-child {
+          margin-left: auto !important;
+        }
+      `}</style>
+    </Layout>
+  );
+}

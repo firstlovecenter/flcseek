@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Layout,
   Tabs,
   Typography,
   Spin,
@@ -18,17 +17,19 @@ import {
   DatePicker,
 } from 'antd';
 import {
-  ArrowLeftOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   PlusOutlined,
+  HomeOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import dayjs from 'dayjs';
+import TopNav from '@/components/TopNav';
+import AppBreadcrumb from '@/components/AppBreadcrumb';
 
-const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
 interface ProgressRecord {
@@ -217,45 +218,36 @@ export default function PersonDetailPage() {
     100
   );
 
-  return (
-    <Layout className="min-h-screen">
-      <Header
-        style={{
-          background: '#003366',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 24px',
-        }}
-      >
-        <Button
-          type="text"
-          icon={<ArrowLeftOutlined />}
-          onClick={() => router.back()}
-          style={{ color: 'white', marginRight: 16 }}
-        >
-          Back
-        </Button>
-        <Title level={3} style={{ color: 'white', margin: 0 }}>
-          {person?.full_name}
-        </Title>
-      </Header>
+  const backUrl = user?.role === 'super_admin' ? '/super-admin' : '/sheep-seeker';
 
-      <Content style={{ padding: '24px', background: '#f0f2f5' }}>
+  return (
+    <>
+      <TopNav 
+        title={person?.full_name || 'Person Details'} 
+        showBack={true} 
+        backUrl={backUrl}
+      />
+      <div style={{ padding: '24px' }}>
+        <AppBreadcrumb />
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Card style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
               <div>
                 <Text type="secondary">Phone:</Text>
                 <Title level={4} style={{ margin: '4px 0' }}>
-                  {person?.phone_number}
+                  <a href={`tel:${person?.phone_number}`} style={{ color: '#1890ff', textDecoration: 'none' }}>
+                    {person?.phone_number}
+                  </a>
                 </Title>
               </div>
-              <div>
-                <Text type="secondary">Department:</Text>
-                <Title level={4} style={{ margin: '4px 0' }}>
-                  {person?.department_name}
-                </Title>
-              </div>
+              {user?.role === 'super_admin' && (
+                <div>
+                  <Text type="secondary">Department:</Text>
+                  <Title level={4} style={{ margin: '4px 0' }}>
+                    {person?.department_name}
+                  </Title>
+                </div>
+              )}
               <div>
                 <Text type="secondary">Gender:</Text>
                 <Title level={4} style={{ margin: '4px 0' }}>
@@ -263,6 +255,31 @@ export default function PersonDetailPage() {
                 </Title>
               </div>
             </div>
+            
+            {(person?.home_location || person?.work_location) && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+                <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+                  {person?.home_location && (
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <HomeOutlined style={{ color: '#1890ff' }} />
+                        <Text type="secondary">Home Location:</Text>
+                      </div>
+                      <Text strong>{person.home_location}</Text>
+                    </div>
+                  )}
+                  {person?.work_location && (
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <EnvironmentOutlined style={{ color: '#52c41a' }} />
+                        <Text type="secondary">Work Location:</Text>
+                      </div>
+                      <Text strong>{person.work_location}</Text>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </Card>
 
           <Tabs
@@ -358,7 +375,7 @@ export default function PersonDetailPage() {
             ]}
           />
         </div>
-      </Content>
+      </div>
 
       <Modal
         title="Add Attendance"
@@ -385,6 +402,6 @@ export default function PersonDetailPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </Layout>
+    </>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Layout,
   Table,
   Button,
   Typography,
@@ -18,15 +17,15 @@ import {
 import {
   UserAddOutlined,
   EyeOutlined,
-  LogoutOutlined,
   PlusOutlined,
+  UsergroupAddOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import dayjs from 'dayjs';
+import AppBreadcrumb from '@/components/AppBreadcrumb';
 
-const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
 interface Person {
@@ -120,7 +119,7 @@ export default function SheepSeekerDashboard() {
         },
         body: JSON.stringify({
           ...values,
-          department_name: user?.department_name,
+          group_name: user?.group_name,
         }),
       });
 
@@ -181,12 +180,17 @@ export default function SheepSeekerDashboard() {
       title: 'Phone',
       dataIndex: 'phone_number',
       key: 'phone_number',
+      render: (phone: string) => (
+        <a href={`tel:${phone}`} style={{ color: '#1890ff' }}>
+          {phone}
+        </a>
+      ),
     },
     {
       title: 'Progress',
       key: 'progress',
       render: (_: any, record: PersonWithStats) => (
-        <div style={{ width: 200 }}>
+        <div style={{ width: 150 }}>
           <Progress
             percent={record.progressPercentage}
             strokeColor="#003366"
@@ -199,7 +203,7 @@ export default function SheepSeekerDashboard() {
       title: 'Attendance',
       key: 'attendance',
       render: (_: any, record: PersonWithStats) => (
-        <div style={{ width: 200 }}>
+        <div style={{ width: 150 }}>
           <Progress
             percent={record.attendancePercentage}
             strokeColor="#00b300"
@@ -245,66 +249,57 @@ export default function SheepSeekerDashboard() {
   }
 
   return (
-    <Layout className="min-h-screen">
-      <Header
-        style={{
-          background: '#003366',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-        }}
-      >
-        <div>
-          <Title level={3} style={{ color: 'white', margin: 0 }}>
-            FLC Sheep Seeking - {user?.department_name}
-          </Title>
-        </div>
-        <Button
-          type="text"
-          icon={<LogoutOutlined />}
-          onClick={logout}
-          style={{ color: 'white' }}
-        >
-          Logout
-        </Button>
-      </Header>
-
-      <Content style={{ padding: '24px', background: '#f0f2f5' }}>
-        <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-          <div
-            style={{
-              marginBottom: 24,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <div>
-              <Title level={2}>Department Members</Title>
-              <Text type="secondary">
-                Manage and track progress for {user?.department_name} department
-              </Text>
-            </div>
+    <>
+      <AppBreadcrumb />
+      <div>
+        <div style={{ 
+          marginBottom: 24, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 16,
+        }}>
+          <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
+            <Title level={2} style={{ marginBottom: 8 }}>My Group: {user?.group_name}</Title>
+            <Text type="secondary">
+              Manage and track people in your group
+            </Text>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            gap: 12,
+            flexWrap: 'wrap',
+          }}>
+            <Button
+              type="default"
+              icon={<UsergroupAddOutlined />}
+              onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+              size="large"
+            >
+              Bulk Register
+            </Button>
             <Button
               type="primary"
               icon={<UserAddOutlined />}
-              size="large"
               onClick={() => setRegisterModalVisible(true)}
+              size="large"
             >
               Register New Person
             </Button>
           </div>
-
-          <Table
-            columns={columns}
-            dataSource={people}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-            style={{ background: 'white', borderRadius: 8 }}
-          />
         </div>
-      </Content>
+
+        <Table
+          columns={columns}
+          dataSource={people}
+          rowKey="id"
+          size="small"
+          scroll={{ x: 800 }}
+          pagination={{ pageSize: 10 }}
+          style={{ background: 'white', borderRadius: 8 }}
+        />
+      </div>
 
       <Modal
         title="Register New Person"
@@ -373,6 +368,19 @@ export default function SheepSeekerDashboard() {
           </Form.Item>
         </Form>
       </Modal>
-    </Layout>
+
+      <style jsx>{`
+        @media (max-width: 767px) {
+          :global(.ant-btn-lg) {
+            padding: 8px 12px !important;
+            font-size: 14px !important;
+            height: auto !important;
+          }
+          :global(.ant-table-small) {
+            font-size: 12px !important;
+          }
+        }
+      `}</style>
+    </>
   );
 }

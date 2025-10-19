@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Layout,
   Table,
   Typography,
   Spin,
@@ -10,13 +9,13 @@ import {
   Progress,
   Button,
 } from 'antd';
-import { ArrowLeftOutlined, EyeOutlined } from '@ant-design/icons';
+import { EyeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import dayjs from 'dayjs';
+import AppBreadcrumb from '@/components/AppBreadcrumb';
 
-const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
 interface Person {
@@ -125,6 +124,11 @@ export default function DepartmentDetailPage() {
       title: 'Phone',
       dataIndex: 'phone_number',
       key: 'phone_number',
+      render: (phone: string) => (
+        <a href={`tel:${phone}`} style={{ color: '#1890ff' }}>
+          {phone}
+        </a>
+      ),
     },
     {
       title: 'Progress',
@@ -189,46 +193,24 @@ export default function DepartmentDetailPage() {
   }
 
   return (
-    <Layout className="min-h-screen">
-      <Header
-        style={{
-          background: '#003366',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 24px',
-        }}
-      >
-        <Button
-          type="text"
-          icon={<ArrowLeftOutlined />}
-          onClick={() => router.push('/super-admin')}
-          style={{ color: 'white', marginRight: 16 }}
-        >
-          Back to Dashboard
-        </Button>
-        <Title level={3} style={{ color: 'white', margin: 0 }}>
-          {params.month} Department
-        </Title>
-      </Header>
-
-      <Content style={{ padding: '24px', background: '#f0f2f5' }}>
-        <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-          <div style={{ marginBottom: 24 }}>
-            <Title level={2}>{params.month} Department Members</Title>
-            <Text type="secondary">
-              Total members: {people.length}
-            </Text>
-          </div>
-
-          <Table
-            columns={columns}
-            dataSource={people}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-            style={{ background: 'white', borderRadius: 8 }}
-          />
+    <>
+      <AppBreadcrumb />
+      <div>
+        <div style={{ marginBottom: 24 }}>
+          <Title level={2}>{params.month} Department</Title>
+          <Text type="secondary">
+            Total members: {people.length}
+          </Text>
         </div>
-      </Content>
-    </Layout>
+
+        <Table
+          columns={columns}
+          dataSource={people}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          style={{ background: 'white', borderRadius: 8 }}
+        />
+      </div>
+    </>
   );
 }
