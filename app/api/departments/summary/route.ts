@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { GROUPS, ATTENDANCE_GOAL } from '@/lib/constants';
+import { ATTENDANCE_GOAL } from '@/lib/constants';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,8 +15,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch actual groups from database
+    const groupsResult = await query('SELECT name FROM groups ORDER BY name');
+    const groups = groupsResult.rows.map((row: any) => row.name);
+
     const summary = await Promise.all(
-      GROUPS.map(async (group) => {
+      groups.map(async (group) => {
         const peopleResult = await query(
           'SELECT id FROM registered_people WHERE group_name = $1',
           [group]

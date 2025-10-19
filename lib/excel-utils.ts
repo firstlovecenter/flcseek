@@ -1,11 +1,11 @@
 import * as XLSX from 'xlsx';
-import { GROUPS } from './constants';
 
 /**
  * Generate an Excel template for bulk member registration
+ * @param groups - Array of group names to include in the template
  * @returns Blob containing the Excel file
  */
-export function generateBulkRegistrationTemplate(): Blob {
+export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
   // Create sample data with instructions
   const sampleData = [
     {
@@ -14,7 +14,7 @@ export function generateBulkRegistrationTemplate(): Blob {
       gender: 'Male',
       home_location: 'Accra, Ghana',
       work_location: 'Airport City, Accra',
-      group_name: 'January',
+      group_name: groups[0] || 'January',
     },
     {
       full_name: 'Jane Smith',
@@ -22,7 +22,7 @@ export function generateBulkRegistrationTemplate(): Blob {
       gender: 'Female',
       home_location: 'Kumasi, Ghana',
       work_location: 'Adum, Kumasi',
-      group_name: 'February',
+      group_name: groups[1] || 'February',
     },
     {
       full_name: 'Sample Member',
@@ -84,7 +84,7 @@ export function generateBulkRegistrationTemplate(): Blob {
   XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
 
   // Create groups reference sheet
-  const groupData = GROUPS.map((group) => ({ Group: group }));
+  const groupData = groups.map((group) => ({ Group: group }));
   const wsGroups = XLSX.utils.json_to_sheet(groupData);
   wsGroups['!cols'] = [{ wch: 20 }];
   XLSX.utils.book_append_sheet(wb, wsGroups, 'Groups');
@@ -151,6 +151,7 @@ export async function parseExcelFile(
 /**
  * Validate member data before upload
  * @param members - Array of member data
+ * @param groups - Array of valid group names
  * @returns Validation result with errors
  */
 export function validateMemberData(members: Array<{
@@ -160,7 +161,7 @@ export function validateMemberData(members: Array<{
   home_location?: string;
   work_location?: string;
   group_name: string;
-}>): {
+}>, groups: string[] = []): {
   isValid: boolean;
   errors: Array<{ row: number; field: string; message: string }>;
 } {
@@ -197,11 +198,11 @@ export function validateMemberData(members: Array<{
         field: 'group_name',
         message: 'Group is required',
       });
-    } else if (!GROUPS.includes(member.group_name)) {
+    } else if (groups.length > 0 && !groups.includes(member.group_name)) {
       errors.push({
         row: rowNumber,
         field: 'group_name',
-        message: `Invalid group. Must be one of: ${GROUPS.join(', ')}`,
+        message: `Invalid group. Must be one of: ${groups.join(', ')}`,
       });
     }
 

@@ -6,7 +6,6 @@ import { UserAddOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
-import { GROUPS } from '@/lib/constants';
 
 const { Title, Text } = Typography;
 const { Option } = Select;

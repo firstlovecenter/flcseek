@@ -1,20 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, Input, Select, Button, Card, Typography, message } from 'antd';
 import { UserAddOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { DEPARTMENTS } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
 
-export default function RegisterPersonSheepSeekerPage() {
+export default function RegisterPersonPage() {
   const { token } = useAuth();
   const router = useRouter();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [groups, setGroups] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch('/api/groups', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data.groups?.map((g: any) => g.name) || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  };
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -108,13 +126,13 @@ export default function RegisterPersonSheepSeekerPage() {
 
             <Form.Item
               name="department_name"
-              label="Department (Month)"
-              rules={[{ required: true, message: 'Please select department' }]}
+              label="Group"
+              rules={[{ required: true, message: 'Please select group' }]}
             >
-              <Select placeholder="Select department" size="large">
-                {DEPARTMENTS.map((dept) => (
-                  <Select.Option key={dept} value={dept}>
-                    {dept}
+              <Select placeholder="Select group" size="large">
+                {groups.map((group) => (
+                  <Select.Option key={group} value={group}>
+                    {group}
                   </Select.Option>
                 ))}
               </Select>

@@ -5,7 +5,7 @@ import { Card, Row, Col, Typography, Spin, Progress, Statistic } from 'antd';
 import { UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
-import { ATTENDANCE_GOAL, DEPARTMENTS } from '@/lib/constants';
+import { ATTENDANCE_GOAL } from '@/lib/constants';
 
 const { Title, Text } = Typography;
 
@@ -19,6 +19,7 @@ interface DepartmentStats {
 export default function ReportsOverviewPage() {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [groups, setGroups] = useState<string[]>([]);
   const [stats, setStats] = useState({
     totalPeople: 0,
     avgProgress: 0,
@@ -28,9 +29,24 @@ export default function ReportsOverviewPage() {
 
   useEffect(() => {
     if (token) {
+      fetchGroups();
       fetchStats();
     }
   }, [token]);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch('/api/groups', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data.groups?.map((g: any) => g.name) || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -68,10 +84,10 @@ export default function ReportsOverviewPage() {
         peopleWithStats.reduce((sum, p) => sum + p.attendancePercentage, 0) / totalPeople
       );
 
-      const departmentStats: DepartmentStats[] = DEPARTMENTS.map((dept) => {
-        const deptPeople = peopleWithStats.filter((p) => p.department_name === dept);
+      const departmentStats: DepartmentStats[] = groups.map((group) => {
+        const deptPeople = peopleWithStats.filter((p) => p.department_name === group);
         return {
-          name: dept,
+          name: group,
           totalPeople: deptPeople.length,
           avgProgress: deptPeople.length
             ? Math.round(deptPeople.reduce((sum, p) => sum + p.progressPercentage, 0) / deptPeople.length)
