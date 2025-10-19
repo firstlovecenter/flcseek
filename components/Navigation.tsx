@@ -287,12 +287,13 @@ export default function Navigation({ children }: NavigationProps) {
           right: 0,
           zIndex: 1000,
           padding: 0,
-          background: '#fff',
-          borderTop: '1px solid #f0f0f0',
-          boxShadow: '0 -2px 8px rgba(0,0,0,.08)',
+          background: '#003366',
+          borderTop: 'none',
+          boxShadow: '0 -2px 8px rgba(0,0,0,.3)',
         }}
       >
         <Menu
+          theme="dark"
           mode="horizontal"
           selectedKeys={[pathname]}
           items={bottomMenuItems}
@@ -300,7 +301,7 @@ export default function Navigation({ children }: NavigationProps) {
             borderBottom: 'none',
             display: 'flex',
             justifyContent: 'space-around',
-            background: '#fff',
+            background: '#003366',
           }}
         />
       </Footer>
@@ -375,6 +376,15 @@ export default function Navigation({ children }: NavigationProps) {
           justify-content: center;
           font-size: 11px;
           flex: 0 0 auto;
+          color: rgba(255, 255, 255, 0.85) !important;
+        }
+        
+        .mobile-bottom-nav .ant-menu-item:hover {
+          color: #fff !important;
+        }
+        
+        .mobile-bottom-nav .ant-menu-item-selected {
+          color: #1890ff !important;
         }
         
         .mobile-bottom-nav .ant-menu-item .anticon {
