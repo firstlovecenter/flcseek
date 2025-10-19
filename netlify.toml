@@ -1,0 +1,31 @@
+# Netlify Build Configuration for Next.js 13.5.1
+
+[build]
+  command = "npm install --legacy-peer-deps && npm run build"
+  publish = ".next"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "18.17.0"
+  NPM_VERSION = "9.8.1"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Next.js specific settings
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Redirects for Next.js App Router
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
