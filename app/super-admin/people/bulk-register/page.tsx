@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Button,
@@ -55,9 +55,28 @@ export default function BulkRegisterPage() {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
+  const [groups, setGroups] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch('/api/groups', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data.groups?.map((g: any) => g.name) || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  };
 
   const handleDownloadTemplate = () => {
-    const blob = generateBulkRegistrationTemplate();
+    const blob = generateBulkRegistrationTemplate(groups);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -86,7 +105,7 @@ export default function BulkRegisterPage() {
         return false;
       }
 
-      const validation = validateMemberData(parsedMembers);
+      const validation = validateMemberData(parsedMembers, groups);
 
       if (!validation.isValid) {
         setErrors(validation.errors);

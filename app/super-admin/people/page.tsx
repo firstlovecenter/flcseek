@@ -5,7 +5,7 @@ import { Table, Button, Typography, Spin, message, Progress, Tag, Input, Select 
 import { EyeOutlined, UserAddOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ATTENDANCE_GOAL, DEPARTMENTS } from '@/lib/constants';
+import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
@@ -34,6 +34,7 @@ export default function AllPeoplePage() {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [groups, setGroups] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'super_admin')) {
@@ -42,9 +43,24 @@ export default function AllPeoplePage() {
     }
 
     if (user && token) {
+      fetchGroups();
       fetchPeople();
     }
   }, [user, token, authLoading, router]);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch('/api/groups', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data.groups?.map((g: any) => g.name) || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  };
 
   useEffect(() => {
     filterPeople();
@@ -232,10 +248,10 @@ export default function AllPeoplePage() {
             onChange={setSelectedDepartment}
             style={{ width: 200 }}
           >
-            <Select.Option value="all">All Departments</Select.Option>
-            {DEPARTMENTS.map((dept) => (
-              <Select.Option key={dept} value={dept}>
-                {dept}
+            <Select.Option value="all">All Groups</Select.Option>
+            {groups.map((group) => (
+              <Select.Option key={group} value={group}>
+                {group}
               </Select.Option>
             ))}
           </Select>
