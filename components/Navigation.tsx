@@ -13,11 +13,15 @@ import {
   UsergroupAddOutlined,
   HomeOutlined,
   LineChartOutlined,
+  ReloadOutlined,
+  BulbOutlined,
+  BulbFilled,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useTheme } from '@/components/AppConfigProvider';
 
 const { Header, Content, Footer } = Layout;
 
@@ -30,6 +34,11 @@ export default function Navigation({ children }: NavigationProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
 
   const handleLogout = () => {
     logout();
@@ -262,6 +271,24 @@ export default function Navigation({ children }: NavigationProps) {
             />
           </Dropdown>
         </Space>
+        
+        {/* Mobile Action Buttons */}
+        <Space className="mobile-action-buttons" size="small">
+          <Button
+            type="text"
+            icon={isDark ? <BulbOutlined /> : <BulbFilled />}
+            onClick={toggleTheme}
+            style={{ color: '#fff' }}
+            title="Toggle theme"
+          />
+          <Button
+            type="text"
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            style={{ color: '#fff' }}
+            title="Refresh"
+          />
+        </Space>
       </Header>
 
       {/* Main Content */}
@@ -334,6 +361,9 @@ export default function Navigation({ children }: NavigationProps) {
           .desktop-user-section {
             display: flex !important;
           }
+          .mobile-action-buttons {
+            display: none !important;
+          }
           .main-content {
             margin-bottom: 0 !important;
             padding: 24px !important;
@@ -350,6 +380,9 @@ export default function Navigation({ children }: NavigationProps) {
           }
           .desktop-user-section {
             display: none !important;
+          }
+          .mobile-action-buttons {
+            display: flex !important;
           }
           .main-content {
             margin-bottom: 56px !important;
@@ -374,9 +407,20 @@ export default function Navigation({ children }: NavigationProps) {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          font-size: 11px;
+          font-size: 10px;
           flex: 0 0 auto;
           color: rgba(255, 255, 255, 0.85) !important;
+          padding: 4px 8px !important;
+          overflow: hidden;
+        }
+        
+        .mobile-bottom-nav .ant-menu-item span {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+          display: block;
+          text-align: center;
         }
         
         .mobile-bottom-nav .ant-menu-item:hover {
@@ -389,7 +433,7 @@ export default function Navigation({ children }: NavigationProps) {
         
         .mobile-bottom-nav .ant-menu-item .anticon {
           font-size: 20px !important;
-          margin: 0 !important;
+          margin: 0 0 2px 0 !important;
         }
         
         .ant-layout-footer .ant-menu-horizontal {
@@ -400,16 +444,19 @@ export default function Navigation({ children }: NavigationProps) {
         .mobile-bottom-nav .ant-menu {
           display: flex !important;
           gap: 0 !important;
+          align-items: stretch !important;
         }
         
         .mobile-bottom-nav .ant-menu-item:last-child {
           margin-left: auto !important;
           flex: 0 0 auto !important;
+          min-width: 60px;
         }
         
         .mobile-bottom-nav .ant-menu-item:not(:last-child) {
           flex: 1 1 0 !important;
           max-width: 25% !important;
+          min-width: 0 !important;
         }
       `}</style>
     </Layout>

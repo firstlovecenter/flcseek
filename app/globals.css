@@ -11,13 +11,16 @@
 }
 
 body {
-  background: linear-gradient(
-    to bottom,
-    rgb(var(--background-start-rgb)),
-    rgb(var(--background-end-rgb))
-  );
+  background: rgb(var(--background-start-rgb));
   min-height: 100vh;
   color: rgb(var(--foreground-rgb));
+}
+
+/* Light theme */
+body.light-theme {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 240, 242, 245;
+  --background-end-rgb: 255, 255, 255;
 }
 
 @layer base {
