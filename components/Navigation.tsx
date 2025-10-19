@@ -246,13 +246,18 @@ export default function Navigation({ children }: NavigationProps) {
             }}
           />
         </div>
-        <Space className="desktop-user-section">
+        <Space className="desktop-user-section" size="middle">
           <Button
             type="text"
             icon={isDark ? <BulbOutlined /> : <BulbFilled />}
             onClick={toggleTheme}
-            style={{ color: '#fff' }}
-            title="Toggle theme"
+            style={{ 
+              color: '#fff',
+              fontSize: '18px',
+              height: '40px',
+              padding: '0 12px',
+            }}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           />
           <span style={{ color: '#fff', marginRight: 8 }}>
             <strong>{user?.email}</strong>
@@ -399,6 +404,17 @@ export default function Navigation({ children }: NavigationProps) {
         
         .ant-menu-horizontal {
           line-height: 56px !important;
+        }
+        
+        /* Theme toggle button hover effect */
+        .desktop-user-section .ant-btn-text:hover,
+        .mobile-action-buttons .ant-btn-text:hover {
+          background-color: rgba(255, 255, 255, 0.15) !important;
+        }
+        
+        .desktop-user-section .ant-btn-text:active,
+        .mobile-action-buttons .ant-btn-text:active {
+          background-color: rgba(255, 255, 255, 0.25) !important;
         }
         
         /* Bottom navigation styling */
