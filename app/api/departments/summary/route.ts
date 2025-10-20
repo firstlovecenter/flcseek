@@ -16,14 +16,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch actual groups from database
-    const groupsResult = await query('SELECT name FROM groups ORDER BY name');
-    const groups = groupsResult.rows.map((row: any) => row.name);
+    const groupsResult = await query(`
+      SELECT 
+        g.id,
+        g.name,
+        g.stream_id,
+        s.name as stream_name
+      FROM groups g
+      LEFT JOIN streams s ON g.stream_id = s.id
+      WHERE g.is_active = true
+      ORDER BY s.name, g.name
+    `);
+    const groups = groupsResult.rows;
 
     const summary = await Promise.all(
       groups.map(async (group) => {
         const peopleResult = await query(
-          'SELECT id FROM registered_people WHERE group_name = $1',
-          [group]
+          'SELECT id FROM registered_people WHERE group_id = $1',
+          [group.id]
         );
 
         const people = peopleResult.rows;
@@ -31,7 +41,8 @@ export async function GET(request: NextRequest) {
 
         if (totalPeople === 0) {
           return {
-            group: group,
+            group: group.name,
+            stream: group.stream_name,
             totalPeople: 0,
             avgProgress: 0,
             avgAttendance: 0,
@@ -63,7 +74,8 @@ export async function GET(request: NextRequest) {
         }
 
         return {
-          group: group,
+          group: group.name,
+          stream: group.stream_name,
           totalPeople,
           avgProgress: Math.round(totalProgressPercentage / totalPeople),
           avgAttendance: Math.round(totalAttendancePercentage / totalPeople),

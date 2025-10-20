@@ -24,7 +24,9 @@ export async function GET(request: NextRequest) {
         s.updated_at,
         u.username as stream_leader_name,
         (SELECT COUNT(*) FROM groups WHERE stream_id = s.id AND is_active = true) as active_groups_count,
-        (SELECT COUNT(*) FROM users WHERE stream_id = s.id) as members_count
+        (SELECT COALESCE(SUM(
+          (SELECT COUNT(*) FROM registered_people WHERE group_id = g.id)
+        ), 0) FROM groups g WHERE g.stream_id = s.id) as members_count
       FROM streams s
       LEFT JOIN users u ON s.stream_leader_id = u.id
     `;
