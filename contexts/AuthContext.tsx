@@ -6,11 +6,12 @@ import { useRouter } from 'next/navigation';
 interface User {
   id: string;
   email: string;
-  role: 'super_admin' | 'sheep_seeker';
+  role: 'super_admin' | 'lead_pastor' | 'stream_leader' | 'sheep_seeker';
   group_name?: string;
   phone_number: string;
   first_name?: string;
   last_name?: string;
+  stream_id?: string;
 }
 
 interface AuthContextType {

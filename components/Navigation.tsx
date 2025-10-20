@@ -17,6 +17,8 @@ import {
   BulbOutlined,
   BulbFilled,
   OrderedListOutlined,
+  AppstoreOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -99,6 +101,11 @@ export default function Navigation({ children }: NavigationProps) {
       key: 'groups',
       icon: <UsergroupAddOutlined />,
       label: <Link href="/super-admin/groups">Groups</Link>,
+    },
+    {
+      key: 'streams',
+      icon: <AppstoreOutlined />,
+      label: <Link href="/super-admin/streams">Streams</Link>,
     },
     {
       key: 'milestones',
@@ -208,8 +215,103 @@ export default function Navigation({ children }: NavigationProps) {
     },
   ];
 
-  const topMenuItems = user?.role === 'super_admin' ? superAdminTopMenuItems : sheepSeekerTopMenuItems;
-  const bottomMenuItems = user?.role === 'super_admin' ? superAdminBottomMenuItems : sheepSeekerBottomMenuItems;
+  // Top Navigation items for Stream Leader
+  const streamLeaderTopMenuItems = [
+    {
+      key: '/stream-leader',
+      icon: <HomeOutlined />,
+      label: <Link href="/stream-leader">Dashboard</Link>,
+    },
+    {
+      key: 'groups',
+      icon: <UsergroupAddOutlined />,
+      label: <Link href="/stream-leader/groups">Groups</Link>,
+    },
+    {
+      key: 'people',
+      icon: <TeamOutlined />,
+      label: <Link href="/stream-leader/people">People</Link>,
+    },
+    {
+      key: 'reports',
+      icon: <FileTextOutlined />,
+      label: <Link href="/stream-leader/reports">Reports</Link>,
+    },
+  ];
+
+  // Mobile Bottom Navigation for Stream Leader
+  const streamLeaderBottomMenuItems = [
+    {
+      key: '/stream-leader',
+      icon: <HomeOutlined />,
+      label: <Link href="/stream-leader">Home</Link>,
+    },
+    {
+      key: '/stream-leader/groups',
+      icon: <UsergroupAddOutlined />,
+      label: <Link href="/stream-leader/groups">Groups</Link>,
+    },
+    {
+      key: '/stream-leader/people',
+      icon: <TeamOutlined />,
+      label: <Link href="/stream-leader/people">People</Link>,
+    },
+  ];
+
+  // Top Navigation items for Lead Pastor
+  const leadPastorTopMenuItems = [
+    {
+      key: '/lead-pastor',
+      icon: <EyeOutlined />,
+      label: <Link href="/lead-pastor">Dashboard</Link>,
+    },
+    {
+      key: 'streams',
+      icon: <AppstoreOutlined />,
+      label: <Link href="/lead-pastor/streams">Streams</Link>,
+    },
+    {
+      key: 'reports',
+      icon: <FileTextOutlined />,
+      label: <Link href="/lead-pastor/reports">Reports</Link>,
+    },
+  ];
+
+  // Mobile Bottom Navigation for Lead Pastor
+  const leadPastorBottomMenuItems = [
+    {
+      key: '/lead-pastor',
+      icon: <EyeOutlined />,
+      label: <Link href="/lead-pastor">Home</Link>,
+    },
+    {
+      key: '/lead-pastor/streams',
+      icon: <AppstoreOutlined />,
+      label: <Link href="/lead-pastor/streams">Streams</Link>,
+    },
+    {
+      key: '/lead-pastor/reports',
+      icon: <FileTextOutlined />,
+      label: <Link href="/lead-pastor/reports">Reports</Link>,
+    },
+  ];
+
+  const getMenuItemsByRole = () => {
+    switch (user?.role) {
+      case 'super_admin':
+        return { top: superAdminTopMenuItems, bottom: superAdminBottomMenuItems };
+      case 'stream_leader':
+        return { top: streamLeaderTopMenuItems, bottom: streamLeaderBottomMenuItems };
+      case 'lead_pastor':
+        return { top: leadPastorTopMenuItems, bottom: leadPastorBottomMenuItems };
+      case 'sheep_seeker':
+        return { top: sheepSeekerTopMenuItems, bottom: sheepSeekerBottomMenuItems };
+      default:
+        return { top: sheepSeekerTopMenuItems, bottom: sheepSeekerBottomMenuItems };
+    }
+  };
+
+  const { top: topMenuItems, bottom: bottomMenuItems } = getMenuItemsByRole();
 
   // Don't show navigation on login page
   if (pathname === '/' || !user) {
