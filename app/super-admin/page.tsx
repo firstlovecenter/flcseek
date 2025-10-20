@@ -7,6 +7,7 @@ import {
   TrophyOutlined,
   CalendarOutlined,
   RightOutlined,
+  OrderedListOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -167,13 +168,30 @@ export default function SuperAdminDashboard() {
     <>
       <AppBreadcrumb />
       <div className="px-4 sm:px-6 lg:px-8">
-        <div style={{ marginBottom: 24 }}>
-          <Title level={2} style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)' }}>
-            Group Overview
-          </Title>
-          <Text type="secondary" style={{ fontSize: 'clamp(0.875rem, 3vw, 1rem)' }}>
-            Track progress and attendance across all 12 groups
-          </Text>
+        <div style={{ 
+          marginBottom: 24, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 16,
+        }}>
+          <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
+            <Title level={2} style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: 8 }}>
+              Group Overview
+            </Title>
+            <Text type="secondary" style={{ fontSize: 'clamp(0.875rem, 3vw, 1rem)' }}>
+              Track progress and attendance across all 12 groups
+            </Text>
+          </div>
+          <Button
+            type="primary"
+            icon={<OrderedListOutlined />}
+            onClick={() => router.push('/super-admin/milestones')}
+            size="large"
+          >
+            Manage Milestones
+          </Button>
         </div>
 
         {/* Summary Cards */}
