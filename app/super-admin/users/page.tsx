@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Typography, Spin, message, Tag, Modal, Space } from 'antd';
-import { UserAddOutlined, DeleteOutlined, ExclamationCircleOutlined, EditOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Tag, Modal, Space, Card, Statistic, Row, Col } from 'antd';
+import { UserAddOutlined, DeleteOutlined, ExclamationCircleOutlined, EditOutlined, TeamOutlined, CrownOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -18,7 +18,11 @@ interface User {
   email?: string;
   phone_number?: string;
   role: string | null;
-  group_name?: string;
+  group_name?: string; // deprecated column
+  group_name_ref?: string; // from JOIN with groups table
+  stream_name?: string; // from JOIN with streams table
+  stream_id?: string;
+  group_id?: string;
   created_at: string;
 }
 
@@ -125,25 +129,51 @@ export default function UsersPage() {
         if (!role) {
           return <Tag color="default">Not Assigned</Tag>;
         }
+        const roleColors: Record<string, string> = {
+          'super_admin': 'red',
+          'lead_pastor': 'purple',
+          'stream_leader': 'blue',
+          'sheep_seeker': 'green'
+        };
+        const roleLabels: Record<string, string> = {
+          'super_admin': 'Super Admin',
+          'lead_pastor': 'Lead Pastor',
+          'stream_leader': 'Stream Leader',
+          'sheep_seeker': 'Sheep Seeker'
+        };
         return (
-          <Tag color={role === 'super_admin' ? 'red' : 'blue'}>
-            {role === 'super_admin' ? 'Super Admin' : 'Sheep Seeker'}
+          <Tag color={roleColors[role] || 'default'}>
+            {roleLabels[role] || role}
           </Tag>
         );
       },
     },
     {
-      title: 'Assigned Group',
-      dataIndex: 'group_name',
-      key: 'group_name',
-      render: (group_name: string | null, record: User) => {
-        if (record.role === 'super_admin') {
-          return <Text type="secondary">N/A</Text>;
+      title: 'Stream',
+      dataIndex: 'stream_name',
+      key: 'stream_name',
+      render: (stream_name: string | null, record: User) => {
+        if (record.role === 'super_admin' || record.role === 'lead_pastor') {
+          return <Text type="secondary">All Streams</Text>;
         }
-        if (!group_name) {
+        if (!stream_name) {
           return <Tag color="warning">Not Assigned</Tag>;
         }
-        return <Tag color="green">{group_name}</Tag>;
+        return <Tag color="blue">{stream_name}</Tag>;
+      },
+    },
+    {
+      title: 'Group',
+      dataIndex: 'group_name_ref',
+      key: 'group_name_ref',
+      render: (group_name_ref: string | null, record: User) => {
+        if (record.role === 'super_admin' || record.role === 'lead_pastor') {
+          return <Text type="secondary">N/A</Text>;
+        }
+        if (!group_name_ref) {
+          return <Tag color="warning">Not Assigned</Tag>;
+        }
+        return <Tag color="green">{group_name_ref}</Tag>;
       },
     },
     {
@@ -188,6 +218,19 @@ export default function UsersPage() {
     );
   }
 
+  const usersByRole = users.reduce((acc, user) => {
+    const role = user.role || 'unassigned';
+    acc[role] = (acc[role] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const usersByStream = users.reduce((acc, user) => {
+    if (user.role === 'super_admin' || user.role === 'lead_pastor') return acc;
+    const stream = user.stream_name || 'Unassigned';
+    acc[stream] = (acc[stream] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
     <>
       <AppBreadcrumb />
@@ -209,13 +252,54 @@ export default function UsersPage() {
           </Button>
         </div>
 
-        <Table
-          columns={columns}
-          dataSource={users}
-          rowKey="id"
-          pagination={{ pageSize: 20 }}
-          style={{ background: 'white', borderRadius: 8 }}
-        />
+        {/* Statistics Cards */}
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="Total Users"
+                value={users.length}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="Super Admins"
+                value={usersByRole['super_admin'] || 0}
+                prefix={<CrownOutlined />}
+                valueStyle={{ color: '#ff4d4f' }}
+              />
+              <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+                Stream Leaders: {usersByRole['stream_leader'] || 0} | Sheep Seekers: {usersByRole['sheep_seeker'] || 0}
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="Active Streams"
+                value={Object.keys(usersByStream).filter(s => s !== 'Unassigned').length}
+                prefix={<UsergroupAddOutlined />}
+                valueStyle={{ color: '#52c41a' }}
+              />
+              <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+                Unassigned: {usersByStream['Unassigned'] || 0}
+              </div>
+            </Card>
+          </Col>
+        </Row>
+
+        <Card>
+          <Table
+            columns={columns}
+            dataSource={users}
+            rowKey="id"
+            pagination={{ pageSize: 20 }}
+          />
+        </Card>
       </div>
     </>
   );

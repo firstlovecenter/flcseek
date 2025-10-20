@@ -23,7 +23,7 @@ export async function GET(
         g.id,
         g.name,
         g.description,
-        g.leader_id,
+        g.sheep_seeker_id,
         g.created_at,
         g.updated_at,
         u.username as leader_username,
@@ -32,7 +32,7 @@ export async function GET(
         u.email as leader_email,
         (SELECT COUNT(*) FROM registered_people WHERE group_name = g.name) as member_count
       FROM groups g
-      LEFT JOIN users u ON g.leader_id = u.id
+      LEFT JOIN users u ON g.sheep_seeker_id = u.id
       WHERE g.id = $1`,
       [params.id]
     );
@@ -67,7 +67,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, description, leader_id } = await request.json();
+    const { name, description, sheep_seeker_id } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -103,11 +103,11 @@ export async function PUT(
       }
     }
 
-    // If leader_id is provided, verify user exists and update role
-    if (leader_id) {
+    // If sheep_seeker_id is provided, verify user exists and update role
+    if (sheep_seeker_id) {
       const userResult = await query(
         'SELECT id, role FROM users WHERE id = $1',
-        [leader_id]
+        [sheep_seeker_id]
       );
 
       if (userResult.rows.length === 0) {
@@ -121,7 +121,7 @@ export async function PUT(
       if (userResult.rows[0].role !== 'sheep_seeker') {
         await query(
           'UPDATE users SET role = $1 WHERE id = $2',
-          ['sheep_seeker', leader_id]
+          ['sheep_seeker', sheep_seeker_id]
         );
       }
     }
@@ -129,10 +129,10 @@ export async function PUT(
     // Update the group
     const result = await query(
       `UPDATE groups 
-       SET name = $1, description = $2, leader_id = $3, updated_at = NOW()
+       SET name = $1, description = $2, sheep_seeker_id = $3, updated_at = NOW()
        WHERE id = $4
-       RETURNING id, name, description, leader_id, created_at, updated_at`,
-      [name.trim(), description || null, leader_id || null, params.id]
+       RETURNING id, name, description, sheep_seeker_id, created_at, updated_at`,
+      [name.trim(), description || null, sheep_seeker_id || null, params.id]
     );
 
     // If group name changed, update registered_people records
