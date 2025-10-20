@@ -1,58 +1,74 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  Table,
-  Button,
-  Typography,
-  Spin,
-  message,
-  Progress,
-  Modal,
-  Form,
-  Input,
-  Select,
-  DatePicker,
-} from 'antd';
-import {
-  UserAddOutlined,
-  EyeOutlined,
-  PlusOutlined,
-  UsergroupAddOutlined,
-} from '@ant-design/icons';
+import { useEffect, useState, useCallback, memo } from 'react';
+import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select } from 'antd';
+import { UserAddOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
-import dayjs from 'dayjs';
+import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
 
-interface Person {
+// Memoized milestone cell component to optimize rendering
+const MilestoneCell = memo(({ 
+  isCompleted, 
+  isUpdating, 
+  onToggle, 
+  stageName 
+}: { 
+  isCompleted: boolean; 
+  isUpdating: boolean; 
+  onToggle: () => void;
+  stageName: string;
+}) => {
+  return (
+    <Tooltip title={stageName}>
+      <div
+        style={{
+          padding: '8px',
+          borderRadius: '8px',
+          backgroundColor: 'white',
+          border: '1px solid #d9d9d9',
+          transition: 'all 0.3s',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <Switch
+          checked={isCompleted}
+          onChange={onToggle}
+          loading={isUpdating}
+          size="small"
+          style={{
+            backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
+          }}
+        />
+      </div>
+    </Tooltip>
+  );
+});
+
+interface PersonWithProgress {
   id: string;
   full_name: string;
-  phone_number: string;
-  gender?: string;
   group_name: string;
-  created_at: string;
-}
-
-interface PersonWithStats extends Person {
-  progressPercentage: number;
-  attendanceCount: number;
-  attendancePercentage: number;
+  phone_number: string;
+  progress: Array<{
+    stage_number: number;
+    is_completed: boolean;
+  }>;
 }
 
 export default function SheepSeekerDashboard() {
-  const { user, token, logout, loading: authLoading } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [people, setPeople] = useState<PersonWithStats[]>([]);
+  const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
-  const [attendanceModalVisible, setAttendanceModalVisible] = useState(false);
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [form] = Form.useForm();
-  const [attendanceForm] = Form.useForm();
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'sheep_seeker')) {
@@ -61,11 +77,11 @@ export default function SheepSeekerDashboard() {
     }
 
     if (user && token) {
-      fetchPeople();
+      fetchAllPeople();
     }
   }, [user, token, authLoading, router]);
 
-  const fetchPeople = async () => {
+  const fetchAllPeople = async () => {
     try {
       const response = await fetch('/api/people', {
         headers: { Authorization: `Bearer ${token}` },
@@ -75,33 +91,25 @@ export default function SheepSeekerDashboard() {
 
       const data = await response.json();
 
-      const peopleWithStats = await Promise.all(
-        data.people.map(async (person: Person) => {
+      // Fetch progress for each person
+      const peopleWithProgress = await Promise.all(
+        data.people.map(async (person: any) => {
           const detailsRes = await fetch(`/api/people/${person.id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const details = await detailsRes.json();
 
-          const completedStages =
-            details.progress?.filter((p: any) => p.is_completed).length || 0;
-          const progressPercentage = Math.round((completedStages / 15) * 100);
-
-          const attendanceCount = details.attendanceCount || 0;
-          const attendancePercentage = Math.min(
-            Math.round((attendanceCount / ATTENDANCE_GOAL) * 100),
-            100
-          );
-
           return {
-            ...person,
-            progressPercentage,
-            attendanceCount,
-            attendancePercentage,
+            id: person.id,
+            full_name: person.full_name,
+            group_name: person.group_name,
+            phone_number: person.phone_number,
+            progress: details.progress || [],
           };
         })
       );
 
-      setPeople(peopleWithStats);
+      setPeople(peopleWithProgress);
     } catch (error: any) {
       message.error(error.message || 'Failed to load people');
     } finally {
@@ -128,117 +136,115 @@ export default function SheepSeekerDashboard() {
       message.success('Person registered successfully!');
       form.resetFields();
       setRegisterModalVisible(false);
-      fetchPeople();
+      fetchAllPeople();
     } catch (error: any) {
       message.error(error.message || 'Registration failed');
     }
   };
 
-  const handleAddAttendance = async (values: any) => {
+  // Optimized toggle function with useCallback
+  const toggleMilestone = useCallback(async (personId: string, stageNumber: number, currentStatus: boolean) => {
+    setUpdating(`${personId}-${stageNumber}`);
     try {
-      const response = await fetch(`/api/attendance/${selectedPersonId}`, {
-        method: 'POST',
+      const response = await fetch(`/api/progress/${personId}`, {
+        method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          date_attended: values.date_attended.format('YYYY-MM-DD'),
+          stage_number: stageNumber,
+          is_completed: !currentStatus,
         }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to add attendance');
-      }
+      if (!response.ok) throw new Error('Failed to update milestone');
 
-      message.success('Attendance recorded successfully!');
-      attendanceForm.resetFields();
-      setAttendanceModalVisible(false);
-      fetchPeople();
+      // Update local state
+      setPeople(prevPeople =>
+        prevPeople.map(person => {
+          if (person.id === personId) {
+            return {
+              ...person,
+              progress: person.progress.map(p =>
+                p.stage_number === stageNumber
+                  ? { ...p, is_completed: !currentStatus }
+                  : p
+              ),
+            };
+          }
+          return person;
+        })
+      );
+
+      message.success('Milestone updated!');
     } catch (error: any) {
-      message.error(error.message);
+      message.error(error.message || 'Failed to update milestone');
+    } finally {
+      setUpdating(null);
     }
+  }, [token]);
+
+  const getMilestoneStatus = useCallback((person: PersonWithProgress, stageNumber: number) => {
+    const stage = person.progress.find(p => p.stage_number === stageNumber);
+    return stage?.is_completed || false;
+  }, []);
+
+  // Generate columns efficiently - only once, not in render
+  const getColumns = () => {
+    const baseColumns: any[] = [
+      {
+        title: 'Name',
+        dataIndex: 'full_name',
+        key: 'full_name',
+        fixed: 'left',
+        width: 180,
+        render: (text: string, record: PersonWithProgress) => (
+          <div>
+            <Button
+              type="link"
+              onClick={() => router.push(`/person/${record.id}`)}
+              style={{ padding: 0, height: 'auto' }}
+            >
+              <Text strong style={{ fontSize: 14 }}>{text}</Text>
+            </Button>
+            <div style={{ fontSize: 12, color: '#888' }}>
+              {record.group_name}
+            </div>
+          </div>
+        ),
+      },
+    ];
+
+    // Create milestone columns efficiently
+    const milestoneColumns = PROGRESS_STAGES.map((stage) => ({
+      title: (
+        <Tooltip title={stage.name}>
+          <div style={{ textAlign: 'center', fontWeight: 'bold' }}>{stage.number}</div>
+        </Tooltip>
+      ),
+      key: `milestone_${stage.number}`,
+      width: 80,
+      align: 'center' as const,
+      render: (_: any, record: PersonWithProgress) => {
+        const isCompleted = getMilestoneStatus(record, stage.number);
+        const isUpdating = updating === `${record.id}-${stage.number}`;
+        
+        return (
+          <MilestoneCell
+            isCompleted={isCompleted}
+            isUpdating={isUpdating}
+            onToggle={() => toggleMilestone(record.id, stage.number, isCompleted)}
+            stageName={stage.name}
+          />
+        );
+      },
+    }));
+
+    return [...baseColumns, ...milestoneColumns];
   };
 
-  const columns = [
-    {
-      title: 'Name',
-      dataIndex: 'full_name',
-      key: 'full_name',
-      render: (text: string, record: PersonWithStats) => (
-        <Button
-          type="link"
-          onClick={() => router.push(`/person/${record.id}`)}
-          style={{ padding: 0 }}
-        >
-          {text}
-        </Button>
-      ),
-    },
-    {
-      title: 'Phone',
-      dataIndex: 'phone_number',
-      key: 'phone_number',
-      render: (phone: string) => (
-        <a href={`tel:${phone}`} style={{ color: '#1890ff' }}>
-          {phone}
-        </a>
-      ),
-    },
-    {
-      title: 'Progress',
-      key: 'progress',
-      render: (_: any, record: PersonWithStats) => (
-        <div style={{ width: 150 }}>
-          <Progress
-            percent={record.progressPercentage}
-            strokeColor="#003366"
-            size="small"
-          />
-        </div>
-      ),
-    },
-    {
-      title: 'Attendance',
-      key: 'attendance',
-      render: (_: any, record: PersonWithStats) => (
-        <div style={{ width: 150 }}>
-          <Progress
-            percent={record.attendancePercentage}
-            strokeColor="#00b300"
-            size="small"
-            format={() => `${record.attendanceCount}/${ATTENDANCE_GOAL}`}
-          />
-        </div>
-      ),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: any, record: PersonWithStats) => (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            size="small"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setSelectedPersonId(record.id);
-              setAttendanceModalVisible(true);
-            }}
-          >
-            Add Attendance
-          </Button>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => router.push(`/person/${record.id}`)}
-          >
-            View
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const columns = getColumns();
 
   if (authLoading || loading) {
     return (
@@ -248,10 +254,26 @@ export default function SheepSeekerDashboard() {
     );
   }
 
+  const totalMembers = people.length;
+  const membersWithCompletedMilestones = people.filter(
+    person => person.progress.filter(p => p.is_completed).length === TOTAL_PROGRESS_STAGES
+  ).length;
+  const membersInArrears = people.filter(
+    person => person.progress.filter(p => p.is_completed).length < TOTAL_PROGRESS_STAGES
+  ).length;
+  const totalMilestones = totalMembers * TOTAL_PROGRESS_STAGES;
+  const completedMilestones = people.reduce(
+    (sum, person) => sum + person.progress.filter(p => p.is_completed).length,
+    0
+  );
+  const overallProgress = totalMilestones > 0
+    ? Math.round((completedMilestones / totalMilestones) * 100)
+    : 0;
+
   return (
     <>
       <AppBreadcrumb />
-      <div>
+      <div style={{ padding: '0 16px' }}>
         <div style={{ 
           marginBottom: 24, 
           display: 'flex', 
@@ -263,44 +285,133 @@ export default function SheepSeekerDashboard() {
           <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
             <Title level={2} style={{ marginBottom: 8 }}>My Group: {user?.group_name}</Title>
             <Text type="secondary">
-              Manage and track people in your group
+              Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
             </Text>
           </div>
-          <div style={{ 
-            display: 'flex', 
-            gap: 12,
-            flexWrap: 'wrap',
+          <Button
+            type="primary"
+            icon={<UserAddOutlined />}
+            onClick={() => setRegisterModalVisible(true)}
+            size="large"
+          >
+            Register New Person
+          </Button>
+        </div>
+
+        {/* Summary Stats */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+          marginBottom: 24
+        }}>
+          <div style={{
+            background: 'white',
+            padding: 16,
+            borderRadius: 8,
+            border: '1px solid #d9d9d9'
           }}>
-            <Button
-              type="default"
-              icon={<UsergroupAddOutlined />}
-              onClick={() => router.push('/sheep-seeker/people/bulk-register')}
-              size="large"
-            >
-              Bulk Register
-            </Button>
-            <Button
-              type="primary"
-              icon={<UserAddOutlined />}
-              onClick={() => setRegisterModalVisible(true)}
-              size="large"
-            >
-              Register New Person
-            </Button>
+            <Text type="secondary">Total Members</Text>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+              {totalMembers}
+            </div>
+          </div>
+          <div style={{
+            background: 'white',
+            padding: 16,
+            borderRadius: 8,
+            border: '1px solid #d9d9d9'
+          }}>
+            <Text type="secondary">Members with Completed Milestones</Text>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
+              {membersWithCompletedMilestones}
+            </div>
+          </div>
+          <div style={{
+            background: 'white',
+            padding: 16,
+            borderRadius: 8,
+            border: '1px solid #d9d9d9'
+          }}>
+            <Text type="secondary">Members in Arrears</Text>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>
+              {membersInArrears}
+            </div>
+          </div>
+          <div style={{
+            background: 'white',
+            padding: 16,
+            borderRadius: 8,
+            border: '1px solid #d9d9d9'
+          }}>
+            <Text type="secondary">Overall Progress</Text>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#13c2c2' }}>
+              {overallProgress}%
+            </div>
           </div>
         </div>
 
+        {/* Milestone Grid Table */}
         <Table
           columns={columns}
           dataSource={people}
           rowKey="id"
           size="small"
-          scroll={{ x: 800 }}
-          pagination={{ pageSize: 10 }}
-          style={{ background: 'white', borderRadius: 8 }}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 400px)' }}
+          pagination={{
+            pageSize: 50,
+            showSizeChanger: true,
+            pageSizeOptions: ['20', '50', '100'],
+            showTotal: (total) => `Total ${total} members`,
+          }}
+          style={{
+            background: 'white',
+            borderRadius: 8,
+          }}
         />
+
+        {/* Legend */}
+        <div style={{
+          marginTop: 16,
+          padding: 16,
+          background: 'white',
+          borderRadius: 8,
+          border: '1px solid #d9d9d9',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap'
+        }}>
+          <Text strong>Legend: </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              padding: '8px',
+              borderRadius: '8px',
+              backgroundColor: 'white',
+              border: '1px solid #d9d9d9'
+            }}>
+              <Switch checked disabled size="small" style={{ backgroundColor: '#52c41a' }} />
+            </div>
+            <Text>Completed (Green Switch)</Text>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              padding: '8px',
+              borderRadius: '8px',
+              backgroundColor: 'white',
+              border: '1px solid #d9d9d9'
+            }}>
+              <Switch checked={false} disabled size="small" style={{ backgroundColor: '#ff4d4f' }} />
+            </div>
+            <Text>Not Completed (Red Switch)</Text>
+          </div>
+          <Text type="secondary">
+            Click any toggle switch to change milestone status. Hover over milestone numbers to see descriptions.
+          </Text>
+        </div>
       </div>
 
+      {/* Register Modal */}
       <Modal
         title="Register New Person"
         open={registerModalVisible}
@@ -342,45 +453,6 @@ export default function SheepSeekerDashboard() {
           </Form.Item>
         </Form>
       </Modal>
-
-      <Modal
-        title="Add Attendance"
-        open={attendanceModalVisible}
-        onCancel={() => {
-          setAttendanceModalVisible(false);
-          attendanceForm.resetFields();
-        }}
-        footer={null}
-      >
-        <Form form={attendanceForm} onFinish={handleAddAttendance} layout="vertical">
-          <Form.Item
-            name="date_attended"
-            label="Attendance Date"
-            rules={[{ required: true, message: 'Please select date' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block>
-              Record Attendance
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <style jsx>{`
-        @media (max-width: 767px) {
-          :global(.ant-btn-lg) {
-            padding: 8px 12px !important;
-            font-size: 14px !important;
-            height: auto !important;
-          }
-          :global(.ant-table-small) {
-            font-size: 12px !important;
-          }
-        }
-      `}</style>
     </>
   );
 }

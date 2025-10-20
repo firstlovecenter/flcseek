@@ -62,7 +62,7 @@ export default function ProgressPage() {
             full_name: person.full_name,
             group_name: person.group_name,
             completedStages,
-            percentage: Math.round((completedStages / 15) * 100),
+            percentage: Math.round((completedStages / 18) * 100),
           };
         })
       );
@@ -151,7 +151,7 @@ export default function ProgressPage() {
             size="small"
           />
           <Text type="secondary" style={{ fontSize: 11 }}>
-            {record.completedStages}/15 stages
+            {record.completedStages}/18 stages
           </Text>
         </div>
       ),
