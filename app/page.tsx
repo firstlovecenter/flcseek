@@ -16,16 +16,16 @@ export default function Home() {
   useEffect(() => {
     if (!loading && user) {
       switch (user.role) {
-        case 'super_admin':
+        case 'superadmin':
           router.push('/super-admin');
           break;
-        case 'stream_leader':
+        case 'admin':
           router.push('/stream-leader');
           break;
-        case 'lead_pastor':
+        case 'leadpastor':
           router.push('/lead-pastor');
           break;
-        case 'sheep_seeker':
+        case 'leader':
           router.push('/sheep-seeker');
           break;
         default:

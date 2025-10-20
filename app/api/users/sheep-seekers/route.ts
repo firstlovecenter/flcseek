@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
 
-    if (!userPayload || userPayload.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         d.name as department_name
        FROM users u
        LEFT JOIN departments d ON d.leader_id = u.id
-       WHERE u.role = 'sheep_seeker'
+       WHERE u.role = 'leader'
        ORDER BY u.username ASC`
     );
 

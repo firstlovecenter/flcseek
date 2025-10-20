@@ -35,7 +35,7 @@ export async function PATCH(
     }
 
     if (
-      userPayload.role === 'sheep_seeker' &&
+      userPayload.role === 'leader' &&
       person.group_name !== userPayload.group_name
     ) {
       return NextResponse.json(

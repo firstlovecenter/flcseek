@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 interface User {
   id: string;
   email: string;
-  role: 'super_admin' | 'lead_pastor' | 'stream_leader' | 'sheep_seeker';
+  role: 'superadmin' | 'leadpastor' | 'admin' | 'leader';
   group_name?: string;
   phone_number: string;
   first_name?: string;
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
 
-    if (data.user.role === 'super_admin') {
+    if (data.user.role === 'superadmin') {
       router.push('/super-admin');
     } else {
       router.push('/sheep-seeker');

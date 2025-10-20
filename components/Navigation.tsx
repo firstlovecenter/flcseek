@@ -298,13 +298,13 @@ export default function Navigation({ children }: NavigationProps) {
 
   const getMenuItemsByRole = () => {
     switch (user?.role) {
-      case 'super_admin':
+      case 'superadmin':
         return { top: superAdminTopMenuItems, bottom: superAdminBottomMenuItems };
-      case 'stream_leader':
+      case 'admin':
         return { top: streamLeaderTopMenuItems, bottom: streamLeaderBottomMenuItems };
-      case 'lead_pastor':
+      case 'leadpastor':
         return { top: leadPastorTopMenuItems, bottom: leadPastorBottomMenuItems };
-      case 'sheep_seeker':
+      case 'leader':
         return { top: sheepSeekerTopMenuItems, bottom: sheepSeekerBottomMenuItems };
       default:
         return { top: sheepSeekerTopMenuItems, bottom: sheepSeekerBottomMenuItems };
