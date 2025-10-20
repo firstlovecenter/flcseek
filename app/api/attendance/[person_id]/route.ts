@@ -36,7 +36,7 @@ export async function POST(
     }
 
     if (
-      userPayload.role === 'sheep_seeker' &&
+      userPayload.role === 'leader' &&
       person.group_name !== userPayload.group_name
     ) {
       return NextResponse.json(

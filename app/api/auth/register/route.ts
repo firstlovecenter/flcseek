@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
 
-    if (!userPayload || userPayload.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
         { error: 'Unauthorized. Only Super Admin can create users.' },
         { status: 403 }
@@ -36,17 +36,17 @@ export async function POST(request: NextRequest) {
 
     // Validate role if provided
     const userRole = role || null;
-    if (userRole && !['super_admin', 'sheep_seeker'].includes(userRole)) {
+    if (userRole && !['superadmin', 'leader'].includes(userRole)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be super_admin or sheep_seeker' },
+        { error: 'Invalid role. Must be superadmin or leader' },
         { status: 400 }
       );
     }
 
-    // If role is sheep_seeker, group_name is required
-    if (userRole === 'sheep_seeker' && !group_name) {
+    // If role is leader, group_name is required
+    if (userRole === 'leader' && !group_name) {
       return NextResponse.json(
-        { error: 'Group assignment required for sheep_seeker role' },
+        { error: 'Group assignment required for leader role' },
         { status: 400 }
       );
     }
@@ -72,8 +72,8 @@ export async function POST(request: NextRequest) {
 
     const data = result.rows[0];
 
-    // If user is a sheep_seeker with group assignment, update the group's leader_id
-    if (userRole === 'sheep_seeker' && group_name) {
+    // If user is a leader with group assignment, update the group's leader_id
+    if (userRole === 'leader' && group_name) {
       try {
         await query(
           `UPDATE groups SET leader_id = $1, updated_at = NOW() WHERE name = $2`,

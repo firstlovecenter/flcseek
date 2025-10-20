@@ -40,9 +40,9 @@ export async function GET(request: Request) {
 
     const params: any[] = [];
 
-    // Only super_admin and stream_leaders can view users
-    if (userPayload.role === 'stream_leader') {
-      // Stream leaders can only see users in their stream
+    // Only superadmin and admins can view users
+    if (userPayload.role === 'admin') {
+      // Admins can only see users in their stream
       const userResult = await query(
         'SELECT stream_id FROM users WHERE id = $1',
         [userPayload.id]
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 
       sql += ' WHERE u.stream_id = $1';
       params.push(userResult.rows[0].stream_id);
-    } else if (userPayload.role !== 'super_admin' && userPayload.role !== 'lead_pastor') {
+    } else if (userPayload.role !== 'superadmin' && userPayload.role !== 'leadpastor') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

@@ -218,7 +218,7 @@ export default function PersonDetailPage() {
     100
   );
 
-  const backUrl = user?.role === 'super_admin' ? '/super-admin' : '/sheep-seeker';
+  const backUrl = user?.role === 'superadmin' ? '/super-admin' : '/sheep-seeker';
 
   return (
     <>
@@ -240,7 +240,7 @@ export default function PersonDetailPage() {
                   </a>
                 </Title>
               </div>
-              {user?.role === 'super_admin' && (
+              {user?.role === 'superadmin' && (
                 <div>
                   <Text type="secondary">Department:</Text>
                   <Title level={4} style={{ margin: '4px 0' }}>

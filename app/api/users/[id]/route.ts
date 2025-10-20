@@ -14,7 +14,7 @@ export async function GET(
     }
 
     const user = verifyToken(token);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || user.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -53,7 +53,7 @@ export async function PUT(
     }
 
     const user = verifyToken(token);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || user.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -71,17 +71,17 @@ export async function PUT(
     }
 
     // Validate role if provided
-    if (role && !['super_admin', 'sheep_seeker'].includes(role)) {
+    if (role && !['superadmin', 'leader'].includes(role)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be super_admin or sheep_seeker' },
+        { error: 'Invalid role. Must be superadmin or leader' },
         { status: 400 }
       );
     }
 
-    // If role is sheep_seeker, group_name should be provided
-    if (role === 'sheep_seeker' && !group_name) {
+    // If role is leader, group_name should be provided
+    if (role === 'leader' && !group_name) {
       return NextResponse.json(
-        { error: 'Group assignment required for sheep_seeker role' },
+        { error: 'Group assignment required for leader role' },
         { status: 400 }
       );
     }
@@ -140,7 +140,7 @@ export async function PUT(
 
     // If role or group changed, update group leader_id
     const updatedUser = result.rows[0];
-    if (updatedUser.role === 'sheep_seeker' && updatedUser.group_name) {
+    if (updatedUser.role === 'leader' && updatedUser.group_name) {
       try {
         await query(
           `UPDATE groups SET leader_id = $1, updated_at = NOW() WHERE name = $2`,
@@ -190,7 +190,7 @@ export async function DELETE(
     }
 
     const user = verifyToken(token);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || user.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -204,8 +204,8 @@ export async function DELETE(
 
     const targetUser = userCheck.rows[0];
 
-    // Prevent deletion of super_admin users
-    if (targetUser.role === 'super_admin') {
+    // Prevent deletion of superadmin users
+    if (targetUser.role === 'superadmin') {
       return NextResponse.json(
         { error: 'Cannot delete super admin users' },
         { status: 403 }

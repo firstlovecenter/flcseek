@@ -58,7 +58,7 @@ export default function QuickActions() {
     },
   ];
 
-  const actions = user?.role === 'super_admin' ? superAdminActions : sheepSeekerActions;
+  const actions = user?.role === 'superadmin' ? superAdminActions : sheepSeekerActions;
 
   return (
     <Dropdown menu={{ items: actions }} placement="bottomRight">

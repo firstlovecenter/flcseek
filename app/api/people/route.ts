@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify sheep_seeker can only register in their assigned group
-    if (userPayload.role === 'sheep_seeker') {
+    // Verify leader can only register in their assigned group
+    if (userPayload.role === 'leader') {
       if (userPayload.group_id && userPayload.group_id !== finalGroupId) {
         return NextResponse.json(
           { error: 'You can only register people in your assigned group' },
@@ -122,8 +122,8 @@ export async function GET(request: NextRequest) {
     `;
     let params: any[] = [];
 
-    if (userPayload.role === 'sheep_seeker') {
-      // Sheep seekers can only see people in their assigned group
+    if (userPayload.role === 'leader') {
+      // Leaders can only see people in their assigned group
       if (userPayload.group_id) {
         sqlQuery += ' WHERE rp.group_id = $1';
         params.push(userPayload.group_id);
@@ -135,8 +135,8 @@ export async function GET(request: NextRequest) {
         // No group assigned, return empty
         return NextResponse.json({ people: [] });
       }
-    } else if (userPayload.role === 'stream_leader') {
-      // Stream leaders can see all people in their stream
+    } else if (userPayload.role === 'admin') {
+      // Admins can see all people in their stream
       if (userPayload.stream_id) {
         sqlQuery += ' WHERE g.stream_id = $1';
         params.push(userPayload.stream_id);

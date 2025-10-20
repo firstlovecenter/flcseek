@@ -71,7 +71,7 @@ export default function SheepSeekerDashboard() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'sheep_seeker')) {
+    if (!authLoading && (!user || user.role !== 'leader')) {
       router.push('/');
       return;
     }
