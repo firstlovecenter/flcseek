@@ -44,9 +44,6 @@ export const ROLE_PERMISSIONS = {
   },
 };
 
-// Deprecated: Use GROUPS instead
-export const DEPARTMENTS = GROUPS;
-
 export const PROGRESS_STAGES = [
   { number: 1, name: 'Registered as Church Member' },
   { number: 2, name: 'Visited (First Quarter)' },
