@@ -16,6 +16,7 @@ import {
   ReloadOutlined,
   BulbOutlined,
   BulbFilled,
+  OrderedListOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -100,6 +101,11 @@ export default function Navigation({ children }: NavigationProps) {
       label: <Link href="/super-admin/groups">Groups</Link>,
     },
     {
+      key: 'milestones',
+      icon: <OrderedListOutlined />,
+      label: <Link href="/super-admin/milestones">Milestones</Link>,
+    },
+    {
       key: 'reports',
       icon: <FileTextOutlined />,
       label: 'Reports',
@@ -146,6 +152,11 @@ export default function Navigation({ children }: NavigationProps) {
       key: '/super-admin/people',
       icon: <TeamOutlined />,
       label: <Link href="/super-admin/people">People</Link>,
+    },
+    {
+      key: '/super-admin/milestones',
+      icon: <OrderedListOutlined />,
+      label: <Link href="/super-admin/milestones">Milestones</Link>,
     },
     {
       key: '/super-admin/groups',
