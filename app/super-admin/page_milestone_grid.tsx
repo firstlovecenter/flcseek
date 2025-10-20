@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, memo } from 'react';
-import { Table, Button, Typography, Spin, message, Tooltip, Switch } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Tag, Tooltip, Switch } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
@@ -61,11 +61,9 @@ interface PersonWithProgress {
   }>;
 }
 
-export default function GroupDashboard() {
+export default function SuperAdminDashboard() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
-  const params = useParams();
-  const groupName = params.month as string;
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -76,14 +74,14 @@ export default function GroupDashboard() {
       return;
     }
 
-    if (user && token && groupName) {
-      fetchGroupPeople();
+    if (user && token) {
+      fetchAllPeople();
     }
-  }, [user, token, authLoading, groupName, router]);
+  }, [user, token, authLoading, router]);
 
-  const fetchGroupPeople = async () => {
+  const fetchAllPeople = async () => {
     try {
-      const response = await fetch(`/api/people?department=${groupName}`, {
+      const response = await fetch('/api/people', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -165,7 +163,7 @@ export default function GroupDashboard() {
     return stage?.is_completed || false;
   }, []);
 
-  // Generate columns efficiently
+  // Generate columns efficiently - only once, not in render
   const getColumns = () => {
     const baseColumns: any[] = [
       {
@@ -184,7 +182,7 @@ export default function GroupDashboard() {
               <Text strong style={{ fontSize: 14 }}>{text}</Text>
             </Button>
             <div style={{ fontSize: 12, color: '#888' }}>
-              {record.phone_number}
+              {record.group_name}
             </div>
           </div>
         ),
@@ -249,27 +247,11 @@ export default function GroupDashboard() {
     <>
       <AppBreadcrumb />
       <div style={{ padding: '0 16px' }}>
-        <div style={{ 
-          marginBottom: 24, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: 16,
-        }}>
-          <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
-            <Title level={2} style={{ marginBottom: 8 }}>{groupName} Group Dashboard</Title>
-            <Text type="secondary">
-              Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
-            </Text>
-          </div>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push('/super-admin')}
-            size="large"
-          >
-            Back to Overview
-          </Button>
+        <div style={{ marginBottom: 24 }}>
+          <Title level={2}>Member Progress Dashboard</Title>
+          <Text type="secondary">
+            Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
+          </Text>
         </div>
 
         {/* Summary Stats */}

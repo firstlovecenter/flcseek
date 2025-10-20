@@ -1,54 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback, memo } from 'react';
-import { Table, Button, Typography, Spin, message, Tooltip, Switch } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { Table, Button, Typography, Spin, message, Tag, Tooltip } from 'antd';
+import { CheckOutlined, CloseOutlined, EyeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
-
-// Memoized milestone cell component to optimize rendering
-const MilestoneCell = memo(({ 
-  isCompleted, 
-  isUpdating, 
-  onToggle, 
-  stageName 
-}: { 
-  isCompleted: boolean; 
-  isUpdating: boolean; 
-  onToggle: () => void;
-  stageName: string;
-}) => {
-  return (
-    <Tooltip title={stageName}>
-      <div
-        style={{
-          padding: '8px',
-          borderRadius: '8px',
-          backgroundColor: 'white',
-          border: '1px solid #d9d9d9',
-          transition: 'all 0.3s',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <Switch
-          checked={isCompleted}
-          onChange={onToggle}
-          loading={isUpdating}
-          size="small"
-          style={{
-            backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
-          }}
-        />
-      </div>
-    </Tooltip>
-  );
-});
 
 interface PersonWithProgress {
   id: string;
@@ -61,11 +21,9 @@ interface PersonWithProgress {
   }>;
 }
 
-export default function GroupDashboard() {
+export default function SuperAdminDashboard() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
-  const params = useParams();
-  const groupName = params.month as string;
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -76,14 +34,14 @@ export default function GroupDashboard() {
       return;
     }
 
-    if (user && token && groupName) {
-      fetchGroupPeople();
+    if (user && token) {
+      fetchAllPeople();
     }
-  }, [user, token, authLoading, groupName, router]);
+  }, [user, token, authLoading, router]);
 
-  const fetchGroupPeople = async () => {
+  const fetchAllPeople = async () => {
     try {
-      const response = await fetch(`/api/people?department=${groupName}`, {
+      const response = await fetch('/api/people', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -117,8 +75,7 @@ export default function GroupDashboard() {
     }
   };
 
-  // Optimized toggle function with useCallback
-  const toggleMilestone = useCallback(async (personId: string, stageNumber: number, currentStatus: boolean) => {
+  const toggleMilestone = async (personId: string, stageNumber: number, currentStatus: boolean) => {
     setUpdating(`${personId}-${stageNumber}`);
     try {
       const response = await fetch(`/api/progress/${personId}`, {
@@ -152,74 +109,107 @@ export default function GroupDashboard() {
         })
       );
 
-      message.success('Milestone updated!');
+      message.success('Milestone updated successfully!');
     } catch (error: any) {
       message.error(error.message || 'Failed to update milestone');
     } finally {
       setUpdating(null);
     }
-  }, [token]);
-
-  const getMilestoneStatus = useCallback((person: PersonWithProgress, stageNumber: number) => {
-    const stage = person.progress.find(p => p.stage_number === stageNumber);
-    return stage?.is_completed || false;
-  }, []);
-
-  // Generate columns efficiently
-  const getColumns = () => {
-    const baseColumns: any[] = [
-      {
-        title: 'Name',
-        dataIndex: 'full_name',
-        key: 'full_name',
-        fixed: 'left',
-        width: 180,
-        render: (text: string, record: PersonWithProgress) => (
-          <div>
-            <Button
-              type="link"
-              onClick={() => router.push(`/person/${record.id}`)}
-              style={{ padding: 0, height: 'auto' }}
-            >
-              <Text strong style={{ fontSize: 14 }}>{text}</Text>
-            </Button>
-            <div style={{ fontSize: 12, color: '#888' }}>
-              {record.phone_number}
-            </div>
-          </div>
-        ),
-      },
-    ];
-
-    // Create milestone columns efficiently
-    const milestoneColumns = PROGRESS_STAGES.map((stage) => ({
-      title: (
-        <Tooltip title={stage.name}>
-          <div style={{ textAlign: 'center', fontWeight: 'bold' }}>{stage.number}</div>
-        </Tooltip>
-      ),
-      key: `milestone_${stage.number}`,
-      width: 80,
-      align: 'center' as const,
-      render: (_: any, record: PersonWithProgress) => {
-        const isCompleted = getMilestoneStatus(record, stage.number);
-        const isUpdating = updating === `${record.id}-${stage.number}`;
-        
-        return (
-          <MilestoneCell
-            isCompleted={isCompleted}
-            isUpdating={isUpdating}
-            onToggle={() => toggleMilestone(record.id, stage.number, isCompleted)}
-            stageName={stage.name}
-          />
-        );
-      },
-    }));
-
-    return [...baseColumns, ...milestoneColumns];
   };
 
-  const columns = getColumns();
+  const getMilestoneStatus = (person: PersonWithProgress, stageNumber: number) => {
+    const stage = person.progress.find(p => p.stage_number === stageNumber);
+    return stage?.is_completed || false;
+  };
+
+  // Generate columns for name, group, and 18 milestones
+  const columns = [
+    {
+      title: 'Name',
+      dataIndex: 'full_name',
+      key: 'full_name',
+      fixed: 'left' as const,
+      width: 180,
+      render: (text: string, record: PersonWithProgress) => (
+        <div>
+          <Button
+            type="link"
+            onClick={() => router.push(`/person/${record.id}`)}
+            style={{ padding: 0, height: 'auto' }}
+          >
+            <Text strong style={{ fontSize: 14 }}>{text}</Text>
+          </Button>
+          <div style={{ fontSize: 12, color: '#888' }}>
+            {record.group_name}
+          </div>
+        </div>
+      ),
+    },
+    // Generate 18 milestone columns
+    ...Array.from({ length: TOTAL_PROGRESS_STAGES }, (_, index) => {
+      const stageNumber = index + 1;
+      const stage = PROGRESS_STAGES[index];
+      
+      return {
+        title: (
+          <Tooltip title={stage?.name || `Milestone ${stageNumber}`}>
+            <div style={{ textAlign: 'center' }}>{stageNumber}</div>
+          </Tooltip>
+        ),
+        key: `milestone_${stageNumber}`,
+        width: 60,
+        align: 'center' as const,
+        render: (_: any, record: PersonWithProgress) => {
+          const isCompleted = getMilestoneStatus(record, stageNumber);
+          const isUpdating = updating === `${record.id}-${stageNumber}`;
+          
+          return (
+            <Tooltip title={`${stage?.name || `Milestone ${stageNumber}`} - Click to toggle`}>
+              <Button
+                size="small"
+                icon={isCompleted ? <CheckOutlined /> : <CloseOutlined />}
+                loading={isUpdating}
+                onClick={() => toggleMilestone(record.id, stageNumber, isCompleted)}
+                style={{
+                  backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
+                  borderColor: isCompleted ? '#52c41a' : '#ff4d4f',
+                  color: 'white',
+                  width: 40,
+                  height: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              />
+            </Tooltip>
+          );
+        },
+      };
+    }),
+    {
+      title: 'Actions',
+      key: 'actions',
+      fixed: 'right' as const,
+      width: 100,
+      render: (_: any, record: PersonWithProgress) => {
+        const completedCount = record.progress.filter(p => p.is_completed).length;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+            <Tag color={completedCount === TOTAL_PROGRESS_STAGES ? 'success' : 'processing'}>
+              {completedCount}/{TOTAL_PROGRESS_STAGES}
+            </Tag>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => router.push(`/person/${record.id}`)}
+            >
+              View
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
 
   if (authLoading || loading) {
     return (
@@ -230,12 +220,6 @@ export default function GroupDashboard() {
   }
 
   const totalMembers = people.length;
-  const membersWithCompletedMilestones = people.filter(
-    person => person.progress.filter(p => p.is_completed).length === TOTAL_PROGRESS_STAGES
-  ).length;
-  const membersInArrears = people.filter(
-    person => person.progress.filter(p => p.is_completed).length < TOTAL_PROGRESS_STAGES
-  ).length;
   const totalMilestones = totalMembers * TOTAL_PROGRESS_STAGES;
   const completedMilestones = people.reduce(
     (sum, person) => sum + person.progress.filter(p => p.is_completed).length,
@@ -249,27 +233,11 @@ export default function GroupDashboard() {
     <>
       <AppBreadcrumb />
       <div style={{ padding: '0 16px' }}>
-        <div style={{ 
-          marginBottom: 24, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: 16,
-        }}>
-          <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
-            <Title level={2} style={{ marginBottom: 8 }}>{groupName} Group Dashboard</Title>
-            <Text type="secondary">
-              Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
-            </Text>
-          </div>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push('/super-admin')}
-            size="large"
-          >
-            Back to Overview
-          </Button>
+        <div style={{ marginBottom: 24 }}>
+          <Title level={2}>Member Progress Dashboard</Title>
+          <Text type="secondary">
+            Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Click buttons to toggle completion status
+          </Text>
         </div>
 
         {/* Summary Stats */}
@@ -296,9 +264,9 @@ export default function GroupDashboard() {
             borderRadius: 8,
             border: '1px solid #d9d9d9'
           }}>
-            <Text type="secondary">Members with Completed Milestones</Text>
+            <Text type="secondary">Total Milestones</Text>
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
-              {membersWithCompletedMilestones}
+              {totalMilestones}
             </div>
           </div>
           <div style={{
@@ -307,9 +275,9 @@ export default function GroupDashboard() {
             borderRadius: 8,
             border: '1px solid #d9d9d9'
           }}>
-            <Text type="secondary">Members in Arrears</Text>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>
-              {membersInArrears}
+            <Text type="secondary">Completed</Text>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+              {completedMilestones}
             </div>
           </div>
           <div style={{
@@ -335,7 +303,6 @@ export default function GroupDashboard() {
           pagination={{
             pageSize: 50,
             showSizeChanger: true,
-            pageSizeOptions: ['20', '50', '100'],
             showTotal: (total) => `Total ${total} members`,
           }}
           style={{
@@ -350,37 +317,13 @@ export default function GroupDashboard() {
           padding: 16,
           background: 'white',
           borderRadius: 8,
-          border: '1px solid #d9d9d9',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap'
+          border: '1px solid #d9d9d9'
         }}>
           <Text strong>Legend: </Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              padding: '8px',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #d9d9d9'
-            }}>
-              <Switch checked disabled size="small" style={{ backgroundColor: '#52c41a' }} />
-            </div>
-            <Text>Completed (Green Switch)</Text>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              padding: '8px',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #d9d9d9'
-            }}>
-              <Switch checked={false} disabled size="small" style={{ backgroundColor: '#ff4d4f' }} />
-            </div>
-            <Text>Not Completed (Red Switch)</Text>
-          </div>
-          <Text type="secondary">
-            Click any toggle switch to change milestone status. Hover over milestone numbers to see descriptions.
+          <Tag color="success" icon={<CheckOutlined />}>Completed</Tag>
+          <Tag color="error" icon={<CloseOutlined />}>Not Completed</Tag>
+          <Text type="secondary" style={{ marginLeft: 16 }}>
+            Click any button to toggle milestone status. Hover over milestone numbers to see descriptions.
           </Text>
         </div>
       </div>

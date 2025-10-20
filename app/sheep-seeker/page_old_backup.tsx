@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback, memo } from 'react';
-import { Table, Button, Typography, Spin, message, Tooltip, Switch } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Tag, Tooltip, Switch, Modal, Form, Input, Select, DatePicker } from 'antd';
+import { EyeOutlined, UserAddOutlined, PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
+import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 
@@ -61,29 +62,29 @@ interface PersonWithProgress {
   }>;
 }
 
-export default function GroupDashboard() {
+export default function SheepSeekerDashboard() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
-  const params = useParams();
-  const groupName = params.month as string;
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [registerModalVisible, setRegisterModalVisible] = useState(false);
+  const [form] = Form.useForm();
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'super_admin')) {
+    if (!authLoading && (!user || user.role !== 'sheep_seeker')) {
       router.push('/');
       return;
     }
 
-    if (user && token && groupName) {
-      fetchGroupPeople();
+    if (user && token) {
+      fetchAllPeople();
     }
-  }, [user, token, authLoading, groupName, router]);
+  }, [user, token, authLoading, router]);
 
-  const fetchGroupPeople = async () => {
+  const fetchAllPeople = async () => {
     try {
-      const response = await fetch(`/api/people?department=${groupName}`, {
+      const response = await fetch('/api/people', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -114,6 +115,31 @@ export default function GroupDashboard() {
       message.error(error.message || 'Failed to load people');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRegister = async (values: any) => {
+    try {
+      const response = await fetch('/api/people', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...values,
+          group_name: user?.group_name,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to register person');
+
+      message.success('Person registered successfully!');
+      form.resetFields();
+      setRegisterModalVisible(false);
+      fetchAllPeople();
+    } catch (error: any) {
+      message.error(error.message || 'Registration failed');
     }
   };
 
@@ -165,7 +191,7 @@ export default function GroupDashboard() {
     return stage?.is_completed || false;
   }, []);
 
-  // Generate columns efficiently
+  // Generate columns efficiently - only once, not in render
   const getColumns = () => {
     const baseColumns: any[] = [
       {
@@ -184,7 +210,7 @@ export default function GroupDashboard() {
               <Text strong style={{ fontSize: 14 }}>{text}</Text>
             </Button>
             <div style={{ fontSize: 12, color: '#888' }}>
-              {record.phone_number}
+              {record.group_name}
             </div>
           </div>
         ),
@@ -258,18 +284,25 @@ export default function GroupDashboard() {
           gap: 16,
         }}>
           <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
-            <Title level={2} style={{ marginBottom: 8 }}>{groupName} Group Dashboard</Title>
+            <Title level={2} style={{ marginBottom: 8 }}>My Group: {user?.group_name}</Title>
             <Text type="secondary">
               Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
             </Text>
           </div>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push('/super-admin')}
-            size="large"
-          >
-            Back to Overview
-          </Button>
+          <div style={{ 
+            display: 'flex', 
+            gap: 12,
+            flexWrap: 'wrap',
+          }}>
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={() => setRegisterModalVisible(true)}
+              size="large"
+            >
+              Register New Person
+            </Button>
+          </div>
         </div>
 
         {/* Summary Stats */}
@@ -384,6 +417,49 @@ export default function GroupDashboard() {
           </Text>
         </div>
       </div>
+
+      {/* Register Modal */}
+      <Modal
+        title="Register New Person"
+        open={registerModalVisible}
+        onCancel={() => {
+          setRegisterModalVisible(false);
+          form.resetFields();
+        }}
+        footer={null}
+        width={500}
+      >
+        <Form form={form} onFinish={handleRegister} layout="vertical">
+          <Form.Item
+            name="full_name"
+            label="Full Name"
+            rules={[{ required: true, message: 'Please enter full name' }]}
+          >
+            <Input placeholder="Enter full name" />
+          </Form.Item>
+
+          <Form.Item
+            name="phone_number"
+            label="Phone Number"
+            rules={[{ required: true, message: 'Please enter phone number' }]}
+          >
+            <Input placeholder="Enter phone number" />
+          </Form.Item>
+
+          <Form.Item name="gender" label="Gender">
+            <Select placeholder="Select gender">
+              <Select.Option value="Male">Male</Select.Option>
+              <Select.Option value="Female">Female</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item>
+            <Button type="primary" htmlType="submit" block>
+              Register Person
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
 }

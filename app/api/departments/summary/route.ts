@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
+import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
           const completedStages =
             progressResult.rows.filter((p: any) => p.is_completed).length;
-          const progressPercentage = (completedStages / 15) * 100;
+          const progressPercentage = (completedStages / TOTAL_PROGRESS_STAGES) * 100;
           totalProgressPercentage += progressPercentage;
 
           const attendanceResult = await query(

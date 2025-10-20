@@ -5,7 +5,7 @@ import { Table, Button, Typography, Spin, message, Progress, Tag, Input, Select 
 import { EyeOutlined, UserAddOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
+import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
@@ -85,7 +85,7 @@ export default function AllPeoplePage() {
 
           const completedStages =
             details.progress?.filter((p: any) => p.is_completed).length || 0;
-          const progressPercentage = Math.round((completedStages / 15) * 100);
+          const progressPercentage = Math.round((completedStages / TOTAL_PROGRESS_STAGES) * 100);
 
           const attendanceCount = details.attendanceCount || 0;
           const attendancePercentage = Math.min(

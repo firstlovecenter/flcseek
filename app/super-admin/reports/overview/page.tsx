@@ -5,7 +5,7 @@ import { Card, Row, Col, Typography, Spin, Progress, Statistic } from 'antd';
 import { UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
+import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 
 const { Title, Text } = Typography;
 
@@ -64,7 +64,7 @@ export default function ReportsOverviewPage() {
           const details = await detailsRes.json();
 
           const completedStages = details.progress?.filter((p: any) => p.is_completed).length || 0;
-          const progressPercentage = Math.round((completedStages / 15) * 100);
+          const progressPercentage = Math.round((completedStages / TOTAL_PROGRESS_STAGES) * 100);
           const attendanceCount = details.attendanceCount || 0;
           const attendancePercentage = Math.min(Math.round((attendanceCount / ATTENDANCE_GOAL) * 100), 100);
 

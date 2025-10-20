@@ -31,7 +31,11 @@ export const PROGRESS_STAGES = [
   { number: 12, name: 'Attended Church Social Outing' },
   { number: 13, name: 'Attended All-Night Prayer' },
   { number: 14, name: 'Attended "Meeting God"' },
-  { number: 15, name: 'Invited a Friend to Church' }
+  { number: 15, name: 'Invited a Friend to Church' },
+  { number: 16, name: 'Attended Ministry Training' },
+  { number: 17, name: 'Joined a Cell Group' },
+  { number: 18, name: 'Completed First Year Milestone' }
 ];
 
 export const ATTENDANCE_GOAL = 26;
+export const TOTAL_PROGRESS_STAGES = 18;

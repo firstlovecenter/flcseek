@@ -25,7 +25,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
+import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import dayjs from 'dayjs';
 import TopNav from '@/components/TopNav';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -212,7 +212,7 @@ export default function PersonDetailPage() {
   }
 
   const completedStages = progress.filter((p) => p.is_completed).length;
-  const progressPercentage = Math.round((completedStages / 15) * 100);
+  const progressPercentage = Math.round((completedStages / TOTAL_PROGRESS_STAGES) * 100);
   const attendancePercentage = Math.min(
     Math.round((attendance.length / ATTENDANCE_GOAL) * 100),
     100
