@@ -220,7 +220,14 @@ export default function SheepSeekerDashboard() {
     const milestoneColumns = PROGRESS_STAGES.map((stage) => ({
       title: (
         <Tooltip title={stage.name}>
-          <div style={{ textAlign: 'center', fontWeight: 'bold' }}>{stage.number}</div>
+          <div style={{ textAlign: 'center', fontWeight: 'bold' }}>
+            <div style={{ fontSize: '11px', whiteSpace: 'pre-line', marginBottom: '4px' }}>
+              {stage.shortName}
+            </div>
+            <div style={{ fontSize: '12px' }}>
+              [M{stage.number.toString().padStart(2, '0')}]
+            </div>
+          </div>
         </Tooltip>
       ),
       key: `milestone_${stage.number}`,
