@@ -34,9 +34,9 @@ export default function Home() {
     }
   }, [user, loading, router]);
 
-  const onFinish = async (values: { email: string; password: string }) => {
+  const onFinish = async (values: { username: string; password: string }) => {
     try {
-      await login(values.email, values.password);
+      await login(values.username, values.password);
       message.success('Login successful!');
     } catch (error: any) {
       message.error(error.message || 'Login failed');
@@ -98,16 +98,15 @@ export default function Home() {
 
         <Form form={form} onFinish={onFinish} layout="vertical" size="large">
           <Form.Item
-            name="email"
+            name="username"
             rules={[
-              { required: true, message: 'Please enter your email' },
-              { type: 'email', message: 'Please enter a valid email address' }
+              { required: true, message: 'Please enter your username' }
             ]}
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="Email"
-              autoComplete="email"
+              placeholder="Username"
+              autoComplete="username"
               style={{ height: 44 }}
             />
           </Form.Item>
