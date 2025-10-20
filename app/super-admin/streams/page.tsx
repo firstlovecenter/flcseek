@@ -23,7 +23,8 @@ import {
   EditOutlined, 
   DeleteOutlined, 
   TeamOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
 
 const { TextArea } = Input;
@@ -186,6 +187,15 @@ export default function StreamsManagement() {
       dataIndex: 'name',
       key: 'name',
       sorter: (a: Stream, b: Stream) => a.name.localeCompare(b.name),
+      render: (name: string, record: Stream) => (
+        <Button 
+          type="link" 
+          onClick={() => router.push(`/super-admin/streams/${record.id}`)}
+          style={{ padding: 0, height: 'auto', fontWeight: 500 }}
+        >
+          {name}
+        </Button>
+      ),
     },
     {
       title: 'Description',
@@ -227,6 +237,13 @@ export default function StreamsManagement() {
       align: 'center' as const,
       render: (_: any, record: Stream) => (
         <Space>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => router.push(`/super-admin/streams/${record.id}`)}
+          >
+            View
+          </Button>
           <Button
             type="link"
             icon={<EditOutlined />}
