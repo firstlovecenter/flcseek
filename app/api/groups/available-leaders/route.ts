@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         g.name as current_group,
         g.id as current_group_id
       FROM users u
-      LEFT JOIN groups g ON g.leader_id = u.id
+      LEFT JOIN groups g ON g.sheep_seeker_id = u.id
       WHERE u.role IS NULL OR u.role = 'sheep_seeker'
       ORDER BY u.first_name, u.last_name, u.username
     `);
