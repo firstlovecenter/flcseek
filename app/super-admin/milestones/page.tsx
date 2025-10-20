@@ -60,15 +60,25 @@ export default function MilestonesPage() {
   const fetchMilestones = async () => {
     try {
       setLoading(true);
+      console.log('Fetching milestones with token:', token);
+      
       const response = await fetch('/api/milestones', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch milestones');
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch milestones');
+      }
 
       const data = await response.json();
+      console.log('Fetched milestones:', data);
       setMilestones(data.milestones || []);
     } catch (error: any) {
+      console.error('Fetch error:', error);
       message.error(error.message || 'Failed to load milestones');
     } finally {
       setLoading(false);
