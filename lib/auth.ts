@@ -5,9 +5,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export interface UserPayload {
   id: string;
+  userId?: string; // Backward compatibility
   email: string;
-  role: 'super_admin' | 'sheep_seeker';
+  role: 'super_admin' | 'lead_pastor' | 'stream_leader' | 'sheep_seeker';
   group_name?: string;
+  stream_id?: string;
 }
 
 export function hashPassword(password: string): string {

@@ -15,10 +15,21 @@ export default function Home() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'super_admin') {
-        router.push('/super-admin');
-      } else {
-        router.push('/sheep-seeker');
+      switch (user.role) {
+        case 'super_admin':
+          router.push('/super-admin');
+          break;
+        case 'stream_leader':
+          router.push('/stream-leader');
+          break;
+        case 'lead_pastor':
+          router.push('/lead-pastor');
+          break;
+        case 'sheep_seeker':
+          router.push('/sheep-seeker');
+          break;
+        default:
+          router.push('/sheep-seeker');
       }
     }
   }, [user, loading, router]);

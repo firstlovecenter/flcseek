@@ -8,6 +8,7 @@ import {
   CalendarOutlined,
   RightOutlined,
   OrderedListOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -184,14 +185,24 @@ export default function SuperAdminDashboard() {
               Track progress and attendance across all 12 groups
             </Text>
           </div>
-          <Button
-            type="primary"
-            icon={<OrderedListOutlined />}
-            onClick={() => router.push('/super-admin/milestones')}
-            size="large"
-          >
-            Manage Milestones
-          </Button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button
+              type="default"
+              icon={<AppstoreOutlined />}
+              onClick={() => router.push('/super-admin/streams')}
+              size="large"
+            >
+              Manage Streams
+            </Button>
+            <Button
+              type="primary"
+              icon={<OrderedListOutlined />}
+              onClick={() => router.push('/super-admin/milestones')}
+              size="large"
+            >
+              Manage Milestones
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
