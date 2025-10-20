@@ -8,7 +8,8 @@ export interface UserPayload {
   userId?: string; // Backward compatibility
   email: string;
   role: 'super_admin' | 'lead_pastor' | 'stream_leader' | 'sheep_seeker';
-  group_name?: string;
+  group_name?: string; // deprecated - use group_id
+  group_id?: string;
   stream_id?: string;
 }
 
