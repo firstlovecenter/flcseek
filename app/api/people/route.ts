@@ -12,31 +12,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { full_name, phone_number, gender, home_location, work_location, group_name } =
+    const { full_name, phone_number, gender, home_location, work_location, group_id, group_name } =
       await request.json();
 
-    if (!full_name || !phone_number || !group_name) {
+    if (!full_name || !phone_number) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields (full_name, phone_number)' },
         { status: 400 }
       );
     }
 
-    if (
-      userPayload.role === 'sheep_seeker' &&
-      group_name !== userPayload.group_name
-    ) {
+    // group_id is preferred, but fallback to group_name for backwards compatibility
+    let finalGroupId = group_id;
+    
+    if (!finalGroupId && group_name) {
+      // Look up group_id from group_name
+      const groupResult = await query(
+        'SELECT id FROM groups WHERE name = $1',
+        [group_name]
+      );
+      
+      if (groupResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Invalid group specified' },
+          { status: 400 }
+        );
+      }
+      
+      finalGroupId = groupResult.rows[0].id;
+    }
+
+    if (!finalGroupId) {
       return NextResponse.json(
-        { error: 'You can only register people in your group' },
-        { status: 403 }
+        { error: 'Either group_id or group_name must be provided' },
+        { status: 400 }
       );
     }
 
+    // Verify sheep_seeker can only register in their assigned group
+    if (userPayload.role === 'sheep_seeker') {
+      if (userPayload.group_id && userPayload.group_id !== finalGroupId) {
+        return NextResponse.json(
+          { error: 'You can only register people in your assigned group' },
+          { status: 403 }
+        );
+      }
+    }
+
     const result = await query(
-      `INSERT INTO registered_people (full_name, phone_number, gender, home_location, work_location, group_name, registered_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO registered_people (full_name, phone_number, gender, home_location, work_location, group_id, group_name, registered_by)
+       VALUES ($1, $2, $3, $4, $5, $6, (SELECT name FROM groups WHERE id = $6), $7)
        RETURNING *`,
-      [full_name, phone_number, gender, home_location, work_location, group_name, userPayload.id]
+      [full_name, phone_number, gender, home_location, work_location, finalGroupId, userPayload.id]
     );
 
     const person = result.rows[0];
@@ -80,20 +107,55 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const group = searchParams.get('group');
+    const groupIdParam = searchParams.get('group_id');
+    const groupNameParam = searchParams.get('group'); // legacy parameter
 
-    let sqlQuery = 'SELECT * FROM registered_people';
+    let sqlQuery = `
+      SELECT 
+        rp.*,
+        g.name as group_name_ref,
+        g.stream_id,
+        s.name as stream_name
+      FROM registered_people rp
+      LEFT JOIN groups g ON rp.group_id = g.id
+      LEFT JOIN streams s ON g.stream_id = s.id
+    `;
     let params: any[] = [];
 
     if (userPayload.role === 'sheep_seeker') {
-      sqlQuery += ' WHERE group_name = $1';
-      params.push(userPayload.group_name);
-    } else if (group) {
-      sqlQuery += ' WHERE group_name = $1';
-      params.push(group);
+      // Sheep seekers can only see people in their assigned group
+      if (userPayload.group_id) {
+        sqlQuery += ' WHERE rp.group_id = $1';
+        params.push(userPayload.group_id);
+      } else if (userPayload.group_name) {
+        // Fallback for legacy users without group_id
+        sqlQuery += ' WHERE rp.group_name = $1';
+        params.push(userPayload.group_name);
+      } else {
+        // No group assigned, return empty
+        return NextResponse.json({ people: [] });
+      }
+    } else if (userPayload.role === 'stream_leader') {
+      // Stream leaders can see all people in their stream
+      if (userPayload.stream_id) {
+        sqlQuery += ' WHERE g.stream_id = $1';
+        params.push(userPayload.stream_id);
+      } else {
+        return NextResponse.json({ people: [] });
+      }
+    } else {
+      // Super admin and lead pastor can filter by group
+      if (groupIdParam) {
+        sqlQuery += ' WHERE rp.group_id = $1';
+        params.push(groupIdParam);
+      } else if (groupNameParam) {
+        // Legacy support for group name filtering
+        sqlQuery += ' WHERE rp.group_name = $1';
+        params.push(groupNameParam);
+      }
     }
 
-    sqlQuery += ' ORDER BY created_at DESC';
+    sqlQuery += ' ORDER BY rp.created_at DESC';
 
     const result = await query(sqlQuery, params);
 

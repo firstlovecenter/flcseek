@@ -36,15 +36,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's group if they're a group leader
+    // Get user's group and stream information
     let groupName = null;
-    if (user.role === 'sheep_seeker') {
+    let groupId = user.group_id || null;
+    let streamId = user.stream_id || null;
+
+    // For sheep_seekers who are group leaders, get their group info
+    if (user.role === 'sheep_seeker' && !groupId) {
       const groupResult = await query(
-        'SELECT name FROM groups WHERE leader_id = $1',
+        'SELECT id, name FROM groups WHERE sheep_seeker_id = $1',
         [user.id]
       );
       if (groupResult.rows.length > 0) {
+        groupId = groupResult.rows[0].id;
         groupName = groupResult.rows[0].name;
+      }
+    }
+
+    // Get group name if we have group_id
+    if (groupId && !groupName) {
+      const groupResult = await query(
+        'SELECT name, stream_id FROM groups WHERE id = $1',
+        [groupId]
+      );
+      if (groupResult.rows.length > 0) {
+        groupName = groupResult.rows[0].name;
+        streamId = streamId || groupResult.rows[0].stream_id;
       }
     }
 
@@ -53,6 +70,8 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
       group_name: groupName,
+      group_id: groupId,
+      stream_id: streamId,
     });
 
     return NextResponse.json({
@@ -64,6 +83,8 @@ export async function POST(request: NextRequest) {
         last_name: user.last_name,
         role: user.role,
         group_name: groupName,
+        group_id: groupId,
+        stream_id: streamId,
         phone_number: user.phone_number,
       },
     });
