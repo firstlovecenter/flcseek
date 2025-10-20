@@ -1,37 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { verifyToken } from '@/lib/auth';
 
 // Use NEON_DATABASE_URL (Netlify) or DATABASE_URL (local) with fallback for build time
 const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || '';
 const sql = connectionString ? neon(connectionString) : null;
-
-// Helper function to verify JWT token
-async function verifyAuth(request: NextRequest) {
-  if (!sql) return null;
-  
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
-  }
-
-  const token = authHeader.substring(7);
-  
-  try {
-    const users = await sql`
-      SELECT id, email, role 
-      FROM users 
-      WHERE id = ${token}
-    `;
-    
-    if (users.length === 0) {
-      return null;
-    }
-    
-    return users[0];
-  } catch (error) {
-    return null;
-  }
-}
 
 // PUT /api/milestones/[id] - Update a milestone
 export async function PUT(
@@ -46,9 +19,10 @@ export async function PUT(
       );
     }
 
-    const user = await verifyAuth(request);
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    const userPayload = token ? verifyToken(token) : null;
     
-    if (!user || user.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'super_admin') {
       return NextResponse.json(
         { error: 'Unauthorized - Super Admin access required' },
         { status: 403 }
@@ -130,9 +104,10 @@ export async function DELETE(
       );
     }
 
-    const user = await verifyAuth(request);
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    const userPayload = token ? verifyToken(token) : null;
     
-    if (!user || user.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'super_admin') {
       return NextResponse.json(
         { error: 'Unauthorized - Super Admin access required' },
         { status: 403 }
