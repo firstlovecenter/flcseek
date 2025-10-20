@@ -33,6 +33,7 @@ interface Milestone {
   id: string;
   stage_number: number;
   stage_name: string;
+  short_name?: string;
   description?: string;
   created_at: string;
 }
@@ -47,7 +48,7 @@ export default function MilestonesPage() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'super_admin')) {
+    if (!authLoading && (!user || user.role !== 'superadmin')) {
       router.push('/');
       return;
     }
@@ -99,6 +100,7 @@ export default function MilestonesPage() {
     form.setFieldsValue({
       stage_number: milestone.stage_number,
       stage_name: milestone.stage_name,
+      short_name: milestone.short_name,
       description: milestone.description,
     });
     setIsModalOpen(true);
@@ -166,7 +168,18 @@ export default function MilestonesPage() {
       defaultSortOrder: 'ascend' as const,
       render: (num: number) => (
         <Tag color="blue" style={{ fontSize: 14, fontWeight: 'bold' }}>
-          {num}
+          M{num}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Short Name',
+      dataIndex: 'short_name',
+      key: 'short_name',
+      width: 150,
+      render: (text: string) => (
+        <Tag color="green" style={{ fontSize: 12, fontWeight: 'bold' }}>
+          {text || '—'}
         </Tag>
       ),
     },
@@ -336,9 +349,20 @@ export default function MilestonesPage() {
                 { required: true, message: 'Please enter milestone name' },
                 { max: 200, message: 'Name must be less than 200 characters' },
               ]}
-              tooltip="A short, descriptive name for this milestone"
+              tooltip="Full descriptive name for this milestone"
             >
-              <Input placeholder="e.g., Initial Contact, Follow-up Call, First Meeting" />
+              <Input placeholder="e.g., Attended All-Night Prayer" />
+            </Form.Item>
+
+            <Form.Item
+              label="Short Name (for Dashboard)"
+              name="short_name"
+              rules={[
+                { max: 50, message: 'Short name must be less than 50 characters' },
+              ]}
+              tooltip="Short nickname displayed on dashboard instead of the number"
+            >
+              <Input placeholder="e.g., All Night, NB School, LP Intro" />
             </Form.Item>
 
             <Form.Item

@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         id,
         stage_number,
         stage_name,
+        short_name,
         description,
         created_at,
         updated_at
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
     
-    if (!userPayload || userPayload.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
         { error: 'Unauthorized - Super Admin access required' },
         { status: 403 }
