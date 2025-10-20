@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Use NEON_DATABASE_URL (Netlify) or DATABASE_URL (local) with fallback for build time
+const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || '';
+const sql = connectionString ? neon(connectionString) : null;
 
 // Helper function to verify JWT token
 async function verifyAuth(request: NextRequest) {
+  if (!sql) return null;
+  
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -32,6 +36,13 @@ async function verifyAuth(request: NextRequest) {
 // GET /api/milestones - Get all milestones
 export async function GET(request: NextRequest) {
   try {
+    if (!sql) {
+      return NextResponse.json(
+        { error: 'Database connection not configured' },
+        { status: 500 }
+      );
+    }
+
     const user = await verifyAuth(request);
     
     if (!user) {
@@ -67,6 +78,13 @@ export async function GET(request: NextRequest) {
 // POST /api/milestones - Create a new milestone
 export async function POST(request: NextRequest) {
   try {
+    if (!sql) {
+      return NextResponse.json(
+        { error: 'Database connection not configured' },
+        { status: 500 }
+      );
+    }
+
     const user = await verifyAuth(request);
     
     if (!user || user.role !== 'super_admin') {
