@@ -24,6 +24,38 @@ export async function POST(
       );
     }
 
+    // Validate that the date is a Sunday
+    const attendedDate = new Date(date_attended);
+    const dayOfWeek = attendedDate.getDay();
+    
+    if (dayOfWeek !== 0) { // 0 = Sunday
+      return NextResponse.json(
+        { error: 'Attendance can only be recorded for Sundays' },
+        { status: 400 }
+      );
+    }
+
+    // Validate that the attendance is not being entered more than 1 week past the Sunday
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    
+    const daysDifference = Math.floor((today.getTime() - attendedDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDifference > 7) {
+      return NextResponse.json(
+        { error: 'Attendance cannot be recorded more than 1 week after the Sunday service date' },
+        { status: 400 }
+      );
+    }
+
+    // Don't allow future dates
+    if (attendedDate > today) {
+      return NextResponse.json(
+        { error: 'Attendance cannot be recorded for future dates' },
+        { status: 400 }
+      );
+    }
+
     const personResult = await query(
       'SELECT * FROM registered_people WHERE id = $1',
       [params.person_id]

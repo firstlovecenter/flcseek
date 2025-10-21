@@ -403,10 +403,32 @@ export default function PersonDetailPage() {
         <Form form={form} onFinish={handleAddAttendance} layout="vertical">
           <Form.Item
             name="date_attended"
-            label="Attendance Date"
+            label="Attendance Date (Sundays only)"
             rules={[{ required: true, message: 'Please select date' }]}
+            extra="You can only record attendance for Sundays within the past week"
           >
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker 
+              style={{ width: '100%' }} 
+              disabledDate={(current) => {
+                if (!current) return false;
+                
+                const today = dayjs();
+                const oneWeekAgo = today.subtract(7, 'day');
+                
+                // Disable if not a Sunday (day 0)
+                if (current.day() !== 0) return true;
+                
+                // Disable if more than 1 week in the past
+                if (current.isBefore(oneWeekAgo, 'day')) return true;
+                
+                // Disable if in the future
+                if (current.isAfter(today, 'day')) return true;
+                
+                return false;
+              }}
+              format="YYYY-MM-DD"
+              placeholder="Select a Sunday"
+            />
           </Form.Item>
 
           <Form.Item>
