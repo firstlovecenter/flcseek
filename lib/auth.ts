@@ -15,11 +15,18 @@ export interface UserPayload {
 }
 
 export function hashPassword(password: string): string {
-  return bcrypt.hashSync(password, 10);
+  const hash = bcrypt.hashSync(password, 10);
+  return hash;
 }
 
 export function verifyPassword(password: string, hash: string): boolean {
-  return bcrypt.compareSync(password, hash);
+  try {
+    const result = bcrypt.compareSync(password, hash);
+    return result;
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
+  }
 }
 
 export function generateToken(user: UserPayload): string {

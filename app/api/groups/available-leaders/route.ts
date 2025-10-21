@@ -11,11 +11,11 @@ export async function GET(request: NextRequest) {
     }
 
     const user = verifyToken(token);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || user.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get all users who are not super_admins
+    // Get all users who are not superadmins
     // Include users with no role (they'll be assigned sheep_seeker when assigned to a group)
     const result = await query(`
       SELECT 

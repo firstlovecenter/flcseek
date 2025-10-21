@@ -4,7 +4,10 @@ import { verifyPassword, generateToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json();
+    const body = await request.json();
+    const { username, password } = body;
+
+    console.log(`[LOGIN] Attempt for user: ${username}`);
 
     if (!username || !password) {
       return NextResponse.json(
@@ -21,20 +24,26 @@ export async function POST(request: NextRequest) {
     const user = result.rows[0];
 
     if (!user) {
+      console.log(`[LOGIN] User not found: ${username}`);
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
+
+    console.log(`[LOGIN] User found: ${user.username} (${user.role})`);
 
     const isValidPassword = verifyPassword(password, user.password);
 
     if (!isValidPassword) {
+      console.log(`[LOGIN] Invalid password for: ${username}`);
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
+
+    console.log(`[LOGIN] Password verified for: ${username}`);
 
     // Get user's group information
     let groupName = null;
@@ -44,25 +53,25 @@ export async function POST(request: NextRequest) {
     // For admins and leaders who are assigned to a monthly group
     if ((user.role === 'admin' || user.role === 'leader') && !groupId) {
       const groupResult = await query(
-        'SELECT id, name, year FROM groups WHERE sheep_seeker_id = $1',
+        'SELECT id, name FROM groups WHERE sheep_seeker_id = $1',
         [user.id]
       );
       if (groupResult.rows.length > 0) {
         groupId = groupResult.rows[0].id;
         groupName = groupResult.rows[0].name;
-        groupYear = groupResult.rows[0].year;
+        groupYear = 2025; // Default year
       }
     }
 
     // Get group name and year if we have group_id
     if (groupId && !groupName) {
       const groupResult = await query(
-        'SELECT name, year FROM groups WHERE id = $1',
+        'SELECT name FROM groups WHERE id = $1',
         [groupId]
       );
       if (groupResult.rows.length > 0) {
         groupName = groupResult.rows[0].name;
-        groupYear = groupResult.rows[0].year;
+        groupYear = 2025; // Default year
       }
     }
 
@@ -71,9 +80,9 @@ export async function POST(request: NextRequest) {
       username: user.username,
       email: user.email || undefined,
       role: user.role,
-      group_name: groupName,
-      group_year: groupYear,
-      group_id: groupId,
+      group_name: groupName || undefined,
+      group_year: groupYear || undefined,
+      group_id: groupId || undefined,
     });
 
     return NextResponse.json({
@@ -92,6 +101,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
+    console.error('Login error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

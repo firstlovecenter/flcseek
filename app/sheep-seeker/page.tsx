@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, memo } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select } from 'antd';
-import { UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { UserAddOutlined, FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
@@ -71,16 +71,19 @@ export default function SheepSeekerDashboard() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
 
   useEffect(() => {
-    // Allow leader, admin, and superadmin to access this page
-    if (!authLoading && (!user || !['leader', 'admin', 'superadmin'].includes(user.role))) {
+    // Allow leader, admin, leadpastor, and superadmin to access this page
+    if (!authLoading && (!user || !['leader', 'admin', 'leadpastor', 'superadmin'].includes(user.role))) {
+      console.log('[SHEEP-SEEKER] Unauthorized access attempt, redirecting to home');
       router.push('/');
       return;
     }
 
     if (user && token) {
+      console.log('[SHEEP-SEEKER] Authorized user:', user.role);
       fetchAllPeople();
     }
   }, [user, token, authLoading, router]);
@@ -273,6 +276,13 @@ export default function SheepSeekerDashboard() {
     );
   }
 
+  // Filter people based on search text
+  const filteredPeople = people.filter(person => 
+    person.full_name.toLowerCase().includes(searchText.toLowerCase()) ||
+    person.phone_number.includes(searchText) ||
+    person.group_name.toLowerCase().includes(searchText.toLowerCase())
+  );
+
   const totalNewConverts = people.length;
   const newConvertsWithCompletedMilestones = people.filter(
     person => person.progress.filter(p => p.is_completed).length === TOTAL_PROGRESS_STAGES
@@ -338,6 +348,24 @@ export default function SheepSeekerDashboard() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div style={{ marginBottom: 24 }}>
+          <Input
+            placeholder="Search by name, phone number, or group..."
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            size="large"
+            allowClear
+            style={{ maxWidth: 500 }}
+          />
+          {searchText && (
+            <Text type="secondary" style={{ marginLeft: 12 }}>
+              Showing {filteredPeople.length} of {totalNewConverts} people
+            </Text>
+          )}
+        </div>
+
         {/* Summary Stats */}
         <div style={{
           display: 'grid',
@@ -394,16 +422,11 @@ export default function SheepSeekerDashboard() {
         {/* Milestone Grid Table */}
         <Table
           columns={columns}
-          dataSource={people}
+          dataSource={filteredPeople}
           rowKey="id"
           size="small"
           scroll={{ x: 'max-content', y: 'calc(100vh - 400px)' }}
-          pagination={{
-            pageSize: 50,
-            showSizeChanger: true,
-            pageSizeOptions: ['20', '50', '100'],
-            showTotal: (total) => `Total ${total} new converts`,
-          }}
+          pagination={false}
           style={{
             background: 'white',
             borderRadius: 8,

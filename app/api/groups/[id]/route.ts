@@ -14,7 +14,7 @@ export async function GET(
     }
 
     const user = verifyToken(token);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || user.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -64,7 +64,7 @@ export async function PUT(
     }
 
     const user = verifyToken(token);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || user.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -183,7 +183,7 @@ export async function DELETE(
     }
 
     const user = verifyToken(token);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || user.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
