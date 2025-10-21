@@ -36,10 +36,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's group and stream information
+    // Get user's group information
     let groupName = null;
     let groupId = user.group_id || null;
-    let streamId = user.stream_id || null;
 
     // For admins and leaders who are assigned to a monthly group
     if ((user.role === 'admin' || user.role === 'leader') && !groupId) {
@@ -71,7 +70,6 @@ export async function POST(request: NextRequest) {
       role: user.role,
       group_name: groupName,
       group_id: groupId,
-      stream_id: streamId,
     });
 
     return NextResponse.json({
@@ -85,7 +83,6 @@ export async function POST(request: NextRequest) {
         role: user.role,
         group_name: groupName,
         group_id: groupId,
-        stream_id: streamId,
         phone_number: user.phone_number,
       },
     });

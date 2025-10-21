@@ -15,56 +15,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get stream_id filter from query params
-    const { searchParams } = new URL(request.url);
-    const streamId = searchParams.get('stream_id');
-
-    let sql = `
+    const sql = `
       SELECT 
         g.id,
         g.name,
         g.description,
         g.sheep_seeker_id as leader_id,
-        g.stream_id,
         g.start_date,
         g.end_date,
         g.is_active,
         g.created_at,
         g.updated_at,
         u.username as leader_username,
-        s.name as stream_name,
         (SELECT COUNT(*) FROM registered_people WHERE group_id = g.id) as member_count
       FROM groups g
       LEFT JOIN users u ON g.sheep_seeker_id = u.id
-      LEFT JOIN streams s ON g.stream_id = s.id
+      ORDER BY g.is_active DESC, g.name ASC
     `;
 
-    const params: any[] = [];
-
-    // Stream leaders can only see their stream's groups
-    if (userPayload.role === 'stream_leader') {
-      const userResult = await query(
-        'SELECT stream_id FROM users WHERE id = $1',
-        [userPayload.id]
-      );
-      
-      if (userResult.rows.length === 0 || !userResult.rows[0].stream_id) {
-        return NextResponse.json({ error: 'No stream assigned' }, { status: 403 });
-      }
-
-      sql += ' WHERE g.stream_id = $1';
-      params.push(userResult.rows[0].stream_id);
-    } else if (streamId && (userPayload.role === 'super_admin' || userPayload.role === 'lead_pastor')) {
-      // Super admin and lead pastor can filter by stream
-      sql += ' WHERE g.stream_id = $1';
-      params.push(streamId);
-    }
-
-    sql += ' ORDER BY g.is_active DESC, g.name ASC';
-
-    const result = params.length > 0 
-      ? await query(sql, params)
-      : await query(sql);
+    const result = await query(sql);
 
     return NextResponse.json({ groups: result.rows });
   } catch (error: any) {
@@ -89,12 +58,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only super_admin and stream_leader can create groups
-    if (userPayload.role !== 'super_admin' && userPayload.role !== 'stream_leader') {
+    // Only superadmin can create groups
+    if (userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, description, sheep_seeker_id, stream_id, start_date } = await request.json();
+    const { name, description, sheep_seeker_id, start_date } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -103,34 +72,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!stream_id) {
-      return NextResponse.json(
-        { error: 'Stream ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Stream leaders can only create groups in their own stream
-    if (userPayload.role === 'stream_leader') {
-      const userResult = await query(
-        'SELECT stream_id FROM users WHERE id = $1',
-        [userPayload.id]
-      );
-      
-      if (userResult.rows.length === 0 || userResult.rows[0].stream_id !== stream_id) {
-        return NextResponse.json({ error: 'Can only create groups in your own stream' }, { status: 403 });
-      }
-    }
-
-    // Check if group name already exists in this stream
+    // Check if group name already exists
     const existing = await query(
-      'SELECT id FROM groups WHERE name = $1 AND stream_id = $2',
-      [name.trim(), stream_id]
+      'SELECT id FROM groups WHERE name = $1',
+      [name.trim()]
     );
 
     if (existing.rows.length > 0) {
       return NextResponse.json(
-        { error: 'Group name already exists in this stream' },
+        { error: 'Group name already exists' },
         { status: 409 }
       );
     }
@@ -149,27 +99,27 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Update user role to sheep_seeker if not already
-      if (userResult.rows[0].role !== 'sheep_seeker') {
+      // Update user role to leader if not already
+      if (userResult.rows[0].role !== 'leader') {
         await query(
           'UPDATE users SET role = $1, group_id = $2 WHERE id = $3',
-          ['sheep_seeker', null, sheep_seeker_id] // Will update group_id after creation
+          ['leader', null, sheep_seeker_id] // Will update group_id after creation
         );
       }
     }
 
-    // Calculate end_date (6 months from start_date)
+    // Calculate end_date (12 months from start_date)
     const groupStartDate = start_date || new Date().toISOString().split('T')[0];
     const startDateObj = new Date(groupStartDate);
     const endDateObj = new Date(startDateObj);
-    endDateObj.setMonth(endDateObj.getMonth() + 6);
+    endDateObj.setMonth(endDateObj.getMonth() + 12);
     const endDate = endDateObj.toISOString().split('T')[0];
 
     const result = await query(
-      `INSERT INTO groups (name, description, sheep_seeker_id, stream_id, start_date, end_date, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO groups (name, description, sheep_seeker_id, start_date, end_date, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name.trim(), description || null, sheep_seeker_id || null, stream_id, groupStartDate, endDate, true]
+      [name.trim(), description || null, sheep_seeker_id || null, groupStartDate, endDate, true]
     );
 
     // Update sheep seeker's group_id

@@ -19,13 +19,10 @@ export async function GET(request: NextRequest) {
     const groupsResult = await query(`
       SELECT 
         g.id,
-        g.name,
-        g.stream_id,
-        s.name as stream_name
+        g.name
       FROM groups g
-      LEFT JOIN streams s ON g.stream_id = s.id
       WHERE g.is_active = true
-      ORDER BY s.name, g.name
+      ORDER BY g.name
     `);
     const groups = groupsResult.rows;
 
@@ -42,7 +39,6 @@ export async function GET(request: NextRequest) {
         if (totalPeople === 0) {
           return {
             group: group.name,
-            stream: group.stream_name,
             totalPeople: 0,
             avgProgress: 0,
             avgAttendance: 0,
@@ -75,7 +71,6 @@ export async function GET(request: NextRequest) {
 
         return {
           group: group.name,
-          stream: group.stream_name,
           totalPeople,
           avgProgress: Math.round(totalProgressPercentage / totalPeople),
           avgAttendance: Math.round(totalAttendancePercentage / totalPeople),

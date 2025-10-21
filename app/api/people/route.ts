@@ -113,12 +113,9 @@ export async function GET(request: NextRequest) {
     let sqlQuery = `
       SELECT 
         rp.*,
-        g.name as group_name_ref,
-        g.stream_id,
-        s.name as stream_name
+        g.name as group_name_ref
       FROM registered_people rp
       LEFT JOIN groups g ON rp.group_id = g.id
-      LEFT JOIN streams s ON g.stream_id = s.id
     `;
     let params: any[] = [];
 
@@ -136,10 +133,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ people: [] });
       }
     } else if (userPayload.role === 'admin') {
-      // Admins can see all people in their stream
-      if (userPayload.stream_id) {
-        sqlQuery += ' WHERE g.stream_id = $1';
-        params.push(userPayload.stream_id);
+      // Admins can see all people in their month's group
+      if (userPayload.group_id) {
+        sqlQuery += ' WHERE rp.group_id = $1';
+        params.push(userPayload.group_id);
       } else {
         return NextResponse.json({ people: [] });
       }
