@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, memo } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select } from 'antd';
-import { UserAddOutlined } from '@ant-design/icons';
+import { UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
@@ -288,6 +288,16 @@ export default function SheepSeekerDashboard() {
     ? Math.round((completedMilestones / totalMilestones) * 100)
     : 0;
 
+  // Get current month and year
+  const currentDate = new Date();
+  const monthYear = currentDate.toLocaleDateString('en-US', { 
+    month: 'long', 
+    year: 'numeric' 
+  });
+
+  // Check if user is admin (can access bulk registration)
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
   return (
     <>
       <AppBreadcrumb />
@@ -301,19 +311,31 @@ export default function SheepSeekerDashboard() {
           gap: 16,
         }}>
           <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
-            <Title level={2} style={{ marginBottom: 8 }}>My Group: {user?.group_name}</Title>
+            <Title level={2} style={{ marginBottom: 8 }}>{monthYear}</Title>
             <Text type="secondary">
               Track all {totalNewConverts} new converts across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
             </Text>
           </div>
-          <Button
-            type="primary"
-            icon={<UserAddOutlined />}
-            onClick={() => setRegisterModalVisible(true)}
-            size="large"
-          >
-            Register New Person
-          </Button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={() => setRegisterModalVisible(true)}
+              size="large"
+            >
+              Register New Person
+            </Button>
+            {isAdmin && (
+              <Button
+                type="default"
+                icon={<FileExcelOutlined />}
+                onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                size="large"
+              >
+                Bulk Register
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Summary Stats */}
