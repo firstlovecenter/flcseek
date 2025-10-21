@@ -15,15 +15,17 @@ const MilestoneCell = memo(({
   isCompleted, 
   isUpdating, 
   onToggle, 
-  stageName 
+  stageName,
+  isAuto = false
 }: { 
   isCompleted: boolean; 
   isUpdating: boolean; 
   onToggle: () => void;
   stageName: string;
+  isAuto?: boolean;
 }) => {
   return (
-    <Tooltip title={stageName}>
+    <Tooltip title={isAuto ? `${stageName} (Auto-calculated)` : stageName}>
       <div
         style={{
           padding: '8px',
@@ -41,6 +43,7 @@ const MilestoneCell = memo(({
           onChange={onToggle}
           loading={isUpdating}
           size="small"
+          disabled={isAuto}
           style={{
             backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
           }}
@@ -119,6 +122,12 @@ export default function GroupDashboard() {
 
   // Optimized toggle function with useCallback
   const toggleMilestone = useCallback(async (personId: string, stageNumber: number, currentStatus: boolean) => {
+    // Prevent toggling milestone 18 (auto-calculated from attendance)
+    if (stageNumber === 18) {
+      message.warning('Attendance milestone is auto-calculated from attendance records');
+      return;
+    }
+
     setUpdating(`${personId}-${stageNumber}`);
     try {
       const response = await fetch(`/api/progress/${personId}`, {
@@ -211,6 +220,7 @@ export default function GroupDashboard() {
       render: (_: any, record: PersonWithProgress) => {
         const isCompleted = getMilestoneStatus(record, stage.number);
         const isUpdating = updating === `${record.id}-${stage.number}`;
+        const isAuto = stage.number === 18; // Milestone 18 is auto-calculated
         
         return (
           <MilestoneCell
@@ -218,6 +228,7 @@ export default function GroupDashboard() {
             isUpdating={isUpdating}
             onToggle={() => toggleMilestone(record.id, stage.number, isCompleted)}
             stageName={stage.name}
+            isAuto={isAuto}
           />
         );
       },

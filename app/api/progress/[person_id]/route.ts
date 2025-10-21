@@ -23,6 +23,14 @@ export async function PATCH(
       );
     }
 
+    // Milestone 18 (Attendance) is auto-calculated from attendance records
+    if (stage_number === 18) {
+      return NextResponse.json(
+        { error: 'Milestone 18 (Attendance) is automatically calculated from attendance records and cannot be manually updated' },
+        { status: 400 }
+      );
+    }
+
     const personResult = await query(
       'SELECT * FROM registered_people WHERE id = $1',
       [params.person_id]
