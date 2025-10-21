@@ -74,7 +74,8 @@ export default function SheepSeekerDashboard() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'leader')) {
+    // Allow leader, admin, and superadmin to access this page
+    if (!authLoading && (!user || !['leader', 'admin', 'superadmin'].includes(user.role))) {
       router.push('/');
       return;
     }
