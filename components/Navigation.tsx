@@ -103,11 +103,6 @@ export default function Navigation({ children }: NavigationProps) {
       label: <Link href="/super-admin/groups">Groups</Link>,
     },
     {
-      key: 'streams',
-      icon: <AppstoreOutlined />,
-      label: <Link href="/super-admin/streams">Streams</Link>,
-    },
-    {
       key: 'milestones',
       icon: <OrderedListOutlined />,
       label: <Link href="/super-admin/milestones">Milestones</Link>,
@@ -215,60 +210,12 @@ export default function Navigation({ children }: NavigationProps) {
     },
   ];
 
-  // Top Navigation items for Stream Leader
-  const streamLeaderTopMenuItems = [
-    {
-      key: '/stream-leader',
-      icon: <HomeOutlined />,
-      label: <Link href="/stream-leader">Dashboard</Link>,
-    },
-    {
-      key: 'groups',
-      icon: <UsergroupAddOutlined />,
-      label: <Link href="/stream-leader/groups">Groups</Link>,
-    },
-    {
-      key: 'people',
-      icon: <TeamOutlined />,
-      label: <Link href="/stream-leader/people">People</Link>,
-    },
-    {
-      key: 'reports',
-      icon: <FileTextOutlined />,
-      label: <Link href="/stream-leader/reports">Reports</Link>,
-    },
-  ];
-
-  // Mobile Bottom Navigation for Stream Leader
-  const streamLeaderBottomMenuItems = [
-    {
-      key: '/stream-leader',
-      icon: <HomeOutlined />,
-      label: <Link href="/stream-leader">Home</Link>,
-    },
-    {
-      key: '/stream-leader/groups',
-      icon: <UsergroupAddOutlined />,
-      label: <Link href="/stream-leader/groups">Groups</Link>,
-    },
-    {
-      key: '/stream-leader/people',
-      icon: <TeamOutlined />,
-      label: <Link href="/stream-leader/people">People</Link>,
-    },
-  ];
-
   // Top Navigation items for Lead Pastor
   const leadPastorTopMenuItems = [
     {
       key: '/lead-pastor',
       icon: <EyeOutlined />,
       label: <Link href="/lead-pastor">Dashboard</Link>,
-    },
-    {
-      key: 'streams',
-      icon: <AppstoreOutlined />,
-      label: <Link href="/lead-pastor/streams">Streams</Link>,
     },
     {
       key: 'reports',
@@ -285,11 +232,6 @@ export default function Navigation({ children }: NavigationProps) {
       label: <Link href="/lead-pastor">Home</Link>,
     },
     {
-      key: '/lead-pastor/streams',
-      icon: <AppstoreOutlined />,
-      label: <Link href="/lead-pastor/streams">Streams</Link>,
-    },
-    {
       key: '/lead-pastor/reports',
       icon: <FileTextOutlined />,
       label: <Link href="/lead-pastor/reports">Reports</Link>,
@@ -301,7 +243,7 @@ export default function Navigation({ children }: NavigationProps) {
       case 'superadmin':
         return { top: superAdminTopMenuItems, bottom: superAdminBottomMenuItems };
       case 'admin':
-        return { top: streamLeaderTopMenuItems, bottom: streamLeaderBottomMenuItems };
+        return { top: sheepSeekerTopMenuItems, bottom: sheepSeekerBottomMenuItems };
       case 'leadpastor':
         return { top: leadPastorTopMenuItems, bottom: leadPastorBottomMenuItems };
       case 'leader':

@@ -11,7 +11,6 @@ export interface UserPayload {
   role: 'superadmin' | 'leadpastor' | 'admin' | 'leader';
   group_name?: string; // deprecated - use group_id
   group_id?: string;   // Assigned month group (Jan-Dec)
-  stream_id?: string;  // deprecated - will be removed
 }
 
 export function hashPassword(password: string): string {
