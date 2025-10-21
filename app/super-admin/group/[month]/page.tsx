@@ -148,14 +148,29 @@ export default function GroupDashboard() {
       setPeople(prevPeople =>
         prevPeople.map(person => {
           if (person.id === personId) {
-            return {
-              ...person,
-              progress: person.progress.map(p =>
-                p.stage_number === stageNumber
-                  ? { ...p, is_completed: !currentStatus }
-                  : p
-              ),
-            };
+            // Check if the stage exists in progress array
+            const stageExists = person.progress.some(p => p.stage_number === stageNumber);
+            
+            if (stageExists) {
+              // Update existing stage
+              return {
+                ...person,
+                progress: person.progress.map(p =>
+                  p.stage_number === stageNumber
+                    ? { ...p, is_completed: !currentStatus }
+                    : p
+                ),
+              };
+            } else {
+              // Add new stage if it doesn't exist
+              return {
+                ...person,
+                progress: [
+                  ...person.progress,
+                  { stage_number: stageNumber, is_completed: !currentStatus }
+                ],
+              };
+            }
           }
           return person;
         })

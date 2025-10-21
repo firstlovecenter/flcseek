@@ -310,24 +310,12 @@ export default function LeadPastorMonthDashboard() {
           </div>
           <div style={{
             padding: 20,
-            background: 'linear-gradient(135deg, #389e0d 0%, #52c41a 100%)',
-            borderRadius: 8,
-            border: '1px solid #52c41a',
-            boxShadow: '0 2px 8px rgba(82, 196, 26, 0.2)',
-          }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>Completed All Milestones</Text>
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
-              {newConvertsWithCompletedMilestones}
-            </div>
-          </div>
-          <div style={{
-            padding: 20,
             background: 'linear-gradient(135deg, #d48806 0%, #faad14 100%)',
             borderRadius: 8,
             border: '1px solid #faad14',
             boxShadow: '0 2px 8px rgba(250, 173, 20, 0.2)',
           }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>In Progress</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>New Converts with Incomplete Milestones</Text>
             <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
               {newConvertsInArrears}
             </div>
@@ -353,7 +341,12 @@ export default function LeadPastorMonthDashboard() {
           rowKey="id"
           size="small"
           scroll={{ x: 'max-content', y: 'calc(100vh - 400px)' }}
-          pagination={false}
+          pagination={{
+            defaultPageSize: 20,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} people`,
+          }}
           style={{
             background: 'white',
             borderRadius: 8,

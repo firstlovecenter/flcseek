@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, memo } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select } from 'antd';
-import { UserAddOutlined, FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
+import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
@@ -65,20 +65,28 @@ const ReadOnlyMilestoneCell = memo(({
     <Tooltip title={stageName}>
       <div
         style={{
-          padding: '8px',
+          padding: '12px',
           borderRadius: '8px',
-          backgroundColor: isCompleted ? '#f6ffed' : '#fff2e8',
-          border: `2px solid ${isCompleted ? '#52c41a' : '#ff4d4f'}`,
+          backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
+          border: '1px solid #d9d9d9',
           transition: 'all 0.3s',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          fontSize: '18px',
-          fontWeight: 'bold',
-          color: isCompleted ? '#52c41a' : '#ff4d4f',
+          minHeight: '40px',
         }}
       >
-        {isCompleted ? '✓' : '✗'}
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '12px',
+          }}
+        >
+          {isCompleted ? '✓' : '✗'}
+        </div>
       </div>
     </Tooltip>
   );
@@ -394,29 +402,47 @@ export default function SheepSeekerDashboard() {
               }
             </Text>
           </div>
-          {/* Hide register buttons for leaders (read-only) */}
-          {!isLeader && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Button
-                type="primary"
-                icon={<UserAddOutlined />}
-                onClick={() => setRegisterModalVisible(true)}
-                size="large"
-              >
-                Register New Person
-              </Button>
-              {isAdmin && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* View buttons for all users */}
+            <Button
+              icon={<TeamOutlined />}
+              onClick={() => router.push('/sheep-seeker/attendance')}
+              size="large"
+            >
+              View Attendance
+            </Button>
+            <Button
+              icon={<BarChartOutlined />}
+              onClick={() => router.push('/sheep-seeker/progress')}
+              size="large"
+            >
+              View Progress Report
+            </Button>
+            
+            {/* Register buttons only for admins (hide for leaders) */}
+            {!isLeader && (
+              <>
                 <Button
-                  type="default"
-                  icon={<FileExcelOutlined />}
-                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                  type="primary"
+                  icon={<UserAddOutlined />}
+                  onClick={() => setRegisterModalVisible(true)}
                   size="large"
                 >
-                  Bulk Register
+                  Register New Person
                 </Button>
-              )}
-            </div>
-          )}
+                {isAdmin && (
+                  <Button
+                    type="default"
+                    icon={<FileExcelOutlined />}
+                    onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                    size="large"
+                  >
+                    Bulk Register
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -445,46 +471,38 @@ export default function SheepSeekerDashboard() {
           marginBottom: 24
         }}>
           <div style={{
-            background: 'white',
-            padding: 16,
+            padding: 20,
+            background: 'linear-gradient(135deg, #0050b3 0%, #1890ff 100%)',
             borderRadius: 8,
-            border: '1px solid #d9d9d9'
+            border: '1px solid #1890ff',
+            boxShadow: '0 2px 8px rgba(24, 144, 255, 0.2)',
           }}>
-            <Text type="secondary">Total New Converts</Text>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>Total New Converts</Text>
+            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
               {totalNewConverts}
             </div>
           </div>
           <div style={{
-            background: 'white',
-            padding: 16,
+            padding: 20,
+            background: 'linear-gradient(135deg, #d48806 0%, #faad14 100%)',
             borderRadius: 8,
-            border: '1px solid #d9d9d9'
+            border: '1px solid #faad14',
+            boxShadow: '0 2px 8px rgba(250, 173, 20, 0.2)',
           }}>
-            <Text type="secondary">New Converts with Incomplete Milestones</Text>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>New Converts with Incomplete Milestones</Text>
+            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
               {newConvertsInArrears}
             </div>
           </div>
           <div style={{
-            background: 'white',
-            padding: 16,
+            padding: 20,
+            background: 'linear-gradient(135deg, #531dab 0%, #722ed1 100%)',
             borderRadius: 8,
-            border: '1px solid #d9d9d9'
+            border: '1px solid #722ed1',
+            boxShadow: '0 2px 8px rgba(114, 46, 209, 0.2)',
           }}>
-            <Text type="secondary">New Converts with Completed Milestones</Text>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
-              {newConvertsWithCompletedMilestones}
-            </div>
-          </div>
-          <div style={{
-            background: 'white',
-            padding: 16,
-            borderRadius: 8,
-            border: '1px solid #d9d9d9'
-          }}>
-            <Text type="secondary">Overall Progress</Text>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#13c2c2' }}>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>Overall Progress</Text>
+            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
               {overallProgress}%
             </div>
           </div>
@@ -497,7 +515,12 @@ export default function SheepSeekerDashboard() {
           rowKey="id"
           size="small"
           scroll={{ x: 'max-content', y: 'calc(100vh - 400px)' }}
-          pagination={false}
+          pagination={{
+            defaultPageSize: 20,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} people`,
+          }}
           style={{
             background: 'white',
             borderRadius: 8,

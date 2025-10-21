@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
 
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { person_id: string } }
@@ -12,6 +16,14 @@ export async function PATCH(
 
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Only admins and superadmin can update milestones
+    if (userPayload.role !== 'admin' && userPayload.role !== 'superadmin') {
+      return NextResponse.json(
+        { error: 'Unauthorized. Only admins and super admins can update milestones.' },
+        { status: 403 }
+      );
     }
 
     const { stage_number, is_completed } = await request.json();
@@ -42,14 +54,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
-    if (
-      userPayload.role === 'leader' &&
-      person.group_name !== userPayload.group_name
-    ) {
-      return NextResponse.json(
-        { error: 'You can only update progress for people in your group' },
-        { status: 403 }
-      );
+    // For admins, check if person is in their group
+    if (userPayload.role === 'admin') {
+      if (userPayload.group_id && person.group_id !== userPayload.group_id) {
+        return NextResponse.json(
+          { error: 'You can only update progress for people in your group' },
+          { status: 403 }
+        );
+      }
     }
 
     const dateCompleted = is_completed ? new Date().toISOString().split('T')[0] : null;

@@ -3,6 +3,10 @@ import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
 import { PROGRESS_STAGES } from '@/lib/constants';
 
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function POST(request: NextRequest) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -161,7 +165,16 @@ export async function GET(request: NextRequest) {
 
     const result = await query(sqlQuery, params);
 
-    return NextResponse.json({ people: result.rows });
+    return NextResponse.json(
+      { people: result.rows },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Internal server error' },
