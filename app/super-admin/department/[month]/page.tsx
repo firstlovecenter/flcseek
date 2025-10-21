@@ -86,7 +86,7 @@ export default function GroupDashboard() {
 
   const fetchGroupPeople = async () => {
     try {
-      const response = await fetch(`/api/people?department=${groupName}`, {
+      const response = await fetch(`/api/people?month=${groupName}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
