@@ -1,6 +1,6 @@
 # FLC Sheep Seeking
 
-A comprehensive church progress tracking system for managing member spiritual growth and attendance across 12 departments.
+A comprehensive church milestone tracking system for managing new convert spiritual growth and attendance across 12 departments.
 
 ## Quick Start
 
@@ -34,11 +34,11 @@ Visit `http://localhost:3000` and log in with:
 
 ## Features
 
-- **12 Department Management** - Organize members by month (January - December)
-- **Progress Tracking** - Monitor 15 spiritual growth stages
-- **Attendance System** - Track church attendance (goal: 26 times)
+- **12 Department Management** - Organize new converts by month (January - December)
+- **Milestone Tracking** - Monitor 18 spiritual growth milestones
+- **Attendance System** - Track church attendance (goal: 20 Sundays)
 - **SMS Notifications** - Automated messages for milestones
-- **Role-Based Access** - Super Admin and Sheep Seeker roles
+- **Role-Based Access** - Super Admin, Lead Pastor, Admin, and Leader roles
 - **Real-Time Analytics** - Department performance dashboards
 
 ## Tech Stack
@@ -83,8 +83,8 @@ For detailed setup instructions, API documentation, and deployment guide, see [S
 
 ### Sheep Seeker
 - Manage assigned department only
-- Register new members
-- Track progress and attendance
+- Register new converts
+- Track milestones and attendance
 - Cannot access other departments
 
 ## License

@@ -1,7 +1,7 @@
 {
-  "name": "FLC Sheep Seeking - Church Progress Tracker",
+  "name": "FLC Sheep Seeking - Church Milestone Tracker",
   "short_name": "FLC Sheep Seeking",
-  "description": "Church progress tracking and member management system for First Love Church",
+  "description": "Church milestone tracking and member management system for First Love Church",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
