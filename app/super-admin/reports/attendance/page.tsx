@@ -73,16 +73,20 @@ export default function AttendanceReportPage() {
       title: 'Name',
       dataIndex: 'full_name',
       key: 'full_name',
+      width: 200,
+      fixed: 'left' as const,
     },
     {
       title: 'Department',
       dataIndex: 'department_name',
       key: 'department_name',
+      width: 150,
     },
     {
       title: 'Attendance Count',
       dataIndex: 'attendanceCount',
       key: 'attendanceCount',
+      width: 150,
       sorter: (a: PersonAttendance, b: PersonAttendance) => a.attendanceCount - b.attendanceCount,
       render: (count: number) => `${count} / ${ATTENDANCE_GOAL}`,
     },
@@ -90,10 +94,16 @@ export default function AttendanceReportPage() {
       title: 'Progress',
       key: 'progress',
       render: (_: any, record: PersonAttendance) => (
-        <Progress
-          percent={record.percentage}
-          strokeColor={record.percentage >= 100 ? '#52c41a' : '#1890ff'}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <Progress
+              percent={record.percentage}
+              strokeColor={record.percentage >= 100 ? '#52c41a' : '#1890ff'}
+              size="small"
+            />
+          </div>
+          <Text strong>{record.percentage}%</Text>
+        </div>
       ),
     },
   ];
@@ -112,7 +122,7 @@ export default function AttendanceReportPage() {
       <div>
         <div style={{ marginBottom: 24 }}>
           <Title level={2}>Attendance Report</Title>
-          <Text type="secondary">Track church attendance across all members (Goal: {ATTENDANCE_GOAL} Sundays)</Text>
+          <Text type="secondary">Track church attendance across all new converts (Goal: {ATTENDANCE_GOAL} Sundays)</Text>
         </div>
 
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
@@ -143,7 +153,12 @@ export default function AttendanceReportPage() {
             columns={columns}
             dataSource={attendanceData}
             rowKey="id"
-            pagination={{ pageSize: 20, showSizeChanger: true }}
+            scroll={{ x: 800 }}
+            pagination={{ 
+              pageSize: 20, 
+              showSizeChanger: true,
+              showTotal: (total) => `Total ${total} new converts`
+            }}
           />
         </Card>
       </div>

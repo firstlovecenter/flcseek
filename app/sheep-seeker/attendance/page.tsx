@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker } from 'antd';
-import { PlusOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
@@ -103,52 +103,50 @@ export default function AttendancePage() {
       title: 'Name',
       dataIndex: 'full_name',
       key: 'full_name',
+      width: 200,
+      fixed: 'left' as const,
       render: (text: string, record: PersonAttendance) => (
         <Button
           type="link"
           onClick={() => router.push(`/person/${record.id}`)}
-          style={{ padding: 0 }}
+          style={{ padding: 0, fontWeight: 500 }}
         >
           {text}
         </Button>
       ),
     },
     {
-      title: 'Attendance',
-      key: 'attendance',
+      title: 'Actions',
+      key: 'actions',
+      width: 150,
+      fixed: 'left' as const,
       render: (_: any, record: PersonAttendance) => (
-        <div style={{ width: 150 }}>
-          <Progress
-            percent={record.percentage}
-            strokeColor={record.percentage >= 100 ? '#52c41a' : '#1890ff'}
-            size="small"
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {record.attendanceCount}/{ATTENDANCE_GOAL}
-          </Text>
-        </div>
+        <Button
+          size="small"
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => markAttendance(record.id)}
+        >
+          Mark Present
+        </Button>
       ),
     },
     {
-      title: 'Actions',
-      key: 'actions',
+      title: 'Attendance Progress',
+      key: 'attendance',
       render: (_: any, record: PersonAttendance) => (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            size="small"
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => markAttendance(record.id)}
-          >
-            Mark Present
-          </Button>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => router.push(`/person/${record.id}`)}
-          >
-            View
-          </Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <Progress
+              percent={record.percentage}
+              strokeColor={record.percentage >= 100 ? '#52c41a' : '#1890ff'}
+              size="small"
+              format={(percent) => `${record.attendanceCount}/${ATTENDANCE_GOAL}`}
+            />
+          </div>
+          <Tag color={record.percentage >= 100 ? 'success' : 'processing'}>
+            {record.percentage}%
+          </Tag>
         </div>
       ),
     },
@@ -188,9 +186,13 @@ export default function AttendancePage() {
           columns={columns}
           dataSource={people}
           rowKey="id"
-          size="small"
-          scroll={{ x: 600 }}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          size="middle"
+          scroll={{ x: 800 }}
+          pagination={{ 
+            pageSize: 20, 
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} new converts`
+          }}
           style={{ background: 'white', borderRadius: 8 }}
         />
       </div>
