@@ -302,7 +302,7 @@ export default function PersonDetailPage() {
             items={[
               {
                 key: 'progress',
-                label: 'Progress Tracker',
+                label: 'Milestone Tracker',
                 children: (
                   <Card>
                     <div style={{ marginBottom: 24 }}>

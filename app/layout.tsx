@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'FLC Sheep Seeking',
-  description: 'Church progress tracking system for FLC',
+  description: 'Church milestone tracking system for FLC',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

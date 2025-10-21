@@ -92,7 +92,7 @@ export default function Home() {
               color: 'rgba(255, 255, 255, 0.7)',
             }}
           >
-            Church Progress Tracking System
+            Church Milestone Tracking System
           </Text>
         </div>
 

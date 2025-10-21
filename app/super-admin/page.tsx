@@ -192,7 +192,7 @@ export default function SuperAdminDashboard() {
               Group Overview
             </Title>
             <Text type="secondary" style={{ fontSize: 'clamp(0.875rem, 3vw, 1rem)' }}>
-              Track progress and attendance across all 12 groups
+              Track milestones and attendance across all 12 groups
             </Text>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

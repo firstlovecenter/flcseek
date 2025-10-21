@@ -194,9 +194,9 @@ export default function ProgressPage() {
       <AppBreadcrumb />
       <div>
         <div style={{ marginBottom: 24 }}>
-          <Title level={2}>Progress Tracking</Title>
+          <Title level={2}>Milestone Tracking</Title>
           <Text type="secondary">
-            Update and monitor spiritual growth stages
+            Update and monitor spiritual growth milestones
           </Text>
         </div>
 
