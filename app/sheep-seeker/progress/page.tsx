@@ -14,6 +14,7 @@ interface PersonProgress {
   id: string;
   full_name: string;
   group_name: string;
+  phone_number: string;
   completedStages: number;
   percentage: number;
 }
@@ -27,6 +28,9 @@ export default function ProgressPage() {
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
   const [progressStages, setProgressStages] = useState<any[]>([]);
   const [updating, setUpdating] = useState(false);
+  
+  // Check if user is a leader (read-only access)
+  const isLeader = user?.role === 'leader';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -61,6 +65,7 @@ export default function ProgressPage() {
             id: person.id,
             full_name: person.full_name,
             group_name: person.group_name,
+            phone_number: person.phone_number,
             completedStages,
             percentage: Math.round((completedStages / 18) * 100),
           };
@@ -130,33 +135,49 @@ export default function ProgressPage() {
       title: 'Name',
       dataIndex: 'full_name',
       key: 'full_name',
+      width: isLeader ? 200 : undefined,
       render: (text: string, record: PersonProgress) => (
-        <Button
-          type="link"
-          onClick={() => router.push(`/person/${record.id}`)}
-          style={{ padding: 0 }}
-        >
-          {text}
-        </Button>
+        <div>
+          <Button
+            type="link"
+            onClick={() => router.push(`/person/${record.id}`)}
+            style={{ padding: 0 }}
+          >
+            {text}
+          </Button>
+          {isLeader && (
+            <div style={{ fontSize: 12, color: '#888' }}>
+              <a href={`tel:${record.phone_number}`} style={{ color: '#888' }}>
+                📞 {record.phone_number}
+              </a>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Completed Stages',
+      key: 'completed',
+      width: isLeader ? 100 : undefined,
+      render: (_: any, record: PersonProgress) => (
+        <Tag color="blue">{record.completedStages}/18</Tag>
       ),
     },
     {
       title: 'Progress',
       key: 'progress',
       render: (_: any, record: PersonProgress) => (
-        <div style={{ width: 150 }}>
+        <div style={{ width: isLeader ? undefined : 150 }}>
           <Progress
             percent={record.percentage}
             strokeColor="#52c41a"
             size="small"
           />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {record.completedStages}/18 stages
-          </Text>
         </div>
       ),
     },
-    {
+    // Only show Actions column for admins (not for leaders)
+    ...(!isLeader ? [{
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: PersonProgress) => (
@@ -178,7 +199,7 @@ export default function ProgressPage() {
           </Button>
         </div>
       ),
-    },
+    }] : []),
   ];
 
   if (authLoading || loading) {
@@ -196,7 +217,10 @@ export default function ProgressPage() {
         <div style={{ marginBottom: 24 }}>
           <Title level={2}>Milestone Tracking</Title>
           <Text type="secondary">
-            Update and monitor spiritual growth milestones
+            {isLeader 
+              ? 'View spiritual growth milestones for all new converts - Read-only access'
+              : 'Update and monitor spiritual growth milestones'
+            }
           </Text>
         </div>
 

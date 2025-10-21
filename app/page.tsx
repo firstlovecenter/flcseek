@@ -23,7 +23,7 @@ export default function Home() {
           router.push('/sheep-seeker'); // Admins now have full sheep seeker access
           break;
         case 'leadpastor':
-          router.push('/sheep-seeker'); // Lead pastor can view all groups
+          router.push('/leadpastor'); // Lead pastor can view all groups
           break;
         case 'leader':
           router.push('/sheep-seeker'); // Leaders have view-only access

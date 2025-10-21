@@ -53,6 +53,37 @@ const MilestoneCell = memo(({
   );
 });
 
+// Read-only milestone cell component for leaders
+const ReadOnlyMilestoneCell = memo(({ 
+  isCompleted, 
+  stageName
+}: { 
+  isCompleted: boolean; 
+  stageName: string;
+}) => {
+  return (
+    <Tooltip title={stageName}>
+      <div
+        style={{
+          padding: '8px',
+          borderRadius: '8px',
+          backgroundColor: isCompleted ? '#f6ffed' : '#fff2e8',
+          border: `2px solid ${isCompleted ? '#52c41a' : '#ff4d4f'}`,
+          transition: 'all 0.3s',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          fontSize: '18px',
+          fontWeight: 'bold',
+          color: isCompleted ? '#52c41a' : '#ff4d4f',
+        }}
+      >
+        {isCompleted ? '✓' : '✗'}
+      </div>
+    </Tooltip>
+  );
+});
+
 interface PersonWithProgress {
   id: string;
   full_name: string;
@@ -203,6 +234,9 @@ export default function SheepSeekerDashboard() {
     return stage?.is_completed || false;
   }, []);
 
+  // Check if user is a leader (read-only access)
+  const isLeader = user?.role === 'leader';
+
   // Generate columns efficiently - only once, not in render
   const getColumns = () => {
     const baseColumns: any[] = [
@@ -222,7 +256,13 @@ export default function SheepSeekerDashboard() {
               <Text strong style={{ fontSize: 14 }}>{text}</Text>
             </Button>
             <div style={{ fontSize: 12, color: '#888' }}>
-              {record.group_name}
+              {isLeader ? (
+                <a href={`tel:${record.phone_number}`} style={{ color: '#888' }}>
+                  📞 {record.phone_number}
+                </a>
+              ) : (
+                record.group_name
+              )}
             </div>
           </div>
         ),
@@ -250,6 +290,16 @@ export default function SheepSeekerDashboard() {
         const isCompleted = getMilestoneStatus(record, stage.number);
         const isUpdating = updating === `${record.id}-${stage.number}`;
         const isAuto = stage.number === 18; // Milestone 18 is auto-calculated
+        
+        // Use read-only cell for leaders
+        if (isLeader) {
+          return (
+            <ReadOnlyMilestoneCell
+              isCompleted={isCompleted}
+              stageName={stage.name}
+            />
+          );
+        }
         
         return (
           <MilestoneCell
@@ -323,29 +373,35 @@ export default function SheepSeekerDashboard() {
           <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
             <Title level={2} style={{ marginBottom: 8 }}>{displayTitle}</Title>
             <Text type="secondary">
-              Track all {totalNewConverts} new converts across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
+              {isLeader 
+                ? `View all ${totalNewConverts} new converts across ${TOTAL_PROGRESS_STAGES} milestones - Read-only access`
+                : `Track all ${totalNewConverts} new converts across ${TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status`
+              }
             </Text>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Button
-              type="primary"
-              icon={<UserAddOutlined />}
-              onClick={() => setRegisterModalVisible(true)}
-              size="large"
-            >
-              Register New Person
-            </Button>
-            {isAdmin && (
+          {/* Hide register buttons for leaders (read-only) */}
+          {!isLeader && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Button
-                type="default"
-                icon={<FileExcelOutlined />}
-                onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                type="primary"
+                icon={<UserAddOutlined />}
+                onClick={() => setRegisterModalVisible(true)}
                 size="large"
               >
-                Bulk Register
+                Register New Person
               </Button>
-            )}
-          </div>
+              {isAdmin && (
+                <Button
+                  type="default"
+                  icon={<FileExcelOutlined />}
+                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                  size="large"
+                >
+                  Bulk Register
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Search Bar */}

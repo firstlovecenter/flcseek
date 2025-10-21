@@ -210,33 +210,17 @@ export default function Navigation({ children }: NavigationProps) {
     },
   ];
 
-  // Top Navigation items for Lead Pastor
-  const leadPastorTopMenuItems = [
-    {
-      key: '/lead-pastor',
-      icon: <EyeOutlined />,
-      label: <Link href="/lead-pastor">Dashboard</Link>,
-    },
-    {
-      key: 'reports',
-      icon: <FileTextOutlined />,
-      label: <Link href="/lead-pastor/reports">Reports</Link>,
-    },
-  ];
+  // Top Navigation items for Lead Pastor (Minimal - no dashboard/reports buttons)
+  const leadPastorTopMenuItems: any[] = [];
 
-  // Mobile Bottom Navigation for Lead Pastor
-  const leadPastorBottomMenuItems = [
-    {
-      key: '/lead-pastor',
-      icon: <EyeOutlined />,
-      label: <Link href="/lead-pastor">Home</Link>,
-    },
-    {
-      key: '/lead-pastor/reports',
-      icon: <FileTextOutlined />,
-      label: <Link href="/lead-pastor/reports">Reports</Link>,
-    },
-  ];
+  // Mobile Bottom Navigation for Lead Pastor (Minimal)
+  const leadPastorBottomMenuItems: any[] = [];
+
+  // Top Navigation items for Leader (Minimal - no buttons, read-only access)
+  const leaderTopMenuItems: any[] = [];
+
+  // Mobile Bottom Navigation for Leader (Minimal)
+  const leaderBottomMenuItems: any[] = [];
 
   const getMenuItemsByRole = () => {
     switch (user?.role) {
@@ -247,7 +231,7 @@ export default function Navigation({ children }: NavigationProps) {
       case 'leadpastor':
         return { top: leadPastorTopMenuItems, bottom: leadPastorBottomMenuItems };
       case 'leader':
-        return { top: sheepSeekerTopMenuItems, bottom: sheepSeekerBottomMenuItems };
+        return { top: leaderTopMenuItems, bottom: leaderBottomMenuItems };
       default:
         return { top: sheepSeekerTopMenuItems, bottom: sheepSeekerBottomMenuItems };
     }
