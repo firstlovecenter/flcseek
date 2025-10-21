@@ -145,7 +145,7 @@ export default function SuperAdminDashboard() {
           icon={<RightOutlined />}
           onClick={(e) => {
             e.stopPropagation();
-            router.push(`/super-admin/department/${record.group}`);
+            router.push(`/super-admin/group/${record.group}`);
           }}
           size="small"
           style={{ touchAction: 'manipulation' }}
@@ -302,7 +302,7 @@ export default function SuperAdminDashboard() {
             scroll={{ x: 600 }}
             style={{ cursor: 'pointer' }}
             onRow={(record) => ({
-              onClick: () => router.push(`/super-admin/department/${record.group}`),
+              onClick: () => router.push(`/super-admin/group/${record.group}`),
               style: { cursor: 'pointer' },
             })}
             rowClassName="hover:bg-gray-50"

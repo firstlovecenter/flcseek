@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         d.id as department_id,
         d.name as department_name
        FROM users u
-       LEFT JOIN departments d ON d.leader_id = u.id
+       LEFT JOIN groups d ON d.leader_id = u.id
        WHERE u.role = 'leader'
        ORDER BY u.username ASC`
     );
