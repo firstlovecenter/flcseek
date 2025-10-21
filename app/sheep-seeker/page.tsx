@@ -272,14 +272,14 @@ export default function SheepSeekerDashboard() {
     );
   }
 
-  const totalMembers = people.length;
-  const membersWithCompletedMilestones = people.filter(
+  const totalNewConverts = people.length;
+  const newConvertsWithCompletedMilestones = people.filter(
     person => person.progress.filter(p => p.is_completed).length === TOTAL_PROGRESS_STAGES
   ).length;
-  const membersInArrears = people.filter(
+  const newConvertsInArrears = people.filter(
     person => person.progress.filter(p => p.is_completed).length < TOTAL_PROGRESS_STAGES
   ).length;
-  const totalMilestones = totalMembers * TOTAL_PROGRESS_STAGES;
+  const totalMilestones = totalNewConverts * TOTAL_PROGRESS_STAGES;
   const completedMilestones = people.reduce(
     (sum, person) => sum + person.progress.filter(p => p.is_completed).length,
     0
@@ -329,9 +329,9 @@ export default function SheepSeekerDashboard() {
             borderRadius: 8,
             border: '1px solid #d9d9d9'
           }}>
-            <Text type="secondary">Total Members</Text>
+            <Text type="secondary">Total New Converts</Text>
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
-              {totalMembers}
+              {totalNewConverts}
             </div>
           </div>
           <div style={{
@@ -340,20 +340,20 @@ export default function SheepSeekerDashboard() {
             borderRadius: 8,
             border: '1px solid #d9d9d9'
           }}>
-            <Text type="secondary">Members with Completed Milestones</Text>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
-              {membersWithCompletedMilestones}
-            </div>
-          </div>
-          <div style={{
-            background: 'white',
-            padding: 16,
-            borderRadius: 8,
-            border: '1px solid #d9d9d9'
-          }}>
-            <Text type="secondary">Members in Arrears</Text>
+            <Text type="secondary">New Converts with Incomplete Milestones</Text>
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>
-              {membersInArrears}
+              {newConvertsInArrears}
+            </div>
+          </div>
+          <div style={{
+            background: 'white',
+            padding: 16,
+            borderRadius: 8,
+            border: '1px solid #d9d9d9'
+          }}>
+            <Text type="secondary">New Converts with Completed Milestones</Text>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
+              {newConvertsWithCompletedMilestones}
             </div>
           </div>
           <div style={{
@@ -380,7 +380,7 @@ export default function SheepSeekerDashboard() {
             pageSize: 50,
             showSizeChanger: true,
             pageSizeOptions: ['20', '50', '100'],
-            showTotal: (total) => `Total ${total} members`,
+            showTotal: (total) => `Total ${total} new converts`,
           }}
           style={{
             background: 'white',
