@@ -9,6 +9,8 @@ import {
   RightOutlined,
   OrderedListOutlined,
   AppstoreOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -80,7 +82,7 @@ export default function SuperAdminDashboard() {
       fixed: 'left' as const,
     },
     {
-      title: 'Members',
+      title: 'New Converts',
       dataIndex: 'totalPeople',
       key: 'totalPeople',
       render: (value: number) => (
@@ -157,13 +159,21 @@ export default function SuperAdminDashboard() {
     },
   ];
 
-  const totalMembers = summary.reduce((sum, dept) => sum + dept.totalPeople, 0);
+  const totalNewConverts = summary.reduce((sum, dept) => sum + dept.totalPeople, 0);
   const overallAvgProgress = summary.length
     ? Math.round(summary.reduce((sum, dept) => sum + dept.avgProgress, 0) / summary.length)
     : 0;
   const overallAvgAttendance = summary.length
     ? Math.round(summary.reduce((sum, dept) => sum + dept.avgAttendance, 0) / summary.length)
     : 0;
+  
+  // Calculate completed and incomplete based on progress percentages
+  const newConvertsCompleted = summary.reduce((sum, dept) => {
+    // If avg progress is 100%, count all people as completed
+    if (dept.avgProgress === 100) return sum + dept.totalPeople;
+    return sum;
+  }, 0);
+  const newConvertsIncomplete = totalNewConverts - newConvertsCompleted;
 
   return (
     <>
@@ -217,21 +227,55 @@ export default function SuperAdminDashboard() {
               <TeamOutlined style={{ fontSize: 'clamp(24px, 6vw, 32px)', color: '#1890ff' }} />
               <div style={{ minWidth: 0 }}>
                 <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)' }}>
-                  Total Members
+                  Total New Converts
                 </Text>
                 <div style={{ 
                   fontSize: 'clamp(1.25rem, 5vw, 1.5rem)', 
                   fontWeight: 'bold', 
                   color: '#1890ff' 
                 }}>
-                  {totalMembers}
+                  {totalNewConverts}
                 </div>
               </div>
             </div>
           </Card>
           <Card style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <TrophyOutlined style={{ fontSize: 'clamp(24px, 6vw, 32px)', color: '#52c41a' }} />
+              <ClockCircleOutlined style={{ fontSize: 'clamp(24px, 6vw, 32px)', color: '#ff4d4f' }} />
+              <div style={{ minWidth: 0 }}>
+                <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)' }}>
+                  New Converts with Incomplete Milestones
+                </Text>
+                <div style={{ 
+                  fontSize: 'clamp(1.25rem, 5vw, 1.5rem)', 
+                  fontWeight: 'bold', 
+                  color: '#ff4d4f' 
+                }}>
+                  {newConvertsIncomplete}
+                </div>
+              </div>
+            </div>
+          </Card>
+          <Card style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <CheckCircleOutlined style={{ fontSize: 'clamp(24px, 6vw, 32px)', color: '#52c41a' }} />
+              <div style={{ minWidth: 0 }}>
+                <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)' }}>
+                  New Converts with Completed Milestones
+                </Text>
+                <div style={{ 
+                  fontSize: 'clamp(1.25rem, 5vw, 1.5rem)', 
+                  fontWeight: 'bold', 
+                  color: '#52c41a' 
+                }}>
+                  {newConvertsCompleted}
+                </div>
+              </div>
+            </div>
+          </Card>
+          <Card style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <TrophyOutlined style={{ fontSize: 'clamp(24px, 6vw, 32px)', color: '#722ed1' }} />
               <div style={{ minWidth: 0 }}>
                 <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)' }}>
                   Overall Progress
@@ -239,26 +283,9 @@ export default function SuperAdminDashboard() {
                 <div style={{ 
                   fontSize: 'clamp(1.25rem, 5vw, 1.5rem)', 
                   fontWeight: 'bold', 
-                  color: '#52c41a' 
+                  color: '#722ed1' 
                 }}>
                   {overallAvgProgress}%
-                </div>
-              </div>
-            </div>
-          </Card>
-          <Card style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <CalendarOutlined style={{ fontSize: 'clamp(24px, 6vw, 32px)', color: '#faad14' }} />
-              <div style={{ minWidth: 0 }}>
-                <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)' }}>
-                  Overall Attendance
-                </Text>
-                <div style={{ 
-                  fontSize: 'clamp(1.25rem, 5vw, 1.5rem)', 
-                  fontWeight: 'bold', 
-                  color: '#faad14' 
-                }}>
-                  {overallAvgAttendance}%
                 </div>
               </div>
             </div>

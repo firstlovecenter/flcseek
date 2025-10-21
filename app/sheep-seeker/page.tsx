@@ -303,7 +303,7 @@ export default function SheepSeekerDashboard() {
           <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
             <Title level={2} style={{ marginBottom: 8 }}>My Group: {user?.group_name}</Title>
             <Text type="secondary">
-              Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
+              Track all {totalNewConverts} new converts across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
             </Text>
           </div>
           <Button
