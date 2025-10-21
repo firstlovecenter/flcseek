@@ -75,10 +75,22 @@ export async function POST(
 
     const count = parseInt(countResult.rows[0].count);
 
+    // Auto-update milestone 18 (Attendance) based on count
+    const milestone18Completed = count >= ATTENDANCE_GOAL;
+    const dateCompleted = milestone18Completed ? new Date().toISOString().split('T')[0] : null;
+    
+    await query(
+      `UPDATE progress_records 
+       SET is_completed = $1, date_completed = $2, last_updated = $3, updated_by = $4
+       WHERE person_id = $5 AND stage_number = 18`,
+      [milestone18Completed, dateCompleted, new Date().toISOString(), userPayload.id, params.person_id]
+    );
+
     return NextResponse.json({
       message: 'Attendance recorded successfully',
       attendance,
       totalCount: count,
+      milestone18Status: milestone18Completed ? 'completed' : 'pending',
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -108,6 +120,88 @@ export async function GET(
     return NextResponse.json({
       attendance: attendanceResult.rows,
       count: attendanceResult.rows.length,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { person_id: string } }
+) {
+  try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    const userPayload = token ? verifyToken(token) : null;
+
+    if (!userPayload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const attendanceId = searchParams.get('id');
+
+    if (!attendanceId) {
+      return NextResponse.json(
+        { error: 'Attendance ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify person exists and user has permission
+    const personResult = await query(
+      'SELECT * FROM registered_people WHERE id = $1',
+      [params.person_id]
+    );
+
+    const person = personResult.rows[0];
+
+    if (!person) {
+      return NextResponse.json({ error: 'Person not found' }, { status: 404 });
+    }
+
+    if (
+      userPayload.role === 'leader' &&
+      person.group_name !== userPayload.group_name
+    ) {
+      return NextResponse.json(
+        {
+          error: 'You can only delete attendance for people in your group',
+        },
+        { status: 403 }
+      );
+    }
+
+    // Delete the attendance record
+    await query(
+      'DELETE FROM attendance_records WHERE id = $1 AND person_id = $2',
+      [attendanceId, params.person_id]
+    );
+
+    // Recalculate count and update milestone 18
+    const countResult = await query(
+      'SELECT COUNT(*) as count FROM attendance_records WHERE person_id = $1',
+      [params.person_id]
+    );
+
+    const count = parseInt(countResult.rows[0].count);
+    const milestone18Completed = count >= ATTENDANCE_GOAL;
+    const dateCompleted = milestone18Completed ? new Date().toISOString().split('T')[0] : null;
+
+    await query(
+      `UPDATE progress_records 
+       SET is_completed = $1, date_completed = $2, last_updated = $3, updated_by = $4
+       WHERE person_id = $5 AND stage_number = 18`,
+      [milestone18Completed, dateCompleted, new Date().toISOString(), userPayload.id, params.person_id]
+    );
+
+    return NextResponse.json({
+      message: 'Attendance deleted successfully',
+      totalCount: count,
+      milestone18Status: milestone18Completed ? 'completed' : 'pending',
     });
   } catch (error: any) {
     return NextResponse.json(

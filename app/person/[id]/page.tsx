@@ -15,6 +15,7 @@ import {
   Modal,
   Form,
   DatePicker,
+  Tooltip,
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -22,6 +23,7 @@ import {
   PlusOutlined,
   HomeOutlined,
   EnvironmentOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -176,15 +178,27 @@ export default function PersonDetailPage() {
     {
       title: 'Action',
       key: 'action',
-      width: 100,
-      render: (_: any, record: ProgressRecord) => (
-        <Switch
-          checked={record.is_completed}
-          onChange={(checked) => handleProgressToggle(record.stage_number, checked)}
-          checkedChildren="Done"
-          unCheckedChildren="Todo"
-        />
-      ),
+      width: 150,
+      render: (_: any, record: ProgressRecord) => {
+        // Milestone 18 is auto-calculated from attendance
+        if (record.stage_number === 18) {
+          return (
+            <Tooltip title="Auto-calculated from attendance records">
+              <Tag icon={<InfoCircleOutlined />} color="blue">
+                Auto
+              </Tag>
+            </Tooltip>
+          );
+        }
+        return (
+          <Switch
+            checked={record.is_completed}
+            onChange={(checked) => handleProgressToggle(record.stage_number, checked)}
+            checkedChildren="Done"
+            unCheckedChildren="Todo"
+          />
+        );
+      },
     },
   ];
 
