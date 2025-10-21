@@ -22,7 +22,7 @@ export async function PUT(
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
     
-    if (!userPayload || userPayload.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
         { error: 'Unauthorized - Super Admin access required' },
         { status: 403 }
@@ -107,7 +107,7 @@ export async function DELETE(
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
     
-    if (!userPayload || userPayload.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
         { error: 'Unauthorized - Super Admin access required' },
         { status: 403 }

@@ -48,7 +48,7 @@ export default function GroupManagementPage() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'super_admin')) {
+    if (!authLoading && (!user || user.role !== 'superadmin')) {
       router.push('/');
       return;
     }

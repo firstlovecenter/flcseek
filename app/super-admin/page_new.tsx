@@ -29,7 +29,7 @@ export default function SuperAdminDashboard() {
   const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'super_admin')) {
+    if (!authLoading && (!user || user.role !== 'superadmin')) {
       router.push('/');
       return;
     }

@@ -57,7 +57,7 @@ export async function PUT(
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
 
-    if (!userPayload || userPayload.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
         { error: 'Unauthorized. Only super admins can update departments.' },
         { status: 403 }
@@ -147,7 +147,7 @@ export async function DELETE(
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
 
-    if (!userPayload || userPayload.role !== 'super_admin') {
+    if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
         { error: 'Unauthorized. Only super admins can delete departments.' },
         { status: 403 }

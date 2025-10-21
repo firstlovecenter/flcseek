@@ -37,7 +37,7 @@ export default function AllPeoplePage() {
   const [groups, setGroups] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'super_admin')) {
+    if (!authLoading && (!user || user.role !== 'superadmin')) {
       router.push('/');
       return;
     }

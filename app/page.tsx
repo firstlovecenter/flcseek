@@ -20,13 +20,13 @@ export default function Home() {
           router.push('/super-admin');
           break;
         case 'admin':
-          router.push('/stream-leader');
+          router.push('/sheep-seeker'); // Admins now have full sheep seeker access
           break;
         case 'leadpastor':
-          router.push('/lead-pastor');
+          router.push('/sheep-seeker'); // Lead pastor can view all groups
           break;
         case 'leader':
-          router.push('/sheep-seeker');
+          router.push('/sheep-seeker'); // Leaders have view-only access
           break;
         default:
           router.push('/sheep-seeker');
@@ -151,7 +151,7 @@ export default function Home() {
               color: 'rgba(255, 255, 255, 0.6)',
             }}
           >
-            Only authorized Sheep Seekers and Super Admins can log in
+            Only authorized users can log in
           </Text>
         </div>
       </Card>
