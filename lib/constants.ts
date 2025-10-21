@@ -45,7 +45,7 @@ export const ROLE_PERMISSIONS = {
 };
 
 export const PROGRESS_STAGES = [
-  { number: 1, name: 'Registered as Church Member', shortName: 'Registered' },
+  { number: 1, name: 'Registered as New Convert', shortName: 'Registered' },
   { number: 2, name: 'Visited (First Quarter)', shortName: 'First\nVisit' },
   { number: 3, name: 'Visited (Second Quarter)', shortName: 'Second\nVisit' },
   { number: 4, name: 'Visited (Third Quarter)', shortName: 'Third\nVisit' },

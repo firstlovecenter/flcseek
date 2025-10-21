@@ -247,14 +247,14 @@ export default function GroupDashboard() {
     );
   }
 
-  const totalMembers = people.length;
-  const membersWithCompletedMilestones = people.filter(
+  const totalNewConverts = people.length;
+  const newConvertsWithCompletedMilestones = people.filter(
     person => person.progress.filter(p => p.is_completed).length === TOTAL_PROGRESS_STAGES
   ).length;
-  const membersInArrears = people.filter(
+  const newConvertsInArrears = people.filter(
     person => person.progress.filter(p => p.is_completed).length < TOTAL_PROGRESS_STAGES
   ).length;
-  const totalMilestones = totalMembers * TOTAL_PROGRESS_STAGES;
+  const totalMilestones = totalNewConverts * TOTAL_PROGRESS_STAGES;
   const completedMilestones = people.reduce(
     (sum, person) => sum + person.progress.filter(p => p.is_completed).length,
     0
@@ -278,7 +278,7 @@ export default function GroupDashboard() {
           <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
             <Title level={2} style={{ marginBottom: 8 }}>{groupName} Group Dashboard</Title>
             <Text type="secondary">
-              Track all {totalMembers} members across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
+              Track all {totalNewConverts} new converts across {TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status
             </Text>
           </div>
           <Button
@@ -303,9 +303,9 @@ export default function GroupDashboard() {
             borderRadius: 8,
             border: '1px solid #d9d9d9'
           }}>
-            <Text type="secondary">Total Members</Text>
+            <Text type="secondary">Total New Converts</Text>
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
-              {totalMembers}
+              {totalNewConverts}
             </div>
           </div>
           <div style={{
@@ -314,20 +314,20 @@ export default function GroupDashboard() {
             borderRadius: 8,
             border: '1px solid #d9d9d9'
           }}>
-            <Text type="secondary">Members with Completed Milestones</Text>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
-              {membersWithCompletedMilestones}
-            </div>
-          </div>
-          <div style={{
-            background: 'white',
-            padding: 16,
-            borderRadius: 8,
-            border: '1px solid #d9d9d9'
-          }}>
-            <Text type="secondary">Members in Arrears</Text>
+            <Text type="secondary">New Converts with Incomplete Milestones</Text>
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>
-              {membersInArrears}
+              {newConvertsInArrears}
+            </div>
+          </div>
+          <div style={{
+            background: 'white',
+            padding: 16,
+            borderRadius: 8,
+            border: '1px solid #d9d9d9'
+          }}>
+            <Text type="secondary">New Converts with Completed Milestones</Text>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
+              {newConvertsWithCompletedMilestones}
             </div>
           </div>
           <div style={{
