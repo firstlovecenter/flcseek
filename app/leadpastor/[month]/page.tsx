@@ -110,7 +110,7 @@ export default function LeadPastorMonthDashboard() {
               const progressData = await progressResponse.json();
               return {
                 ...person,
-                progress: progressData.person?.progress || [],
+                progress: progressData.progress || [],
               };
             }
             return { ...person, progress: [] };
