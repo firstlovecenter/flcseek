@@ -8,6 +8,7 @@ interface User {
   email: string;
   role: 'superadmin' | 'leadpastor' | 'admin' | 'leader';
   group_name?: string;
+  group_year?: number;
   phone_number: string;
   first_name?: string;
   last_name?: string;

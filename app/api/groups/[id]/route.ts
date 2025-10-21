@@ -22,6 +22,7 @@ export async function GET(
       `SELECT 
         g.id,
         g.name,
+        g.year,
         g.description,
         g.sheep_seeker_id,
         g.created_at,
@@ -67,7 +68,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, description, sheep_seeker_id } = await request.json();
+    const { name, description, sheep_seeker_id, year } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -78,7 +79,7 @@ export async function PUT(
 
     // Check if group exists
     const existing = await query(
-      'SELECT id, name FROM groups WHERE id = $1',
+      'SELECT id, name, year FROM groups WHERE id = $1',
       [params.id]
     );
 
@@ -87,17 +88,18 @@ export async function PUT(
     }
 
     const oldGroupName = existing.rows[0].name;
+    const oldYear = existing.rows[0].year;
 
-    // Check if new name conflicts with another group
-    if (name.trim() !== oldGroupName) {
+    // Check if new name + year conflicts with another group
+    if (name.trim() !== oldGroupName || year !== oldYear) {
       const nameCheck = await query(
-        'SELECT id FROM groups WHERE name = $1 AND id != $2',
-        [name.trim(), params.id]
+        'SELECT id FROM groups WHERE name = $1 AND year = $2 AND id != $3',
+        [name.trim(), year || oldYear, params.id]
       );
 
       if (nameCheck.rows.length > 0) {
         return NextResponse.json(
-          { error: 'Group name already exists' },
+          { error: `Group ${name} ${year || oldYear} already exists` },
           { status: 409 }
         );
       }
@@ -127,12 +129,25 @@ export async function PUT(
     }
 
     // Update the group
+    const updateFields = ['name = $1', 'description = $2', 'sheep_seeker_id = $3'];
+    const updateValues: any[] = [name.trim(), description || null, sheep_seeker_id || null];
+    let paramCounter = 4;
+
+    if (year !== undefined && year !== oldYear) {
+      updateFields.push(`year = $${paramCounter}`);
+      updateValues.push(year);
+      paramCounter++;
+    }
+
+    updateFields.push('updated_at = NOW()');
+    updateValues.push(params.id);
+
     const result = await query(
       `UPDATE groups 
-       SET name = $1, description = $2, sheep_seeker_id = $3, updated_at = NOW()
-       WHERE id = $4
-       RETURNING id, name, description, sheep_seeker_id, created_at, updated_at`,
-      [name.trim(), description || null, sheep_seeker_id || null, params.id]
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramCounter}
+       RETURNING id, name, year, description, sheep_seeker_id, created_at, updated_at`,
+      updateValues
     );
 
     // If group name changed, update registered_people records

@@ -14,6 +14,7 @@ const { confirm } = Modal;
 interface Group {
   id: string;
   name: string;
+  year: number;
   description: string | null;
   leader_id: string | null;
   leader_username: string | null;
@@ -103,6 +104,7 @@ export default function GroupManagementPage() {
     setEditingGroup(group);
     form.setFieldsValue({
       name: group.name,
+      year: group.year,
       description: group.description,
       leader_id: group.leader_id,
     });
@@ -196,7 +198,12 @@ export default function GroupManagementPage() {
       title: 'Group Name',
       dataIndex: 'name',
       key: 'name',
-      sorter: (a: Group, b: Group) => a.name.localeCompare(b.name),
+      render: (name: string, record: Group) => `${name} ${record.year}`,
+      sorter: (a: Group, b: Group) => {
+        const aName = `${a.name} ${a.year}`;
+        const bName = `${b.name} ${b.year}`;
+        return aName.localeCompare(bName);
+      },
     },
     {
       title: 'Description',
@@ -320,7 +327,28 @@ export default function GroupManagementPage() {
                 { min: 2, message: 'Group name must be at least 2 characters' },
               ]}
             >
-              <Input placeholder="January, Youth Group, etc." size="large" />
+              <Input placeholder="January, February, March, etc." size="large" />
+            </Form.Item>
+
+            <Form.Item
+              name="year"
+              label="Year"
+              rules={[
+                { required: true, message: 'Please select a year' },
+              ]}
+              initialValue={new Date().getFullYear()}
+            >
+              <Select
+                placeholder="Select year"
+                size="large"
+                options={[
+                  { value: 2024, label: '2024' },
+                  { value: 2025, label: '2025' },
+                  { value: 2026, label: '2026' },
+                  { value: 2027, label: '2027' },
+                  { value: 2028, label: '2028' },
+                ]}
+              />
             </Form.Item>
 
             <Form.Item
