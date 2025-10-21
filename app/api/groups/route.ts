@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         g.id,
         g.name,
+        g.year,
         g.description,
         g.sheep_seeker_id as leader_id,
         g.start_date,
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*) FROM registered_people WHERE group_id = g.id) as member_count
       FROM groups g
       LEFT JOIN users u ON g.sheep_seeker_id = u.id
-      ORDER BY g.is_active DESC, g.name ASC
+      ORDER BY g.is_active DESC, g.year DESC, g.name ASC
     `;
 
     const result = await query(sql);
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, description, sheep_seeker_id, start_date } = await request.json();
+    const { name, description, sheep_seeker_id, start_date, year } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -72,15 +73,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if group name already exists
+    // Year is required
+    if (!year) {
+      return NextResponse.json(
+        { error: 'Year is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if group name + year combination already exists
     const existing = await query(
-      'SELECT id FROM groups WHERE name = $1',
-      [name.trim()]
+      'SELECT id FROM groups WHERE name = $1 AND year = $2',
+      [name.trim(), year]
     );
 
     if (existing.rows.length > 0) {
       return NextResponse.json(
-        { error: 'Group name already exists' },
+        { error: `Group ${name} ${year} already exists` },
         { status: 409 }
       );
     }
@@ -116,10 +125,10 @@ export async function POST(request: NextRequest) {
     const endDate = endDateObj.toISOString().split('T')[0];
 
     const result = await query(
-      `INSERT INTO groups (name, description, sheep_seeker_id, start_date, end_date, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO groups (name, year, description, sheep_seeker_id, start_date, end_date, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name.trim(), description || null, sheep_seeker_id || null, groupStartDate, endDate, true]
+      [name.trim(), year, description || null, sheep_seeker_id || null, groupStartDate, endDate, true]
     );
 
     // Update sheep seeker's group_id
