@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
 
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -45,12 +49,21 @@ export async function GET(
       [params.id]
     );
 
-    return NextResponse.json({
-      person,
-      progress: progressResult.rows,
-      attendance: attendanceResult.rows,
-      attendanceCount: attendanceResult.rows.length,
-    });
+    return NextResponse.json(
+      {
+        person,
+        progress: progressResult.rows,
+        attendance: attendanceResult.rows,
+        attendanceCount: attendanceResult.rows.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -15,6 +15,14 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Only admins and superadmin can record/update attendance
+    if (userPayload.role !== 'admin' && userPayload.role !== 'superadmin') {
+      return NextResponse.json(
+        { error: 'Unauthorized. Only admins and super admins can record attendance.' },
+        { status: 403 }
+      );
+    }
+
     const { date_attended } = await request.json();
 
     if (!date_attended) {
@@ -67,16 +75,16 @@ export async function POST(
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
-    if (
-      userPayload.role === 'leader' &&
-      person.group_name !== userPayload.group_name
-    ) {
-      return NextResponse.json(
-        {
-          error: 'You can only record attendance for people in your group',
-        },
-        { status: 403 }
-      );
+    // For admins, check if person is in their group
+    if (userPayload.role === 'admin') {
+      if (userPayload.group_id && person.group_id !== userPayload.group_id) {
+        return NextResponse.json(
+          {
+            error: 'You can only record attendance for people in your group',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const existingResult = await query(
@@ -173,6 +181,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Only admins and superadmin can delete attendance
+    if (userPayload.role !== 'admin' && userPayload.role !== 'superadmin') {
+      return NextResponse.json(
+        { error: 'Unauthorized. Only admins and super admins can delete attendance.' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const attendanceId = searchParams.get('id');
 
@@ -195,16 +211,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
-    if (
-      userPayload.role === 'leader' &&
-      person.group_name !== userPayload.group_name
-    ) {
-      return NextResponse.json(
-        {
-          error: 'You can only delete attendance for people in your group',
-        },
-        { status: 403 }
-      );
+    // For admins, check if person is in their group
+    if (userPayload.role === 'admin') {
+      if (userPayload.group_id && person.group_id !== userPayload.group_id) {
+        return NextResponse.json(
+          {
+            error: 'You can only delete attendance for people in your group',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Delete the attendance record

@@ -19,19 +19,12 @@ export async function GET(request: NextRequest) {
       SELECT 
         g.id,
         g.name,
-        g.year,
         g.description,
-        g.sheep_seeker_id as leader_id,
-        g.start_date,
-        g.end_date,
-        g.is_active,
         g.created_at,
         g.updated_at,
-        u.username as leader_username,
-        (SELECT COUNT(*) FROM registered_people WHERE group_id = g.id) as member_count
+        (SELECT COUNT(*) FROM registered_people WHERE group_name = g.name) as member_count
       FROM groups g
-      LEFT JOIN users u ON g.sheep_seeker_id = u.id
-      ORDER BY g.is_active DESC, g.year DESC, g.name ASC
+      ORDER BY g.name ASC
     `;
 
     const result = await query(sql);
@@ -64,7 +57,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, description, sheep_seeker_id, start_date, year } = await request.json();
+    const { name, description } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -73,71 +66,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Year is required
-    if (!year) {
-      return NextResponse.json(
-        { error: 'Year is required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if group name + year combination already exists
+    // Check if group name already exists
     const existing = await query(
-      'SELECT id FROM groups WHERE name = $1 AND year = $2',
-      [name.trim(), year]
+      'SELECT id FROM groups WHERE name = $1',
+      [name.trim()]
     );
 
     if (existing.rows.length > 0) {
       return NextResponse.json(
-        { error: `Group ${name} ${year} already exists` },
+        { error: `Group ${name} already exists` },
         { status: 409 }
       );
     }
 
-    // If sheep_seeker_id is provided, verify the user exists
-    if (sheep_seeker_id) {
-      const userResult = await query(
-        'SELECT id, role FROM users WHERE id = $1',
-        [sheep_seeker_id]
-      );
-
-      if (userResult.rows.length === 0) {
-        return NextResponse.json(
-          { error: 'Sheep seeker not found' },
-          { status: 404 }
-        );
-      }
-
-      // Update user role to leader if not already
-      if (userResult.rows[0].role !== 'leader') {
-        await query(
-          'UPDATE users SET role = $1, group_id = $2 WHERE id = $3',
-          ['leader', null, sheep_seeker_id] // Will update group_id after creation
-        );
-      }
-    }
-
-    // Calculate end_date (12 months from start_date)
-    const groupStartDate = start_date || new Date().toISOString().split('T')[0];
-    const startDateObj = new Date(groupStartDate);
-    const endDateObj = new Date(startDateObj);
-    endDateObj.setMonth(endDateObj.getMonth() + 12);
-    const endDate = endDateObj.toISOString().split('T')[0];
-
     const result = await query(
-      `INSERT INTO groups (name, year, description, sheep_seeker_id, start_date, end_date, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO groups (name, description)
+       VALUES ($1, $2)
        RETURNING *`,
-      [name.trim(), year, description || null, sheep_seeker_id || null, groupStartDate, endDate, true]
+      [name.trim(), description || null]
     );
-
-    // Update sheep seeker's group_id
-    if (sheep_seeker_id) {
-      await query(
-        'UPDATE users SET group_id = $1 WHERE id = $2',
-        [result.rows[0].id, sheep_seeker_id]
-      );
-    }
 
     return NextResponse.json({
       message: 'Group created successfully',
