@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const groupIdParam = searchParams.get('group_id');
     const groupNameParam = searchParams.get('group'); // legacy parameter
+    const monthParam = searchParams.get('month'); // month name parameter
 
     let sqlQuery = `
       SELECT 
@@ -149,6 +150,10 @@ export async function GET(request: NextRequest) {
         // Legacy support for group name filtering
         sqlQuery += ' WHERE rp.group_name = $1';
         params.push(groupNameParam);
+      } else if (monthParam) {
+        // Filter by month name
+        sqlQuery += ' WHERE rp.group_name = $1';
+        params.push(monthParam);
       }
     }
 

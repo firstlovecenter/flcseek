@@ -15,6 +15,7 @@ interface PersonAttendance {
   id: string;
   full_name: string;
   group_name: string;
+  phone_number: string;
   attendanceCount: number;
   percentage: number;
 }
@@ -25,6 +26,9 @@ export default function AttendancePage() {
   const [people, setPeople] = useState<PersonAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(dayjs());
+  
+  // Check if user is a leader (read-only access)
+  const isLeader = user?.role === 'leader';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -59,6 +63,7 @@ export default function AttendancePage() {
             id: person.id,
             full_name: person.full_name,
             group_name: person.group_name,
+            phone_number: person.phone_number,
             attendanceCount,
             percentage: Math.min(Math.round((attendanceCount / ATTENDANCE_GOAL) * 100), 100),
           };
@@ -106,16 +111,26 @@ export default function AttendancePage() {
       width: 200,
       fixed: 'left' as const,
       render: (text: string, record: PersonAttendance) => (
-        <Button
-          type="link"
-          onClick={() => router.push(`/person/${record.id}`)}
-          style={{ padding: 0, fontWeight: 500 }}
-        >
-          {text}
-        </Button>
+        <div>
+          <Button
+            type="link"
+            onClick={() => router.push(`/person/${record.id}`)}
+            style={{ padding: 0, fontWeight: 500 }}
+          >
+            {text}
+          </Button>
+          {isLeader && (
+            <div style={{ fontSize: 12, color: '#888' }}>
+              <a href={`tel:${record.phone_number}`} style={{ color: '#888' }}>
+                📞 {record.phone_number}
+              </a>
+            </div>
+          )}
+        </div>
       ),
     },
-    {
+    // Only show Actions column for admins (not for leaders)
+    ...(!isLeader ? [{
       title: 'Actions',
       key: 'actions',
       width: 150,
@@ -130,7 +145,7 @@ export default function AttendancePage() {
           Mark Present
         </Button>
       ),
-    },
+    }] : []),
     {
       title: 'Attendance Progress',
       key: 'attendance',
@@ -167,20 +182,26 @@ export default function AttendancePage() {
         <div style={{ marginBottom: 24 }}>
           <Title level={2}>Attendance Tracking</Title>
           <Text type="secondary">
-            Mark attendance for church services (Goal: {ATTENDANCE_GOAL} Sundays)
+            {isLeader 
+              ? `View attendance records for all new converts (Goal: ${ATTENDANCE_GOAL} Sundays) - Read-only access`
+              : `Mark attendance for church services (Goal: ${ATTENDANCE_GOAL} Sundays)`
+            }
           </Text>
         </div>
 
-        <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Text>Select Date:</Text>
-          <DatePicker
-            value={selectedDate}
-            onChange={(date) => setSelectedDate(date || dayjs())}
-            size="large"
-            format="MMMM DD, YYYY"
-            style={{ minWidth: '200px' }}
-          />
-        </div>
+        {/* Only show date picker for admins (not for leaders) */}
+        {!isLeader && (
+          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Text>Select Date:</Text>
+            <DatePicker
+              value={selectedDate}
+              onChange={(date) => setSelectedDate(date || dayjs())}
+              size="large"
+              format="MMMM DD, YYYY"
+              style={{ minWidth: '200px' }}
+            />
+          </div>
+        )}
 
         <Table
           columns={columns}
