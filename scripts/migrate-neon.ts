@@ -15,7 +15,7 @@ async function runMigration() {
   try {
     console.log('Connecting to Neon database...');
     
-    const migrationPath = path.join(__dirname, '../supabase/migrations/001_neon_schema.sql');
+    const migrationPath = path.join(__dirname, '../db/migrations/001_neon_schema.sql');
     const sql = fs.readFileSync(migrationPath, 'utf8');
 
     console.log('Running migration...');

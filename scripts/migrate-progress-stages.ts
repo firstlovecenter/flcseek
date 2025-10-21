@@ -27,7 +27,7 @@ async function runMigration() {
     // Read the migration file
     const migrationPath = path.join(
       process.cwd(),
-      'supabase',
+      'db',
       'migrations',
       '002_create_progress_stages.sql'
     );
