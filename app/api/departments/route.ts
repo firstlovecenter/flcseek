@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         d.updated_at,
         u.username as leader_username,
         u.phone_number as leader_phone
-       FROM departments d
+       FROM groups d
        LEFT JOIN users u ON d.leader_id = u.id
        ORDER BY d.name ASC`
     );
@@ -81,9 +81,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create department
+    // Create group
     const result = await query(
-      `INSERT INTO departments (name, description, leader_id)
+      `INSERT INTO groups (name, description, leader_id)
        VALUES ($1, $2, $3)
        RETURNING *`,
       [name.trim(), description?.trim() || null, leader_id || null]

@@ -25,7 +25,7 @@ export async function GET(
         d.updated_at,
         u.username as leader_username,
         u.phone_number as leader_phone
-       FROM departments d
+       FROM groups d
        LEFT JOIN users u ON d.leader_id = u.id
        WHERE d.id = $1`,
       [params.id]
@@ -73,8 +73,8 @@ export async function PUT(
       );
     }
 
-    // Verify department exists
-    const deptCheck = await query('SELECT id FROM departments WHERE id = $1', [
+    // Verify group exists
+    const deptCheck = await query('SELECT id FROM groups WHERE id = $1', [
       params.id,
     ]);
 
@@ -107,9 +107,9 @@ export async function PUT(
       }
     }
 
-    // Update department
+    // Update group
     const result = await query(
-      `UPDATE departments 
+      `UPDATE groups 
        SET name = $1, description = $2, leader_id = $3, updated_at = NOW()
        WHERE id = $4
        RETURNING *`,
@@ -154,8 +154,8 @@ export async function DELETE(
       );
     }
 
-    // Check if department exists
-    const deptCheck = await query('SELECT id FROM departments WHERE id = $1', [
+    // Check if group exists
+    const deptCheck = await query('SELECT id FROM groups WHERE id = $1', [
       params.id,
     ]);
 
@@ -166,8 +166,8 @@ export async function DELETE(
       );
     }
 
-    // Delete department
-    await query('DELETE FROM departments WHERE id = $1', [params.id]);
+    // Delete group
+    await query('DELETE FROM groups WHERE id = $1', [params.id]);
 
     return NextResponse.json({
       message: 'Department deleted successfully',
