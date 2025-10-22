@@ -118,14 +118,17 @@ export default function SheepSeekerDashboard() {
   // Fetch milestones from database
   const fetchMilestones = useCallback(async () => {
     try {
-      const response = await fetch('/api/milestones');
+      const response = await fetch('/api/milestones', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error('Failed to fetch milestones');
       
       const data = await response.json();
+      console.log('Fetched milestones from API:', data.milestones);
       const formattedMilestones = data.milestones.map((milestone: any) => {
         // Format short_name: split multi-word names across two lines, keep single words intact
-        let formattedShortName = milestone.short_name;
-        if (milestone.short_name) {
+        let formattedShortName = milestone.short_name || milestone.stage_name.substring(0, 10);
+        if (milestone.short_name && !formattedShortName.includes('\n')) {
           const words = milestone.short_name.split(/[\s,\/]+/).filter((w: string) => w.length > 0);
           if (words.length > 1) {
             // Multi-word: split at midpoint
@@ -144,6 +147,7 @@ export default function SheepSeekerDashboard() {
           description: milestone.description,
         };
       });
+      console.log('Formatted milestones:', formattedMilestones);
       
       setMilestones(formattedMilestones);
     } catch (error) {
@@ -151,7 +155,7 @@ export default function SheepSeekerDashboard() {
       // Fallback to constants if fetch fails
       setMilestones(PROGRESS_STAGES);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     // Allow leader, admin, leadpastor, and superadmin to access this page
@@ -314,24 +318,13 @@ export default function SheepSeekerDashboard() {
           a.full_name.localeCompare(b.full_name),
         defaultSortOrder: 'ascend' as const,
         render: (text: string, record: PersonWithProgress) => (
-          <div>
-            <Button
-              type="link"
-              onClick={() => router.push(`/person/${record.id}`)}
-              style={{ padding: 0, height: 'auto' }}
-            >
-              <Text strong style={{ fontSize: 14 }}>{text}</Text>
-            </Button>
-            <div style={{ fontSize: 12, color: '#888' }}>
-              {isLeader ? (
-                <a href={`tel:${record.phone_number}`} style={{ color: '#888' }}>
-                  📞 {record.phone_number}
-                </a>
-              ) : (
-                record.group_name
-              )}
-            </div>
-          </div>
+          <Button
+            type="link"
+            onClick={() => router.push(`/person/${record.id}`)}
+            style={{ padding: 0, height: 'auto' }}
+          >
+            <Text strong style={{ fontSize: 14 }}>{text}</Text>
+          </Button>
         ),
       },
     ];
@@ -368,11 +361,20 @@ export default function SheepSeekerDashboard() {
           );
         }
         
+        const handleToggle = () => {
+          // Prevent toggling milestone 18 (auto-calculated from attendance)
+          if (stage.number === 18) {
+            message.warning('Attendance milestone is auto-calculated from attendance records');
+            return;
+          }
+          toggleMilestone(record.id, stage.number, isCompleted);
+        };
+        
         return (
           <MilestoneCell
             isCompleted={isCompleted}
             isUpdating={isUpdating}
-            onToggle={() => toggleMilestone(record.id, stage.number, isCompleted)}
+            onToggle={handleToggle}
             stageName={stage.name}
             isAuto={isAuto}
           />

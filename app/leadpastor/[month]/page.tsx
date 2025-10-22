@@ -195,20 +195,13 @@ export default function LeadPastorMonthDashboard() {
           (a.full_name || '').localeCompare(b.full_name || ''),
         defaultSortOrder: 'ascend' as const,
         render: (text: string, record: PersonWithProgress) => (
-          <div>
-            <Button
-              type="link"
-              onClick={() => router.push(`/person/${record.id}`)}
-              style={{ padding: 0, height: 'auto' }}
-            >
-              <Text strong style={{ fontSize: 12 }}>{text}</Text>
-            </Button>
-            <div style={{ fontSize: 10, color: '#888' }}>
-              <a href={`tel:${record.phone_number}`} style={{ color: '#888', textDecoration: 'none' }}>
-                📞 {record.phone_number}
-              </a>
-            </div>
-          </div>
+          <Button
+            type="link"
+            onClick={() => router.push(`/person/${record.id}`)}
+            style={{ padding: 0, height: 'auto' }}
+          >
+            <Text strong style={{ fontSize: 14 }}>{text}</Text>
+          </Button>
         ),
       },
     ];
