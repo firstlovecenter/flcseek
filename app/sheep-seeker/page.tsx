@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback, memo } from 'react';
-import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select } from 'antd';
-import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined } from '@ant-design/icons';
+import { useEffect, useState, useCallback, memo, useMemo } from 'react';
+import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb } from 'antd';
+import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
@@ -28,14 +29,15 @@ const MilestoneCell = memo(({
     <Tooltip title={isAuto ? `${stageName} (Auto-calculated)` : stageName}>
       <div
         style={{
-          padding: '8px',
-          borderRadius: '8px',
+          padding: '4px',
+          borderRadius: '4px',
           backgroundColor: 'white',
           border: '1px solid #d9d9d9',
           transition: 'all 0.3s',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
+          minHeight: '24px',
         }}
       >
         <Switch
@@ -65,15 +67,14 @@ const ReadOnlyMilestoneCell = memo(({
     <Tooltip title={stageName}>
       <div
         style={{
-          padding: '12px',
-          borderRadius: '8px',
+          padding: '4px',
+          borderRadius: '4px',
           backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
-          border: '1px solid #d9d9d9',
           transition: 'all 0.3s',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '40px',
+          minHeight: '24px',
         }}
       >
         <div
@@ -82,7 +83,7 @@ const ReadOnlyMilestoneCell = memo(({
             height: '100%',
             color: 'white',
             fontWeight: 'bold',
-            fontSize: '12px',
+            fontSize: '10px',
           }}
         >
           {isCompleted ? '✓' : '✗'}
@@ -111,7 +112,46 @@ export default function SheepSeekerDashboard() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [milestones, setMilestones] = useState<typeof PROGRESS_STAGES>([]);
   const [form] = Form.useForm();
+
+  // Fetch milestones from database
+  const fetchMilestones = useCallback(async () => {
+    try {
+      const response = await fetch('/api/milestones');
+      if (!response.ok) throw new Error('Failed to fetch milestones');
+      
+      const data = await response.json();
+      const formattedMilestones = data.milestones.map((milestone: any) => {
+        // Format short_name: split multi-word names across two lines, keep single words intact
+        let formattedShortName = milestone.short_name;
+        if (milestone.short_name) {
+          const words = milestone.short_name.split(/[\s,\/]+/).filter((w: string) => w.length > 0);
+          if (words.length > 1) {
+            // Multi-word: split at midpoint
+            const midpoint = Math.ceil(words.length / 2);
+            const firstLine = words.slice(0, midpoint).join(' ');
+            const secondLine = words.slice(midpoint).join(' ');
+            formattedShortName = `${firstLine}\n${secondLine}`;
+          }
+          // Single word: leave as-is
+        }
+        
+        return {
+          number: milestone.stage_number,
+          name: milestone.stage_name,
+          shortName: formattedShortName,
+          description: milestone.description,
+        };
+      });
+      
+      setMilestones(formattedMilestones);
+    } catch (error) {
+      console.error('Failed to fetch milestones:', error);
+      // Fallback to constants if fetch fails
+      setMilestones(PROGRESS_STAGES);
+    }
+  }, []);
 
   useEffect(() => {
     // Allow leader, admin, leadpastor, and superadmin to access this page
@@ -123,9 +163,10 @@ export default function SheepSeekerDashboard() {
 
     if (user && token) {
       console.log('[SHEEP-SEEKER] Authorized user:', user.role);
+      fetchMilestones();
       fetchAllPeople();
     }
-  }, [user, token, authLoading, router]);
+  }, [user, token, authLoading, router, fetchMilestones]);
 
   const fetchAllPeople = async () => {
     try {
@@ -260,8 +301,8 @@ export default function SheepSeekerDashboard() {
   // Check if user is a leader (read-only access)
   const isLeader = user?.role === 'leader';
 
-  // Generate columns efficiently - only once, not in render
-  const getColumns = () => {
+  // Generate columns efficiently - reactively update when milestones change
+  const columns = useMemo(() => {
     const baseColumns: any[] = [
       {
         title: 'Name',
@@ -269,6 +310,9 @@ export default function SheepSeekerDashboard() {
         key: 'full_name',
         fixed: 'left',
         width: 180,
+        sorter: (a: PersonWithProgress, b: PersonWithProgress) => 
+          a.full_name.localeCompare(b.full_name),
+        defaultSortOrder: 'ascend' as const,
         render: (text: string, record: PersonWithProgress) => (
           <div>
             <Button
@@ -292,22 +336,22 @@ export default function SheepSeekerDashboard() {
       },
     ];
 
-    // Create milestone columns efficiently
-    const milestoneColumns = PROGRESS_STAGES.map((stage) => ({
+    // Create milestone columns efficiently from database data
+    const milestoneColumns = (milestones.length > 0 ? milestones : PROGRESS_STAGES).map((stage) => ({
       title: (
         <Tooltip title={stage.name}>
           <div style={{ textAlign: 'center', fontWeight: 'bold' }}>
-            <div style={{ fontSize: '11px', whiteSpace: 'pre-line', marginBottom: '4px' }}>
+            <div style={{ fontSize: '9px', whiteSpace: 'pre-line', marginBottom: '2px' }}>
               {stage.shortName}
             </div>
-            <div style={{ fontSize: '12px' }}>
+            <div style={{ fontSize: '10px', color: '#1890ff' }}>
               [M{stage.number.toString().padStart(2, '0')}]
             </div>
           </div>
         </Tooltip>
       ),
       key: `milestone_${stage.number}`,
-      width: 80,
+      width: 60,
       align: 'center' as const,
       render: (_: any, record: PersonWithProgress) => {
         const isCompleted = getMilestoneStatus(record, stage.number);
@@ -337,9 +381,7 @@ export default function SheepSeekerDashboard() {
     }));
 
     return [...baseColumns, ...milestoneColumns];
-  };
-
-  const columns = getColumns();
+  }, [milestones, getMilestoneStatus, updating, isLeader, router, toggleMilestone]);
 
   if (authLoading || loading) {
     return (
@@ -383,126 +425,101 @@ export default function SheepSeekerDashboard() {
 
   return (
     <>
-      <AppBreadcrumb />
-      <div style={{ padding: '0 16px' }}>
-        <div style={{ 
-          marginBottom: 24, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: 16,
-        }}>
-          <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
-            <Title level={2} style={{ marginBottom: 8 }}>{displayTitle}</Title>
-            <Text type="secondary">
-              {isLeader 
-                ? `View all ${totalNewConverts} new converts across ${TOTAL_PROGRESS_STAGES} milestones - Read-only access`
-                : `Track all ${totalNewConverts} new converts across ${TOTAL_PROGRESS_STAGES} milestones - Toggle switches to update completion status`
-              }
-            </Text>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {/* View buttons for all users */}
-            <Button
-              icon={<TeamOutlined />}
-              onClick={() => router.push('/sheep-seeker/attendance')}
-              size="large"
-            >
-              View Attendance
-            </Button>
-            <Button
-              icon={<BarChartOutlined />}
-              onClick={() => router.push('/sheep-seeker/progress')}
-              size="large"
-            >
-              View Progress Report
-            </Button>
-            
-            {/* Register buttons only for admins (hide for leaders) */}
-            {!isLeader && (
-              <>
-                <Button
-                  type="primary"
-                  icon={<UserAddOutlined />}
-                  onClick={() => setRegisterModalVisible(true)}
-                  size="large"
-                >
-                  Register New Person
-                </Button>
-                {isAdmin && (
-                  <Button
-                    type="default"
-                    icon={<FileExcelOutlined />}
-                    onClick={() => router.push('/sheep-seeker/people/bulk-register')}
-                    size="large"
-                  >
-                    Bulk Register
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Search Bar */}
-        <div style={{ marginBottom: 24 }}>
+      {/* Sticky Controls Bar */}
+      <div className="sticky-controls-bar">
+        <Breadcrumb
+          items={[
+            {
+              title: (
+                <Link href="/">
+                  <HomeOutlined />
+                </Link>
+              ),
+            },
+            {
+              title: 'Sheep Seeker',
+            },
+            {
+              title: <span style={{ fontWeight: 700, fontSize: '16px' }}>{displayTitle}</span>,
+            },
+          ]}
+        />
+        
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => router.push('/')}
+          >
+            Back
+          </Button>
+          
           <Input
-            placeholder="Search by name, phone number, or group..."
+            placeholder="Search by name, phone, group..."
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            size="large"
             allowClear
-            style={{ maxWidth: 500 }}
+            style={{ width: 250 }}
           />
-          {searchText && (
-            <Text type="secondary" style={{ marginLeft: 12 }}>
-              Showing {filteredPeople.length} of {totalNewConverts} people
-            </Text>
+          
+          <Button
+            icon={<TeamOutlined />}
+            onClick={() => router.push('/sheep-seeker/attendance')}
+          >
+            Attendance
+          </Button>
+          <Button
+            icon={<BarChartOutlined />}
+            onClick={() => router.push('/sheep-seeker/progress')}
+          >
+            Progress
+          </Button>
+          
+          {!isLeader && (
+            <>
+              <Button
+                type="primary"
+                icon={<UserAddOutlined />}
+                onClick={() => setRegisterModalVisible(true)}
+              >
+                Register
+              </Button>
+              {isAdmin && (
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                >
+                  Bulk Register
+                </Button>
+              )}
+            </>
           )}
         </div>
+      </div>
 
-        {/* Summary Stats */}
+      <div style={{ padding: '0 16px' }}>
+        {/* Compact Summary Stats - Side by Side */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 16,
-          marginBottom: 24
+          display: 'flex',
+          gap: 12,
+          marginTop: 16,
+          marginBottom: 16,
         }}>
-          <div style={{
-            padding: 20,
-            background: 'linear-gradient(135deg, #0050b3 0%, #1890ff 100%)',
-            borderRadius: 8,
-            border: '1px solid #1890ff',
-            boxShadow: '0 2px 8px rgba(24, 144, 255, 0.2)',
-          }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>Total New Converts</Text>
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
+          <div className="stats-card-primary">
+            <Text className="stats-card-label">Total</Text>
+            <div className="stats-card-value">
               {totalNewConverts}
             </div>
           </div>
-          <div style={{
-            padding: 20,
-            background: 'linear-gradient(135deg, #d48806 0%, #faad14 100%)',
-            borderRadius: 8,
-            border: '1px solid #faad14',
-            boxShadow: '0 2px 8px rgba(250, 173, 20, 0.2)',
-          }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>New Converts with Incomplete Milestones</Text>
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
+          <div className="stats-card-warning">
+            <Text className="stats-card-label">Incomplete</Text>
+            <div className="stats-card-value">
               {newConvertsInArrears}
             </div>
           </div>
-          <div style={{
-            padding: 20,
-            background: 'linear-gradient(135deg, #531dab 0%, #722ed1 100%)',
-            borderRadius: 8,
-            border: '1px solid #722ed1',
-            boxShadow: '0 2px 8px rgba(114, 46, 209, 0.2)',
-          }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>Overall Progress</Text>
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
+          <div className="stats-card-success">
+            <Text className="stats-card-label">Progress</Text>
+            <div className="stats-card-value">
               {overallProgress}%
             </div>
           </div>
@@ -514,11 +531,13 @@ export default function SheepSeekerDashboard() {
           dataSource={filteredPeople}
           rowKey="id"
           size="small"
-          scroll={{ x: 'max-content', y: 'calc(100vh - 400px)' }}
+          className="compact-milestone-table"
+          sticky={{ offsetHeader: 128 }}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 128px)' }}
           pagination={{
-            defaultPageSize: 20,
+            defaultPageSize: 50,
             showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100'],
+            pageSizeOptions: ['20', '50', '100'],
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} people`,
           }}
           style={{
@@ -526,46 +545,6 @@ export default function SheepSeekerDashboard() {
             borderRadius: 8,
           }}
         />
-
-        {/* Legend */}
-        <div style={{
-          marginTop: 16,
-          padding: 16,
-          background: 'white',
-          borderRadius: 8,
-          border: '1px solid #d9d9d9',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap'
-        }}>
-          <Text strong>Legend: </Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              padding: '8px',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #d9d9d9'
-            }}>
-              <Switch checked disabled size="small" style={{ backgroundColor: '#52c41a' }} />
-            </div>
-            <Text>Completed (Green Switch)</Text>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              padding: '8px',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #d9d9d9'
-            }}>
-              <Switch checked={false} disabled size="small" style={{ backgroundColor: '#ff4d4f' }} />
-            </div>
-            <Text>Not Completed (Red Switch)</Text>
-          </div>
-          <Text type="secondary">
-            Click any toggle switch to change milestone status. Hover over milestone numbers to see descriptions.
-          </Text>
-        </div>
       </div>
 
       {/* Register Modal */}

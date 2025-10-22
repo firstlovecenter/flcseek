@@ -172,54 +172,22 @@ export default function Navigation({ children }: NavigationProps) {
     },
   ];
 
-  // Top Navigation items for Sheep Seeker
-  const sheepSeekerTopMenuItems = [
-    {
-      key: '/sheep-seeker',
-      icon: <HomeOutlined />,
-      label: <Link href="/sheep-seeker">Dashboard</Link>,
-    },
-    {
-      key: '/sheep-seeker/attendance',
-      icon: <CalendarOutlined />,
-      label: <Link href="/sheep-seeker/attendance">Attendance</Link>,
-    },
-    {
-      key: '/sheep-seeker/progress',
-      icon: <FileTextOutlined />,
-      label: <Link href="/sheep-seeker/progress">Progress</Link>,
-    },
-  ];
+  // Top Navigation items for Sheep Seeker (Empty - navigation on pages)
+  const sheepSeekerTopMenuItems: any[] = [];
 
-  // Mobile Bottom Navigation for Sheep Seeker
-  const sheepSeekerBottomMenuItems = [
-    {
-      key: '/sheep-seeker',
-      icon: <HomeOutlined />,
-      label: <Link href="/sheep-seeker">Home</Link>,
-    },
-    {
-      key: '/sheep-seeker/attendance',
-      icon: <CalendarOutlined />,
-      label: <Link href="/sheep-seeker/attendance">Attendance</Link>,
-    },
-    {
-      key: '/sheep-seeker/progress',
-      icon: <FileTextOutlined />,
-      label: <Link href="/sheep-seeker/progress">Progress</Link>,
-    },
-  ];
+  // Mobile Bottom Navigation for Sheep Seeker (Empty - navigation on pages)
+  const sheepSeekerBottomMenuItems: any[] = [];
 
-  // Top Navigation items for Lead Pastor (Minimal - no dashboard/reports buttons)
+  // Top Navigation items for Lead Pastor (Empty - navigation on pages)
   const leadPastorTopMenuItems: any[] = [];
 
-  // Mobile Bottom Navigation for Lead Pastor (Minimal)
+  // Mobile Bottom Navigation for Lead Pastor (Empty - navigation on pages)
   const leadPastorBottomMenuItems: any[] = [];
 
-  // Top Navigation items for Leader (Minimal - no buttons, read-only access)
+  // Top Navigation items for Leader (Empty - navigation on pages)
   const leaderTopMenuItems: any[] = [];
 
-  // Mobile Bottom Navigation for Leader (Minimal)
+  // Mobile Bottom Navigation for Leader (Empty - navigation on pages)
   const leaderBottomMenuItems: any[] = [];
 
   const getMenuItemsByRole = () => {

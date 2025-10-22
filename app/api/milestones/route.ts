@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { stage_number, stage_name, description } = body;
+    const { stage_number, stage_name, short_name, description } = body;
 
     // Validation
     if (!stage_number || !stage_name) {
@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
 
     // Create the milestone
     const result = await sql`
-      INSERT INTO progress_stages (stage_number, stage_name, description)
-      VALUES (${stage_number}, ${stage_name}, ${description || null})
+      INSERT INTO progress_stages (stage_number, stage_name, short_name, description)
+      VALUES (${stage_number}, ${stage_name}, ${short_name || null}, ${description || null})
       RETURNING *
     `;
 

@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback, memo } from 'react';
-import { Table, Button, Typography, Spin, Tooltip, Input } from 'antd';
-import { SearchOutlined, LeftOutlined, TeamOutlined, BarChartOutlined } from '@ant-design/icons';
+import { useEffect, useState, useCallback, memo, useMemo } from 'react';
+import { Table, Button, Typography, Spin, Tooltip, Input, Breadcrumb } from 'antd';
+import { SearchOutlined, LeftOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
-import AppBreadcrumb from '@/components/AppBreadcrumb';
+import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
@@ -22,15 +22,15 @@ const ReadOnlyMilestoneCell = memo(({
     <Tooltip title={stageName}>
       <div
         style={{
-          padding: '12px',
-          borderRadius: '8px',
+          padding: '4px',
+          borderRadius: '4px',
           backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
           border: '1px solid #d9d9d9',
           transition: 'all 0.3s',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '40px',
+          minHeight: '24px',
         }}
       >
         <div
@@ -39,7 +39,7 @@ const ReadOnlyMilestoneCell = memo(({
             height: '100%',
             color: 'white',
             fontWeight: 'bold',
-            fontSize: '12px',
+            fontSize: '10px',
           }}
         >
           {isCompleted ? '✓' : '✗'}
@@ -70,6 +70,7 @@ export default function LeadPastorMonthDashboard() {
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [milestones, setMilestones] = useState<typeof PROGRESS_STAGES>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'leadpastor')) {
@@ -79,9 +80,52 @@ export default function LeadPastorMonthDashboard() {
     }
 
     if (user && token && month) {
+      fetchMilestones();
       fetchMonthPeople();
     }
   }, [user, token, authLoading, router, month]);
+
+  const fetchMilestones = async () => {
+    try {
+      const response = await fetch('/api/milestones', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched milestones from API:', data.milestones);
+        const formattedMilestones = data.milestones.map((m: any) => {
+          let shortName = m.short_name || m.stage_name.substring(0, 10);
+          // Ensure shortName has a line break if it doesn't already and has multiple words
+          if (!shortName.includes('\n')) {
+            // Split at space, comma, or slash to identify words
+            const words = shortName.split(/[\s,\/]+/).filter((w: string) => w.length > 0);
+            if (words.length > 1) {
+              // Multiple words - insert line break at roughly middle point
+              const midPoint = Math.ceil(words.length / 2);
+              shortName = words.slice(0, midPoint).join(' ') + '\n' + words.slice(midPoint).join(' ');
+            }
+            // Single word - leave as is (no line break)
+          }
+          return {
+            number: m.stage_number,
+            name: m.stage_name,
+            shortName: shortName,
+          };
+        });
+        console.log('Formatted milestones:', formattedMilestones);
+        setMilestones(formattedMilestones);
+      } else {
+        console.warn('Failed to fetch milestones, using fallback');
+        // Fallback to constants if API fails
+        setMilestones(PROGRESS_STAGES);
+      }
+    } catch (error) {
+      console.error('Error fetching milestones:', error);
+      // Fallback to constants if API fails
+      setMilestones(PROGRESS_STAGES);
+    }
+  };
 
   const fetchMonthPeople = async () => {
     try {
@@ -121,7 +165,12 @@ export default function LeadPastorMonthDashboard() {
         })
       );
 
-      setPeople(peopleWithProgress);
+      // Sort alphabetically by full_name
+      const sortedPeople = peopleWithProgress.sort((a, b) => 
+        (a.full_name || '').localeCompare(b.full_name || '')
+      );
+
+      setPeople(sortedPeople);
     } catch (error) {
       console.error('Error fetching people:', error);
     } finally {
@@ -134,14 +183,17 @@ export default function LeadPastorMonthDashboard() {
     return stage?.is_completed || false;
   }, []);
 
-  const getColumns = () => {
+  const columns = useMemo(() => {
     const baseColumns: any[] = [
       {
         title: 'Name',
         dataIndex: 'full_name',
         key: 'full_name',
         fixed: 'left',
-        width: 180,
+        width: 170,
+        sorter: (a: PersonWithProgress, b: PersonWithProgress) => 
+          (a.full_name || '').localeCompare(b.full_name || ''),
+        defaultSortOrder: 'ascend' as const,
         render: (text: string, record: PersonWithProgress) => (
           <div>
             <Button
@@ -149,9 +201,9 @@ export default function LeadPastorMonthDashboard() {
               onClick={() => router.push(`/person/${record.id}`)}
               style={{ padding: 0, height: 'auto' }}
             >
-              <Text strong style={{ fontSize: 14 }}>{text}</Text>
+              <Text strong style={{ fontSize: 12 }}>{text}</Text>
             </Button>
-            <div style={{ fontSize: 12, color: '#888' }}>
+            <div style={{ fontSize: 10, color: '#888' }}>
               <a href={`tel:${record.phone_number}`} style={{ color: '#888', textDecoration: 'none' }}>
                 📞 {record.phone_number}
               </a>
@@ -161,21 +213,24 @@ export default function LeadPastorMonthDashboard() {
       },
     ];
 
-    const milestoneColumns = PROGRESS_STAGES.map((stage) => ({
+    const milestonesToUse = milestones.length > 0 ? milestones : PROGRESS_STAGES;
+    console.log('Rendering columns with milestones:', milestonesToUse);
+    
+    const milestoneColumns = milestonesToUse.map((stage) => ({
       title: (
         <Tooltip title={stage.name}>
-          <div style={{ textAlign: 'center', fontWeight: 'bold' }}>
-            <div style={{ fontSize: '11px', whiteSpace: 'pre-line', marginBottom: '4px' }}>
+          <div style={{ textAlign: 'center', fontWeight: '700' }}>
+            <div style={{ fontSize: '9px', whiteSpace: 'pre-line', marginBottom: '1px', fontWeight: '700', color: '#000' }}>
               {stage.shortName}
             </div>
-            <div style={{ fontSize: '12px' }}>
+            <div style={{ fontSize: '10px', fontWeight: '600', color: '#1890ff' }}>
               [M{stage.number.toString().padStart(2, '0')}]
             </div>
           </div>
         </Tooltip>
       ),
       key: `milestone_${stage.number}`,
-      width: 80,
+      width: 60,
       align: 'center' as const,
       render: (_: any, record: PersonWithProgress) => {
         const isCompleted = getMilestoneStatus(record, stage.number);
@@ -189,7 +244,7 @@ export default function LeadPastorMonthDashboard() {
     }));
 
     return [...baseColumns, ...milestoneColumns];
-  };
+  }, [milestones, getMilestoneStatus, router]);
 
   if (authLoading || loading) {
     return (
@@ -206,14 +261,15 @@ export default function LeadPastorMonthDashboard() {
     person.group_name.toLowerCase().includes(searchText.toLowerCase())
   );
 
+  const totalStages = milestones.length > 0 ? milestones.length : TOTAL_PROGRESS_STAGES;
   const totalNewConverts = people.length;
   const newConvertsWithCompletedMilestones = people.filter(
-    person => person.progress.filter(p => p.is_completed).length === TOTAL_PROGRESS_STAGES
+    person => person.progress.filter(p => p.is_completed).length === totalStages
   ).length;
   const newConvertsInArrears = people.filter(
-    person => person.progress.filter(p => p.is_completed).length < TOTAL_PROGRESS_STAGES
+    person => person.progress.filter(p => p.is_completed).length < totalStages
   ).length;
-  const totalMilestones = totalNewConverts * TOTAL_PROGRESS_STAGES;
+  const totalMilestones = totalNewConverts * totalStages;
   const completedMilestones = people.reduce(
     (sum, person) => sum + person.progress.filter(p => p.is_completed).length,
     0
@@ -226,109 +282,113 @@ export default function LeadPastorMonthDashboard() {
   const monthName = month.charAt(0).toUpperCase() + month.slice(1);
   const displayTitle = `${monthName} ${currentYear}`;
 
-  const columns = getColumns();
-
   return (
     <>
-      <AppBreadcrumb />
-      <div style={{ padding: '0 16px' }}>
+      {/* Sticky Controls Bar with Month/Year and Navigation */}
+      <div className="sticky-controls-bar" style={{ 
+        marginBottom: 16,
+        marginLeft: -24,
+        marginRight: -24,
+        marginTop: -24,
+        padding: '12px 24px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      }}>
         <div style={{ 
-          marginBottom: 24, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-start',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           flexWrap: 'wrap',
-          gap: 16,
+          gap: 12,
         }}>
-          <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
+          {/* Left side: Month/Year, Breadcrumb, Back, Search */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 auto', minWidth: '400px', flexWrap: 'wrap' }}>
+            <Title level={3} style={{ margin: 0, fontWeight: 'bold', color: '#003366' }}>
+              {displayTitle}
+            </Title>
+            <div style={{ width: 1, height: 24, background: '#d9d9d9', margin: '0 4px' }} />
+            <Breadcrumb
+              items={[
+                {
+                  title: (
+                    <Link href="/leadpastor">
+                      <HomeOutlined style={{ marginRight: 4 }} />
+                      Lead Pastor
+                    </Link>
+                  ),
+                },
+                {
+                  title: displayTitle,
+                },
+              ]}
+            />
+            <div style={{ width: 1, height: 20, background: '#d9d9d9', margin: '0 4px' }} />
             <Button
               icon={<LeftOutlined />}
               onClick={() => router.push('/leadpastor')}
-              style={{ marginBottom: 16 }}
+              size="small"
             >
-              Back to Months
+              Back
             </Button>
-            <Title level={2} style={{ marginBottom: 8 }}>{displayTitle} - View Only</Title>
-            <Text type="secondary">
-              Viewing {totalNewConverts} new converts across {TOTAL_PROGRESS_STAGES} milestones (Read-only access)
-            </Text>
+            <Input
+              placeholder="Search names..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+              size="small"
+              style={{ width: 200 }}
+            />
+            {searchText && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {filteredPeople.length} of {people.length}
+              </Text>
+            )}
           </div>
+          
+          {/* Right side: Action buttons */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button
               icon={<TeamOutlined />}
               onClick={() => router.push(`/leadpastor/${month}/attendance`)}
-              size="large"
+              size="small"
             >
-              View Attendance
+              Attendance
             </Button>
             <Button
               icon={<BarChartOutlined />}
               onClick={() => router.push(`/leadpastor/${month}/progress`)}
-              size="large"
+              size="small"
             >
-              View Progress Report
+              Progress
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Search Bar */}
-        <div style={{ marginBottom: 24 }}>
-          <Input
-            placeholder="Search by name, phone number, or group..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            size="large"
-            allowClear
-            style={{ maxWidth: 500 }}
-          />
-          {searchText && (
-            <Text type="secondary" style={{ marginLeft: 12 }}>
-              Showing {filteredPeople.length} of {totalNewConverts} people
-            </Text>
-          )}
-        </div>
+      <div style={{ padding: '0 16px' }}>
 
-        {/* Summary Stats */}
+        {/* Compact Summary Stats */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 16,
-          marginBottom: 24
+          display: 'flex',
+          gap: 10,
+          marginBottom: 10,
+          flexWrap: 'wrap'
         }}>
-          <div style={{
-            padding: 20,
-            background: 'linear-gradient(135deg, #0050b3 0%, #1890ff 100%)',
-            borderRadius: 8,
-            border: '1px solid #1890ff',
-            boxShadow: '0 2px 8px rgba(24, 144, 255, 0.2)',
-          }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>Total New Converts</Text>
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
+          <div className="stats-card-primary">
+            <Text className="stats-card-label">Total New Converts</Text>
+            <div className="stats-card-value">
               {totalNewConverts}
             </div>
           </div>
-          <div style={{
-            padding: 20,
-            background: 'linear-gradient(135deg, #d48806 0%, #faad14 100%)',
-            borderRadius: 8,
-            border: '1px solid #faad14',
-            boxShadow: '0 2px 8px rgba(250, 173, 20, 0.2)',
-          }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>New Converts with Incomplete Milestones</Text>
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
+          <div className="stats-card-warning">
+            <Text className="stats-card-label">Incomplete Milestones</Text>
+            <div className="stats-card-value">
               {newConvertsInArrears}
             </div>
           </div>
-          <div style={{
-            padding: 20,
-            background: 'linear-gradient(135deg, #531dab 0%, #722ed1 100%)',
-            borderRadius: 8,
-            border: '1px solid #722ed1',
-            boxShadow: '0 2px 8px rgba(114, 46, 209, 0.2)',
-          }}>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>Overall Progress</Text>
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#fff' }}>
+          <div className="stats-card-success">
+            <Text className="stats-card-label">Overall Progress</Text>
+            <div className="stats-card-value">
               {overallProgress}%
             </div>
           </div>
@@ -340,57 +400,21 @@ export default function LeadPastorMonthDashboard() {
           dataSource={filteredPeople}
           rowKey="id"
           size="small"
-          scroll={{ x: 'max-content', y: 'calc(100vh - 400px)' }}
+          sticky={{ offsetHeader: 128 }}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 128px)' }}
           pagination={{
-            defaultPageSize: 20,
+            defaultPageSize: 50,
             showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100'],
+            pageSizeOptions: ['50', '100', '200'],
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} people`,
+            size: 'small',
           }}
+          className="compact-milestone-table"
           style={{
             background: 'white',
             borderRadius: 8,
           }}
         />
-
-        {/* Legend */}
-        <div style={{
-          marginTop: 16,
-          padding: 16,
-          background: 'white',
-          borderRadius: 8,
-          border: '1px solid #d9d9d9',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap'
-        }}>
-          <Text strong>Legend: </Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#52c41a',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '12px',
-            }}>
-              ✓ Completed
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#ff4d4f',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '12px',
-            }}>
-              ✗ Not Completed
-            </div>
-          </div>
-        </div>
       </div>
     </>
   );
