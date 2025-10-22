@@ -31,7 +31,7 @@ export async function PUT(
 
     const { id } = params;
     const body = await request.json();
-    const { stage_number, stage_name, description } = body;
+    const { stage_number, stage_name, short_name, description } = body;
 
     // Validation
     if (!stage_number || !stage_name) {
@@ -72,6 +72,7 @@ export async function PUT(
       SET 
         stage_number = ${stage_number},
         stage_name = ${stage_name},
+        short_name = ${short_name || null},
         description = ${description || null},
         updated_at = NOW()
       WHERE id = ${id}
