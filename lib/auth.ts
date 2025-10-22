@@ -5,13 +5,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export interface UserPayload {
   id: string;
-  userId?: string; // Backward compatibility
   username: string;
-  email?: string;  // Optional, for backwards compatibility
+  email?: string;
   role: 'superadmin' | 'leadpastor' | 'admin' | 'leader';
-  group_name?: string; // deprecated - use group_id
-  group_year?: number; // Year of the group (e.g., 2025, 2026)
-  group_id?: string;   // Assigned month group (Jan-Dec)
+  group_name?: string;
+  group_year?: number;
+  group_id?: string;
 }
 
 export function hashPassword(password: string): string {
