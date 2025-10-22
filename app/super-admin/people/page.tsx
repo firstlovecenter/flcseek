@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { usePeopleWithStats } from '@/hooks/use-fetch';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -29,12 +30,14 @@ interface PersonWithStats extends Person {
 export default function AllPeoplePage() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [people, setPeople] = useState<PersonWithStats[]>([]);
   const [filteredPeople, setFilteredPeople] = useState<PersonWithStats[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [groups, setGroups] = useState<string[]>([]);
+
+  // Use optimized hook for fetching people with stats
+  const { data, loading, error, refetch } = usePeopleWithStats(token);
+  const people = data?.people || [];
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'superadmin')) {
@@ -44,9 +47,14 @@ export default function AllPeoplePage() {
 
     if (user && token) {
       fetchGroups();
-      fetchPeople();
     }
   }, [user, token, authLoading, router]);
+
+  useEffect(() => {
+    if (error) {
+      message.error('Failed to load people');
+    }
+  }, [error]);
 
   const fetchGroups = async () => {
     try {
@@ -65,51 +73,6 @@ export default function AllPeoplePage() {
   useEffect(() => {
     filterPeople();
   }, [searchText, selectedDepartment, people]);
-
-  const fetchPeople = async () => {
-    try {
-      const response = await fetch('/api/people', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch people');
-
-      const data = await response.json();
-
-      const peopleWithStats = await Promise.all(
-        data.people.map(async (person: Person) => {
-          const detailsRes = await fetch(`/api/people/${person.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const details = await detailsRes.json();
-
-          const completedStages =
-            details.progress?.filter((p: any) => p.is_completed).length || 0;
-          const progressPercentage = Math.round((completedStages / TOTAL_PROGRESS_STAGES) * 100);
-
-          const attendanceCount = details.attendanceCount || 0;
-          const attendancePercentage = Math.min(
-            Math.round((attendanceCount / ATTENDANCE_GOAL) * 100),
-            100
-          );
-
-          return {
-            ...person,
-            progressPercentage,
-            attendanceCount,
-            attendancePercentage,
-          };
-        })
-      );
-
-      setPeople(peopleWithStats);
-      setFilteredPeople(peopleWithStats);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to load people');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filterPeople = () => {
     let filtered = [...people];
@@ -165,10 +128,10 @@ export default function AllPeoplePage() {
     {
       title: 'Progress',
       key: 'progress',
-      render: (_: any, record: PersonWithStats) => (
+      render: (_: any, record: any) => (
         <div style={{ width: 150 }}>
           <Progress
-            percent={record.progressPercentage}
+            percent={record.progress_percentage || record.progressPercentage || 0}
             strokeColor="#52c41a"
             size="small"
           />
@@ -178,15 +141,15 @@ export default function AllPeoplePage() {
     {
       title: 'Attendance',
       key: 'attendance',
-      render: (_: any, record: PersonWithStats) => (
+      render: (_: any, record: any) => (
         <div style={{ width: 150 }}>
           <Progress
-            percent={record.attendancePercentage}
+            percent={record.attendance_percentage || record.attendancePercentage || 0}
             strokeColor="#1890ff"
             size="small"
           />
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {record.attendanceCount}/{ATTENDANCE_GOAL}
+            {record.attendance_count || record.attendanceCount || 0}/{ATTENDANCE_GOAL}
           </Text>
         </div>
       ),

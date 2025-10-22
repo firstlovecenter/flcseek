@@ -6,6 +6,7 @@ import { UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined } 
 import { useAuth } from '@/contexts/AuthContext';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
+import { usePeopleWithStats, useDepartmentSummary } from '@/hooks/use-fetch';
 
 const { Title, Text } = Typography;
 
@@ -18,93 +19,23 @@ interface DepartmentStats {
 
 export default function ReportsOverviewPage() {
   const { token } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [groups, setGroups] = useState<string[]>([]);
-  const [stats, setStats] = useState({
-    totalPeople: 0,
-    avgProgress: 0,
-    avgAttendance: 0,
-    departmentStats: [] as DepartmentStats[],
-  });
+  
+  // Use optimized hooks for data fetching
+  const { data: peopleData, loading: peopleLoading } = usePeopleWithStats(token);
+  const { data: summaryData, loading: summaryLoading } = useDepartmentSummary(token);
+  
+  const people = peopleData?.people || [];
+  const departmentStats = summaryData?.summary || [];
+  const loading = peopleLoading || summaryLoading;
 
-  useEffect(() => {
-    if (token) {
-      fetchGroups();
-      fetchStats();
-    }
-  }, [token]);
-
-  const fetchGroups = async () => {
-    try {
-      const response = await fetch('/api/groups', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setGroups(data.groups?.map((g: any) => g.name) || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch groups:', error);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch('/api/people', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      const people = data.people || [];
-
-      const peopleWithStats = await Promise.all(
-        people.map(async (person: any) => {
-          const detailsRes = await fetch(`/api/people/${person.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const details = await detailsRes.json();
-
-          const completedStages = details.progress?.filter((p: any) => p.is_completed).length || 0;
-          const progressPercentage = Math.round((completedStages / TOTAL_PROGRESS_STAGES) * 100);
-          const attendanceCount = details.attendanceCount || 0;
-          const attendancePercentage = Math.min(Math.round((attendanceCount / ATTENDANCE_GOAL) * 100), 100);
-
-          return {
-            ...person,
-            progressPercentage,
-            attendancePercentage,
-          };
-        })
-      );
-
-      const totalPeople = peopleWithStats.length;
-      const avgProgress = Math.round(
-        peopleWithStats.reduce((sum, p) => sum + p.progressPercentage, 0) / totalPeople
-      );
-      const avgAttendance = Math.round(
-        peopleWithStats.reduce((sum, p) => sum + p.attendancePercentage, 0) / totalPeople
-      );
-
-      const departmentStats: DepartmentStats[] = groups.map((group) => {
-        const deptPeople = peopleWithStats.filter((p) => p.department_name === group);
-        return {
-          name: group,
-          totalPeople: deptPeople.length,
-          avgProgress: deptPeople.length
-            ? Math.round(deptPeople.reduce((sum, p) => sum + p.progressPercentage, 0) / deptPeople.length)
-            : 0,
-          avgAttendance: deptPeople.length
-            ? Math.round(deptPeople.reduce((sum, p) => sum + p.attendancePercentage, 0) / deptPeople.length)
-            : 0,
-        };
-      });
-
-      setStats({ totalPeople, avgProgress, avgAttendance, departmentStats });
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Calculate overall stats
+  const totalPeople = people.length;
+  const avgProgress = totalPeople > 0
+    ? Math.round(people.reduce((sum: number, p: any) => sum + (p.progress_percentage || 0), 0) / totalPeople)
+    : 0;
+  const avgAttendance = totalPeople > 0
+    ? Math.round(people.reduce((sum: number, p: any) => sum + (p.attendance_percentage || 0), 0) / totalPeople)
+    : 0;
 
   if (loading) {
     return (
@@ -128,7 +59,7 @@ export default function ReportsOverviewPage() {
             <Card>
               <Statistic
                 title="Total People"
-                value={stats.totalPeople}
+                value={totalPeople}
                 prefix={<TeamOutlined />}
                 valueStyle={{ color: '#1890ff' }}
               />
@@ -138,7 +69,7 @@ export default function ReportsOverviewPage() {
             <Card>
               <Statistic
                 title="Average Progress"
-                value={stats.avgProgress}
+                value={avgProgress}
                 suffix="%"
                 prefix={<CheckCircleOutlined />}
                 valueStyle={{ color: '#52c41a' }}
@@ -149,7 +80,7 @@ export default function ReportsOverviewPage() {
             <Card>
               <Statistic
                 title="Average Attendance"
-                value={stats.avgAttendance}
+                value={avgAttendance}
                 suffix="%"
                 prefix={<ClockCircleOutlined />}
                 valueStyle={{ color: '#faad14' }}
@@ -160,9 +91,9 @@ export default function ReportsOverviewPage() {
 
         <Card title="Department Breakdown" style={{ marginBottom: 24 }}>
           <Row gutter={[16, 16]}>
-            {stats.departmentStats.map((dept) => (
-              <Col xs={24} md={12} lg={8} key={dept.name}>
-                <Card type="inner" title={dept.name}>
+            {departmentStats.map((dept: any) => (
+              <Col xs={24} md={12} lg={8} key={dept.group}>
+                <Card type="inner" title={dept.group}>
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                       <Text><UserOutlined /> People</Text>

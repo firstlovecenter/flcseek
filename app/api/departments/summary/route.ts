@@ -15,73 +15,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch actual groups from database
-    const groupsResult = await query(`
+    // Optimized single query that calculates all stats using aggregation
+    const summaryResult = await query(`
       SELECT 
-        g.id,
-        g.name
+        g.name as group,
+        COUNT(DISTINCT rp.id) as total_people,
+        COALESCE(
+          ROUND(AVG(
+            (SELECT COUNT(*) * 100.0 / $1
+             FROM progress_records pr 
+             WHERE pr.person_id = rp.id AND pr.is_completed = true)
+          )), 0
+        ) as avg_progress,
+        COALESCE(
+          ROUND(AVG(
+            LEAST(
+              (SELECT COUNT(*) * 100.0 / $2
+               FROM attendance_records ar 
+               WHERE ar.person_id = rp.id),
+              100
+            )
+          )), 0
+        ) as avg_attendance
       FROM groups g
+      LEFT JOIN registered_people rp ON g.id = rp.group_id
       WHERE g.is_active = true
+      GROUP BY g.id, g.name
       ORDER BY g.name
-    `);
-    const groups = groupsResult.rows;
+    `, [TOTAL_PROGRESS_STAGES, ATTENDANCE_GOAL]);
 
-    const summary = await Promise.all(
-      groups.map(async (group) => {
-        const peopleResult = await query(
-          'SELECT id FROM registered_people WHERE group_id = $1',
-          [group.id]
-        );
+    const summary = summaryResult.rows.map((row: any) => ({
+      group: row.group,
+      totalPeople: parseInt(row.total_people),
+      avgProgress: parseInt(row.avg_progress),
+      avgAttendance: parseInt(row.avg_attendance),
+    }));
 
-        const people = peopleResult.rows;
-        const totalPeople = people.length;
-
-        if (totalPeople === 0) {
-          return {
-            group: group.name,
-            totalPeople: 0,
-            avgProgress: 0,
-            avgAttendance: 0,
-          };
-        }
-
-        let totalProgressPercentage = 0;
-        let totalAttendancePercentage = 0;
-
-        for (const person of people) {
-          const progressResult = await query(
-            'SELECT is_completed FROM progress_records WHERE person_id = $1',
-            [person.id]
-          );
-
-          const completedStages =
-            progressResult.rows.filter((p: any) => p.is_completed).length;
-          const progressPercentage = (completedStages / TOTAL_PROGRESS_STAGES) * 100;
-          totalProgressPercentage += progressPercentage;
-
-          const attendanceResult = await query(
-            'SELECT COUNT(*) as count FROM attendance_records WHERE person_id = $1',
-            [person.id]
-          );
-
-          const attendanceCount = parseInt(attendanceResult.rows[0].count);
-          const attendancePercentage = (attendanceCount / ATTENDANCE_GOAL) * 100;
-          totalAttendancePercentage += Math.min(attendancePercentage, 100);
-        }
-
-        return {
-          group: group.name,
-          totalPeople,
-          avgProgress: Math.round(totalProgressPercentage / totalPeople),
-          avgAttendance: Math.round(totalAttendancePercentage / totalPeople),
-        };
-      })
-    );
-
-    return NextResponse.json({ summary });
-  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { summary },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('Error fetching department summary:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
