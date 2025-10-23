@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
+import { ATTENDANCE_GOAL } from '@/lib/constants';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    // Get total milestones count from database
+    const milestonesResult = await query('SELECT COUNT(*) as count FROM milestones');
+    const totalMilestones = parseInt(milestonesResult.rows[0]?.count || '18');
 
     // Optimized single query that calculates all stats using aggregation
     const summaryResult = await query(`
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
       WHERE g.is_active = true
       GROUP BY g.id, g.name
       ORDER BY g.name
-    `, [TOTAL_PROGRESS_STAGES, ATTENDANCE_GOAL]);
+    `, [totalMilestones, ATTENDANCE_GOAL]);
 
     const summary = summaryResult.rows.map((row: any) => ({
       group: row.group,

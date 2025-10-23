@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get all users who are not superadmins
-    // Include users with no role (they'll be assigned sheep_seeker when assigned to a group)
+    // Get all users who can be leaders (excluding superadmins)
+    // Include users with no role (they can be assigned a role when assigned to a group)
     const result = await query(`
       SELECT 
         u.id,
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         u.email,
         u.role
       FROM users u
-      WHERE u.role IS NULL OR u.role = 'sheep_seeker' OR u.role = 'admin' OR u.role = 'leader' OR u.role = 'leadpastor'
+      WHERE u.role IS NULL OR u.role = 'leader' OR u.role = 'admin' OR u.role = 'leadpastor'
       ORDER BY u.first_name, u.last_name, u.username
     `);
 

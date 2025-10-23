@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user', JSON.stringify(data.user));
 
     if (data.user.role === 'superadmin') {
-      router.push('/super-admin');
+      router.push('/superadmin');
     } else if (data.user.role === 'leadpastor') {
       router.push('/leadpastor');
     } else {

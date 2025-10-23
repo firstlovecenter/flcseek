@@ -5,10 +5,15 @@ import { Table, Button, Typography, Spin, message, Progress, Tag, Modal, Checkbo
 import { CheckCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { PROGRESS_STAGES } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
+
+interface Milestone {
+  stage_number: number;
+  stage_name: string;
+  short_name?: string;
+}
 
 interface PersonProgress {
   id: string;
@@ -23,6 +28,7 @@ export default function ProgressPage() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [people, setPeople] = useState<PersonProgress[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
@@ -258,7 +264,7 @@ export default function ProgressPage() {
                   onChange={() => toggleStage(stage.stage_number, stage.is_completed)}
                   disabled={updating}
                 >
-                  <Text strong>{PROGRESS_STAGES[stage.stage_number - 1]?.name || `Stage ${stage.stage_number}`}</Text>
+                  <Text strong>{milestones.find(m => m.stage_number === stage.stage_number)?.stage_name || `Stage ${stage.stage_number}`}</Text>
                 </Checkbox>
               </div>
             ))}

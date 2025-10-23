@@ -17,7 +17,7 @@ export default function Home() {
     if (!loading && user) {
       switch (user.role) {
         case 'superadmin':
-          router.push('/super-admin');
+          router.push('/superadmin');
           break;
         case 'admin':
           router.push('/sheep-seeker'); // Admins now have full sheep seeker access

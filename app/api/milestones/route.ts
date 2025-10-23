@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         description,
         created_at,
         updated_at
-      FROM progress_stages
+      FROM milestones
       ORDER BY stage_number ASC
     `;
 
@@ -81,13 +81,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if stage number already exists
-    const existing = await sql`
-      SELECT id FROM progress_stages 
+    // Check if stage_number already exists
+    const existingStage = await sql`
+      SELECT id FROM milestones 
       WHERE stage_number = ${stage_number}
     `;
 
-    if (existing.length > 0) {
+    if (existingStage.length > 0) {
       return NextResponse.json(
         { error: `Stage number ${stage_number} already exists` },
         { status: 400 }
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Create the milestone
     const result = await sql`
-      INSERT INTO progress_stages (stage_number, stage_name, short_name, description)
+      INSERT INTO milestones (stage_number, stage_name, short_name, description)
       VALUES (${stage_number}, ${stage_name}, ${short_name || null}, ${description || null})
       RETURNING *
     `;

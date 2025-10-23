@@ -5,7 +5,6 @@ import { Table, Button, Typography, Spin, Tooltip, Input, Breadcrumb } from 'ant
 import { SearchOutlined, LeftOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
-import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
 import Link from 'next/link';
 
 const { Title, Text } = Typography;
@@ -70,7 +69,7 @@ export default function LeadPastorMonthDashboard() {
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
-  const [milestones, setMilestones] = useState<typeof PROGRESS_STAGES>([]);
+  const [milestones, setMilestones] = useState<Array<{ number: number; name: string; shortName: string }>>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'leadpastor')) {
@@ -116,14 +115,12 @@ export default function LeadPastorMonthDashboard() {
         console.log('Formatted milestones:', formattedMilestones);
         setMilestones(formattedMilestones);
       } else {
-        console.warn('Failed to fetch milestones, using fallback');
-        // Fallback to constants if API fails
-        setMilestones(PROGRESS_STAGES);
+        console.warn('Failed to fetch milestones, using empty array');
+        setMilestones([]);
       }
     } catch (error) {
       console.error('Error fetching milestones:', error);
-      // Fallback to constants if API fails
-      setMilestones(PROGRESS_STAGES);
+      setMilestones([]);
     }
   };
 
@@ -206,10 +203,9 @@ export default function LeadPastorMonthDashboard() {
       },
     ];
 
-    const milestonesToUse = milestones.length > 0 ? milestones : PROGRESS_STAGES;
-    console.log('Rendering columns with milestones:', milestonesToUse);
+    console.log('Rendering columns with milestones:', milestones);
     
-    const milestoneColumns = milestonesToUse.map((stage) => ({
+    const milestoneColumns = milestones.map((stage) => ({
       title: (
         <Tooltip title={stage.name}>
           <div style={{ textAlign: 'center', fontWeight: '700' }}>
@@ -254,7 +250,7 @@ export default function LeadPastorMonthDashboard() {
     person.group_name.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  const totalStages = milestones.length > 0 ? milestones.length : TOTAL_PROGRESS_STAGES;
+  const totalStages = milestones.length;
   const totalNewConverts = people.length;
   const newConvertsWithCompletedMilestones = people.filter(
     person => person.progress.filter(p => p.is_completed).length === totalStages

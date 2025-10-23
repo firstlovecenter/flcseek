@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { PROGRESS_STAGES } from '@/lib/constants';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -72,20 +71,16 @@ export async function POST(request: NextRequest) {
 
     const person = result.rows[0];
 
-    const progressRecords = PROGRESS_STAGES.map((stage) => ({
-      person_id: person.id,
-      stage_number: stage.number,
-      stage_name: stage.name,
-      is_completed: false,
-      updated_by: userPayload.id,
-    }));
+    // Get all milestones from the database
+    const milestonesResult = await query('SELECT stage_number, name FROM milestones ORDER BY stage_number');
+    const milestones = milestonesResult.rows;
 
-    // Insert progress records
-    for (const record of progressRecords) {
+    // Insert progress records for each milestone
+    for (const milestone of milestones) {
       await query(
         `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
          VALUES ($1, $2, $3, $4, $5)`,
-        [record.person_id, record.stage_number, record.stage_name, record.is_completed, record.updated_by]
+        [person.id, milestone.stage_number, milestone.name, false, userPayload.id]
       );
     }
 

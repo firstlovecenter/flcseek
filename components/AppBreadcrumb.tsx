@@ -17,7 +17,7 @@ export default function AppBreadcrumb() {
 
   const pathSegments = pathname.split('/').filter(Boolean);
   
-  const homeUrl = user?.role === 'superadmin' ? '/super-admin' : '/sheep-seeker';
+  const homeUrl = user?.role === 'superadmin' ? '/superadmin' : '/sheep-seeker';
   const homeName = user?.role === 'superadmin' ? 'Super Admin' : 'Sheep Seeker';
 
   const breadcrumbItems = [

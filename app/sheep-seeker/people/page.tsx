@@ -5,7 +5,7 @@ import { Table, Button, Typography, Spin, message, Progress, Tag, Input } from '
 import { EyeOutlined, UserAddOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
+import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { usePeopleWithStats } from '@/hooks/use-fetch';
 
