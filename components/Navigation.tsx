@@ -94,11 +94,6 @@ export default function Navigation({ children }: NavigationProps) {
       label: <Link href="/superadmin/converts">New Converts</Link>,
     },
     {
-      key: 'analytics',
-      icon: <FileTextOutlined />,
-      label: <Link href="/superadmin/analytics">Analytics</Link>,
-    },
-    {
       key: 'database',
       icon: <SettingOutlined />,
       label: <Link href="/superadmin/database">Database</Link>,
@@ -126,11 +121,6 @@ export default function Navigation({ children }: NavigationProps) {
       key: '/superadmin/groups',
       icon: <UsergroupAddOutlined />,
       label: <Link href="/superadmin/groups">Groups</Link>,
-    },
-    {
-      key: '/superadmin/analytics',
-      icon: <LineChartOutlined />,
-      label: <Link href="/superadmin/analytics">Analytics</Link>,
     },
   ];
 

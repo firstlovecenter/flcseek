@@ -39,9 +39,9 @@ export async function PUT(
 
     const result = await query(
       `UPDATE groups 
-       SET name = $1, description = $2, leader_id = $3, updated_at = NOW()
+       SET name = $1, description = $2, sheep_seeker_id = $3, updated_at = NOW()
        WHERE id = $4
-       RETURNING id, name, description, leader_id, updated_at`,
+       RETURNING id, name, description, sheep_seeker_id as leader_id, updated_at`,
       [name, description || null, leader_id || null, id]
     );
 
