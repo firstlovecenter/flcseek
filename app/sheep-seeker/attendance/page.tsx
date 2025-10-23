@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space } from 'antd';
+import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
@@ -180,7 +180,29 @@ export default function AttendancePage() {
       <AppBreadcrumb />
       <div>
         <div style={{ marginBottom: 24 }}>
-          <Title level={2}>Attendance Tracking</Title>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Title level={2} style={{ margin: 0 }}>Attendance Tracking</Title>
+            <Space>
+              <Button
+                icon={<HomeOutlined />}
+                onClick={() => router.push('/sheep-seeker')}
+              >
+                Home
+              </Button>
+              <Button
+                icon={<TeamOutlined />}
+                onClick={() => router.push('/sheep-seeker/people')}
+              >
+                People
+              </Button>
+              <Button
+                icon={<BarChartOutlined />}
+                onClick={() => router.push('/sheep-seeker/progress')}
+              >
+                Progress
+              </Button>
+            </Space>
+          </div>
           <Text type="secondary">
             {isLeader 
               ? `View attendance records for all new converts (Goal: ${ATTENDANCE_GOAL} Sundays) - Read-only access`

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag } from 'antd';
+import { Table, Button, Typography, Spin, message, Progress, Tag, Space } from 'antd';
+import { HomeOutlined, BarChartOutlined, LeftOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
@@ -142,7 +143,29 @@ export default function LeadPastorAttendancePage() {
       <AppBreadcrumb />
       <div>
         <div style={{ marginBottom: 24 }}>
-          <Title level={2}>Attendance Tracking</Title>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Title level={2} style={{ margin: 0 }}>Attendance Tracking</Title>
+            <Space>
+              <Button
+                icon={<LeftOutlined />}
+                onClick={() => router.push(`/leadpastor/${month}`)}
+              >
+                Back to {month.charAt(0).toUpperCase() + month.slice(1)}
+              </Button>
+              <Button
+                icon={<HomeOutlined />}
+                onClick={() => router.push('/leadpastor')}
+              >
+                Home
+              </Button>
+              <Button
+                icon={<BarChartOutlined />}
+                onClick={() => router.push(`/leadpastor/${month}/progress`)}
+              >
+                Progress
+              </Button>
+            </Space>
+          </div>
           <Text type="secondary">
             View attendance records for all new converts (Goal: {ATTENDANCE_GOAL} Sundays) - Read-only access
           </Text>

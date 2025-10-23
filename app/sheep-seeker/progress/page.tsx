@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag, Modal, Checkbox } from 'antd';
-import { CheckCircleOutlined, EyeOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Progress, Tag, Modal, Checkbox, Space } from 'antd';
+import { CheckCircleOutlined, EyeOutlined, HomeOutlined, TeamOutlined, CheckOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -221,7 +221,29 @@ export default function ProgressPage() {
       <AppBreadcrumb />
       <div>
         <div style={{ marginBottom: 24 }}>
-          <Title level={2}>Milestone Tracking</Title>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Title level={2} style={{ margin: 0 }}>Milestone Tracking</Title>
+            <Space>
+              <Button
+                icon={<HomeOutlined />}
+                onClick={() => router.push('/sheep-seeker')}
+              >
+                Home
+              </Button>
+              <Button
+                icon={<TeamOutlined />}
+                onClick={() => router.push('/sheep-seeker/people')}
+              >
+                People
+              </Button>
+              <Button
+                icon={<CheckOutlined />}
+                onClick={() => router.push('/sheep-seeker/attendance')}
+              >
+                Attendance
+              </Button>
+            </Space>
+          </div>
           <Text type="secondary">
             {isLeader 
               ? 'View spiritual growth milestones for all new converts - Read-only access'
