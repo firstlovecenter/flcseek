@@ -39,18 +39,18 @@ Generated: October 21, 2025
 
 | Month | Username | Password | Group |
 |-------|----------|----------|-------|
-| January | `january_admin` | `JanuaryAdmin2025!` | eXp-January |
-| February | `february_admin` | `FebruaryAdmin2025!` | HGE-February |
-| March | `march_admin` | `MarchAdmin2025!` | HGE-March |
-| April | `april_admin` | `AprilAdmin2025!` | HGE-April |
-| May | `may_admin` | `MayAdmin2025!` | HGE-May |
-| June | `june_admin` | `JuneAdmin2025!` | HGE-June |
-| July | `july_admin` | `JulyAdmin2025!` | HGE-July |
-| August | `august_admin` | `AugustAdmin2025!` | HGE-August |
-| September | `september_admin` | `SeptemberAdmin2025!` | HGE-September |
-| October | `october_admin` | `OctoberAdmin2025!` | HGE-October |
-| November | `november_admin` | `NovemberAdmin2025!` | HGE-November |
-| December | `december_admin` | `DecemberAdmin2025!` | HGE-December |
+| January | `january_admin` | `JanuaryAdmin2025!` | January |
+| February | `february_admin` | `FebruaryAdmin2025!` | February |
+| March | `march_admin` | `MarchAdmin2025!` | March |
+| April | `april_admin` | `AprilAdmin2025!` | April |
+| May | `may_admin` | `MayAdmin2025!` | May |
+| June | `june_admin` | `JuneAdmin2025!` | June |
+| July | `july_admin` | `JulyAdmin2025!` | July |
+| August | `august_admin` | `AugustAdmin2025!` | August |
+| September | `september_admin` | `SeptemberAdmin2025!` | September |
+| October | `october_admin` | `OctoberAdmin2025!` | October |
+| November | `november_admin` | `NovemberAdmin2025!` | November |
+| December | `december_admin` | `DecemberAdmin2025!` | December |
 
 ---
 
@@ -60,18 +60,18 @@ Generated: October 21, 2025
 
 | Month | Username | Password | Group |
 |-------|----------|----------|-------|
-| January | `january_leader` | `JanuaryLeader2025!` | eXp-January |
-| February | `february_leader` | `FebruaryLeader2025!` | HGE-February |
-| March | `march_leader` | `MarchLeader2025!` | HGE-March |
-| April | `april_leader` | `AprilLeader2025!` | HGE-April |
-| May | `may_leader` | `MayLeader2025!` | HGE-May |
-| June | `june_leader` | `JuneLeader2025!` | HGE-June |
-| July | `july_leader` | `JulyLeader2025!` | HGE-July |
-| August | `august_leader` | `AugustLeader2025!` | HGE-August |
-| September | `september_leader` | `SeptemberLeader2025!` | HGE-September |
-| October | `october_leader` | `OctoberLeader2025!` | HGE-October |
-| November | `november_leader` | `NovemberLeader2025!` | HGE-November |
-| December | `december_leader` | `DecemberLeader2025!` | HGE-December |
+| January | `january_leader` | `JanuaryLeader2025!` | January |
+| February | `february_leader` | `FebruaryLeader2025!` | February |
+| March | `march_leader` | `MarchLeader2025!` | March |
+| April | `april_leader` | `AprilLeader2025!` | April |
+| May | `may_leader` | `MayLeader2025!` | May |
+| June | `june_leader` | `JuneLeader2025!` | June |
+| July | `july_leader` | `JulyLeader2025!` | July |
+| August | `august_leader` | `AugustLeader2025!` | August |
+| September | `september_leader` | `SeptemberLeader2025!` | September |
+| October | `october_leader` | `OctoberLeader2025!` | October |
+| November | `november_leader` | `NovemberLeader2025!` | November |
+| December | `december_leader` | `DecemberLeader2025!` | December |
 
 ---
 
