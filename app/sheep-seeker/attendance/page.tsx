@@ -154,12 +154,12 @@ export default function AttendancePage() {
           <div style={{ flex: 1, minWidth: 200 }}>
             <Progress
               percent={record.percentage}
-              strokeColor={record.percentage >= 100 ? '#52c41a' : '#1890ff'}
+              strokeColor={record.attendanceCount >= 10 ? '#52c41a' : '#ff4d4f'}
               size="small"
               format={(percent) => `${record.attendanceCount}/${ATTENDANCE_GOAL}`}
             />
           </div>
-          <Tag color={record.percentage >= 100 ? 'success' : 'processing'}>
+          <Tag color={record.attendanceCount >= 10 ? 'success' : 'error'}>
             {record.percentage}%
           </Tag>
         </div>
