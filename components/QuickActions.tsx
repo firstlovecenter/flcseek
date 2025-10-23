@@ -35,12 +35,6 @@ export default function QuickActions() {
       label: 'View New Converts',
       onClick: () => router.push('/superadmin/converts'),
     },
-    {
-      key: 'analytics',
-      icon: <FileAddOutlined />,
-      label: 'View Analytics',
-      onClick: () => router.push('/superadmin/analytics'),
-    },
   ];
 
   const sheepSeekerActions: MenuProps['items'] = [

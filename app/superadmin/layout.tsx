@@ -81,11 +81,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       label: <Link href="/superadmin/converts">New Converts</Link>,
     },
     {
-      key: 'analytics',
-      icon: <BarChartOutlined />,
-      label: <Link href="/superadmin/analytics">Analytics</Link>,
-    },
-    {
       key: 'database',
       icon: <DatabaseOutlined />,
       label: <Link href="/superadmin/database">Database</Link>,

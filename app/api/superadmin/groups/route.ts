@@ -35,15 +35,15 @@ export async function GET(request: NextRequest) {
         g.id,
         g.name,
         g.description,
-        g.leader_id,
-        u.username as leader_name,
+        g.sheep_seeker_id as leader_id,
+        COALESCE(u.username, u.email, 'No Leader') as leader_name,
         g.created_at,
         g.updated_at,
         COUNT(rp.id) as member_count
        FROM groups g
-       LEFT JOIN users u ON g.leader_id = u.id
+       LEFT JOIN users u ON g.sheep_seeker_id = u.id
        LEFT JOIN registered_people rp ON rp.group_name = g.name
-       GROUP BY g.id, g.name, g.description, g.leader_id, u.username, g.created_at, g.updated_at
+       GROUP BY g.id, g.name, g.description, g.sheep_seeker_id, u.username, u.email, g.created_at, g.updated_at
        ORDER BY g.created_at DESC`
     );
 
@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     const { name, description, leader_id } = body;
 
     const result = await query(
-      `INSERT INTO groups (name, description, leader_id)
+      `INSERT INTO groups (name, description, sheep_seeker_id)
        VALUES ($1, $2, $3)
-       RETURNING id, name, description, leader_id, created_at`,
+       RETURNING id, name, description, sheep_seeker_id as leader_id, created_at`,
       [name, description || null, leader_id || null]
     );
 
