@@ -366,7 +366,17 @@ export default function PersonDetailPage() {
                         <Button
                           type="primary"
                           icon={<PlusOutlined />}
-                          onClick={() => setAttendanceModalVisible(true)}
+                          onClick={() => {
+                            // Calculate the most recent Sunday
+                            const today = dayjs();
+                            const mostRecentSunday = today.day() === 0 
+                              ? today 
+                              : today.subtract(today.day(), 'day');
+                            
+                            // Set default value to most recent Sunday
+                            form.setFieldsValue({ date_attended: mostRecentSunday });
+                            setAttendanceModalVisible(true);
+                          }}
                         >
                           Add Attendance
                         </Button>
@@ -414,13 +424,20 @@ export default function PersonDetailPage() {
                 if (!current) return false;
                 
                 const today = dayjs();
-                const oneWeekAgo = today.subtract(7, 'day');
                 
                 // Disable if not a Sunday (day 0)
                 if (current.day() !== 0) return true;
                 
-                // Disable if more than 1 week in the past
-                if (current.isBefore(oneWeekAgo, 'day')) return true;
+                // Calculate the most recent Sunday (or today if today is Sunday)
+                const mostRecentSunday = today.day() === 0 
+                  ? today 
+                  : today.subtract(today.day(), 'day');
+                
+                // Calculate one week before most recent Sunday
+                const oneWeekBeforeRecentSunday = mostRecentSunday.subtract(7, 'day');
+                
+                // Disable if before the one-week-ago Sunday
+                if (current.isBefore(oneWeekBeforeRecentSunday, 'day')) return true;
                 
                 // Disable if in the future
                 if (current.isAfter(today, 'day')) return true;
@@ -428,7 +445,7 @@ export default function PersonDetailPage() {
                 return false;
               }}
               format="YYYY-MM-DD"
-              placeholder="Select a Sunday"
+              placeholder="Select a Sunday within the past week"
             />
           </Form.Item>
 
