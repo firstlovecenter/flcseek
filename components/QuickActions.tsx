@@ -18,28 +18,28 @@ export default function QuickActions() {
 
   const superAdminActions: MenuProps['items'] = [
     {
-      key: 'register',
-      icon: <UserAddOutlined />,
-      label: 'Register New Person',
-      onClick: () => router.push('/super-admin/people/register'),
-    },
-    {
-      key: 'send-sms',
-      icon: <MessageOutlined />,
-      label: 'Send SMS',
-      onClick: () => router.push('/super-admin/sms/send'),
-    },
-    {
-      key: 'create-user',
+      key: 'users',
       icon: <TeamOutlined />,
-      label: 'Create User',
-      onClick: () => router.push('/super-admin/users/create'),
+      label: 'Manage Users',
+      onClick: () => router.push('/superadmin/users'),
     },
     {
-      key: 'view-reports',
+      key: 'groups',
+      icon: <TeamOutlined />,
+      label: 'Manage Groups',
+      onClick: () => router.push('/superadmin/groups'),
+    },
+    {
+      key: 'converts',
+      icon: <UserAddOutlined />,
+      label: 'View New Converts',
+      onClick: () => router.push('/superadmin/converts'),
+    },
+    {
+      key: 'analytics',
       icon: <FileAddOutlined />,
-      label: 'View Reports',
-      onClick: () => router.push('/super-admin/reports/overview'),
+      label: 'View Analytics',
+      onClick: () => router.push('/superadmin/analytics'),
     },
   ];
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { ATTENDANCE_GOAL, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
+import { ATTENDANCE_GOAL } from '@/lib/constants';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -107,6 +107,10 @@ export async function GET(request: NextRequest) {
     const countResult = await query(countQuery, countParams);
     const total = parseInt(countResult.rows[0]?.total || '0');
 
+    // Get total milestones count from database
+    const milestonesResult = await query('SELECT COUNT(*) as count FROM milestones');
+    const totalMilestones = parseInt(milestonesResult.rows[0]?.count || '18');
+
     // Calculate percentages
     const peopleWithStats = result.rows.map((person: any) => {
       const completedStages = parseInt(person.completed_stages || '0');
@@ -116,7 +120,7 @@ export async function GET(request: NextRequest) {
         ...person,
         completed_stages: completedStages,
         attendance_count: attendanceCount,
-        progress_percentage: Math.round((completedStages / TOTAL_PROGRESS_STAGES) * 100),
+        progress_percentage: Math.round((completedStages / totalMilestones) * 100),
         attendance_percentage: Math.min(Math.round((attendanceCount / ATTENDANCE_GOAL) * 100), 100),
       };
     });

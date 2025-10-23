@@ -74,101 +74,63 @@ export default function Navigation({ children }: NavigationProps) {
   // Top Navigation items for Super Admin
   const superAdminTopMenuItems = [
     {
-      key: '/super-admin',
+      key: '/superadmin',
       icon: <HomeOutlined />,
-      label: <Link href="/super-admin">Dashboard</Link>,
+      label: <Link href="/superadmin">Dashboard</Link>,
     },
     {
-      key: 'people',
+      key: 'users',
       icon: <TeamOutlined />,
-      label: 'People',
-      children: [
-        {
-          key: '/super-admin/people',
-          label: <Link href="/super-admin/people">All People</Link>,
-        },
-        {
-          key: '/super-admin/people/register',
-          label: <Link href="/super-admin/people/register">Register New</Link>,
-        },
-        {
-          key: '/super-admin/people/bulk-register',
-          label: <Link href="/super-admin/people/bulk-register">Bulk Register</Link>,
-        },
-      ],
+      label: <Link href="/superadmin/users">Users</Link>,
     },
     {
       key: 'groups',
       icon: <UsergroupAddOutlined />,
-      label: <Link href="/super-admin/groups">Groups</Link>,
+      label: <Link href="/superadmin/groups">Groups</Link>,
     },
     {
-      key: 'milestones',
-      icon: <OrderedListOutlined />,
-      label: <Link href="/super-admin/milestones">Milestones</Link>,
+      key: 'converts',
+      icon: <TeamOutlined />,
+      label: <Link href="/superadmin/converts">New Converts</Link>,
     },
     {
-      key: 'reports',
+      key: 'analytics',
       icon: <FileTextOutlined />,
-      label: 'Reports',
-      children: [
-        {
-          key: '/super-admin/reports/overview',
-          label: <Link href="/super-admin/reports/overview">Overview</Link>,
-        },
-        {
-          key: '/super-admin/reports/progress',
-          label: <Link href="/super-admin/reports/progress">Progress Report</Link>,
-        },
-        {
-          key: '/super-admin/reports/attendance',
-          label: <Link href="/super-admin/reports/attendance">Attendance Report</Link>,
-        },
-      ],
+      label: <Link href="/superadmin/analytics">Analytics</Link>,
     },
     {
-      key: 'users',
+      key: 'database',
       icon: <SettingOutlined />,
-      label: 'Users',
-      children: [
-        {
-          key: '/super-admin/users',
-          label: <Link href="/super-admin/users">All Users</Link>,
-        },
-        {
-          key: '/super-admin/users/create',
-          label: <Link href="/super-admin/users/create">Create User</Link>,
-        },
-      ],
+      label: <Link href="/superadmin/database">Database</Link>,
     },
   ];
 
   // Mobile Bottom Navigation items for Super Admin
   const superAdminBottomMenuItems = [
     {
-      key: '/super-admin',
+      key: '/superadmin',
       icon: <HomeOutlined />,
-      label: <Link href="/super-admin">Home</Link>,
+      label: <Link href="/superadmin">Home</Link>,
     },
     {
-      key: '/super-admin/people',
+      key: '/superadmin/users',
       icon: <TeamOutlined />,
-      label: <Link href="/super-admin/people">People</Link>,
+      label: <Link href="/superadmin/users">Users</Link>,
     },
     {
-      key: '/super-admin/milestones',
-      icon: <OrderedListOutlined />,
-      label: <Link href="/super-admin/milestones">Milestones</Link>,
+      key: '/superadmin/converts',
+      icon: <TeamOutlined />,
+      label: <Link href="/superadmin/converts">Converts</Link>,
     },
     {
-      key: '/super-admin/groups',
+      key: '/superadmin/groups',
       icon: <UsergroupAddOutlined />,
-      label: <Link href="/super-admin/groups">Groups</Link>,
+      label: <Link href="/superadmin/groups">Groups</Link>,
     },
     {
-      key: '/super-admin/reports/overview',
+      key: '/superadmin/analytics',
       icon: <LineChartOutlined />,
-      label: <Link href="/super-admin/reports/overview">Reports</Link>,
+      label: <Link href="/superadmin/analytics">Analytics</Link>,
     },
   ];
 

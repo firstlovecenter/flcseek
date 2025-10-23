@@ -6,7 +6,7 @@ import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarCh
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PROGRESS_STAGES, TOTAL_PROGRESS_STAGES } from '@/lib/constants';
+import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
@@ -112,7 +112,12 @@ export default function SheepSeekerDashboard() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [milestones, setMilestones] = useState<typeof PROGRESS_STAGES>([]);
+  const [milestones, setMilestones] = useState<Array<{
+    number: number;
+    name: string;
+    shortName: string;
+    description: string;
+  }>>([]);
   const [form] = Form.useForm();
 
   // Fetch milestones from database
@@ -152,8 +157,8 @@ export default function SheepSeekerDashboard() {
       setMilestones(formattedMilestones);
     } catch (error) {
       console.error('Failed to fetch milestones:', error);
-      // Fallback to constants if fetch fails
-      setMilestones(PROGRESS_STAGES);
+      message.error('Failed to load milestones from database');
+      setMilestones([]);
     }
   }, [token]);
 
@@ -330,7 +335,7 @@ export default function SheepSeekerDashboard() {
     ];
 
     // Create milestone columns efficiently from database data
-    const milestoneColumns = (milestones.length > 0 ? milestones : PROGRESS_STAGES).map((stage) => ({
+    const milestoneColumns = milestones.map((stage) => ({
       title: (
         <Tooltip title={stage.name}>
           <div style={{ textAlign: 'center', fontWeight: 'bold' }}>
@@ -401,13 +406,14 @@ export default function SheepSeekerDashboard() {
   );
 
   const totalNewConverts = people.length;
+  const totalMilestonesCount = milestones.length;
   const newConvertsWithCompletedMilestones = people.filter(
-    person => person.progress.filter(p => p.is_completed).length === TOTAL_PROGRESS_STAGES
+    person => person.progress.filter(p => p.is_completed).length === totalMilestonesCount
   ).length;
   const newConvertsInArrears = people.filter(
-    person => person.progress.filter(p => p.is_completed).length < TOTAL_PROGRESS_STAGES
+    person => person.progress.filter(p => p.is_completed).length < totalMilestonesCount
   ).length;
-  const totalMilestones = totalNewConverts * TOTAL_PROGRESS_STAGES;
+  const totalMilestones = totalNewConverts * totalMilestonesCount;
   const completedMilestones = people.reduce(
     (sum, person) => sum + person.progress.filter(p => p.is_completed).length,
     0

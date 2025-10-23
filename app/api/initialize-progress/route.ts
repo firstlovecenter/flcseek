@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { PROGRESS_STAGES } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +9,14 @@ export async function POST(request: NextRequest) {
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Unauthorized - Superadmin only' }, { status: 401 });
+    }
+
+    // Get all milestones from the database
+    const milestonesResult = await query('SELECT stage_number, name FROM milestones ORDER BY stage_number');
+    const milestones = milestonesResult.rows;
+
+    if (milestones.length === 0) {
+      return NextResponse.json({ error: 'No milestones found in database' }, { status: 400 });
     }
 
     // Get all registered people
@@ -29,24 +36,24 @@ export async function POST(request: NextRequest) {
       const existingCount = parseInt(existingProgress.rows[0].count);
 
       if (existingCount === 0) {
-        // Initialize all 18 progress stages for this person
-        for (const stage of PROGRESS_STAGES) {
+        // Initialize all milestones for this person
+        for (const milestone of milestones) {
           await query(
             `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (person_id, stage_number) DO NOTHING`,
-            [person.id, stage.number, stage.name, false, userPayload.id]
+            [person.id, milestone.stage_number, milestone.name, false, userPayload.id]
           );
         }
         initialized++;
-      } else if (existingCount < PROGRESS_STAGES.length) {
+      } else if (existingCount < milestones.length) {
         // Person has some progress records but not all - fill in missing ones
-        for (const stage of PROGRESS_STAGES) {
+        for (const milestone of milestones) {
           await query(
             `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (person_id, stage_number) DO NOTHING`,
-            [person.id, stage.number, stage.name, false, userPayload.id]
+            [person.id, milestone.stage_number, milestone.name, false, userPayload.id]
           );
         }
         initialized++;

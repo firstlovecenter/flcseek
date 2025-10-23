@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify leader exists and is a sheep_seeker if provided
+    // Verify leader exists and has appropriate role if provided
     if (leader_id) {
       const leaderCheck = await query(
         'SELECT id, role FROM users WHERE id = $1',
@@ -73,9 +73,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (leaderCheck.rows[0].role !== 'sheep_seeker') {
+      const validRoles = ['leader', 'admin', 'leadpastor'];
+      if (leaderCheck.rows[0].role && !validRoles.includes(leaderCheck.rows[0].role)) {
         return NextResponse.json(
-          { error: 'Department leader must be a Sheep Seeker' },
+          { error: 'User must have leader, admin, or leadpastor role' },
           { status: 400 }
         );
       }
