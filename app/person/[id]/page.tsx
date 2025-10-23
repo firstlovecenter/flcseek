@@ -10,6 +10,7 @@ import {
   Switch,
   Table,
   Button,
+  Space,
   Progress,
   Tag,
   Modal,
@@ -250,6 +251,27 @@ export default function PersonDetailPage() {
       />
       <div style={{ padding: '24px' }}>
         <AppBreadcrumb />
+        <div
+          style={{
+            margin: '8px 0 16px 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Space wrap>
+            <Button onClick={() => router.push(backUrl)}>Home</Button>
+            {(user?.role === 'admin' || user?.role === 'leader') && (
+              <>
+                <Button onClick={() => router.push('/sheep-seeker/people')}>New Converts</Button>
+                <Button onClick={() => router.push('/sheep-seeker/attendance')}>Attendance</Button>
+                <Button onClick={() => router.push('/sheep-seeker/progress')}>Progress</Button>
+              </>
+            )}
+          </Space>
+        </div>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Card style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>

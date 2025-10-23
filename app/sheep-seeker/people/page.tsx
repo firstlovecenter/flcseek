@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag, Input } from 'antd';
+import { Table, Button, Typography, Spin, message, Progress, Tag, Input, Space } from 'antd';
 import { EyeOutlined, UserAddOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -148,6 +148,35 @@ export default function SheepSeekerPeoplePage() {
   return (
     <>
       <AppBreadcrumb />
+      {/* Top navigation header */}
+      <div
+        style={{
+          margin: '8px 0 16px 0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Space wrap>
+          <Button onClick={() => router.push('/sheep-seeker')}>Home</Button>
+          <Button type="primary" onClick={() => router.push('/sheep-seeker/people')}>
+            New Converts
+          </Button>
+          <Button onClick={() => router.push('/sheep-seeker/attendance')}>Attendance</Button>
+          <Button onClick={() => router.push('/sheep-seeker/progress')}>Progress</Button>
+        </Space>
+        {user?.role === 'admin' && (
+          <Button
+            type="primary"
+            icon={<UserAddOutlined />}
+            onClick={() => router.push('/sheep-seeker/people/register')}
+          >
+            Register New Person
+          </Button>
+        )}
+      </div>
       <div>
         <div style={{ 
           marginBottom: 24, 
@@ -158,19 +187,11 @@ export default function SheepSeekerPeoplePage() {
           gap: 16,
         }}>
           <div style={{ flex: '1 1 auto', minWidth: '200px' }}>
-            <Title level={2} style={{ marginBottom: 8 }}>My People</Title>
+            <Title level={2} style={{ marginBottom: 8 }}>New Converts</Title>
             <Text type="secondary">
-              View and track people you're following up with
+              View and track new converts you're following up with
             </Text>
           </div>
-          <Button
-            type="primary"
-            icon={<UserAddOutlined />}
-            onClick={() => router.push('/sheep-seeker/people/register')}
-            size="large"
-          >
-            Register New Person
-          </Button>
         </div>
 
         <div style={{ marginBottom: 16 }}>

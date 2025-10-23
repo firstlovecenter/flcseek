@@ -454,12 +454,6 @@ export default function SheepSeekerDashboard() {
         />
         
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push('/')}
-          >
-            Back
-          </Button>
           
           <Input
             placeholder="Search by name, phone, group..."

@@ -193,7 +193,7 @@ export default function AttendancePage() {
                 icon={<TeamOutlined />}
                 onClick={() => router.push('/sheep-seeker/people')}
               >
-                People
+                New Converts
               </Button>
               <Button
                 icon={<BarChartOutlined />}
