@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       GROUP BY rp.id, rp.full_name, rp.phone_number, rp.gender, rp.home_location, 
                rp.work_location, rp.group_id, rp.group_name, rp.created_at, g.name
-      ORDER BY rp.created_at DESC
+      ORDER BY rp.full_name ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 

@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    sqlQuery += ' ORDER BY rp.created_at DESC';
+    sqlQuery += ' ORDER BY rp.full_name ASC';
 
     const result = await query(sqlQuery, params);
 

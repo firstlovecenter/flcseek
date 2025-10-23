@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*) FROM attendance_records ar WHERE ar.person_id = rp.id) as total_attendance
        FROM registered_people rp
        LEFT JOIN users u ON rp.registered_by = u.id
-       ORDER BY rp.created_at DESC`
+       ORDER BY rp.full_name ASC`
     );
 
     return NextResponse.json({ converts: result.rows });
