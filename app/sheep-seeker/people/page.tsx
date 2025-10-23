@@ -166,7 +166,7 @@ export default function SheepSeekerPeoplePage() {
           <Button
             type="primary"
             icon={<UserAddOutlined />}
-            onClick={() => router.push('/leader/people/register')}
+            onClick={() => router.push('/sheep-seeker/people/register')}
             size="large"
           >
             Register New Person

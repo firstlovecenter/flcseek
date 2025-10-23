@@ -48,13 +48,13 @@ export default function QuickActions() {
       key: 'register',
       icon: <UserAddOutlined />,
       label: 'Register New Person',
-      onClick: () => router.push('/leader/people/register'),
+      onClick: () => router.push('/sheep-seeker/people/register'),
     },
     {
       key: 'view-people',
       icon: <TeamOutlined />,
       label: 'View All People',
-      onClick: () => router.push('/leader/people'),
+      onClick: () => router.push('/sheep-seeker/people'),
     },
   ];
 

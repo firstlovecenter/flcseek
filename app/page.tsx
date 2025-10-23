@@ -20,16 +20,16 @@ export default function Home() {
           router.push('/superadmin');
           break;
         case 'admin':
-          router.push('/leader'); // Admins have full edit access
+          router.push('/sheep-seeker'); // Admins now have full sheep seeker access
           break;
         case 'leadpastor':
           router.push('/leadpastor'); // Lead pastor can view all groups
           break;
         case 'leader':
-          router.push('/leader'); // Leaders have view-only access
+          router.push('/sheep-seeker'); // Leaders have view-only access
           break;
         default:
-          router.push('/leader');
+          router.push('/sheep-seeker');
       }
     }
   }, [user, loading, router]);

@@ -234,7 +234,7 @@ export default function PersonDetailPage() {
   );
 
   // Determine back URL based on user role
-  let backUrl = '/leader';
+  let backUrl = '/sheep-seeker';
   if (user?.role === 'superadmin') {
     backUrl = '/superadmin';
   } else if (user?.role === 'leadpastor') {
