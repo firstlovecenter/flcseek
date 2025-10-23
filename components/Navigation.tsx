@@ -89,14 +89,14 @@ export default function Navigation({ children }: NavigationProps) {
       label: <Link href="/superadmin/groups">Groups</Link>,
     },
     {
+      key: 'milestones',
+      icon: <OrderedListOutlined />,
+      label: <Link href="/superadmin/milestones">Milestones</Link>,
+    },
+    {
       key: 'converts',
       icon: <TeamOutlined />,
       label: <Link href="/superadmin/converts">New Converts</Link>,
-    },
-    {
-      key: 'database',
-      icon: <SettingOutlined />,
-      label: <Link href="/superadmin/database">Database</Link>,
     },
   ];
 
