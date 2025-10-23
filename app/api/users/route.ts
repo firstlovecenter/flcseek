@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       params.push(roleFilter);
     }
 
-    sql += ' ORDER BY u.created_at DESC';
+    sql += ' ORDER BY COALESCE(NULLIF(u.first_name, \'\'), u.username) ASC, COALESCE(NULLIF(u.last_name, \'\'), \'\') ASC';
 
     const result = params.length > 0 
       ? await query(sql, params)
