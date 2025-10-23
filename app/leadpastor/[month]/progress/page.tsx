@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag } from 'antd';
-import { LeftOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Progress, Tag, Space } from 'antd';
+import { LeftOutlined, HomeOutlined, CheckOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -157,16 +157,31 @@ export default function LeadPastorProgressPage() {
       <AppBreadcrumb />
       <div style={{ padding: '0 24px' }}>
         <div style={{ marginBottom: 24 }}>
-          <Button
-            icon={<LeftOutlined />}
-            onClick={() => router.push(`/leadpastor/${month}`)}
-            style={{ marginBottom: 16 }}
-          >
-            Back to {monthName} Dashboard
-          </Button>
-          <Title level={2}>{monthName} Progress Report (View Only)</Title>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Title level={2} style={{ margin: 0 }}>{monthName} Progress Report</Title>
+            <Space>
+              <Button
+                icon={<LeftOutlined />}
+                onClick={() => router.push(`/leadpastor/${month}`)}
+              >
+                Back to {monthName}
+              </Button>
+              <Button
+                icon={<HomeOutlined />}
+                onClick={() => router.push('/leadpastor')}
+              >
+                Home
+              </Button>
+              <Button
+                icon={<CheckOutlined />}
+                onClick={() => router.push(`/leadpastor/${month}/attendance`)}
+              >
+                Attendance
+              </Button>
+            </Space>
+          </div>
           <Text type="secondary">
-            Track milestone completion for all new converts
+            Track milestone completion for all new converts - Read-only access
           </Text>
         </div>
 
