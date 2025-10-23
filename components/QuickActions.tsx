@@ -53,7 +53,7 @@ export default function QuickActions() {
     {
       key: 'view-people',
       icon: <TeamOutlined />,
-      label: 'View All People',
+      label: 'View New Converts',
       onClick: () => router.push('/sheep-seeker/people'),
     },
   ];

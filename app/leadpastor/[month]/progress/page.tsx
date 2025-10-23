@@ -259,6 +259,8 @@ export default function LeadPastorProgressPage() {
           columns={columns}
           dataSource={people}
           rowKey="id"
+          size="small"
+          scroll={{ x: 600 }}
           pagination={{
             pageSize: 20,
             showSizeChanger: true,

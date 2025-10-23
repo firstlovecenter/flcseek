@@ -289,7 +289,7 @@ export default function LeadPastorMonthDashboard() {
           flexWrap: 'wrap',
           gap: 12,
         }}>
-          {/* Left side: Month/Year, Breadcrumb, Back, Search */}
+          {/* Left side: Month/Year, Breadcrumb, Back */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 auto', minWidth: '400px', flexWrap: 'wrap' }}>
             <Title level={3} style={{ margin: 0, fontWeight: 'bold', color: '#003366' }}>
               {displayTitle}
@@ -318,6 +318,10 @@ export default function LeadPastorMonthDashboard() {
             >
               Back
             </Button>
+          </div>
+          
+          {/* Right side: Action buttons */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <Input
               placeholder="Search names..."
               prefix={<SearchOutlined />}
@@ -325,17 +329,13 @@ export default function LeadPastorMonthDashboard() {
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
               size="small"
-              style={{ width: 200 }}
+              style={{ width: 220 }}
             />
             {searchText && (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {filteredPeople.length} of {people.length}
               </Text>
             )}
-          </div>
-          
-          {/* Right side: Action buttons */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button
               icon={<TeamOutlined />}
               onClick={() => router.push(`/leadpastor/${month}/attendance`)}
