@@ -472,13 +472,13 @@ export default function SheepSeekerDashboard() {
           
           <Button
             icon={<TeamOutlined />}
-            onClick={() => router.push('/sheep-seeker/attendance')}
+            onClick={() => router.push('/leader/attendance')}
           >
             Attendance
           </Button>
           <Button
             icon={<BarChartOutlined />}
-            onClick={() => router.push('/sheep-seeker/progress')}
+            onClick={() => router.push('/leader/progress')}
           >
             Progress
           </Button>
@@ -495,7 +495,7 @@ export default function SheepSeekerDashboard() {
               {isAdmin && (
                 <Button
                   icon={<FileExcelOutlined />}
-                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                  onClick={() => router.push('/leader/people/bulk-register')}
                 >
                   Bulk Register
                 </Button>

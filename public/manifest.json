@@ -84,7 +84,7 @@
       "name": "Register Member",
       "short_name": "Register",
       "description": "Register a new member",
-      "url": "/sheep-seeker",
+      "url": "/leader",
       "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
     }
   ],

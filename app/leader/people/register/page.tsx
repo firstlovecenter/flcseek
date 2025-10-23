@@ -53,7 +53,7 @@ export default function RegisterPersonPage() {
 
       message.success('Person registered successfully!');
       form.resetFields();
-      router.push('/sheep-seeker/people');
+      router.push('/leader/people');
     } catch (error: any) {
       message.error(error.message || 'Failed to register person');
     } finally {

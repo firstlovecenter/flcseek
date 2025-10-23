@@ -470,7 +470,7 @@ export default function BulkRegisterPage() {
                 <Button
                   type="primary"
                   size="large"
-                  onClick={() => router.push('/sheep-seeker/people')}
+                  onClick={() => router.push('/leader/people')}
                 >
                   View All Members
                 </Button>

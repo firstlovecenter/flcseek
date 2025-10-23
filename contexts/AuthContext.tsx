@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (data.user.role === 'leadpastor') {
       router.push('/leadpastor');
     } else {
-      router.push('/sheep-seeker');
+      router.push('/leader');
     }
   };
 
