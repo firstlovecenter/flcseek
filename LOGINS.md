@@ -6,10 +6,10 @@ Generated: October 21, 2025
 
 | Role | Access Level | Dashboard | Count |
 |------|--------------|-----------|-------|
-| Super Admin | Full system access | `/super-admin` | 1 |
-| Lead Pastor | View all months (read-only) | `/sheep-seeker` | 1 |
-| Admin | Full edit access for assigned month | `/sheep-seeker` | 12 |
-| Leader | View-only for assigned month | `/sheep-seeker` | 12 |
+| Super Admin | Full system access | `/superadmin` | 1 |
+| Lead Pastor | View all groups (read-only) | `/leadpastor` | 1 |
+| Admin | Full edit access for assigned group | `/leader` | 12 |
+| Leader | View-only for assigned group | `/leader` | 12 |
 
 ---
 

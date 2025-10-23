@@ -18,8 +18,8 @@ export default function AppBreadcrumb() {
   const pathSegments = pathname.split('/').filter(Boolean);
   
   // Determine home URL based on user role
-  let homeUrl = '/sheep-seeker';
-  let homeName = 'Sheep Seeker';
+  let homeUrl = '/leader';
+  let homeName = 'Leader';
   
   if (user?.role === 'superadmin') {
     homeUrl = '/superadmin';
@@ -28,8 +28,8 @@ export default function AppBreadcrumb() {
     homeUrl = '/leadpastor';
     homeName = 'Lead Pastor';
   } else if (user?.role === 'leader' || user?.role === 'admin') {
-    homeUrl = '/sheep-seeker';
-    homeName = 'Sheep Seeker';
+    homeUrl = '/leader';
+    homeName = user?.role === 'admin' ? 'Admin' : 'Leader';
   }
 
   const breadcrumbItems = [

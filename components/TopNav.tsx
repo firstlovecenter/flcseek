@@ -93,7 +93,7 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
       </Space>
       
       <Space>
-        <Link href={user?.role === 'superadmin' ? '/superadmin' : '/sheep-seeker'}>
+        <Link href={user?.role === 'superadmin' ? '/superadmin' : '/leader'}>
           <Text style={{ marginRight: 16, cursor: 'pointer' }} strong>
             FLC Sheep Seeking
           </Text>
