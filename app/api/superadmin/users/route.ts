@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { ROOT_USER } from '@/lib/constants';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -50,10 +49,7 @@ export async function GET(request: NextRequest) {
          COALESCE(NULLIF(last_name, ''), '') ASC`
     );
 
-    // Filter out root user from results
-    const filteredUsers = result.rows.filter(user => user.id !== ROOT_USER.ID);
-
-    return NextResponse.json({ users: filteredUsers });
+    return NextResponse.json({ users: result.rows });
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
