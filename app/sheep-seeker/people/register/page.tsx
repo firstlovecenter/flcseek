@@ -125,7 +125,7 @@ export default function RegisterPersonPage() {
             </Form.Item>
 
             <Form.Item
-              name="department_name"
+              name="group_name"
               label="Group"
               rules={[{ required: true, message: 'Please select group' }]}
             >
