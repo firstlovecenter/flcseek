@@ -8,6 +8,15 @@ export const ROLES = {
 
 export type UserRole = typeof ROLES[keyof typeof ROLES];
 
+// Root user configuration - hardcoded superuser that can always login
+// Set these in environment variables for security
+export const ROOT_USER = {
+  USERNAME: process.env.ROOT_USERNAME || 'root',
+  PASSWORD: process.env.ROOT_PASSWORD || 'root@flcseek2025',
+  ID: 'root-user-id',
+  ROLE: 'superadmin' as const,
+} as const;
+
 // Note: Milestones have been moved to the database (milestones table)
 // Fetch milestones dynamically using /api/milestones endpoint
 // This ensures milestones can be managed by superadmin without code changes
