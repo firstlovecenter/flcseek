@@ -97,6 +97,14 @@ export async function POST() {
       AND column_name = 'group_name'
     `);
 
+    // Migration 010: Add unique constraint on phone_number
+    console.log('Running migration 010: Add unique constraint on phone_number...');
+    await query(`
+      ALTER TABLE registered_people 
+      ADD CONSTRAINT IF NOT EXISTS unique_phone_number UNIQUE (phone_number)
+    `);
+    console.log('✅ Migration 010 completed');
+
     return NextResponse.json({
       success: true,
       message: 'All migrations completed successfully',
@@ -106,7 +114,8 @@ export async function POST() {
         '004_rename_to_groups': {
           groups_table_exists: checkGroupsTable.rows.length > 0,
           group_name_column_exists: checkGroupNameColumn.rows.length > 0
-        }
+        },
+        '010_unique_phone_constraint': 'Added unique constraint on phone_number'
       }
     });
 

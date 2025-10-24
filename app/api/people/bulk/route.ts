@@ -98,6 +98,38 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check for duplicate phone numbers in the batch
+    const phoneNumbers = validPeople.map(p => p.phone_number.trim());
+    const duplicatesInBatch = phoneNumbers.filter((phone, index) => 
+      phoneNumbers.indexOf(phone) !== index
+    );
+
+    if (duplicatesInBatch.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Duplicate phone numbers found in upload',
+          duplicates: Array.from(new Set(duplicatesInBatch)),
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check for existing phone numbers in database
+    const existingPhonesResult = await query(
+      `SELECT phone_number, full_name FROM registered_people WHERE phone_number = ANY($1)`,
+      [phoneNumbers]
+    );
+
+    if (existingPhonesResult.rows.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Some phone numbers are already registered',
+          existing: existingPhonesResult.rows,
+        },
+        { status: 409 }
+      );
+    }
+
     // Insert all valid people
     const inserted = [];
     const failed = [];
@@ -131,9 +163,16 @@ export async function POST(request: Request) {
           );
         }
       } catch (error: any) {
+        // Handle unique constraint violation
+        let errorMessage = error.message;
+        if (error.code === '23505' && error.constraint === 'unique_phone_number') {
+          errorMessage = 'Phone number already registered';
+        }
+        
         failed.push({
           person: person.full_name,
-          error: error.message,
+          phone: person.phone_number,
+          error: errorMessage,
         });
       }
     }
