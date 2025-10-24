@@ -9,10 +9,10 @@ export const ROLES = {
 export type UserRole = typeof ROLES[keyof typeof ROLES];
 
 // Root user configuration - hardcoded superuser that can always login
-// Set these in environment variables for security
+// MUST be set in environment variables - no defaults for security
 export const ROOT_USER = {
-  USERNAME: process.env.ROOT_USERNAME || 'root',
-  PASSWORD: process.env.ROOT_PASSWORD || 'root@flcseek2025',
+  USERNAME: process.env.ROOT_USERNAME || '',
+  PASSWORD: process.env.ROOT_PASSWORD || '',
   ID: 'root-user-id',
   ROLE: 'superadmin' as const,
 } as const;
