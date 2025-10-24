@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
+import { ROOT_USER } from '@/lib/constants';
 
 export async function GET(request: Request) {
   try {
@@ -58,7 +59,10 @@ export async function GET(request: Request) {
       ? await query(sql, params)
       : await query(sql);
 
-    return NextResponse.json(result.rows);
+    // Filter out root user from results
+    const filteredUsers = result.rows.filter(user => user.id !== ROOT_USER.ID);
+
+    return NextResponse.json(filteredUsers);
   } catch (error: any) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
