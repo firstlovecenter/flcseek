@@ -62,6 +62,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Check if phone number already exists
+    const existingPerson = await query(
+      'SELECT id, full_name FROM registered_people WHERE phone_number = $1',
+      [phone_number]
+    );
+
+    if (existingPerson.rows.length > 0) {
+      return NextResponse.json(
+        { error: `A person with phone number ${phone_number} is already registered (${existingPerson.rows[0].full_name})` },
+        { status: 409 }
+      );
+    }
+
     const result = await query(
       `INSERT INTO registered_people (full_name, phone_number, gender, home_location, work_location, group_id, group_name, registered_by)
        VALUES ($1, $2, $3, $4, $5, $6, (SELECT name FROM groups WHERE id = $6), $7)
@@ -89,6 +102,16 @@ export async function POST(request: NextRequest) {
       person,
     });
   } catch (error: any) {
+    console.error('Error registering person:', error);
+    
+    // Handle unique constraint violation
+    if (error.code === '23505' && error.constraint === 'unique_phone_number') {
+      return NextResponse.json(
+        { error: 'This phone number is already registered' },
+        { status: 409 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
