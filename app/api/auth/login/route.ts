@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyPassword, generateToken } from '@/lib/auth';
-import { ROOT_USER } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,33 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if this is the root user login (works even without database)
-    if (username === ROOT_USER.USERNAME && password === ROOT_USER.PASSWORD) {
-      console.log(`[LOGIN] Root user authenticated`);
-      
-      const token = generateToken({
-        id: ROOT_USER.ID,
-        username: ROOT_USER.USERNAME,
-        role: ROOT_USER.ROLE,
-        group_name: undefined,
-        group_year: undefined,
-        group_id: undefined,
-      });
-
-      return NextResponse.json({
-        token,
-        user: {
-          id: ROOT_USER.ID,
-          username: ROOT_USER.USERNAME,
-          role: ROOT_USER.ROLE,
-          group_name: null,
-          group_year: null,
-          group_id: null,
-        }
-      });
-    }
-
-    // Continue with database authentication for regular users
+    // Database authentication
     const result = await query(
       'SELECT * FROM users WHERE username = $1',
       [username]

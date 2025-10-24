@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
-import { ROOT_USER } from '@/lib/constants';
 
 // GET /api/users/sheep-seekers - Get all sheep seeker users
 export async function GET(request: NextRequest) {
@@ -30,10 +29,7 @@ export async function GET(request: NextRequest) {
        ORDER BY u.username ASC`
     );
 
-    // Filter out root user from results
-    const filteredUsers = result.rows.filter(user => user.id !== ROOT_USER.ID);
-
-    return NextResponse.json({ users: filteredUsers });
+    return NextResponse.json({ users: result.rows });
   } catch (error: any) {
     console.error('Get sheep seekers error:', error);
     return NextResponse.json(
