@@ -182,29 +182,12 @@ export default function RegisterPersonPage() {
               <Select placeholder="Select occupation type" size="large">
                 <Select.Option value="Worker">Worker</Select.Option>
                 <Select.Option value="Student">Student</Select.Option>
-                <Select.Option value="Unemployed">Unemployed</Select.Option>
+                                <Select.Option value="Unemployed">Unemployed</Select.Option>
               </Select>
             </Form.Item>
 
             <Form.Item
-              noStyle
-              shouldUpdate={(prevValues, currentValues) => prevValues.occupation_type !== currentValues.occupation_type}
-            >
-              {({ getFieldValue }) =>
-                getFieldValue('occupation_type') === 'Worker' ? (
-                  <Form.Item
-                    name="work_location"
-                    label="Work Location"
-                    rules={[{ required: true, message: 'Please enter work location' }]}
-                  >
-                    <Input placeholder="e.g., ABC Company, Accra" size="large" />
-                  </Form.Item>
-                ) : null
-              }
-            </Form.Item>
-
-            <Form.Item
-              name="department_name"
+              name="group_name"
               label="Group"
               rules={[{ required: true, message: 'Please select group' }]}
             >

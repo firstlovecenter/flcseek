@@ -298,25 +298,25 @@ export default function PersonDetailPage() {
               </div>
             </div>
             
-            {(person?.home_location || person?.work_location) && (
+            {(person?.residential_location || person?.school_residential_location) && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
                 <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-                  {person?.home_location && (
+                  {person?.residential_location && (
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <HomeOutlined style={{ color: '#1890ff' }} />
-                        <Text type="secondary">Home Location:</Text>
+                        <Text type="secondary">Residential Location:</Text>
                       </div>
-                      <Text strong>{person.home_location}</Text>
+                      <Text strong>{person.residential_location}</Text>
                     </div>
                   )}
-                  {person?.work_location && (
+                  {person?.school_residential_location && (
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <EnvironmentOutlined style={{ color: '#52c41a' }} />
-                        <Text type="secondary">Work Location:</Text>
+                        <Text type="secondary">School Location:</Text>
                       </div>
-                      <Text strong>{person.work_location}</Text>
+                      <Text strong>{person.school_residential_location}</Text>
                     </div>
                   )}
                 </div>

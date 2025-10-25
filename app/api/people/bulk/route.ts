@@ -14,8 +14,6 @@ interface BulkPersonData {
   group_name: string;
   // Backward compatibility
   full_name?: string;
-  home_location?: string;
-  work_location?: string;
 }
 
 interface ValidationError {
@@ -209,15 +207,14 @@ export async function POST(request: Request) {
         const firstName = person.first_name || (person.full_name ? person.full_name.split(' ')[0] : '');
         const lastName = person.last_name || (person.full_name ? person.full_name.split(' ').slice(1).join(' ') : '');
         const fullName = `${firstName} ${lastName}`;
-        const residentialLoc = person.residential_location || person.home_location || '';
 
         const result = await query(
           `INSERT INTO new_converts (
             first_name, last_name, full_name, phone_number, date_of_birth, gender, 
             residential_location, school_residential_location, occupation_type,
-            home_location, work_location, group_name, registered_by
+            group_name, registered_by
           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING id, first_name, last_name, full_name, phone_number, date_of_birth, gender, 
                      residential_location, school_residential_location, occupation_type, group_name, created_at`,
           [
@@ -227,11 +224,9 @@ export async function POST(request: Request) {
             person.phone_number.trim(),
             person.date_of_birth?.trim() || null,
             person.gender?.trim() || null,
-            residentialLoc.trim() || null,
+            person.residential_location?.trim() || null,
             person.school_residential_location?.trim() || null,
             person.occupation_type?.trim() || null,
-            person.home_location?.trim() || residentialLoc.trim() || null,  // backward compatibility
-            person.work_location?.trim() || null,
             person.group_name.trim(),
             user.id,
           ]

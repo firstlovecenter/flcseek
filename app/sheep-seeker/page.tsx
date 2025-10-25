@@ -621,23 +621,6 @@ export default function SheepSeekerDashboard() {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            noStyle
-            shouldUpdate={(prevValues, currentValues) => prevValues.occupation_type !== currentValues.occupation_type}
-          >
-            {({ getFieldValue }) =>
-              getFieldValue('occupation_type') === 'Worker' ? (
-                <Form.Item
-                  name="work_location"
-                  label="Work Location"
-                  rules={[{ required: true, message: 'Please enter work location' }]}
-                >
-                  <Input placeholder="e.g., ABC Company, Accra" />
-                </Form.Item>
-              ) : null
-            }
-          </Form.Item>
-
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
               Register Person

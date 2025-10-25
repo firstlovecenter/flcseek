@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remove Unwanted Columns - Database Migration</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 900px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #1890ff;
+      margin-bottom: 10px;
+    }
+    .description {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    button {
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #40a9ff;
+    }
+    button:disabled {
+      background-color: #d9d9d9;
+      cursor: not-allowed;
+    }
+    .log {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success { color: #52c41a; }
+    .error { color: #ff4d4f; }
+    .info { color: #1890ff; }
+    .warning { color: #faad14; }
+    ul {
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗑️ Remove Unwanted Columns</h1>
+    <div class="description">
+      <p>This migration will remove the following unwanted columns from the <strong>new_converts</strong> table:</p>
+      <ul>
+        <li><code>home_location</code> - Duplicate of residential_location</li>
+        <li><code>work_location</code> - Not needed per requirements</li>
+      </ul>
+      <p><strong>⚠️ Warning:</strong> This will permanently delete these columns and their data. Make sure you have a backup if needed.</p>
+    </div>
+    
+    <button id="runBtn" onclick="runMigration()">Run Migration</button>
+    
+    <div id="log" class="log" style="display: none;"></div>
+  </div>
+
+  <script>
+    const logElement = document.getElementById('log');
+    const runBtn = document.getElementById('runBtn');
+
+    function log(message, type = 'info') {
+      logElement.style.display = 'block';
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type;
+      logElement.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    async function runQuery(description, query) {
+      log(`Running: ${description}...`, 'info');
+      try {
+        const response = await fetch('/api/run-migrations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query, description })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          log(`✅ ${description} - Success`, 'success');
+          if (result.rowCount !== undefined) {
+            log(`   Rows affected: ${result.rowCount}`, 'info');
+          }
+          return true;
+        } else {
+          log(`❌ ${description} - Error: ${result.error}`, 'error');
+          return false;
+        }
+      } catch (error) {
+        log(`❌ ${description} - Error: ${error.message}`, 'error');
+        return false;
+      }
+    }
+
+    async function runMigration() {
+      runBtn.disabled = true;
+      logElement.innerHTML = '';
+      log('Starting migration to remove unwanted columns...', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+
+      // Step 1: Check if columns exist
+      const checkColumnsQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'new_converts' 
+        AND column_name IN ('home_location', 'work_location')
+      `;
+      await runQuery('check_existing_columns', checkColumnsQuery);
+
+      // Step 2: Remove home_location column
+      const removeHomeLocationQuery = `
+        ALTER TABLE new_converts 
+        DROP COLUMN IF EXISTS home_location
+      `;
+      const homeLocationResult = await runQuery('remove_home_location', removeHomeLocationQuery);
+
+      // Step 3: Remove work_location column
+      const removeWorkLocationQuery = `
+        ALTER TABLE new_converts 
+        DROP COLUMN IF EXISTS work_location
+      `;
+      const workLocationResult = await runQuery('remove_work_location', removeWorkLocationQuery);
+
+      // Step 4: Verify columns are removed
+      const verifyQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'new_converts' 
+        ORDER BY ordinal_position
+      `;
+      await runQuery('verify_columns', verifyQuery);
+
+      // Step 5: Check row count
+      const countQuery = `SELECT COUNT(*) as total FROM new_converts`;
+      await runQuery('count_rows', countQuery);
+
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      
+      if (homeLocationResult && workLocationResult) {
+        log('✅ Migration completed successfully!', 'success');
+        log('The unwanted columns have been removed from the new_converts table.', 'success');
+      } else {
+        log('⚠️ Migration completed with some errors. Please check the logs above.', 'warning');
+      }
+      
+      runBtn.disabled = false;
+    }
+  </script>
+</body>
+</html>
