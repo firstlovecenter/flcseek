@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Populate 18 Milestones</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #52c41a;
+        }
+        .error {
+            color: #ff4d4f;
+        }
+        .info {
+            color: #1890ff;
+        }
+        .warning {
+            color: #faad14;
+        }
+        ol {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        li {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Populate 18 Milestones</h1>
+        <p>This will populate the milestones table with all 18 sheep seeking stages.</p>
+        
+        <h3>The 18 Stages:</h3>
+        <ol>
+            <li>Has registered as a church member.</li>
+            <li>Has been visited within the first quarter of the sheep seeking year.</li>
+            <li>Has been visited within the second quarter of the sheep seeking year.</li>
+            <li>Has been visited within the third quarter of the sheep seeking year.</li>
+            <li>Has completed new believers school.</li>
+            <li>Has been baptized in water.</li>
+            <li>Has been baptized in the Holy Ghost.</li>
+            <li>Has completed Soul-Winning School.</li>
+            <li>Has invited at least one friend to church.</li>
+            <li>Has been planted in a Basonta or a Creative Arts ministry.</li>
+            <li>Has been introduced to the Lead Pastor.</li>
+            <li>Has been introduced to a First Love Mother.</li>
+            <li>Has attended an all-night prayer meeting at the centre at least once.</li>
+            <li>Has attended Meeting God service at least once.</li>
+            <li>Has attended a Federal Outreach, Conference, or Camp Meeting at least once.</li>
+            <li>Has been taken through Seeing and Hearing education.</li>
+            <li>Has been interceded for by a sheep-seeker for at least three hours.</li>
+            <li>Has attended Sunday church service twenty times.</li>
+        </ol>
+        
+        <div>
+            <button onclick="checkExisting()">1. Check Existing Milestones</button>
+            <button id="populateBtn" onclick="populateMilestones()" disabled>2. Populate Milestones</button>
+            <button id="verifyBtn" onclick="verifyPopulation()" disabled>3. Verify Population</button>
+        </div>
+        
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        const milestones = [
+            { stage_number: 1, stage_name: "Has registered as a church member", short_name: "Registered", description: "New convert has completed church membership registration" },
+            { stage_number: 2, stage_name: "Has been visited within the first quarter of the sheep seeking year", short_name: "Q1 Visit", description: "First quarter visit completed" },
+            { stage_number: 3, stage_name: "Has been visited within the second quarter of the sheep seeking year", short_name: "Q2 Visit", description: "Second quarter visit completed" },
+            { stage_number: 4, stage_name: "Has been visited within the third quarter of the sheep seeking year", short_name: "Q3 Visit", description: "Third quarter visit completed" },
+            { stage_number: 5, stage_name: "Has completed new believers school", short_name: "NB School", description: "Completed new believers training school" },
+            { stage_number: 6, stage_name: "Has been baptized in water", short_name: "Water Baptism", description: "Baptized in water" },
+            { stage_number: 7, stage_name: "Has been baptized in the Holy Ghost", short_name: "Holy Ghost", description: "Baptized in the Holy Ghost with evidence of speaking in tongues" },
+            { stage_number: 8, stage_name: "Has completed Soul-Winning School", short_name: "Soul-Winning", description: "Completed Soul-Winning School training" },
+            { stage_number: 9, stage_name: "Has invited at least one friend to church", short_name: "Invited Friend", description: "Has brought at least one friend to church" },
+            { stage_number: 10, stage_name: "Has been planted in a Basonta or a Creative Arts ministry", short_name: "Ministry", description: "Planted in a Basonta or Creative Arts ministry" },
+            { stage_number: 11, stage_name: "Has been introduced to the Lead Pastor", short_name: "Lead Pastor", description: "Met and introduced to the Lead Pastor" },
+            { stage_number: 12, stage_name: "Has been introduced to a First Love Mother", short_name: "FL Mother", description: "Introduced to a First Love Mother for mentorship" },
+            { stage_number: 13, stage_name: "Has attended an all-night prayer meeting at the centre at least once", short_name: "All-Night", description: "Attended an all-night prayer meeting" },
+            { stage_number: 14, stage_name: "Has attended Meeting God service at least once", short_name: "Meeting God", description: "Attended Meeting God service" },
+            { stage_number: 15, stage_name: "Has attended a Federal Outreach, Conference, or Camp Meeting at least once", short_name: "Federal Event", description: "Attended Federal Outreach, Conference, or Camp Meeting" },
+            { stage_number: 16, stage_name: "Has been taken through Seeing and Hearing education", short_name: "Seeing & Hearing", description: "Completed Seeing and Hearing education" },
+            { stage_number: 17, stage_name: "Has been interceded for by a sheep-seeker for at least three hours", short_name: "Intercession", description: "Has been interceded for by sheep-seeker for 3+ hours" },
+            { stage_number: 18, stage_name: "Has attended Sunday church service twenty times", short_name: "20 Sundays", description: "Attended 20 Sunday services" }
+        ];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.className = type;
+            line.textContent = `[${timestamp}] ${message}`;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function checkExisting() {
+            log('Checking existing milestones in database...', 'info');
+            output.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/run-migrations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: 'SELECT stage_number, stage_name, short_name FROM milestones ORDER BY stage_number;',
+                        action: 'check_milestones'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.result.length === 0) {
+                        log('✓ No milestones found. Ready to populate.', 'success');
+                        document.getElementById('populateBtn').disabled = false;
+                    } else {
+                        log(`Found ${data.result.length} existing milestones:`, 'info');
+                        data.result.forEach(m => {
+                            log(`  ${m.stage_number}. ${m.stage_name} (${m.short_name || 'No short name'})`, 'info');
+                        });
+                        
+                        if (data.result.length < 18) {
+                            log(`\n⚠ Only ${data.result.length} of 18 milestones exist. Will add missing ones.`, 'warning');
+                            document.getElementById('populateBtn').disabled = false;
+                        } else {
+                            log('\n⚠ Milestones already exist. Click "Populate" to update them.', 'warning');
+                            document.getElementById('populateBtn').disabled = false;
+                        }
+                    }
+                } else {
+                    log('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                log('Error checking milestones: ' + error.message, 'error');
+            }
+        }
+
+        async function populateMilestones() {
+            if (!confirm('This will insert or update all 18 milestones. Continue?')) {
+                return;
+            }
+            
+            log('\nStarting milestone population...', 'info');
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const milestone of milestones) {
+                try {
+                    log(`Processing Stage ${milestone.stage_number}: ${milestone.short_name}...`, 'info');
+                    
+                    // Use UPSERT (INSERT ... ON CONFLICT ... UPDATE)
+                    const response = await fetch('/api/run-migrations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            query: `
+                                INSERT INTO milestones (stage_number, stage_name, short_name, description)
+                                VALUES (${milestone.stage_number}, '${milestone.stage_name.replace(/'/g, "''")}', '${milestone.short_name}', '${milestone.description.replace(/'/g, "''")}')
+                                ON CONFLICT (stage_number) 
+                                DO UPDATE SET 
+                                    stage_name = EXCLUDED.stage_name,
+                                    short_name = EXCLUDED.short_name,
+                                    description = EXCLUDED.description,
+                                    updated_at = CURRENT_TIMESTAMP;
+                            `,
+                            action: 'upsert_milestone'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        log(`  ✓ Stage ${milestone.stage_number} added/updated`, 'success');
+                        successCount++;
+                    } else {
+                        log(`  ✗ Error: ${data.error}`, 'error');
+                        errorCount++;
+                    }
+                } catch (error) {
+                    log(`  ✗ Error processing stage ${milestone.stage_number}: ${error.message}`, 'error');
+                    errorCount++;
+                }
+            }
+            
+            log('\n========== POPULATION COMPLETE ==========', 'info');
+            log(`Successfully added/updated: ${successCount} milestones`, 'success');
+            if (errorCount > 0) {
+                log(`Failed: ${errorCount} milestones`, 'error');
+            }
+            
+            document.getElementById('populateBtn').disabled = true;
+            document.getElementById('verifyBtn').disabled = false;
+        }
+
+        async function verifyPopulation() {
+            log('\nVerifying milestone population...', 'info');
+            
+            try {
+                const response = await fetch('/api/run-migrations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: `
+                            SELECT COUNT(*) as total,
+                                   MIN(stage_number) as min_stage,
+                                   MAX(stage_number) as max_stage
+                            FROM milestones;
+                        `,
+                        action: 'verify_count'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.result.length > 0) {
+                    const stats = data.result[0];
+                    log(`Total milestones: ${stats.total}`, 'info');
+                    log(`Stage range: ${stats.min_stage} to ${stats.max_stage}`, 'info');
+                    
+                    if (parseInt(stats.total) === 18) {
+                        log('✓ All 18 milestones successfully populated!', 'success');
+                    } else {
+                        log(`⚠ Expected 18 milestones but found ${stats.total}`, 'warning');
+                    }
+                    
+                    // Show all milestones
+                    const listResponse = await fetch('/api/run-migrations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            query: 'SELECT stage_number, stage_name, short_name FROM milestones ORDER BY stage_number;',
+                            action: 'list_all'
+                        })
+                    });
+                    
+                    const listData = await listResponse.json();
+                    
+                    if (listData.success) {
+                        log('\nAll milestones:', 'info');
+                        listData.result.forEach(m => {
+                            log(`  ${m.stage_number}. ${m.short_name} - ${m.stage_name}`, 'info');
+                        });
+                    }
+                } else {
+                    log('Error verifying: ' + data.error, 'error');
+                }
+            } catch (error) {
+                log('Error during verification: ' + error.message, 'error');
+            }
+        }
+
+        window.onload = () => {
+            log('Ready. Click "Check Existing Milestones" to begin.', 'info');
+        };
+    </script>
+</body>
+</html>

@@ -548,30 +548,101 @@ export default function SheepSeekerDashboard() {
           form.resetFields();
         }}
         footer={null}
-        width={500}
+        width={600}
       >
         <Form form={form} onFinish={handleRegister} layout="vertical">
           <Form.Item
-            name="full_name"
-            label="Full Name"
-            rules={[{ required: true, message: 'Please enter full name' }]}
+            name="first_name"
+            label="First Name"
+            rules={[{ required: true, message: 'Please enter first name' }]}
           >
-            <Input placeholder="Enter full name" />
+            <Input placeholder="John" />
+          </Form.Item>
+
+          <Form.Item
+            name="last_name"
+            label="Last Name"
+            rules={[{ required: true, message: 'Please enter last name' }]}
+          >
+            <Input placeholder="Doe" />
           </Form.Item>
 
           <Form.Item
             name="phone_number"
             label="Phone Number"
-            rules={[{ required: true, message: 'Please enter phone number' }]}
+            rules={[
+              { required: true, message: 'Please enter phone number' },
+              { pattern: /^[0-9+\-\s()]+$/, message: 'Invalid phone number' },
+            ]}
           >
-            <Input placeholder="Enter phone number" />
+            <Input placeholder="+233 123 456 789" />
           </Form.Item>
 
-          <Form.Item name="gender" label="Gender">
+          <Form.Item
+            name="date_of_birth"
+            label="Date of Birth (without year)"
+            rules={[
+              { required: true, message: 'Please enter date of birth' },
+              { pattern: /^\d{2}-\d{2}$/, message: 'Format must be DD-MM (e.g., 15-03)' },
+            ]}
+            extra="Format: DD-MM (e.g., 15-03 for March 15)"
+          >
+            <Input placeholder="15-03" maxLength={5} />
+          </Form.Item>
+
+          <Form.Item
+            name="gender"
+            label="Gender"
+            rules={[{ required: true, message: 'Please select gender' }]}
+          >
             <Select placeholder="Select gender">
               <Select.Option value="Male">Male</Select.Option>
               <Select.Option value="Female">Female</Select.Option>
             </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="residential_location"
+            label="Residential Location"
+            rules={[{ required: true, message: 'Please enter residential location' }]}
+          >
+            <Input placeholder="e.g., Accra, Ghana" />
+          </Form.Item>
+
+          <Form.Item
+            name="school_residential_location"
+            label="School Residential Location (if applicable)"
+          >
+            <Input placeholder="e.g., KNUST Campus" />
+          </Form.Item>
+
+          <Form.Item
+            name="occupation_type"
+            label="Occupation Type"
+            rules={[{ required: true, message: 'Please select occupation type' }]}
+          >
+            <Select placeholder="Select occupation type">
+              <Select.Option value="Worker">Worker</Select.Option>
+              <Select.Option value="Student">Student</Select.Option>
+              <Select.Option value="Unemployed">Unemployed</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.occupation_type !== currentValues.occupation_type}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('occupation_type') === 'Worker' ? (
+                <Form.Item
+                  name="work_location"
+                  label="Work Location"
+                  rules={[{ required: true, message: 'Please enter work location' }]}
+                >
+                  <Input placeholder="e.g., ABC Company, Accra" />
+                </Form.Item>
+              ) : null
+            }
           </Form.Item>
 
           <Form.Item>

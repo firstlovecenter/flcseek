@@ -1,8 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { query } from '@/lib/neon';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Check if this is a custom query request
+    const body = await request.json().catch(() => ({}));
+    
+    if (body.query) {
+      // Execute custom query for migration tool
+      console.log('Executing custom query:', body.action);
+      const result = await query(body.query);
+      return NextResponse.json({
+        success: true,
+        result: result.rows,
+        rowCount: result.rowCount
+      });
+    }
+    
     console.log('Running database migrations...');
 
     // Migration 002: Add location fields
