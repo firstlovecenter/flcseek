@@ -1,8 +1,9 @@
 'use client';
 
 import { Form, Input, Button, Card, Typography, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, BulbOutlined, BulbFilled } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/components/AppConfigProvider';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -10,6 +11,7 @@ const { Title, Text } = Typography;
 
 export default function Home() {
   const { login, user, loading } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const router = useRouter();
   const [form] = Form.useForm();
 
@@ -62,8 +64,34 @@ export default function Home() {
       style={{
         background: 'linear-gradient(135deg, #1a0000 0%, #330000 25%, #4d0000 50%, #330000 75%, #1a0000 100%)',
         backgroundAttachment: 'fixed',
+        position: 'relative',
       }}
     >
+      {/* Theme Toggle Button */}
+      <Button
+        type="text"
+        icon={isDark ? <BulbOutlined /> : <BulbFilled />}
+        onClick={toggleTheme}
+        style={{ 
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          color: '#fff',
+          fontSize: '20px',
+          height: '44px',
+          width: '44px',
+          padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: '50%',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        }}
+        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      />
+      
       <Card 
         className="w-full max-w-md shadow-2xl" 
         style={{ 

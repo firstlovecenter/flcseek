@@ -6,6 +6,15 @@ import { verifyToken } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// Helper function to check if a group is archived
+async function isGroupArchived(groupId: string): Promise<boolean> {
+  const result = await query(
+    'SELECT archived FROM groups WHERE id = $1',
+    [groupId]
+  );
+  return result.rows.length > 0 && result.rows[0].archived === true;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -49,6 +58,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Either group_id or group_name must be provided' },
         { status: 400 }
+      );
+    }
+
+    // Check if group is archived
+    const archived = await isGroupArchived(finalGroupId);
+    if (archived) {
+      return NextResponse.json(
+        { error: 'Cannot add people to an archived group' },
+        { status: 403 }
       );
     }
 
@@ -132,11 +150,13 @@ export async function GET(request: NextRequest) {
     const groupIdParam = searchParams.get('group_id');
     const groupNameParam = searchParams.get('group'); // legacy parameter
     const monthParam = searchParams.get('month'); // month name parameter
+    const yearParam = searchParams.get('year'); // year parameter
 
     let sqlQuery = `
       SELECT 
         rp.*,
-        g.name as group_name_ref
+        g.name as group_name_ref,
+        g.year as group_year
       FROM registered_people rp
       LEFT JOIN groups g ON rp.group_id = g.id
     `;
@@ -165,17 +185,33 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // Super admin and lead pastor can filter by group
+      const conditions: string[] = [];
+      let paramIndex = 1;
+      
       if (groupIdParam) {
-        sqlQuery += ' WHERE rp.group_id = $1';
+        conditions.push(`rp.group_id = $${paramIndex}`);
         params.push(groupIdParam);
+        paramIndex++;
       } else if (groupNameParam) {
         // Legacy support for group name filtering
-        sqlQuery += ' WHERE rp.group_name = $1';
+        conditions.push(`rp.group_name = $${paramIndex}`);
         params.push(groupNameParam);
+        paramIndex++;
       } else if (monthParam) {
-        // Filter by month name
-        sqlQuery += ' WHERE rp.group_name = $1';
+        // Filter by month name and year
+        conditions.push(`g.name = $${paramIndex}`);
         params.push(monthParam);
+        paramIndex++;
+        
+        if (yearParam) {
+          conditions.push(`g.year = $${paramIndex}`);
+          params.push(parseInt(yearParam));
+          paramIndex++;
+        }
+      }
+      
+      if (conditions.length > 0) {
+        sqlQuery += ' WHERE ' + conditions.join(' AND ');
       }
     }
 
