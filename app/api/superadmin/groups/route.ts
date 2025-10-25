@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
         END as month_order
        FROM groups g
        LEFT JOIN users u ON g.leader_id = u.id
-       LEFT JOIN registered_people rp ON rp.group_id = g.id
+       LEFT JOIN new_converts rp ON rp.group_id = g.id
        ${whereClause}
        GROUP BY g.id, g.name, g.description, g.year, g.archived, g.leader_id, u.username, u.email, u.first_name, u.last_name, g.created_at, g.updated_at
        ORDER BY g.year DESC, month_order ASC, g.name ASC`,

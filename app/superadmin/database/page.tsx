@@ -11,7 +11,7 @@ interface DatabaseInfo {
   tables: {
     users: number;
     groups: number;
-    registered_people: number;
+    new_converts: number;
     progress_records: number;
     attendance_records: number;
   };
@@ -117,7 +117,7 @@ export default function DatabaseManagementPage() {
           <Card>
             <Statistic
               title="New Converts"
-              value={dbInfo.tables.registered_people}
+              value={dbInfo.tables.new_converts}
               prefix={<HeartOutlined />}
             />
           </Card>

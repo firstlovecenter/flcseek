@@ -28,7 +28,7 @@ export async function GET(
     }
 
     const personResult = await query(
-      'SELECT * FROM registered_people WHERE id = $1',
+      'SELECT * FROM new_converts WHERE id = $1',
       [params.id]
     );
 
@@ -96,7 +96,7 @@ export async function PUT(
 
     // Verify person exists and user has permission
     const personResult = await query(
-      'SELECT * FROM registered_people WHERE id = $1',
+      'SELECT * FROM new_converts WHERE id = $1',
       [params.id]
     );
 
@@ -127,11 +127,14 @@ export async function PUT(
       }
     }
 
-    // Update person
+    // Update the person
     const result = await query(
-      `UPDATE registered_people 
-       SET full_name = $1, phone_number = $2, gender = $3, home_location = $4, work_location = $5, group_name = $6, updated_at = NOW()
-       WHERE id = $7
+      `UPDATE new_converts 
+       SET first_name = $1, last_name = $2, full_name = $3, phone_number = $4,
+           date_of_birth = $5, gender = $6, residential_location = $7, 
+           school_residential_location = $8, occupation_type = $9, 
+           home_location = $10, work_location = $11, group_id = $12, group_name = $13
+       WHERE id = $14
        RETURNING *`,
       [full_name, phone_number, gender, home_location, work_location, group_name, params.id]
     );

@@ -74,7 +74,7 @@ export async function POST(
     }
 
     const personResult = await query(
-      'SELECT * FROM registered_people WHERE id = $1',
+      'SELECT * FROM new_converts WHERE id = $1',
       [params.person_id]
     );
 
@@ -221,7 +221,7 @@ export async function DELETE(
 
     // Verify person exists and user has permission
     const personResult = await query(
-      'SELECT * FROM registered_people WHERE id = $1',
+      'SELECT * FROM new_converts WHERE id = $1',
       [params.person_id]
     );
 

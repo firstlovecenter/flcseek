@@ -181,7 +181,7 @@ export async function POST(request: Request) {
 
     // Check for existing phone numbers in database
     const existingPhonesResult = await query(
-      `SELECT phone_number, first_name, last_name, full_name FROM registered_people WHERE phone_number = ANY($1)`,
+      `SELECT phone_number, first_name, last_name, full_name FROM new_converts WHERE phone_number = ANY($1)`,
       [phoneNumbers]
     );
 
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
         const residentialLoc = person.residential_location || person.home_location || '';
 
         const result = await query(
-          `INSERT INTO registered_people (
+          `INSERT INTO new_converts (
             first_name, last_name, full_name, phone_number, date_of_birth, gender, 
             residential_location, school_residential_location, occupation_type,
             home_location, work_location, group_name, registered_by

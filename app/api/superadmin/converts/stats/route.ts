@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as this_month,
         COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END) as this_week,
         COUNT(DISTINCT group_name) as active_groups
-       FROM registered_people`
+       FROM new_converts`
     );
 
     const stats = {

@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     // Check if phone number already exists
     const existingPerson = await query(
-      'SELECT id, first_name, last_name, full_name FROM registered_people WHERE phone_number = $1',
+      'SELECT id, first_name, last_name, full_name FROM new_converts WHERE phone_number = $1',
       [phone_number]
     );
 
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     const fullName = `${firstName} ${lastName}`;
 
     const result = await query(
-      `INSERT INTO registered_people (
+      `INSERT INTO new_converts (
         first_name, last_name, full_name, phone_number, date_of_birth, gender, 
         residential_location, school_residential_location, occupation_type,
         home_location, work_location, group_id, group_name, registered_by
@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
         rp.*,
         g.name as group_name_ref,
         g.year as group_year
-      FROM registered_people rp
+      FROM new_converts rp
       LEFT JOIN groups g ON rp.group_id = g.id
     `;
     let params: any[] = [];

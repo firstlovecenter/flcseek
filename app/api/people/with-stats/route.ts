@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         g.name as group_name_ref,
         COUNT(DISTINCT CASE WHEN pr.is_completed = true THEN pr.id END) as completed_stages,
         COUNT(DISTINCT ar.id) as attendance_count
-      FROM registered_people rp
+      FROM new_converts rp
       LEFT JOIN groups g ON rp.group_id = g.id
       LEFT JOIN progress_records pr ON rp.id = pr.person_id
       LEFT JOIN attendance_records ar ON rp.id = ar.person_id
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     const countQuery = `
       SELECT COUNT(*) as total
-      FROM registered_people rp
+      FROM new_converts rp
       ${whereClause}
     `;
     const countParams = params.slice(0, params.length - 2); // Remove limit and offset

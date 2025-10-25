@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
           ELSE COALESCE(u.username, u.email)
         END as leader_name,
         u.id as leader_id,
-        (SELECT COUNT(*) FROM registered_people WHERE group_id = g.id) as member_count,
+        (SELECT COUNT(*) FROM new_converts WHERE group_id = g.id) as member_count,
         CASE LOWER(g.name)
           WHEN 'january' THEN 1
           WHEN 'february' THEN 2
