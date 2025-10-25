@@ -444,7 +444,7 @@ export default function PersonDetailPage() {
             name="date_attended"
             label="Attendance Date (Sundays only)"
             rules={[{ required: true, message: 'Please select date' }]}
-            extra="You can only record attendance for Sundays within the past week"
+            extra="You can only record attendance for the most recent Sunday"
           >
             <DatePicker 
               style={{ width: '100%' }} 
@@ -461,19 +461,13 @@ export default function PersonDetailPage() {
                   ? today 
                   : today.subtract(today.day(), 'day');
                 
-                // Calculate one week before most recent Sunday
-                const oneWeekBeforeRecentSunday = mostRecentSunday.subtract(7, 'day');
-                
-                // Disable if before the one-week-ago Sunday
-                if (current.isBefore(oneWeekBeforeRecentSunday, 'day')) return true;
-                
-                // Disable if in the future
-                if (current.isAfter(today, 'day')) return true;
+                // Only allow the most recent Sunday - disable all other dates
+                if (!current.isSame(mostRecentSunday, 'day')) return true;
                 
                 return false;
               }}
               format="YYYY-MM-DD"
-              placeholder="Select a Sunday within the past week"
+              placeholder="Select the most recent Sunday"
             />
           </Form.Item>
 

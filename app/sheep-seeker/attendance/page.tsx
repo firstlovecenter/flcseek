@@ -221,6 +221,24 @@ export default function AttendancePage() {
               size="large"
               format="MMMM DD, YYYY"
               style={{ minWidth: '200px' }}
+              disabledDate={(current) => {
+                if (!current) return false;
+                
+                const today = dayjs();
+                
+                // Disable if not a Sunday (day 0)
+                if (current.day() !== 0) return true;
+                
+                // Calculate the most recent Sunday (or today if today is Sunday)
+                const mostRecentSunday = today.day() === 0 
+                  ? today 
+                  : today.subtract(today.day(), 'day');
+                
+                // Only allow the most recent Sunday - disable all other dates
+                if (!current.isSame(mostRecentSunday, 'day')) return true;
+                
+                return false;
+              }}
             />
           </div>
         )}

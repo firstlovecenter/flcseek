@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Space, Modal, Form, message, Typography, Card, Select, Tag } from 'antd';
-import { TeamOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Space, Modal, Form, message, Typography, Card, Select, Tag, Segmented } from 'antd';
+import { TeamOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, UserOutlined, InboxOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { CURRENT_YEAR, MIN_YEAR, MAX_YEAR, GROUP_FILTERS, GroupFilter } from '@/lib/constants';
+import { useRouter } from 'next/navigation';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -12,6 +14,8 @@ interface Group {
   id: string;
   name: string;
   description: string;
+  year: number;
+  archived: boolean;
   leader_id: string | null;
   leader_name: string | null;
   member_count: number;
@@ -25,21 +29,30 @@ interface User {
 
 export default function GroupsManagementPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [filter, setFilter] = useState<GroupFilter>(GROUP_FILTERS.ACTIVE);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [form] = Form.useForm();
+
+  // Generate year options
+  const yearOptions = [{ label: 'All Years', value: 'all' }];
+  for (let year = CURRENT_YEAR; year >= MIN_YEAR; year--) {
+    yearOptions.push({ label: year.toString(), value: year.toString() });
+  }
 
   useEffect(() => {
     if (token) {
       fetchGroups();
       fetchUsers();
     }
-  }, [token]);
+  }, [token, selectedYear, filter]);
 
   useEffect(() => {
     filterGroups();
@@ -47,7 +60,14 @@ export default function GroupsManagementPage() {
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch('/api/superadmin/groups', {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (selectedYear !== 'all') {
+        params.append('year', selectedYear);
+      }
+      params.append('filter', filter);
+
+      const response = await fetch(`/api/superadmin/groups?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -88,8 +108,36 @@ export default function GroupsManagementPage() {
 
   const handleEdit = (group: Group) => {
     setEditingGroup(group);
-    form.setFieldsValue(group);
+    form.setFieldsValue({
+      name: group.name,
+      description: group.description,
+      year: group.year,
+      archived: group.archived,
+      leader_id: group.leader_id,
+    });
     setIsModalVisible(true);
+  };
+
+  const handleArchive = async (groupId: string, archived: boolean) => {
+    try {
+      const response = await fetch(`/api/superadmin/groups/${groupId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ archived: !archived }),
+      });
+
+      if (response.ok) {
+        message.success(`Group ${!archived ? 'archived' : 'unarchived'} successfully`);
+        fetchGroups();
+      } else {
+        message.error('Failed to update group');
+      }
+    } catch (error) {
+      message.error('An error occurred');
+    }
   };
 
   const handleDelete = (groupId: string) => {
@@ -150,6 +198,32 @@ export default function GroupsManagementPage() {
       dataIndex: 'name',
       key: 'name',
       sorter: (a: Group, b: Group) => a.name.localeCompare(b.name),
+      render: (name: string, record: Group) => (
+        <a 
+          onClick={() => router.push(`/leadpastor/${name.toLowerCase()}?year=${record.year}`)}
+          style={{ cursor: 'pointer', color: '#1890ff' }}
+        >
+          {name}
+        </a>
+      ),
+    },
+    {
+      title: 'Year',
+      dataIndex: 'year',
+      key: 'year',
+      width: 100,
+      sorter: (a: Group, b: Group) => a.year - b.year,
+      render: (year: number) => <Tag color="blue">{year}</Tag>,
+    },
+    {
+      title: 'Status',
+      dataIndex: 'archived',
+      key: 'archived',
+      width: 100,
+      render: (archived: boolean) => 
+        archived ? 
+          <Tag color="default" icon={<InboxOutlined />}>Archived</Tag> : 
+          <Tag color="success" icon={<CheckCircleOutlined />}>Active</Tag>,
     },
     {
       title: 'Description',
@@ -191,6 +265,12 @@ export default function GroupsManagementPage() {
           </Button>
           <Button
             type="link"
+            onClick={() => handleArchive(record.id, record.archived)}
+          >
+            {record.archived ? 'Unarchive' : 'Archive'}
+          </Button>
+          <Button
+            type="link"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record.id)}
@@ -209,20 +289,45 @@ export default function GroupsManagementPage() {
       </Title>
 
       <Card style={{ marginBottom: 16 }}>
-        <Space style={{ marginBottom: 16 }} wrap>
-          <Input
-            placeholder="Search groups..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 300 }}
-          />
+        <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }} wrap>
+          <Space wrap>
+            <Input
+              placeholder="Search groups..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{ width: 250 }}
+            />
+            
+            <Select
+              style={{ width: 150 }}
+              value={selectedYear}
+              onChange={setSelectedYear}
+              placeholder="Select Year"
+            >
+              {yearOptions.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
+            </Select>
+
+            <Segmented
+              value={filter}
+              onChange={(value) => setFilter(value as GroupFilter)}
+              options={[
+                { label: 'Active', value: GROUP_FILTERS.ACTIVE },
+                { label: 'Archived', value: GROUP_FILTERS.ARCHIVED },
+                { label: 'All', value: GROUP_FILTERS.ALL },
+              ]}
+            />
+          </Space>
+          
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => {
               setEditingGroup(null);
               form.resetFields();
+              form.setFieldsValue({ year: CURRENT_YEAR, archived: false });
               setIsModalVisible(true);
             }}
           >
@@ -258,9 +363,24 @@ export default function GroupsManagementPage() {
           >
             <Input />
           </Form.Item>
+          
+          <Form.Item 
+            name="year" 
+            label="Year"
+            rules={[{ required: true, message: 'Please select a year' }]}
+            initialValue={CURRENT_YEAR}
+          >
+            <Select placeholder="Select year">
+              {Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MAX_YEAR - i).map(year => (
+                <Option key={year} value={year}>{year}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} placeholder="Optional group description" />
           </Form.Item>
+          
           <Form.Item name="leader_id" label="Group Leader">
             <Select placeholder="Select a leader (optional)" allowClear>
               {users.map((user) => (
@@ -270,6 +390,16 @@ export default function GroupsManagementPage() {
               ))}
             </Select>
           </Form.Item>
+
+          {editingGroup && (
+            <Form.Item name="archived" label="Status" valuePropName="checked">
+              <Select>
+                <Option value={false}>Active</Option>
+                <Option value={true}>Archived</Option>
+              </Select>
+            </Form.Item>
+          )}
+          
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">

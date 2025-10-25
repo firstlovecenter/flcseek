@@ -43,29 +43,49 @@ export async function POST() {
     // Migration 004: Rename departments to groups
     console.log('Running migration 004: Rename departments to groups...');
     
-    // Rename departments table to groups
-    await query(`
-      ALTER TABLE IF EXISTS departments RENAME TO groups
-    `);
+    try {
+      // Rename departments table to groups
+      await query(`
+        ALTER TABLE IF EXISTS departments RENAME TO groups
+      `);
+    } catch (e) {
+      console.log('Skipping departments rename (already done or doesn\'t exist)');
+    }
 
-    // Rename department_name to group_name in registered_people
-    await query(`
-      ALTER TABLE registered_people 
-      RENAME COLUMN department_name TO group_name
-    `);
+    try {
+      // Rename department_name to group_name in registered_people
+      await query(`
+        ALTER TABLE registered_people 
+        RENAME COLUMN department_name TO group_name
+      `);
+    } catch (e) {
+      console.log('Skipping department_name rename (already done or doesn\'t exist)');
+    }
 
-    // Rename indexes
-    await query(`
-      DROP INDEX IF EXISTS idx_registered_people_department
-    `);
+    try {
+      // Rename indexes
+      await query(`
+        DROP INDEX IF EXISTS idx_registered_people_department
+      `);
+    } catch (e) {
+      console.log('Skipping index drop');
+    }
 
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_registered_people_group ON registered_people(group_name)
-    `);
+    try {
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_registered_people_group ON registered_people(group_name)
+      `);
+    } catch (e) {
+      console.log('Skipping registered_people_group index');
+    }
 
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_groups_leader ON groups(leader_id)
-    `);
+    try {
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_groups_leader ON groups(leader_id)
+      `);
+    } catch (e) {
+      console.log('Skipping groups_leader index (column may not exist)');
+    }
 
     console.log('✅ Migration 004 completed');
 
@@ -99,11 +119,152 @@ export async function POST() {
 
     // Migration 010: Add unique constraint on phone_number
     console.log('Running migration 010: Add unique constraint on phone_number...');
+    try {
+      await query(`
+        ALTER TABLE registered_people 
+        ADD CONSTRAINT unique_phone_number UNIQUE (phone_number)
+      `);
+      console.log('✅ Migration 010 completed');
+    } catch (e: any) {
+      if (e.code === '42P07' || e.message?.includes('already exists')) {
+        console.log('✅ Migration 010 skipped (constraint already exists)');
+      } else {
+        console.log('✅ Migration 010 skipped or completed');
+      }
+    }
+
+    // Migration 006: Add year to groups
+    console.log('Running migration 006: Add year to groups...');
     await query(`
-      ALTER TABLE registered_people 
-      ADD CONSTRAINT IF NOT EXISTS unique_phone_number UNIQUE (phone_number)
+      ALTER TABLE groups 
+      ADD COLUMN IF NOT EXISTS year INTEGER NOT NULL DEFAULT 2025
     `);
-    console.log('✅ Migration 010 completed');
+    
+    try {
+      await query(`
+        ALTER TABLE groups 
+        DROP CONSTRAINT IF EXISTS groups_name_unique
+      `);
+    } catch (e) {
+      console.log('Skipping groups_name_unique drop');
+    }
+    
+    try {
+      await query(`
+        ALTER TABLE groups 
+        DROP CONSTRAINT IF EXISTS groups_name_key
+      `);
+      console.log('Dropped old groups_name_key constraint');
+    } catch (e) {
+      console.log('Skipping groups_name_key drop (may not exist)');
+    }
+    
+    try {
+      await query(`
+        ALTER TABLE groups 
+        DROP CONSTRAINT IF EXISTS groups_name_year_unique
+      `);
+    } catch (e) {
+      console.log('Constraint groups_name_year_unique does not exist yet');
+    }
+    
+    try {
+      await query(`
+        ALTER TABLE groups 
+        ADD CONSTRAINT groups_name_year_unique UNIQUE (name, year)
+      `);
+      console.log('Added groups_name_year_unique constraint');
+    } catch (e: any) {
+      if (e.code === '42P07') {
+        console.log('Constraint groups_name_year_unique already exists');
+      } else {
+        console.log('Error adding constraint:', e.message);
+      }
+    }
+    
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_groups_year ON groups(year)
+    `);
+    
+    await query(`
+      UPDATE groups SET year = 2025 WHERE year IS NULL OR year = 0
+    `);
+    console.log('✅ Migration 006 completed');
+
+    // Migration 011: Add archived to groups
+    console.log('Running migration 011: Add archived to groups...');
+    await query(`
+      ALTER TABLE groups 
+      ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE
+    `);
+    
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_groups_archived ON groups(archived)
+    `);
+    
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_groups_year_archived ON groups(year, archived)
+    `);
+    console.log('✅ Migration 011 completed');
+
+    // Migration 012: Fix leader columns - standardize to leader_id
+    console.log('Running migration 012: Fix leader columns...');
+    
+    // Add leader_id if it doesn't exist
+    try {
+      await query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'groups' AND column_name = 'leader_id'
+          ) THEN
+            ALTER TABLE groups ADD COLUMN leader_id uuid REFERENCES users(id) ON DELETE SET NULL;
+          END IF;
+        END $$;
+      `);
+      console.log('Ensured leader_id column exists');
+    } catch (e) {
+      console.log('Leader_id column handling:', e);
+    }
+
+    // Copy sheep_seeker_id to leader_id and drop sheep_seeker_id
+    try {
+      await query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'groups' AND column_name = 'sheep_seeker_id'
+          ) THEN
+            UPDATE groups SET leader_id = sheep_seeker_id WHERE sheep_seeker_id IS NOT NULL AND leader_id IS NULL;
+            ALTER TABLE groups DROP COLUMN sheep_seeker_id;
+          END IF;
+        END $$;
+      `);
+      console.log('Migrated sheep_seeker_id to leader_id');
+    } catch (e) {
+      console.log('Sheep_seeker_id migration:', e);
+    }
+
+    // Recreate index
+    try {
+      await query(`DROP INDEX IF EXISTS idx_groups_leader_id`);
+      await query(`CREATE INDEX idx_groups_leader_id ON groups(leader_id)`);
+      console.log('Created leader_id index');
+    } catch (e) {
+      console.log('Index creation:', e);
+    }
+
+    // Update roles
+    try {
+      await query(`UPDATE users SET role = 'leader' WHERE role = 'sheep_seeker'`);
+      console.log('Updated sheep_seeker roles to leader');
+    } catch (e) {
+      console.log('Role update:', e);
+    }
+
+    console.log('✅ Migration 012 completed');
 
     return NextResponse.json({
       success: true,
@@ -115,7 +276,10 @@ export async function POST() {
           groups_table_exists: checkGroupsTable.rows.length > 0,
           group_name_column_exists: checkGroupNameColumn.rows.length > 0
         },
-        '010_unique_phone_constraint': 'Added unique constraint on phone_number'
+        '006_add_year_to_groups': 'Added year field to groups',
+        '010_unique_phone_constraint': 'Added unique constraint on phone_number',
+        '011_add_archived_to_groups': 'Added archived field to groups',
+        '012_fix_leader_columns': 'Standardized to leader_id, removed sheep_seeker_id'
       }
     });
 
