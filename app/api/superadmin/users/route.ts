@@ -49,11 +49,15 @@ export async function GET(request: NextRequest) {
          COALESCE(NULLIF(first_name, ''), username) ASC,
          COALESCE(NULLIF(last_name, ''), '') ASC`
     );
-
     return NextResponse.json({ users: result.rows });
   } catch (error) {
-    console.error('Error fetching users:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      console.error('Error fetching users:', (error as any).message);
+      return NextResponse.json({ error: (error as any).message }, { status: 500 });
+    } else {
+      console.error('Error fetching users:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
   }
 }
 

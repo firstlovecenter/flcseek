@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
   try {
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -93,14 +92,18 @@ export async function GET(request: NextRequest) {
        LEFT JOIN new_converts rp ON rp.group_id = g.id
        ${whereClause}
        GROUP BY g.id, g.name, g.description, g.year, g.archived, g.leader_id, u.username, u.email, u.first_name, u.last_name, g.created_at, g.updated_at
-       ORDER BY g.year DESC, month_order ASC, g.name ASC`,
+       ORDER BY g.year DESC, month_order ASC`,
       params
     );
-
     return NextResponse.json({ groups: result.rows });
   } catch (error) {
-    console.error('Error fetching groups:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      console.error('Error fetching groups:', (error as any).message);
+      return NextResponse.json({ error: (error as any).message }, { status: 500 });
+    } else {
+      console.error('Error fetching groups:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
   }
 }
 

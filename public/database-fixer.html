@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Column Fixer</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1000px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 { color: #1890ff; margin-bottom: 10px; }
+    h2 { color: #333; margin-top: 30px; }
+    button {
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px;
+      font-weight: bold;
+    }
+    button:hover { background-color: #40a9ff; }
+    button:disabled { background-color: #d9d9d9; cursor: not-allowed; }
+    button.success { background-color: #52c41a; }
+    button.success:hover { background-color: #73d13d; }
+    button.danger { background-color: #ff4d4f; }
+    button.danger:hover { background-color: #ff7875; }
+    pre {
+      background-color: #f0f0f0;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 14px;
+      border-left: 4px solid #1890ff;
+    }
+    ul { line-height: 2; }
+    .success { color: #52c41a; font-weight: bold; }
+    .error { color: #ff4d4f; font-weight: bold; }
+    .missing { color: #ff4d4f; }
+    .present { color: #52c41a; }
+    .warning { color: #faad14; }
+    .info-box {
+      background-color: #e6f7ff;
+      padding: 20px;
+      border-radius: 4px;
+      border-left: 4px solid #1890ff;
+      margin: 20px 0;
+    }
+    .warning-box {
+      background-color: #fffbe6;
+      padding: 20px;
+      border-radius: 4px;
+      border-left: 4px solid #faad14;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Database Column Fixer</h1>
+    <p>Fix the new_converts table schema to match your registration forms</p>
+    
+    <div class="info-box">
+      <h3>Required Fields for Registration:</h3>
+      <ul>
+        <li>✅ first_name, last_name, phone_number</li>
+        <li>✅ date_of_birth (DD-MM format)</li>
+        <li>✅ gender (Male/Female)</li>
+        <li>✅ residential_location</li>
+        <li>✅ school_residential_location (for students)</li>
+        <li>✅ occupation_type (Worker/Student/Unemployed)</li>
+      </ul>
+    </div>
+    
+    <button onclick="checkColumns()">1️⃣ Check Current Columns</button>
+    <button id="addBtn" onclick="addMissingColumns()" class="success" style="display:none;">2️⃣ Add Missing Columns</button>
+    <button id="removeBtn" onclick="removeOldColumns()" class="danger" style="display:none;">3️⃣ Remove Old Columns</button>
+    
+    <div id="output"></div>
+  </div>
+
+  <script>
+    let missingCols = [];
+    let oldCols = [];
+    
+    async function checkColumns() {
+      const output = document.getElementById('output');
+      output.innerHTML = '<h2>Checking new_converts table...</h2><p>Loading...</p>';
+      
+      try {
+        const response = await fetch('/api/run-migrations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'new_converts' ORDER BY ordinal_position`,
+            description: 'check_columns'
+          })
+        });
+        
+        const result = await response.json();
+        console.log('Database columns:', result);
+        
+        if (!result.rows || result.rows.length === 0) {
+          output.innerHTML = '<h2 class="error">❌ Error</h2>';
+          output.innerHTML += '<p>Could not find new_converts table or no columns returned!</p>';
+          output.innerHTML += '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+          return;
+        }
+        
+        const existingColumns = result.rows.map(r => r.column_name.toLowerCase());
+        
+        let html = '<h2>Current Database Columns (' + result.rows.length + ' total)</h2><pre>';
+        result.rows.forEach(row => {
+          html += row.column_name + ' (' + row.data_type + ')\n';
+        });
+        html += '</pre>';
+        
+        // Check all required columns
+        const required = {
+          'first_name': 'VARCHAR(100)',
+          'last_name': 'VARCHAR(100)',
+          'phone_number': 'VARCHAR(20)',
+          'date_of_birth': 'VARCHAR(10)',
+          'gender': 'VARCHAR(10)',
+          'residential_location': 'TEXT',
+          'school_residential_location': 'TEXT',
+          'occupation_type': 'VARCHAR(20)',
+          'group_id': 'UUID',
+          'group_name': 'VARCHAR(100)',
+          'registered_by': 'UUID'
+        };
+        
+        html += '<h2>Required Columns Check</h2><ul>';
+        missingCols = [];
+        
+        Object.keys(required).forEach(col => {
+          if (existingColumns.includes(col)) {
+            html += '<li class="present">✅ ' + col + '</li>';
+          } else {
+            html += '<li class="missing">❌ ' + col + ' - <strong>MISSING</strong></li>';
+            missingCols.push(col);
+          }
+        });
+        
+        html += '</ul>';
+        
+        // Check for old columns that should be removed
+        const oldColumnNames = ['home_location', 'work_location'];
+        oldCols = oldColumnNames.filter(col => existingColumns.includes(col));
+        
+        if (oldCols.length > 0) {
+          html += '<div class="warning-box">';
+          html += '<h2 class="warning">⚠️ Old Columns Found (should be removed)</h2><ul>';
+          oldCols.forEach(col => {
+            html += '<li class="warning">⚠️ ' + col + '</li>';
+          });
+          html += '</ul></div>';
+          document.getElementById('removeBtn').style.display = 'inline-block';
+        }
+        
+        // Show results and action buttons
+        if (missingCols.length > 0) {
+          html += '<div class="warning-box">';
+          html += '<p><strong>⚠️ ' + missingCols.length + ' columns need to be added!</strong></p>';
+          html += '<p>Click "Add Missing Columns" button above to fix this.</p>';
+          html += '</div>';
+          document.getElementById('addBtn').style.display = 'inline-block';
+        } else {
+          html += '<div class="info-box">';
+          html += '<h2 class="success">✅ All Required Columns Present!</h2>';
+          html += '<p>Your database schema is correct and ready for registrations.</p>';
+          html += '</div>';
+        }
+        
+        output.innerHTML = html;
+        
+      } catch (error) {
+        output.innerHTML = '<h2 class="error">❌ Error</h2>';
+        output.innerHTML += '<p>' + error.message + '</p>';
+        console.error(error);
+      }
+    }
+    
+    async function addMissingColumns() {
+      const output = document.getElementById('output');
+      const addBtn = document.getElementById('addBtn');
+      addBtn.disabled = true;
+      
+      output.innerHTML += '<h2>Adding Missing Columns...</h2>';
+      
+      const columnTypes = {
+        'first_name': 'VARCHAR(100)',
+        'last_name': 'VARCHAR(100)',
+        'phone_number': 'VARCHAR(20)',
+        'date_of_birth': 'VARCHAR(10)',
+        'gender': 'VARCHAR(10)',
+        'residential_location': 'TEXT',
+        'school_residential_location': 'TEXT',
+        'occupation_type': 'VARCHAR(20)',
+        'group_id': 'UUID',
+        'group_name': 'VARCHAR(100)',
+        'registered_by': 'UUID'
+      };
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const col of missingCols) {
+        output.innerHTML += '<p>Adding <strong>' + col + '</strong>...</p>';
+        
+        try {
+          const response = await fetch('/api/run-migrations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: `ALTER TABLE new_converts ADD COLUMN IF NOT EXISTS ${col} ${columnTypes[col]}`,
+              description: 'add_column_' + col
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok && result.success) {
+            output.innerHTML += '<p class="success">✅ Added ' + col + '</p>';
+            successCount++;
+          } else {
+            output.innerHTML += '<p class="error">❌ Error adding ' + col + ': ' + (result.error || 'Unknown error') + '</p>';
+            errorCount++;
+          }
+        } catch (error) {
+          output.innerHTML += '<p class="error">❌ Error: ' + error.message + '</p>';
+          errorCount++;
+        }
+      }
+      
+      if (errorCount === 0) {
+        output.innerHTML += '<div class="info-box">';
+        output.innerHTML += '<h2 class="success">🎉 Success!</h2>';
+        output.innerHTML += '<p>Added ' + successCount + ' columns successfully.</p>';
+        output.innerHTML += '<p>Click "Check Current Columns" to verify.</p>';
+        output.innerHTML += '</div>';
+      } else {
+        output.innerHTML += '<div class="warning-box">';
+        output.innerHTML += '<h2 class="warning">⚠️ Completed with errors</h2>';
+        output.innerHTML += '<p>Success: ' + successCount + ' | Failed: ' + errorCount + '</p>';
+        output.innerHTML += '</div>';
+      }
+      
+      addBtn.disabled = false;
+      addBtn.style.display = 'none';
+    }
+    
+    async function removeOldColumns() {
+      const output = document.getElementById('output');
+      const removeBtn = document.getElementById('removeBtn');
+      
+      if (!confirm('Are you sure you want to remove ' + oldCols.join(', ') + '? This cannot be undone!')) {
+        return;
+      }
+      
+      removeBtn.disabled = true;
+      output.innerHTML += '<h2>Removing Old Columns...</h2>';
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const col of oldCols) {
+        output.innerHTML += '<p>Removing <strong>' + col + '</strong>...</p>';
+        
+        try {
+          const response = await fetch('/api/run-migrations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: `ALTER TABLE new_converts DROP COLUMN IF EXISTS ${col}`,
+              description: 'remove_column_' + col
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok && result.success) {
+            output.innerHTML += '<p class="success">✅ Removed ' + col + '</p>';
+            successCount++;
+          } else {
+            output.innerHTML += '<p class="error">❌ Error removing ' + col + ': ' + (result.error || 'Unknown error') + '</p>';
+            errorCount++;
+          }
+        } catch (error) {
+          output.innerHTML += '<p class="error">❌ Error: ' + error.message + '</p>';
+          errorCount++;
+        }
+      }
+      
+      if (errorCount === 0) {
+        output.innerHTML += '<div class="info-box">';
+        output.innerHTML += '<h2 class="success">🎉 Success!</h2>';
+        output.innerHTML += '<p>Removed ' + successCount + ' old columns.</p>';
+        output.innerHTML += '<p>Click "Check Current Columns" to verify.</p>';
+        output.innerHTML += '</div>';
+      } else {
+        output.innerHTML += '<div class="warning-box">';
+        output.innerHTML += '<h2 class="warning">⚠️ Completed with errors</h2>';
+        output.innerHTML += '<p>Success: ' + successCount + ' | Failed: ' + errorCount + '</p>';
+        output.innerHTML += '</div>';
+      }
+      
+      removeBtn.disabled = false;
+      removeBtn.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
