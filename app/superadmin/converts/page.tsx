@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Button, Input, Select, Space, Card, Typography, Tag, Statistic, Row, Col } from 'antd';
-import { HeartOutlined, SearchOutlined, UserOutlined, CalendarOutlined, TeamOutlined, DownloadOutlined } from '@ant-design/icons';
+import { HeartOutlined, SearchOutlined, UserOutlined, CalendarOutlined, TeamOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -242,6 +243,15 @@ export default function NewConvertsManagementPage() {
           >
             Export
           </Button>
+          <Link href="/superadmin/converts/bulk-delete">
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              type="primary"
+            >
+              Bulk Delete
+            </Button>
+          </Link>
         </Space>
       </Card>
 
