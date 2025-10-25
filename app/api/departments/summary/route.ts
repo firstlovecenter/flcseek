@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
           )), 0
         ) as avg_attendance
       FROM groups g
-      LEFT JOIN registered_people rp ON g.id = rp.group_id
+      LEFT JOIN new_converts rp ON g.id = rp.group_id
       WHERE g.is_active = true
       GROUP BY g.id, g.name
       ORDER BY g.name

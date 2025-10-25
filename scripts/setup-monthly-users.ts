@@ -24,7 +24,7 @@ async function setupMonthlyUsers() {
     // Step 1: Delete all registered people (fresh start)
     console.log('\n�️  Deleting all registered people...');
     const deletePeopleResult = await query(
-      `DELETE FROM registered_people`
+      `DELETE FROM new_converts`
     );
     console.log(`✅ Deleted ${deletePeopleResult.rowCount} registered people`);
 

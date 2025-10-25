@@ -4,7 +4,7 @@ async function addAttendanceForAbena() {
   try {
     // First, find Abena (Nkrumah or Gyamfi)
     const personResult = await query(
-      "SELECT id, full_name FROM registered_people WHERE full_name ILIKE '%Abena%Gyamfi%' OR full_name ILIKE '%Gyamfi%Abena%' LIMIT 1"
+      "SELECT id, full_name FROM new_converts WHERE full_name ILIKE '%Abena%Gyamfi%' OR full_name ILIKE '%Gyamfi%Abena%' LIMIT 1"
     );
 
     if (personResult.rows.length === 0) {
@@ -12,7 +12,7 @@ async function addAttendanceForAbena() {
       console.log('Searching for similar names...');
       
       const similarNames = await query(
-        "SELECT id, full_name FROM registered_people WHERE full_name ILIKE '%Gyamfi%' OR full_name ILIKE '%Abena%' LIMIT 5"
+        "SELECT id, full_name FROM new_converts WHERE full_name ILIKE '%Gyamfi%' OR full_name ILIKE '%Abena%' LIMIT 5"
       );
       
       if (similarNames.rows.length > 0) {

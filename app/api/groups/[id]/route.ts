@@ -27,7 +27,7 @@ export async function GET(
         g.archived,
         g.created_at,
         g.updated_at,
-        (SELECT COUNT(*) FROM registered_people WHERE group_name = g.name) as member_count
+        (SELECT COUNT(*) FROM new_converts WHERE group_name = g.name) as member_count
       FROM groups g
       WHERE g.id = $1`,
       [params.id]
@@ -110,10 +110,10 @@ export async function PUT(
       [name.trim(), description || null, newYear, archived, params.id]
     );
 
-    // If group name changed, update registered_people records
-    if (name.trim() !== oldGroupName) {
+    // If group name changed, update new_converts records
+    if (name && name !== oldGroupName) {
       await query(
-        'UPDATE registered_people SET group_name = $1 WHERE group_name = $2',
+        'UPDATE new_converts SET group_name = $1 WHERE group_name = $2',
         [name.trim(), oldGroupName]
       );
     }
@@ -152,7 +152,7 @@ export async function DELETE(
       `SELECT 
         g.id, 
         g.name,
-        (SELECT COUNT(*) FROM registered_people WHERE group_name = g.name) as member_count
+        (SELECT COUNT(*) FROM new_converts WHERE group_name = g.name) as member_count
        FROM groups g
        WHERE g.id = $1`,
       [params.id]

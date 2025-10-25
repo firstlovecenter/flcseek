@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
     // Migration 002: Add location fields
     console.log('Running migration 002: Add location fields...');
     await query(`
-      ALTER TABLE registered_people 
-      ADD COLUMN IF NOT EXISTS home_location text,
+      ALTER TABLE new_converts 
+      ADD COLUMN IF NOT EXISTS home_location VARCHAR(255),
       ADD COLUMN IF NOT EXISTS work_location text
     `);
     console.log('✅ Migration 002 completed');
@@ -67,9 +67,9 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Rename department_name to group_name in registered_people
+      // Rename department_name to group_name in new_converts
       await query(`
-        ALTER TABLE registered_people 
+        ALTER TABLE new_converts 
         RENAME COLUMN department_name TO group_name
       `);
     } catch (e) {
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     try {
       // Rename indexes
       await query(`
-        DROP INDEX IF EXISTS idx_registered_people_department
+        DROP INDEX IF EXISTS idx_new_converts_department
       `);
     } catch (e) {
       console.log('Skipping index drop');
@@ -87,10 +87,10 @@ export async function POST(request: NextRequest) {
 
     try {
       await query(`
-        CREATE INDEX IF NOT EXISTS idx_registered_people_group ON registered_people(group_name)
+        CREATE INDEX IF NOT EXISTS idx_new_converts_group ON new_converts(group_name)
       `);
     } catch (e) {
-      console.log('Skipping registered_people_group index');
+      console.log('Skipping new_converts_group index');
     }
 
     try {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     const checkPeopleColumns = await query(`
       SELECT column_name 
       FROM information_schema.columns 
-      WHERE table_name = 'registered_people' 
+      WHERE table_name = 'new_converts' 
       AND column_name IN ('home_location', 'work_location')
     `);
 
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     const checkGroupNameColumn = await query(`
       SELECT column_name 
       FROM information_schema.columns 
-      WHERE table_name = 'registered_people' 
+      WHERE table_name = 'new_converts' 
       AND column_name = 'group_name'
     `);
 
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
     console.log('Running migration 010: Add unique constraint on phone_number...');
     try {
       await query(`
-        ALTER TABLE registered_people 
+        ALTER TABLE new_converts 
         ADD CONSTRAINT unique_phone_number UNIQUE (phone_number)
       `);
       console.log('✅ Migration 010 completed');

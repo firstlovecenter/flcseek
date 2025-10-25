@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const convertsResult = await query(
       `SELECT COUNT(*) as total,
               COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as this_month
-       FROM registered_people`
+       FROM new_converts`
     );
 
     // Get recent activity (last 10 actions)

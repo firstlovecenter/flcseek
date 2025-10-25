@@ -22,7 +22,7 @@ function verifyAdmin(request: NextRequest) {
   }
 }
 
-// GET - List all converts (registered_people)
+// GET - List all converts (new_converts)
 export async function GET(request: NextRequest) {
   const user = verifyAdmin(request);
   if (!user) {
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         u.username as registered_by_name,
         (SELECT COUNT(*) FROM progress_records pr WHERE pr.person_id = rp.id AND pr.is_completed = true) as completed_stages,
         (SELECT COUNT(*) FROM attendance_records ar WHERE ar.person_id = rp.id) as total_attendance
-       FROM registered_people rp
+       FROM new_converts rp
        LEFT JOIN users u ON rp.registered_by = u.id
        ORDER BY rp.full_name ASC`
     );

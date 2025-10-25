@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
        FROM (
          SELECT g.id, COUNT(rp.id) as member_count
          FROM groups g
-         LEFT JOIN registered_people rp ON rp.group_name = g.name
+         LEFT JOIN new_converts rp ON rp.group_name = g.name
          GROUP BY g.id
        ) as group_data`
     );
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
            rp.id,
            rp.created_at,
            (COUNT(CASE WHEN pr.is_completed THEN 1 END)::float / 15 * 100) as completion_rate
-         FROM registered_people rp
+         FROM new_converts rp
          LEFT JOIN progress_records pr ON pr.person_id = rp.id
          GROUP BY rp.id, rp.created_at
        ) as convert_data`
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
           (SELECT COUNT(*) FROM progress_records pr WHERE pr.person_id = rp.id AND pr.is_completed = true)::float / 15 * 100
         ), 0) as avg_progress
        FROM groups g
-       LEFT JOIN registered_people rp ON rp.group_name = g.name
+       LEFT JOIN new_converts rp ON rp.group_name = g.name
        GROUP BY g.name
        HAVING COUNT(rp.id) > 0
        ORDER BY members DESC, avg_progress DESC
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
         u.username as name,
         COUNT(rp.id) as converts
        FROM users u
-       LEFT JOIN registered_people rp ON rp.registered_by = u.id
+       LEFT JOIN new_converts rp ON rp.registered_by = u.id
        WHERE u.role IN ('leader', 'admin', 'leadpastor')
        GROUP BY u.id, u.username
        HAVING COUNT(rp.id) > 0

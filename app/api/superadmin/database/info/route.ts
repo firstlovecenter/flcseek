@@ -32,14 +32,14 @@ export async function GET(request: NextRequest) {
     // Get counts for each table
     const usersCount = await query('SELECT COUNT(*) as count FROM users');
     const groupsCount = await query('SELECT COUNT(*) as count FROM groups');
-    const peopleCount = await query('SELECT COUNT(*) as count FROM registered_people');
+    const peopleCount = await query('SELECT COUNT(*) as count FROM new_converts');
     const progressCount = await query('SELECT COUNT(*) as count FROM progress_records');
     const attendanceCount = await query('SELECT COUNT(*) as count FROM attendance_records');
 
     const tables = {
       users: parseInt(usersCount.rows[0]?.count || '0'),
       groups: parseInt(groupsCount.rows[0]?.count || '0'),
-      registered_people: parseInt(peopleCount.rows[0]?.count || '0'),
+      new_converts: parseInt(peopleCount.rows[0]?.count || '0'),
       progress_records: parseInt(progressCount.rows[0]?.count || '0'),
       attendance_records: parseInt(attendanceCount.rows[0]?.count || '0'),
     };

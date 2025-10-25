@@ -53,7 +53,7 @@ export async function PATCH(
     }
 
     const personResult = await query(
-      'SELECT * FROM registered_people WHERE id = $1',
+      'SELECT * FROM new_converts WHERE id = $1',
       [params.person_id]
     );
 

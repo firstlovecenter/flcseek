@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get all registered people
-    const peopleResult = await query('SELECT id FROM registered_people');
+    const peopleResult = await query('SELECT id FROM new_converts');
     const people = peopleResult.rows;
 
     let initialized = 0;

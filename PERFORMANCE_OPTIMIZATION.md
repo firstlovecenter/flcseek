@@ -100,7 +100,7 @@ SELECT - Adds intelligent caching headers
 
   COUNT(DISTINCT ar.id) as attendance_count- Speed increase: **95%+ faster**
 
-FROM registered_people rp
+FROM new_converts rp
 
 LEFT JOIN groups g ON rp.group_id = g.id**SQL Optimization**:
 
@@ -114,7 +114,7 @@ GROUP BY rp.id, rp.full_name, ..., g.name  rp.*,
 
   COUNT(DISTINCT ar.id) as attendance_count
 
-### 2. Updated Dashboard PagesFROM registered_people rp
+### 2. Updated Dashboard PagesFROM new_converts rp
 
 LEFT JOIN progress_records pr ON rp.id = pr.person_id
 
@@ -152,9 +152,9 @@ LEFT JOIN progress_records pr ON rp.id = pr.person_id
 
 -- Improve JOIN performance- **Speed increase**: 90%+ faster
 
-CREATE INDEX idx_registered_people_group_name ON registered_people(group_name);
+CREATE INDEX idx_new_converts_group_name ON new_converts(group_name);
 
-CREATE INDEX idx_registered_people_group_id ON registered_people(group_id);### ✅ 3. React Data Fetching Hook
+CREATE INDEX idx_new_converts_group_id ON new_converts(group_id);### ✅ 3. React Data Fetching Hook
 
 CREATE INDEX idx_progress_records_person_id ON progress_records(person_id);**File**: `hooks/use-fetch.ts`
 
@@ -430,7 +430,7 @@ CREATE INDEX IF NOT EXISTS idx_attendance_person
   ON attendance_records(person_id);
 
 CREATE INDEX IF NOT EXISTS idx_people_group 
-  ON registered_people(group_id);
+  ON new_converts(group_id);
 ```
 
 ### 2. React Query (Future Enhancement)
