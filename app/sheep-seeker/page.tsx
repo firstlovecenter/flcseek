@@ -435,23 +435,6 @@ export default function SheepSeekerDashboard() {
     <>
       {/* Sticky Controls Bar */}
       <div className="sticky-controls-bar">
-        <Breadcrumb
-          items={[
-            {
-              title: (
-                <Link href="/">
-                  <HomeOutlined />
-                </Link>
-              ),
-            },
-            {
-              title: 'Sheep Seeker',
-            },
-            {
-              title: <span style={{ fontWeight: 700, fontSize: '16px' }}>{displayTitle}</span>,
-            },
-          ]}
-        />
         
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           
@@ -464,7 +447,14 @@ export default function SheepSeekerDashboard() {
             style={{ width: 250 }}
           />
           
-          {/* Navigation buttons in order: Attendance - Register - Bulk Register */}
+          {/* Navigation buttons in order: Milestones - Attendance - Register - Bulk Register */}
+          <Button
+            icon={<BarChartOutlined />}
+            type="primary"
+          >
+            Milestones
+          </Button>
+          
           <Button
             icon={<TeamOutlined />}
             onClick={() => router.push('/sheep-seeker/attendance')}
@@ -474,7 +464,6 @@ export default function SheepSeekerDashboard() {
           
           {(isAdmin || user?.role === 'admin') && (
             <Button
-              type="primary"
               icon={<UserAddOutlined />}
               onClick={() => setRegisterModalVisible(true)}
             >
