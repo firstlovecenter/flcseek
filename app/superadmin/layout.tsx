@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Layout, Menu, Spin, Avatar, Dropdown, Space, Typography } from 'antd';
+import { Layout, Menu, Spin, Avatar, Dropdown, Space, Typography, Button } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
@@ -171,16 +171,18 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               FLC Sheep Seeking
             </Text>
           </Space>
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Space style={{ cursor: 'pointer' }}>
-              <Avatar icon={<UserOutlined />} />
-              <Text>
-                {user.first_name && user.last_name 
-                  ? `${user.first_name} ${user.last_name}` 
-                  : user.email || 'Admin'}
-              </Text>
-            </Space>
-          </Dropdown>
+          <Button
+            type="primary"
+            danger
+            icon={<LogoutOutlined />}
+            onClick={logout}
+            style={{
+              fontSize: '14px',
+              fontWeight: 'bold',
+            }}
+          >
+            Logout
+          </Button>
         </Header>
         <Content style={{ margin: '24px 16px', overflow: 'initial' }}>{children}</Content>
       </Layout>

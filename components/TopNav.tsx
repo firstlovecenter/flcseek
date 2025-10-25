@@ -154,15 +154,18 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
             {getHeaderTitle()}
           </Text>
         </Link>
-        <span style={{ marginRight: 16 }}>
-          Welcome, <strong>{user?.email}</strong>
-        </span>
-        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-          <Avatar
-            style={{ backgroundColor: '#1890ff', cursor: 'pointer' }}
-            icon={<UserOutlined />}
-          />
-        </Dropdown>
+        <Button
+          type="primary"
+          danger
+          icon={<LogoutOutlined />}
+          onClick={handleLogout}
+          style={{
+            fontSize: '14px',
+            fontWeight: 'bold',
+          }}
+        >
+          Logout
+        </Button>
       </Space>
     </Header>
   );
