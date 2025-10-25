@@ -34,15 +34,49 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { name, description, leader_id } = body;
+    const { name, description, year, archived, leader_id } = body;
     const { id } = params;
+
+    // Build dynamic update query based on provided fields
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramIndex}`);
+      values.push(name);
+      paramIndex++;
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${paramIndex}`);
+      values.push(description || null);
+      paramIndex++;
+    }
+    if (year !== undefined) {
+      updates.push(`year = $${paramIndex}`);
+      values.push(year);
+      paramIndex++;
+    }
+    if (archived !== undefined) {
+      updates.push(`archived = $${paramIndex}`);
+      values.push(archived);
+      paramIndex++;
+    }
+    if (leader_id !== undefined) {
+      updates.push(`leader_id = $${paramIndex}`);
+      values.push(leader_id || null);
+      paramIndex++;
+    }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(id);
 
     const result = await query(
       `UPDATE groups 
-       SET name = $1, description = $2, sheep_seeker_id = $3, updated_at = NOW()
-       WHERE id = $4
-       RETURNING id, name, description, sheep_seeker_id as leader_id, updated_at`,
-      [name, description || null, leader_id || null, id]
+       SET ${updates.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING id, name, description, year, archived, leader_id, updated_at`,
+      values
     );
 
     if (result.rows.length === 0) {
@@ -53,7 +87,7 @@ export async function PUT(
   } catch (error: any) {
     console.error('Error updating group:', error);
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Group name already exists' }, { status: 400 });
+      return NextResponse.json({ error: 'Group name and year combination already exists' }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

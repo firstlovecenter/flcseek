@@ -20,9 +20,16 @@ interface User {
   created_at: string;
 }
 
+interface Group {
+  id: string;
+  name: string;
+  year: number;
+}
+
 export default function UsersManagementPage() {
   const { token } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -34,6 +41,7 @@ export default function UsersManagementPage() {
   useEffect(() => {
     if (token) {
       fetchUsers();
+      fetchGroups();
     }
   }, [token]);
 
@@ -53,6 +61,20 @@ export default function UsersManagementPage() {
       message.error('Failed to fetch users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch('/api/superadmin/groups?filter=active', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setGroups(data.groups || []);
+      return data.groups || [];
+    } catch (error) {
+      console.error('Failed to fetch groups');
+      return [];
     }
   };
 
@@ -76,8 +98,40 @@ export default function UsersManagementPage() {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    form.setFieldsValue(user);
-    setIsModalVisible(true);
+    
+    // Ensure groups are loaded before opening modal
+    const openModal = (loadedGroups: Group[]) => {
+      // If user has a group_name, try to match it with the full format (name-year)
+      if (user.group_name && loadedGroups.length > 0) {
+        // Check if group_name already has year format (name-year)
+        if (user.group_name.includes('-')) {
+          form.setFieldsValue(user);
+        } else {
+          // Old format: just the name, find the matching group (prefer most recent year)
+          const matchingGroup = loadedGroups
+            .filter(g => g.name === user.group_name)
+            .sort((a, b) => b.year - a.year)[0]; // Get most recent year
+          
+          if (matchingGroup) {
+            form.setFieldsValue({
+              ...user,
+              group_name: `${matchingGroup.name}-${matchingGroup.year}`
+            });
+          } else {
+            form.setFieldsValue(user);
+          }
+        }
+      } else {
+        form.setFieldsValue(user);
+      }
+      setIsModalVisible(true);
+    };
+    
+    if (groups.length === 0) {
+      fetchGroups().then(openModal);
+    } else {
+      openModal(groups);
+    }
   };
 
   const handleDelete = (userId: string) => {
@@ -252,7 +306,12 @@ export default function UsersManagementPage() {
             onClick={() => {
               setEditingUser(null);
               form.resetFields();
-              setIsModalVisible(true);
+              // Ensure groups are loaded before opening modal
+              if (groups.length === 0) {
+                fetchGroups().then(() => setIsModalVisible(true));
+              } else {
+                setIsModalVisible(true);
+              }
             }}
           >
             Add User
@@ -305,15 +364,13 @@ export default function UsersManagementPage() {
           >
             <Input placeholder="Optional" />
           </Form.Item>
-          {!editingUser && (
-            <Form.Item
-              name="password"
-              label="Password"
-              rules={[{ required: true, message: 'Please enter password' }]}
-            >
-              <Input.Password />
-            </Form.Item>
-          )}
+          <Form.Item
+            name="password"
+            label={editingUser ? "New Password (leave blank to keep current)" : "Password"}
+            rules={[{ required: !editingUser, message: 'Please enter password' }]}
+          >
+            <Input.Password placeholder={editingUser ? "Leave blank to keep current password" : ""} />
+          </Form.Item>
           <Form.Item
             name="role"
             label="Role"
@@ -334,7 +391,21 @@ export default function UsersManagementPage() {
             <Input />
           </Form.Item>
           <Form.Item name="group_name" label="Group Name">
-            <Input placeholder="Optional - for Sheep Seekers" />
+            <Select 
+              placeholder="Optional - Select a group" 
+              allowClear
+              showSearch
+              filterOption={(input, option) => {
+                const label = `${option?.children}`;
+                return label.toLowerCase().includes(input.toLowerCase());
+              }}
+            >
+              {groups.map(group => (
+                <Option key={group.id} value={`${group.name}-${group.year}`}>
+                  {group.name} ({group.year})
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
           <Form.Item>
             <Space>

@@ -23,6 +23,8 @@ export async function GET(
         g.id,
         g.name,
         g.description,
+        g.year,
+        g.archived,
         g.created_at,
         g.updated_at,
         (SELECT COUNT(*) FROM registered_people WHERE group_name = g.name) as member_count
@@ -61,7 +63,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, description } = await request.json();
+    const { name, description, year, archived } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -72,7 +74,7 @@ export async function PUT(
 
     // Check if group exists
     const existing = await query(
-      'SELECT id, name FROM groups WHERE id = $1',
+      'SELECT id, name, year FROM groups WHERE id = $1',
       [params.id]
     );
 
@@ -81,17 +83,19 @@ export async function PUT(
     }
 
     const oldGroupName = existing.rows[0].name;
+    const oldYear = existing.rows[0].year;
+    const newYear = year !== undefined ? year : oldYear;
 
-    // Check if new name conflicts with another group
-    if (name.trim() !== oldGroupName) {
+    // Check if new name + year conflicts with another group
+    if (name.trim() !== oldGroupName || newYear !== oldYear) {
       const nameCheck = await query(
-        'SELECT id FROM groups WHERE name = $1 AND id != $2',
-        [name.trim(), params.id]
+        'SELECT id FROM groups WHERE name = $1 AND year = $2 AND id != $3',
+        [name.trim(), newYear, params.id]
       );
 
       if (nameCheck.rows.length > 0) {
         return NextResponse.json(
-          { error: `Group ${name} already exists` },
+          { error: `Group ${name} already exists for year ${newYear}` },
           { status: 409 }
         );
       }
@@ -100,10 +104,10 @@ export async function PUT(
     // Update the group
     const result = await query(
       `UPDATE groups 
-       SET name = $1, description = $2, updated_at = NOW()
-       WHERE id = $3
-       RETURNING id, name, description, created_at, updated_at`,
-      [name.trim(), description || null, params.id]
+       SET name = $1, description = $2, year = $3, archived = COALESCE($4, archived), updated_at = NOW()
+       WHERE id = $5
+       RETURNING id, name, description, year, archived, created_at, updated_at`,
+      [name.trim(), description || null, newYear, archived, params.id]
     );
 
     // If group name changed, update registered_people records
