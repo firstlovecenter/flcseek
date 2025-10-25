@@ -162,7 +162,7 @@ export default function LeadPastorAttendancePage() {
                 icon={<BarChartOutlined />}
                 onClick={() => router.push(`/leadpastor/${month}/progress`)}
               >
-                Progress
+                Milestones
               </Button>
             </Space>
           </div>

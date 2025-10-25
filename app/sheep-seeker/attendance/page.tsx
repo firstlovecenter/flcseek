@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space } from 'antd';
-import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined } from '@ant-design/icons';
+import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
@@ -181,26 +181,38 @@ export default function AttendancePage() {
       <div>
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Title level={2} style={{ margin: 0 }}>Attendance Tracking</Title>
+            <Title level={2} style={{ margin: 0 }}>
+              {isLeader ? 'Attendance Tracking' : 'Update Attendance Tracking'}
+            </Title>
             <Space>
               <Button
-                icon={<HomeOutlined />}
+                icon={<BarChartOutlined />}
                 onClick={() => router.push('/sheep-seeker')}
               >
-                Home
+                Milestones
               </Button>
               <Button
                 icon={<TeamOutlined />}
-                onClick={() => router.push('/sheep-seeker/people')}
+                type="primary"
               >
-                New Converts
+                Attendance
               </Button>
-              <Button
-                icon={<BarChartOutlined />}
-                onClick={() => router.push('/sheep-seeker/progress')}
-              >
-                Progress
-              </Button>
+              {!isLeader && (
+                <Button
+                  icon={<UserAddOutlined />}
+                  onClick={() => router.push('/sheep-seeker/people/register')}
+                >
+                  Register
+                </Button>
+              )}
+              {!isLeader && (
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                >
+                  Bulk Register
+                </Button>
+              )}
             </Space>
           </div>
           <Text type="secondary">

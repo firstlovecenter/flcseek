@@ -44,12 +44,6 @@ export default function QuickActions() {
       label: 'Register New Person',
       onClick: () => router.push('/sheep-seeker/people/register'),
     },
-    {
-      key: 'view-people',
-      icon: <TeamOutlined />,
-      label: 'View New Converts',
-      onClick: () => router.push('/sheep-seeker/people'),
-    },
   ];
 
   const actions = user?.role === 'superadmin' ? superAdminActions : sheepSeekerActions;

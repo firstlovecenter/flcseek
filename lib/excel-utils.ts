@@ -9,27 +9,36 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
   // Create sample data with instructions
   const sampleData = [
     {
-      full_name: 'John Doe',
+      first_name: 'John',
+      last_name: 'Doe',
       phone_number: '+233 123 456 789',
+      date_of_birth: '15-03',
       gender: 'Male',
-      home_location: 'Accra, Ghana',
-      work_location: 'Airport City, Accra',
+      residential_location: 'Accra, Ghana',
+      school_residential_location: '',
+      occupation_type: 'Worker',
       group_name: groups[0] || 'January',
     },
     {
-      full_name: 'Jane Smith',
+      first_name: 'Jane',
+      last_name: 'Smith',
       phone_number: '0244567890',
+      date_of_birth: '22-08',
       gender: 'Female',
-      home_location: 'Kumasi, Ghana',
-      work_location: 'Adum, Kumasi',
+      residential_location: 'Kumasi, Ghana',
+      school_residential_location: 'KNUST Campus',
+      occupation_type: 'Student',
       group_name: groups[1] || 'February',
     },
     {
-      full_name: 'Sample Member',
+      first_name: 'Samuel',
+      last_name: 'Mensah',
       phone_number: '+233 200 000 000',
+      date_of_birth: '10-12',
       gender: 'Male',
-      home_location: 'Tema, Ghana',
-      work_location: 'Community 1, Tema',
+      residential_location: 'Tema, Ghana',
+      school_residential_location: '',
+      occupation_type: 'Unemployed',
       group_name: 'March',
     },
   ];
@@ -42,11 +51,14 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
 
   // Set column widths
   ws['!cols'] = [
-    { wch: 25 }, // full_name
+    { wch: 15 }, // first_name
+    { wch: 15 }, // last_name
     { wch: 20 }, // phone_number
+    { wch: 12 }, // date_of_birth
     { wch: 10 }, // gender
-    { wch: 30 }, // home_location
-    { wch: 30 }, // work_location
+    { wch: 30 }, // residential_location
+    { wch: 30 }, // school_residential_location
+    { wch: 15 }, // occupation_type
     { wch: 15 }, // group_name
   ];
 
@@ -57,26 +69,33 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
   const instructions = [
     { Instruction: 'HOW TO USE THIS TEMPLATE' },
     { Instruction: '' },
-    { Instruction: '1. Fill in the member details in the "Members" sheet' },
+    { Instruction: '1. Fill in the convert details in the "Members" sheet' },
     { Instruction: '2. Delete the sample rows (rows 2-4) before uploading' },
-    { Instruction: '3. Required fields: full_name, phone_number, group_name' },
-    { Instruction: '4. Optional fields: gender (Male/Female), home_location, work_location' },
+    { Instruction: '3. Required fields: first_name, last_name, phone_number, date_of_birth, gender, residential_location, occupation_type, group_name' },
+    { Instruction: '4. Optional fields: school_residential_location (only for students)' },
     { Instruction: '' },
     { Instruction: 'FIELD SPECIFICATIONS:' },
     { Instruction: '' },
-    { Instruction: 'full_name: Full name of the member (e.g., John Doe)' },
+    { Instruction: 'first_name: First name of the convert (e.g., John)' },
+    { Instruction: 'last_name: Last name of the convert (e.g., Doe)' },
     { Instruction: 'phone_number: Phone number with country code (e.g., +233 123 456 789)' },
-    { Instruction: 'gender: Male or Female (optional)' },
-    { Instruction: 'home_location: Home address or location (optional)' },
-    { Instruction: 'work_location: Work address or location (optional)' },
+    { Instruction: 'date_of_birth: Birth date WITHOUT year in DD-MM format (e.g., 15-03 for March 15)' },
+    { Instruction: 'gender: Male or Female (required)' },
+    { Instruction: 'residential_location: Primary home address or location (required)' },
+    { Instruction: 'school_residential_location: School address if student (optional)' },
+    { Instruction: 'occupation_type: Worker, Student, or Unemployed (required)' },
     { Instruction: 'group_name: One of the 12 groups (see Groups sheet)' },
     { Instruction: '' },
     { Instruction: 'IMPORTANT NOTES:' },
     { Instruction: '- Do not change the column headers' },
-    { Instruction: '- Each row represents one member' },
+    { Instruction: '- Each row represents one convert' },
     { Instruction: '- Phone numbers must contain only numbers, +, -, spaces, and ()' },
+    { Instruction: '- Date of birth must be in DD-MM format (e.g., 25-12, 01-01)' },
+    { Instruction: '- Gender must be exactly "Male" or "Female"' },
+    { Instruction: '- Occupation type must be exactly "Worker", "Student", or "Unemployed"' },
     { Instruction: '- Group names must match exactly (see Groups sheet)' },
-    { Instruction: '- Maximum 500 members per upload' },
+    { Instruction: '- School residential location is only needed for students' },
+    { Instruction: '- Maximum 500 converts per upload' },
   ];
 
   const wsInstructions = XLSX.utils.json_to_sheet(instructions);
@@ -106,11 +125,14 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
 export async function parseExcelFile(
   file: File
 ): Promise<Array<{
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
-  gender?: string;
-  home_location?: string;
-  work_location?: string;
+  date_of_birth: string;
+  gender: string;
+  residential_location: string;
+  school_residential_location?: string;
+  occupation_type: string;
   group_name: string;
 }>> {
   return new Promise((resolve, reject) => {
@@ -129,11 +151,14 @@ export async function parseExcelFile(
 
         // Map to expected format
         const members = jsonData.map((row: any) => ({
-          full_name: row.full_name?.toString().trim() || '',
+          first_name: row.first_name?.toString().trim() || '',
+          last_name: row.last_name?.toString().trim() || '',
           phone_number: row.phone_number?.toString().trim() || '',
-          gender: row.gender?.toString().trim() || undefined,
-          home_location: row.home_location?.toString().trim() || undefined,
-          work_location: row.work_location?.toString().trim() || undefined,
+          date_of_birth: row.date_of_birth?.toString().trim() || '',
+          gender: row.gender?.toString().trim() || '',
+          residential_location: row.residential_location?.toString().trim() || '',
+          school_residential_location: row.school_residential_location?.toString().trim() || undefined,
+          occupation_type: row.occupation_type?.toString().trim() || '',
           group_name: row.group_name?.toString().trim() || '',
         }));
 
@@ -155,11 +180,14 @@ export async function parseExcelFile(
  * @returns Validation result with errors
  */
 export function validateMemberData(members: Array<{
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
-  gender?: string;
-  home_location?: string;
-  work_location?: string;
+  date_of_birth: string;
+  gender: string;
+  residential_location: string;
+  school_residential_location?: string;
+  occupation_type: string;
   group_name: string;
 }>, groups: string[] = []): {
   isValid: boolean;
@@ -170,11 +198,19 @@ export function validateMemberData(members: Array<{
   members.forEach((member, index) => {
     const rowNumber = index + 2; // +2 because row 1 is header
 
-    if (!member.full_name || member.full_name.trim() === '') {
+    if (!member.first_name || member.first_name.trim() === '') {
       errors.push({
         row: rowNumber,
-        field: 'full_name',
-        message: 'Full name is required',
+        field: 'first_name',
+        message: 'First name is required',
+      });
+    }
+
+    if (!member.last_name || member.last_name.trim() === '') {
+      errors.push({
+        row: rowNumber,
+        field: 'last_name',
+        message: 'Last name is required',
       });
     }
 
@@ -192,6 +228,77 @@ export function validateMemberData(members: Array<{
       });
     }
 
+    // Validate date_of_birth (DD-MM format)
+    if (!member.date_of_birth || member.date_of_birth.trim() === '') {
+      errors.push({
+        row: rowNumber,
+        field: 'date_of_birth',
+        message: 'Date of birth is required',
+      });
+    } else if (!/^\d{2}-\d{2}$/.test(member.date_of_birth)) {
+      errors.push({
+        row: rowNumber,
+        field: 'date_of_birth',
+        message: 'Date of birth must be in DD-MM format (e.g., 15-03)',
+      });
+    } else {
+      // Validate day and month ranges
+      const [day, month] = member.date_of_birth.split('-').map(Number);
+      if (day < 1 || day > 31) {
+        errors.push({
+          row: rowNumber,
+          field: 'date_of_birth',
+          message: 'Day must be between 01 and 31',
+        });
+      }
+      if (month < 1 || month > 12) {
+        errors.push({
+          row: rowNumber,
+          field: 'date_of_birth',
+          message: 'Month must be between 01 and 12',
+        });
+      }
+    }
+
+    // Validate gender (required)
+    if (!member.gender || member.gender.trim() === '') {
+      errors.push({
+        row: rowNumber,
+        field: 'gender',
+        message: 'Gender is required',
+      });
+    } else if (member.gender !== 'Male' && member.gender !== 'Female') {
+      errors.push({
+        row: rowNumber,
+        field: 'gender',
+        message: 'Gender must be either "Male" or "Female"',
+      });
+    }
+
+    // Validate residential_location (required)
+    if (!member.residential_location || member.residential_location.trim() === '') {
+      errors.push({
+        row: rowNumber,
+        field: 'residential_location',
+        message: 'Residential location is required',
+      });
+    }
+
+    // Validate occupation_type (required)
+    if (!member.occupation_type || member.occupation_type.trim() === '') {
+      errors.push({
+        row: rowNumber,
+        field: 'occupation_type',
+        message: 'Occupation type is required',
+      });
+    } else if (member.occupation_type !== 'Worker' && member.occupation_type !== 'Student' && member.occupation_type !== 'Unemployed') {
+      errors.push({
+        row: rowNumber,
+        field: 'occupation_type',
+        message: 'Occupation type must be "Worker", "Student", or "Unemployed"',
+      });
+    }
+
     if (!member.group_name || member.group_name.trim() === '') {
       errors.push({
         row: rowNumber,
@@ -203,18 +310,6 @@ export function validateMemberData(members: Array<{
         row: rowNumber,
         field: 'group_name',
         message: `Invalid group. Must be one of: ${groups.join(', ')}`,
-      });
-    }
-
-    if (
-      member.gender &&
-      member.gender !== 'Male' &&
-      member.gender !== 'Female'
-    ) {
-      errors.push({
-        row: rowNumber,
-        field: 'gender',
-        message: 'Gender must be either "Male" or "Female"',
       });
     }
   });

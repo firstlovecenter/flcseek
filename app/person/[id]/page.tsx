@@ -265,9 +265,8 @@ export default function PersonDetailPage() {
             <Button onClick={() => router.push(backUrl)}>Home</Button>
             {(user?.role === 'admin' || user?.role === 'leader') && (
               <>
-                <Button onClick={() => router.push('/sheep-seeker/people')}>New Converts</Button>
+                <Button onClick={() => router.push('/sheep-seeker/progress')}>Milestones</Button>
                 <Button onClick={() => router.push('/sheep-seeker/attendance')}>Attendance</Button>
-                <Button onClick={() => router.push('/sheep-seeker/progress')}>Progress</Button>
               </>
             )}
           </Space>

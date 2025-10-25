@@ -470,17 +470,12 @@ export default function SheepSeekerDashboard() {
             style={{ width: 250 }}
           />
           
+          {/* Navigation buttons in order: Attendance - Register - Bulk Register */}
           <Button
             icon={<TeamOutlined />}
-            onClick={() => router.push('/leader/attendance')}
+            onClick={() => router.push('/sheep-seeker/attendance')}
           >
             Attendance
-          </Button>
-          <Button
-            icon={<BarChartOutlined />}
-            onClick={() => router.push('/leader/progress')}
-          >
-            Progress
           </Button>
           
           {!isLeader && (
