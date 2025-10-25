@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, Card, Typography, message } from 'antd';
-import { UserAddOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Button, Card, Typography, message, Space } from 'antd';
+import { UserAddOutlined, HomeOutlined, BarChartOutlined, TeamOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -53,7 +53,7 @@ export default function RegisterPersonPage() {
 
       message.success('Person registered successfully!');
       form.resetFields();
-      router.push('/sheep-seeker/people');
+      router.push('/sheep-seeker');
     } catch (error: any) {
       message.error(error.message || 'Failed to register person');
     } finally {
@@ -64,14 +64,42 @@ export default function RegisterPersonPage() {
   return (
     <>
       <AppBreadcrumb />
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <Space>
+          <Button
+            icon={<BarChartOutlined />}
+            onClick={() => router.push('/sheep-seeker')}
+          >
+            Milestones
+          </Button>
+          <Button
+            icon={<TeamOutlined />}
+            onClick={() => router.push('/sheep-seeker/attendance')}
+          >
+            Attendance
+          </Button>
+          <Button
+            icon={<UserAddOutlined />}
+            type="primary"
+          >
+            Register
+          </Button>
+          <Button
+            icon={<FileExcelOutlined />}
+            onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+          >
+            Bulk Register
+          </Button>
+        </Space>
+      </div>
       <div style={{ maxWidth: 600, margin: '0 auto' }}>
         <Card>
           <div style={{ marginBottom: 24 }}>
             <Title level={2}>
-              <UserAddOutlined /> Register New Person
+              <UserAddOutlined /> Register New Convert
             </Title>
             <Text type="secondary">
-              Add a new member to track their progress
+              Add a new convert to track their spiritual progress
             </Text>
           </div>
 
@@ -82,11 +110,19 @@ export default function RegisterPersonPage() {
             autoComplete="off"
           >
             <Form.Item
-              name="full_name"
-              label="Full Name"
-              rules={[{ required: true, message: 'Please enter full name' }]}
+              name="first_name"
+              label="First Name"
+              rules={[{ required: true, message: 'Please enter first name' }]}
             >
-              <Input placeholder="John Doe" size="large" />
+              <Input placeholder="John" size="large" />
+            </Form.Item>
+
+            <Form.Item
+              name="last_name"
+              label="Last Name"
+              rules={[{ required: true, message: 'Please enter last name' }]}
+            >
+              <Input placeholder="Doe" size="large" />
             </Form.Item>
 
             <Form.Item
@@ -101,27 +137,53 @@ export default function RegisterPersonPage() {
             </Form.Item>
 
             <Form.Item
+              name="date_of_birth"
+              label="Date of Birth (without year)"
+              rules={[
+                { required: true, message: 'Please enter date of birth' },
+                { pattern: /^\d{2}-\d{2}$/, message: 'Format must be DD-MM (e.g., 15-03)' },
+              ]}
+              extra="Format: DD-MM (e.g., 15-03 for March 15)"
+            >
+              <Input placeholder="15-03" size="large" maxLength={5} />
+            </Form.Item>
+
+            <Form.Item
               name="gender"
               label="Gender"
+              rules={[{ required: true, message: 'Please select gender' }]}
             >
-              <Select placeholder="Select gender" size="large" allowClear>
+              <Select placeholder="Select gender" size="large">
                 <Select.Option value="Male">Male</Select.Option>
                 <Select.Option value="Female">Female</Select.Option>
               </Select>
             </Form.Item>
 
             <Form.Item
-              name="home_location"
-              label="Home Location"
+              name="residential_location"
+              label="Residential Location"
+              rules={[{ required: true, message: 'Please enter residential location' }]}
             >
               <Input placeholder="e.g., Accra, Ghana" size="large" />
             </Form.Item>
 
             <Form.Item
-              name="work_location"
-              label="Work Location"
+              name="school_residential_location"
+              label="School Residential Location (if applicable)"
             >
-              <Input placeholder="e.g., Airport City, Accra" size="large" />
+              <Input placeholder="e.g., KNUST Campus" size="large" />
+            </Form.Item>
+
+            <Form.Item
+              name="occupation_type"
+              label="Occupation Type"
+              rules={[{ required: true, message: 'Please select occupation type' }]}
+            >
+              <Select placeholder="Select occupation type" size="large">
+                <Select.Option value="Worker">Worker</Select.Option>
+                <Select.Option value="Student">Student</Select.Option>
+                <Select.Option value="Unemployed">Unemployed</Select.Option>
+              </Select>
             </Form.Item>
 
             <Form.Item
@@ -147,7 +209,7 @@ export default function RegisterPersonPage() {
                 block
                 icon={<UserAddOutlined />}
               >
-                Register Person
+                Register Convert
               </Button>
             </Form.Item>
           </Form>

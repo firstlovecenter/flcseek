@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Button, Typography, Spin, message, Progress, Tag, Modal, Checkbox, Space } from 'antd';
-import { CheckCircleOutlined, EyeOutlined, HomeOutlined, TeamOutlined, CheckOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, EyeOutlined, HomeOutlined, TeamOutlined, CheckOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -231,17 +231,33 @@ export default function ProgressPage() {
                 Home
               </Button>
               <Button
-                icon={<TeamOutlined />}
-                onClick={() => router.push('/sheep-seeker/people')}
+                icon={<BarChartOutlined />}
+                type="primary"
               >
-                New Converts
+                Milestones
               </Button>
               <Button
-                icon={<CheckOutlined />}
+                icon={<TeamOutlined />}
                 onClick={() => router.push('/sheep-seeker/attendance')}
               >
                 Attendance
               </Button>
+              {!isLeader && (
+                <Button
+                  icon={<UserAddOutlined />}
+                  onClick={() => router.push('/sheep-seeker/people/register')}
+                >
+                  Register
+                </Button>
+              )}
+              {!isLeader && (
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                >
+                  Bulk Register
+                </Button>
+              )}
             </Space>
           </div>
           <Text type="secondary">

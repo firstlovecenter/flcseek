@@ -23,7 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/AppConfigProvider';
 
 const { Header, Content, Footer } = Layout;
@@ -33,11 +33,66 @@ interface NavigationProps {
 }
 
 export default function Navigation({ children }: NavigationProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { isDark, toggleTheme } = useTheme();
+  const [groupInfo, setGroupInfo] = useState<{ name: string; year: number } | null>(null);
+
+  useEffect(() => {
+    const fetchGroupInfo = async () => {
+      if (!user || !token) return;
+      
+      // Only fetch for admin and leader users
+      if (user.role === 'superadmin' || user.role === 'leadpastor') return;
+
+      // Use user's stored group info if available
+      if (user.group_name && user.group_year) {
+        setGroupInfo({ name: user.group_name, year: user.group_year });
+        return;
+      }
+
+      // Otherwise fetch from API
+      try {
+        const response = await fetch('/api/groups', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // Find the user's group
+          const userGroup = data.groups?.find((g: any) => 
+            g.name === user.group_name
+          );
+          if (userGroup) {
+            setGroupInfo({ name: userGroup.name, year: userGroup.year });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch group info:', error);
+      }
+    };
+
+    fetchGroupInfo();
+  }, [user, token]);
+
+  const getHeaderTitle = () => {
+    if (user?.role === 'superadmin') {
+      return 'FLC Sheep Seeking';
+    }
+
+    if (user?.role === 'leadpastor') {
+      return 'FLC Sheep Seeking | Lead Pastor';
+    }
+
+    if (!groupInfo) {
+      return 'Loading...';
+    }
+
+    const isAdmin = user?.role === 'admin';
+    const roleText = isAdmin ? 'Admin' : 'New Converts Tracker';
+    return `${groupInfo.name} ${groupInfo.year} | ${roleText}`;
+  };
 
   const handleRefresh = () => {
     window.location.reload();
@@ -189,7 +244,7 @@ export default function Navigation({ children }: NavigationProps) {
               whiteSpace: 'nowrap',
             }}
           >
-            FLC Sheep Seeking
+            {getHeaderTitle()}
           </div>
           <Menu
             theme="dark"

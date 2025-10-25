@@ -20,6 +20,10 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   FileExcelOutlined,
+  HomeOutlined,
+  BarChartOutlined,
+  TeamOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -34,9 +38,14 @@ const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
 
 interface MemberData {
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
-  gender?: string;
+  date_of_birth: string;
+  gender: string;
+  residential_location: string;
+  school_residential_location?: string;
+  occupation_type: string;
   group_name: string;
 }
 
@@ -178,36 +187,50 @@ export default function BulkRegisterPage() {
       width: 60,
     },
     {
-      title: 'Full Name',
-      dataIndex: 'full_name',
-      key: 'full_name',
+      title: 'Name',
+      key: 'name',
+      render: (record: MemberData) => `${record.first_name} ${record.last_name}`,
     },
     {
-      title: 'Phone Number',
+      title: 'Phone',
       dataIndex: 'phone_number',
       key: 'phone_number',
+      width: 130,
+    },
+    {
+      title: 'DOB',
+      dataIndex: 'date_of_birth',
+      key: 'date_of_birth',
+      width: 80,
     },
     {
       title: 'Gender',
       dataIndex: 'gender',
       key: 'gender',
-      render: (gender?: string) => gender || <Text type="secondary">-</Text>,
+      width: 80,
     },
     {
-      title: 'Home Location',
-      dataIndex: 'home_location',
-      key: 'home_location',
-      render: (location?: string) => location || <Text type="secondary">-</Text>,
+      title: 'Location',
+      dataIndex: 'residential_location',
+      key: 'residential_location',
+      ellipsis: true,
     },
     {
-      title: 'Work Location',
-      dataIndex: 'work_location',
-      key: 'work_location',
-      render: (location?: string) => location || <Text type="secondary">-</Text>,
+      title: 'Occupation',
+      dataIndex: 'occupation_type',
+      key: 'occupation_type',
+      width: 100,
+    },
+    {
+      title: 'Group',
+      dataIndex: 'group_name',
+      key: 'group_name',
+      width: 100,
     },
     {
       title: 'Status',
       key: 'status',
+      width: 100,
       render: (_: any, __: any, index: number) => {
         const rowErrors = errors.filter((e) => e.row === index + 2);
         if (rowErrors.length > 0) {
@@ -264,14 +287,42 @@ export default function BulkRegisterPage() {
   return (
     <>
       <AppBreadcrumb />
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <Space>
+          <Button
+            icon={<BarChartOutlined />}
+            onClick={() => router.push('/sheep-seeker')}
+          >
+            Milestones
+          </Button>
+          <Button
+            icon={<TeamOutlined />}
+            onClick={() => router.push('/sheep-seeker/attendance')}
+          >
+            Attendance
+          </Button>
+          <Button
+            icon={<UserAddOutlined />}
+            onClick={() => router.push('/sheep-seeker/people/register')}
+          >
+            Register
+          </Button>
+          <Button
+            icon={<FileExcelOutlined />}
+            type="primary"
+          >
+            Bulk Register
+          </Button>
+        </Space>
+      </div>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <Card>
           <div style={{ marginBottom: 24 }}>
             <Title level={2}>
-              <FileExcelOutlined /> Bulk Member Registration
+              <FileExcelOutlined /> Bulk Convert Registration
             </Title>
             <Text type="secondary">
-              Upload an Excel file to register multiple members at once
+              Upload an Excel file to register multiple converts at once
             </Text>
           </div>
 
@@ -288,7 +339,7 @@ export default function BulkRegisterPage() {
                       1. Download the Excel template below
                     </Paragraph>
                     <Paragraph>
-                      2. Fill in the member details (delete sample rows)
+                      2. Fill in the convert details (delete sample rows)
                     </Paragraph>
                     <Paragraph>
                       3. Upload the completed file
@@ -328,7 +379,7 @@ export default function BulkRegisterPage() {
                   Click or drag Excel file to this area to upload
                 </p>
                 <p className="ant-upload-hint">
-                  Support for .xlsx and .xls files. Maximum 500 members per
+                  Support for .xlsx and .xls files. Maximum 500 converts per
                   upload.
                 </p>
               </Dragger>
@@ -379,8 +430,8 @@ export default function BulkRegisterPage() {
           {currentStep === 1 && (
             <div>
               <Alert
-                message={`Ready to register ${members.length} member(s)`}
-                description="Review the data below and click 'Register All Members' to proceed."
+                message={`Ready to register ${members.length} convert(s)`}
+                description="Review the data below and click 'Register All Converts' to proceed."
                 type="success"
                 showIcon
                 style={{ marginBottom: 24 }}
@@ -392,7 +443,7 @@ export default function BulkRegisterPage() {
                 rowKey={(record, index) => `member-${index || 0}`}
                 pagination={{ pageSize: 20, showSizeChanger: true }}
                 style={{ marginBottom: 24 }}
-                scroll={{ x: 800 }}
+                scroll={{ x: 1200 }}
               />
 
               <Space>
@@ -405,7 +456,7 @@ export default function BulkRegisterPage() {
                   onClick={handleBulkUpload}
                   loading={uploading}
                 >
-                  Register All Members
+                  Register All Converts
                 </Button>
               </Space>
             </div>
@@ -427,7 +478,7 @@ export default function BulkRegisterPage() {
                         Successfully Registered:
                       </Text>
                       <div style={{ fontSize: 32, color: '#52c41a', marginTop: 8 }}>
-                        {uploadResult.inserted} member(s)
+                        {uploadResult.inserted} convert(s)
                       </div>
                     </div>
 
@@ -437,7 +488,7 @@ export default function BulkRegisterPage() {
                           Failed:
                         </Text>
                         <div style={{ fontSize: 32, color: '#ff4d4f', marginTop: 8 }}>
-                          {uploadResult.failed} member(s)
+                          {uploadResult.failed} convert(s)
                         </div>
                         {uploadResult.failedDetails && (
                           <Alert
@@ -465,14 +516,14 @@ export default function BulkRegisterPage() {
 
               <Space size="large">
                 <Button size="large" onClick={resetForm}>
-                  Register More Members
+                  Register More Converts
                 </Button>
                 <Button
                   type="primary"
                   size="large"
-                  onClick={() => router.push('/sheep-seeker/people')}
+                  onClick={() => router.push('/sheep-seeker')}
                 >
-                  View All Members
+                  Go to Dashboard
                 </Button>
               </Space>
             </div>

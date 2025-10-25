@@ -464,37 +464,31 @@ export default function SheepSeekerDashboard() {
             style={{ width: 250 }}
           />
           
+          {/* Navigation buttons in order: Attendance - Register - Bulk Register */}
           <Button
             icon={<TeamOutlined />}
             onClick={() => router.push('/sheep-seeker/attendance')}
           >
             Attendance
           </Button>
-          <Button
-            icon={<BarChartOutlined />}
-            onClick={() => router.push('/sheep-seeker/progress')}
-          >
-            Progress
-          </Button>
           
-          {!isLeader && (
-            <>
-              <Button
-                type="primary"
-                icon={<UserAddOutlined />}
-                onClick={() => setRegisterModalVisible(true)}
-              >
-                Register
-              </Button>
-              {isAdmin && (
-                <Button
-                  icon={<FileExcelOutlined />}
-                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
-                >
-                  Bulk Register
-                </Button>
-              )}
-            </>
+          {(isAdmin || user?.role === 'admin') && (
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={() => setRegisterModalVisible(true)}
+            >
+              Register
+            </Button>
+          )}
+          
+          {(isAdmin || user?.role === 'admin') && (
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+            >
+              Bulk Register
+            </Button>
           )}
         </div>
       </div>

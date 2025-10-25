@@ -65,8 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push('/superadmin');
     } else if (data.user.role === 'leadpastor') {
       router.push('/leadpastor');
+    } else if (data.user.role === 'admin' || data.user.role === 'leader') {
+      router.push('/leader');
     } else {
-      router.push('/sheep-seeker');
+      router.push('/');
     }
   };
 

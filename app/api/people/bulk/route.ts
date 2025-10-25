@@ -3,12 +3,19 @@ import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
 
 interface BulkPersonData {
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
-  gender?: string;
+  date_of_birth: string;
+  gender: string;
+  residential_location: string;
+  school_residential_location?: string;
+  occupation_type: string;
+  group_name: string;
+  // Backward compatibility
+  full_name?: string;
   home_location?: string;
   work_location?: string;
-  group_name: string;
 }
 
 interface ValidationError {
@@ -46,12 +53,25 @@ export async function POST(request: Request) {
     people.forEach((person, index) => {
       const rowNumber = index + 2; // +2 because row 1 is header, index starts at 0
 
-      // Validate full_name
-      if (!person.full_name || person.full_name.trim() === '') {
+      // Support both new and old field structures
+      const firstName = person.first_name || (person.full_name ? person.full_name.split(' ')[0] : '');
+      const lastName = person.last_name || (person.full_name ? person.full_name.split(' ').slice(1).join(' ') : '');
+
+      // Validate first_name
+      if (!firstName || firstName.trim() === '') {
         errors.push({
           row: rowNumber,
-          field: 'full_name',
-          message: 'Full name is required',
+          field: 'first_name',
+          message: 'First name is required',
+        });
+      }
+
+      // Validate last_name
+      if (!lastName || lastName.trim() === '') {
+        errors.push({
+          row: rowNumber,
+          field: 'last_name',
+          message: 'Last name is required',
         });
       }
 
@@ -67,6 +87,51 @@ export async function POST(request: Request) {
           row: rowNumber,
           field: 'phone_number',
           message: 'Invalid phone number format',
+        });
+      }
+
+      // Validate date_of_birth (DD-MM format)
+      if (person.date_of_birth) {
+        if (!/^\d{2}-\d{2}$/.test(person.date_of_birth)) {
+          errors.push({
+            row: rowNumber,
+            field: 'date_of_birth',
+            message: 'Date of birth must be in DD-MM format (e.g., 15-03)',
+          });
+        } else {
+          const [day, month] = person.date_of_birth.split('-').map(Number);
+          if (day < 1 || day > 31) {
+            errors.push({
+              row: rowNumber,
+              field: 'date_of_birth',
+              message: 'Day must be between 01 and 31',
+            });
+          }
+          if (month < 1 || month > 12) {
+            errors.push({
+              row: rowNumber,
+              field: 'date_of_birth',
+              message: 'Month must be between 01 and 12',
+            });
+          }
+        }
+      }
+
+      // Validate gender
+      if (person.gender && person.gender !== 'Male' && person.gender !== 'Female') {
+        errors.push({
+          row: rowNumber,
+          field: 'gender',
+          message: 'Gender must be either "Male" or "Female"',
+        });
+      }
+
+      // Validate occupation_type
+      if (person.occupation_type && person.occupation_type !== 'Worker' && person.occupation_type !== 'Student' && person.occupation_type !== 'Unemployed') {
+        errors.push({
+          row: rowNumber,
+          field: 'occupation_type',
+          message: 'Occupation type must be "Worker", "Student", or "Unemployed"',
         });
       }
 
@@ -116,15 +181,19 @@ export async function POST(request: Request) {
 
     // Check for existing phone numbers in database
     const existingPhonesResult = await query(
-      `SELECT phone_number, full_name FROM registered_people WHERE phone_number = ANY($1)`,
+      `SELECT phone_number, first_name, last_name, full_name FROM registered_people WHERE phone_number = ANY($1)`,
       [phoneNumbers]
     );
 
     if (existingPhonesResult.rows.length > 0) {
+      const existing = existingPhonesResult.rows.map(row => ({
+        phone_number: row.phone_number,
+        name: row.first_name ? `${row.first_name} ${row.last_name}` : row.full_name
+      }));
       return NextResponse.json(
         {
           error: 'Some phone numbers are already registered',
-          existing: existingPhonesResult.rows,
+          existing,
         },
         { status: 409 }
       );
@@ -136,15 +205,32 @@ export async function POST(request: Request) {
 
     for (const person of validPeople) {
       try {
+        // Support both new and old field structures
+        const firstName = person.first_name || (person.full_name ? person.full_name.split(' ')[0] : '');
+        const lastName = person.last_name || (person.full_name ? person.full_name.split(' ').slice(1).join(' ') : '');
+        const fullName = `${firstName} ${lastName}`;
+        const residentialLoc = person.residential_location || person.home_location || '';
+
         const result = await query(
-          `INSERT INTO registered_people (full_name, phone_number, gender, home_location, work_location, group_name, registered_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           RETURNING id, full_name, phone_number, gender, home_location, work_location, group_name, created_at`,
+          `INSERT INTO registered_people (
+            first_name, last_name, full_name, phone_number, date_of_birth, gender, 
+            residential_location, school_residential_location, occupation_type,
+            home_location, work_location, group_name, registered_by
+          )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           RETURNING id, first_name, last_name, full_name, phone_number, date_of_birth, gender, 
+                     residential_location, school_residential_location, occupation_type, group_name, created_at`,
           [
-            person.full_name.trim(),
+            firstName.trim(),
+            lastName.trim(),
+            fullName.trim(),
             person.phone_number.trim(),
+            person.date_of_birth?.trim() || null,
             person.gender?.trim() || null,
-            person.home_location?.trim() || null,
+            residentialLoc.trim() || null,
+            person.school_residential_location?.trim() || null,
+            person.occupation_type?.trim() || null,
+            person.home_location?.trim() || residentialLoc.trim() || null,  // backward compatibility
             person.work_location?.trim() || null,
             person.group_name.trim(),
             user.id,
@@ -155,11 +241,26 @@ export async function POST(request: Request) {
 
         // Initialize progress stages for the new person
         const personId = result.rows[0].id;
-        for (let i = 1; i <= 15; i++) {
+        
+        // Get all milestones from the database
+        const milestonesResult = await query('SELECT stage_number, name FROM milestones ORDER BY stage_number');
+        const milestones = milestonesResult.rows;
+
+        // Insert progress records for each milestone
+        // First milestone is automatically completed when someone registers
+        for (const milestone of milestones) {
+          const isFirstMilestone = milestone.stage_number === 1;
           await query(
-            `INSERT INTO progress_records (person_id, stage_number, is_completed)
-             VALUES ($1, $2, false)`,
-            [personId, i]
+            `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, date_completed, updated_by)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              personId, 
+              milestone.stage_number, 
+              milestone.name, 
+              isFirstMilestone,  // First milestone is completed by default
+              isFirstMilestone ? new Date().toISOString().split('T')[0] : null,  // Set completion date for first milestone
+              user.id
+            ]
           );
         }
       } catch (error: any) {
@@ -169,8 +270,11 @@ export async function POST(request: Request) {
           errorMessage = 'Phone number already registered';
         }
         
+        const firstName = person.first_name || (person.full_name ? person.full_name.split(' ')[0] : '');
+        const lastName = person.last_name || (person.full_name ? person.full_name.split(' ').slice(1).join(' ') : '');
+        
         failed.push({
-          person: person.full_name,
+          person: `${firstName} ${lastName}`,
           phone: person.phone_number,
           error: errorMessage,
         });

@@ -339,18 +339,18 @@ export default function LeadPastorMonthDashboard() {
               </Text>
             )}
             <Button
+              icon={<BarChartOutlined />}
+              onClick={() => router.push(`/leadpastor/${month}/progress`)}
+              size="small"
+            >
+              Milestones
+            </Button>
+            <Button
               icon={<TeamOutlined />}
               onClick={() => router.push(`/leadpastor/${month}/attendance`)}
               size="small"
             >
               Attendance
-            </Button>
-            <Button
-              icon={<BarChartOutlined />}
-              onClick={() => router.push(`/leadpastor/${month}/progress`)}
-              size="small"
-            >
-              Progress
             </Button>
           </div>
         </div>
