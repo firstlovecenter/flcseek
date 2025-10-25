@@ -15,7 +15,6 @@ npm install
 3. Create a `.env.local` file in the root directory with:
 ```env
 NEON_DATABASE_URL=your_neon_connection_string_here
-MNOTIFY_API_KEY=your_mnotify_api_key
 JWT_SECRET=your-secret-jwt-key-change-in-production
 ```
 4. Run the database migration:
@@ -34,10 +33,9 @@ Visit `http://localhost:3000` and log in with:
 
 ## Features
 
-- **12 Department Management** - Organize new converts by month (January - December)
+- **Month Management** - Organize new converts by month (January - December)
 - **Milestone Tracking** - Monitor 18 spiritual growth milestones
 - **Attendance System** - Track church attendance (goal: 20 Sundays)
-- **SMS Notifications** - Automated messages for milestones
 - **Role-Based Access** - Super Admin, Lead Pastor, Admin, and Leader roles
 - **Real-Time Analytics** - Department performance dashboards
 
@@ -47,7 +45,6 @@ Visit `http://localhost:3000` and log in with:
 - **UI Library:** Ant Design
 - **Database:** Neon (PostgreSQL)
 - **Authentication:** JWT with bcrypt
-- **SMS:** mNotify API
 - **Styling:** Tailwind CSS
 
 ## Documentation
