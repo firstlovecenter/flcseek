@@ -187,6 +187,23 @@ export default function RegisterPersonPage() {
             </Form.Item>
 
             <Form.Item
+              noStyle
+              shouldUpdate={(prevValues, currentValues) => prevValues.occupation_type !== currentValues.occupation_type}
+            >
+              {({ getFieldValue }) =>
+                getFieldValue('occupation_type') === 'Worker' ? (
+                  <Form.Item
+                    name="work_location"
+                    label="Work Location"
+                    rules={[{ required: true, message: 'Please enter work location' }]}
+                  >
+                    <Input placeholder="e.g., ABC Company, Accra" size="large" />
+                  </Form.Item>
+                ) : null
+              }
+            </Form.Item>
+
+            <Form.Item
               name="group_name"
               label="Group"
               rules={[{ required: true, message: 'Please select group' }]}
