@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Button, Typography, Spin, message, Progress, Tag, Space } from 'antd';
-import { HomeOutlined, BarChartOutlined, LeftOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
-import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
 
@@ -140,36 +138,41 @@ export default function LeadPastorAttendancePage() {
 
   return (
     <>
-      <AppBreadcrumb />
-      <div>
+      <div style={{ padding: '0 24px' }}>
+        <div
+          style={{
+            margin: '8px 0 16px 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Space wrap>
+            <Button onClick={() => router.push(`/leadpastor/${month}`)}>
+              Overview
+            </Button>
+            <Button onClick={() => router.push(`/leadpastor/${month}/progress`)}>
+              Milestones
+            </Button>
+            <Button type="primary" onClick={() => router.push(`/leadpastor/${month}/attendance`)}>
+              Attendance
+            </Button>
+          </Space>
+        </div>
+
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Title level={2} style={{ margin: 0 }}>Attendance Tracking</Title>
-            <Space>
-              <Button
-                icon={<LeftOutlined />}
-                onClick={() => router.push(`/leadpastor/${month}`)}
-              >
-                Back to {month.charAt(0).toUpperCase() + month.slice(1)}
-              </Button>
-              <Button
-                icon={<HomeOutlined />}
-                onClick={() => router.push('/leadpastor')}
-              >
-                Home
-              </Button>
-              <Button
-                icon={<BarChartOutlined />}
-                onClick={() => router.push(`/leadpastor/${month}/progress`)}
-              >
-                Milestones
-              </Button>
-            </Space>
-          </div>
+          <Title level={2} style={{ margin: 0, marginBottom: 8 }}>
+            Attendance Tracking
+          </Title>
           <Text type="secondary">
             View attendance records for all new converts (Goal: {ATTENDANCE_GOAL} Sundays) - Read-only access
           </Text>
         </div>
+      </div>
+
+      <div style={{ padding: '0 24px' }}>
 
         <Table
           columns={columns}

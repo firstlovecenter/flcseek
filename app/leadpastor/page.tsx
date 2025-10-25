@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Typography, Spin, Collapse, Tag, Space } from 'antd';
+import { Card, Row, Col, Typography, Spin, Collapse, Tag, Space, Button } from 'antd';
 import { CalendarOutlined, DownOutlined, TeamOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { CURRENT_YEAR } from '@/lib/constants';
 
 const { Title, Text } = Typography;
@@ -116,8 +115,24 @@ export default function LeadPastorDashboard() {
 
   return (
     <>
-      <AppBreadcrumb />
       <div style={{ padding: '0 24px' }}>
+        <div
+          style={{
+            margin: '8px 0 16px 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Space wrap>
+            <Button type="primary" onClick={() => router.push('/leadpastor')}>
+              Dashboard
+            </Button>
+          </Space>
+        </div>
+
         <div style={{ marginBottom: 32, textAlign: 'center' }}>
           <Title level={2}>Lead Pastor Dashboard</Title>
           <Text type="secondary" style={{ fontSize: 16 }}>
