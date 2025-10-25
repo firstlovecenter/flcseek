@@ -339,6 +339,7 @@ export default function LeadPastorMonthDashboard() {
               </Text>
             )}
             <Button
+              type="primary"
               icon={<BarChartOutlined />}
               onClick={() => router.push(`/leadpastor/${month}/progress`)}
               size="small"

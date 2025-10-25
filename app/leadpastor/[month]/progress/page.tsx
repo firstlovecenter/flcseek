@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Button, Typography, Spin, message, Progress, Tag, Space } from 'antd';
-import { LeftOutlined, HomeOutlined, CheckOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
-import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
 
@@ -154,32 +152,32 @@ export default function LeadPastorProgressPage() {
 
   return (
     <>
-      <AppBreadcrumb />
       <div style={{ padding: '0 24px' }}>
+        <div
+          style={{
+            margin: '8px 0 16px 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Space wrap>
+            <Button onClick={() => router.push(`/leadpastor/${month}`)}>
+              Overview
+            </Button>
+            <Button type="primary" onClick={() => router.push(`/leadpastor/${month}/progress`)}>
+              Milestones
+            </Button>
+            <Button onClick={() => router.push(`/leadpastor/${month}/attendance`)}>
+              Attendance
+            </Button>
+          </Space>
+        </div>
+
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Title level={2} style={{ margin: 0 }}>{monthName} Progress Report</Title>
-            <Space>
-              <Button
-                icon={<LeftOutlined />}
-                onClick={() => router.push(`/leadpastor/${month}`)}
-              >
-                Back to {monthName}
-              </Button>
-              <Button
-                icon={<HomeOutlined />}
-                onClick={() => router.push('/leadpastor')}
-              >
-                Home
-              </Button>
-              <Button
-                icon={<CheckOutlined />}
-                onClick={() => router.push(`/leadpastor/${month}/attendance`)}
-              >
-                Attendance
-              </Button>
-            </Space>
-          </div>
+          <Title level={2} style={{ margin: 0, marginBottom: 8 }}>{monthName} Progress Report</Title>
           <Text type="secondary">
             Track milestone completion for all new converts - Read-only access
           </Text>
