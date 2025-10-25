@@ -126,6 +126,20 @@ export default function NewConvertsManagementPage() {
       dataIndex: 'full_name',
       key: 'full_name',
       sorter: (a: Convert, b: Convert) => a.full_name.localeCompare(b.full_name),
+      render: (fullName: string, record: Convert) => (
+        <Link
+          href={`/superadmin/converts/${record.id}`}
+          style={{
+            color: '#1890ff',
+            textDecoration: 'none',
+            fontWeight: '500',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+        >
+          {fullName}
+        </Link>
+      ),
     },
     {
       title: 'Phone Number',
