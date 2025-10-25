@@ -91,8 +91,20 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { full_name, phone_number, gender, home_location, work_location, group_name } =
-      await request.json();
+    const { 
+      first_name,
+      last_name,
+      phone_number, 
+      date_of_birth,
+      gender, 
+      residential_location,
+      school_residential_location,
+      occupation_type,
+      group_id,
+      group_name,
+      // Backward compatibility
+      full_name
+    } = await request.json();
 
     // Verify person exists and user has permission
     const personResult = await query(
@@ -128,15 +140,32 @@ export async function PUT(
     }
 
     // Update the person
+    const firstName = first_name || (full_name ? full_name.split(' ')[0] : person.first_name);
+    const lastName = last_name || (full_name ? full_name.split(' ').slice(1).join(' ') : person.last_name);
+    const fullName = `${firstName} ${lastName}`;
+
     const result = await query(
       `UPDATE new_converts 
        SET first_name = $1, last_name = $2, full_name = $3, phone_number = $4,
            date_of_birth = $5, gender = $6, residential_location = $7, 
            school_residential_location = $8, occupation_type = $9, 
-           home_location = $10, work_location = $11, group_id = $12, group_name = $13
-       WHERE id = $14
+           group_id = $10, group_name = $11
+       WHERE id = $12
        RETURNING *`,
-      [full_name, phone_number, gender, home_location, work_location, group_name, params.id]
+      [
+        firstName,
+        lastName,
+        fullName,
+        phone_number || person.phone_number, 
+        date_of_birth || person.date_of_birth,
+        gender || person.gender, 
+        residential_location || person.residential_location,
+        school_residential_location !== undefined ? school_residential_location : person.school_residential_location,
+        occupation_type || person.occupation_type,
+        group_id || person.group_id,
+        group_name || person.group_name,
+        params.id
+      ]
     );
 
     return NextResponse.json({

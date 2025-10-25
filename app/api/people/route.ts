@@ -36,15 +36,12 @@ export async function POST(request: NextRequest) {
       group_id, 
       group_name,
       // Keep backward compatibility with old field names
-      full_name,
-      home_location,
-      work_location
+      full_name
     } = await request.json();
 
     // Support both new and old field structures
     const firstName = first_name || (full_name ? full_name.split(' ')[0] : '');
     const lastName = last_name || (full_name ? full_name.split(' ').slice(1).join(' ') : '');
-    const residentialLoc = residential_location || home_location || '';
 
     if (!firstName || !lastName || !phone_number) {
       return NextResponse.json(
@@ -146,9 +143,9 @@ export async function POST(request: NextRequest) {
       `INSERT INTO new_converts (
         first_name, last_name, full_name, phone_number, date_of_birth, gender, 
         residential_location, school_residential_location, occupation_type,
-        home_location, work_location, group_id, group_name, registered_by
+        group_id, group_name, registered_by
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, (SELECT name FROM groups WHERE id = $12), $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, (SELECT name FROM groups WHERE id = $10), $11)
        RETURNING *`,
       [
         firstName, 
@@ -157,11 +154,9 @@ export async function POST(request: NextRequest) {
         phone_number, 
         date_of_birth || null, 
         gender || null, 
-        residentialLoc || null, 
+        residential_location || null, 
         school_residential_location || null, 
         occupation_type || null,
-        home_location || residentialLoc || null,  // backward compatibility
-        work_location || null,
         finalGroupId, 
         userPayload.id
       ]
