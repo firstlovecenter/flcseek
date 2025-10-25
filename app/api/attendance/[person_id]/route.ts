@@ -3,6 +3,15 @@ import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 
+// Helper function to check if a group is archived
+async function isGroupArchived(groupId: string): Promise<boolean> {
+  const result = await query(
+    'SELECT archived FROM groups WHERE id = $1',
+    [groupId]
+  );
+  return result.rows.length > 0 && result.rows[0].archived === true;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { person_id: string } }
@@ -82,6 +91,17 @@ export async function POST(
           {
             error: 'You can only record attendance for people in your group',
           },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Check if group is archived
+    if (person.group_id) {
+      const archived = await isGroupArchived(person.group_id);
+      if (archived) {
+        return NextResponse.json(
+          { error: 'Cannot record attendance in an archived group' },
           { status: 403 }
         );
       }
@@ -218,6 +238,17 @@ export async function DELETE(
           {
             error: 'You can only delete attendance for people in your group',
           },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Check if group is archived
+    if (person.group_id) {
+      const archived = await isGroupArchived(person.group_id);
+      if (archived) {
+        return NextResponse.json(
+          { error: 'Cannot delete attendance in an archived group' },
           { status: 403 }
         );
       }

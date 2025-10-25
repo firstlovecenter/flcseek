@@ -6,6 +6,15 @@ import { verifyToken } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// Helper function to check if a group is archived
+async function isGroupArchived(groupId: string): Promise<boolean> {
+  const result = await query(
+    'SELECT archived FROM groups WHERE id = $1',
+    [groupId]
+  );
+  return result.rows.length > 0 && result.rows[0].archived === true;
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { person_id: string } }
@@ -59,6 +68,17 @@ export async function PATCH(
       if (userPayload.group_id && person.group_id !== userPayload.group_id) {
         return NextResponse.json(
           { error: 'You can only update progress for people in your group' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Check if group is archived
+    if (person.group_id) {
+      const archived = await isGroupArchived(person.group_id);
+      if (archived) {
+        return NextResponse.json(
+          { error: 'Cannot update progress in an archived group' },
           { status: 403 }
         );
       }

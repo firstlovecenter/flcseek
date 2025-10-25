@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, memo, useMemo } from 'react';
 import { Table, Button, Typography, Spin, Tooltip, Input, Breadcrumb } from 'antd';
 import { SearchOutlined, LeftOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const { Title, Text } = Typography;
@@ -65,7 +65,9 @@ export default function LeadPastorMonthDashboard() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const month = params?.month as string;
+  const year = searchParams.get('year') || new Date().getFullYear().toString();
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -82,7 +84,7 @@ export default function LeadPastorMonthDashboard() {
       fetchMilestones();
       fetchMonthPeople();
     }
-  }, [user, token, authLoading, router, month]);
+  }, [user, token, authLoading, router, month, year]);
 
   const fetchMilestones = async () => {
     try {
@@ -131,7 +133,7 @@ export default function LeadPastorMonthDashboard() {
       // Capitalize first letter of month for API call
       const monthName = month.charAt(0).toUpperCase() + month.slice(1);
       
-      const response = await fetch(`/api/people?month=${monthName}`, {
+      const response = await fetch(`/api/people?month=${monthName}&year=${year}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
