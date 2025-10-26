@@ -55,21 +55,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    
+    // Store in localStorage first before setting state
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    
+    // Then update state
     setToken(data.token);
     setUser(data.user);
 
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-
-    if (data.user.role === 'superadmin') {
-      router.push('/superadmin');
-    } else if (data.user.role === 'leadpastor') {
-      router.push('/leadpastor');
-    } else if (data.user.role === 'admin' || data.user.role === 'leader') {
-      router.push('/leader');
-    } else {
-      router.push('/');
-    }
+    // Use setTimeout to ensure localStorage is written before redirect
+    setTimeout(() => {
+      if (data.user.role === 'superadmin') {
+        router.push('/superadmin');
+      } else if (data.user.role === 'leadpastor') {
+        router.push('/leadpastor');
+      } else if (data.user.role === 'leader') {
+        router.push('/leader');
+      } else {
+        router.push('/sheep-seeker');
+      }
+    }, 100);
   };
 
   const logout = () => {
