@@ -193,11 +193,23 @@ export default function Navigation({ children }: NavigationProps) {
   // Mobile Bottom Navigation for Sheep Seeker (Empty - navigation on pages)
   const sheepSeekerBottomMenuItems: any[] = [];
 
-  // Top Navigation items for Lead Pastor (Empty - navigation on pages)
-  const leadPastorTopMenuItems: any[] = [];
+  // Top Navigation items for Lead Pastor
+  const leadPastorTopMenuItems = [
+    {
+      key: '/leadpastor',
+      icon: <DashboardOutlined />,
+      label: <Link href="/leadpastor">Dashboard</Link>,
+    },
+  ];
 
-  // Mobile Bottom Navigation for Lead Pastor (Empty - navigation on pages)
-  const leadPastorBottomMenuItems: any[] = [];
+  // Mobile Bottom Navigation for Lead Pastor
+  const leadPastorBottomMenuItems = [
+    {
+      key: '/leadpastor',
+      icon: <HomeOutlined />,
+      label: <Link href="/leadpastor">Dashboard</Link>,
+    },
+  ];
 
   // Top Navigation items for Leader (Empty - navigation on pages)
   const leaderTopMenuItems: any[] = [];
