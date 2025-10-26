@@ -87,8 +87,13 @@ export async function PATCH(
     const dateCompleted = is_completed ? new Date().toISOString().split('T')[0] : null;
     const lastUpdated = new Date().toISOString();
 
-    // Get the stage name from the constants
-    const stageName = `Stage ${stage_number}`;
+    // Get the stage name from the milestones table
+    const milestoneResult = await query(
+      'SELECT stage_name FROM milestones WHERE stage_number = $1',
+      [stage_number]
+    );
+    
+    const stageName = milestoneResult.rows[0]?.stage_name || `Stage ${stage_number}`;
 
     // Use UPSERT to insert if not exists or update if exists
     const progressResult = await query(
