@@ -227,11 +227,6 @@ export default function Navigation({ children }: NavigationProps) {
     return <>{children}</>;
   }
 
-  // Don't show the top navigation for superadmin (they have their own sidebar layout)
-  if (user?.role === 'superadmin') {
-    return <>{children}</>;
-  }
-
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {/* Top Navigation - Desktop */}
