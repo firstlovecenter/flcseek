@@ -88,11 +88,11 @@ export async function PATCH(
 
     // Get the stage name from the milestones table
     const milestoneResult = await query(
-      'SELECT name FROM milestones WHERE stage_number = $1',
+      'SELECT stage_name FROM milestones WHERE stage_number = $1',
       [stage_number]
     );
     
-    const stageName = milestoneResult.rows[0]?.name || `Stage ${stage_number}`;
+    const stageName = milestoneResult.rows[0]?.stage_name || `Stage ${stage_number}`;
 
     // Use UPSERT to insert if not exists or update if exists
     const progressResult = await query(

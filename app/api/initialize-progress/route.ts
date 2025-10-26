@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - Superadmin only' }, { status: 401 });
     }
 
-    // Get all milestones from the database
-    const milestonesResult = await query('SELECT stage_number, name FROM milestones ORDER BY stage_number');
+        // Get all milestones from the database
+    const milestonesResult = await query('SELECT stage_number, stage_name FROM milestones ORDER BY stage_number');
     const milestones = milestonesResult.rows;
 
     if (milestones.length === 0) {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     for (const person of people) {
       // Check if this person already has progress records
       const existingProgress = await query(
-        'SELECT COUNT(*) as count FROM progress_records WHERE person_id = $1',
+        'SELECT COUNT(*) FROM progress_records WHERE person_id = $1',
         [person.id]
       );
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
             `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (person_id, stage_number) DO NOTHING`,
-            [person.id, milestone.stage_number, milestone.name, false, userPayload.id]
+            [person.id, milestone.stage_number, milestone.stage_name, false, userPayload.id]
           );
         }
         initialized++;
@@ -53,11 +53,12 @@ export async function POST(request: NextRequest) {
             `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (person_id, stage_number) DO NOTHING`,
-            [person.id, milestone.stage_number, milestone.name, false, userPayload.id]
+            [person.id, milestone.stage_number, milestone.stage_name, false, userPayload.id]
           );
         }
         initialized++;
       } else {
+        // Person already has all progress records
         skipped++;
       }
     }

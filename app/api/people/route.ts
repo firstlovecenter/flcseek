@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     const person = result.rows[0];
 
     // Get all milestones from the database
-    const milestonesResult = await query('SELECT stage_number, name FROM milestones ORDER BY stage_number');
+    const milestonesResult = await query('SELECT stage_number, stage_name FROM milestones ORDER BY stage_number');
     const milestones = milestonesResult.rows;
 
     // Insert progress records for each milestone
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
         [
           person.id, 
           milestone.stage_number,
-          milestone.name,  // Use the milestone name from database
+          milestone.stage_name,  // Use stage_name from database
           isFirstMilestone,  // First milestone is completed by default
           isFirstMilestone ? new Date().toISOString().split('T')[0] : null,  // Set completion date for first milestone
           userPayload.id
