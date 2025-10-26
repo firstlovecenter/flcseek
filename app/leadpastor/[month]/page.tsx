@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, memo, useMemo } from 'react';
-import { Table, Button, Typography, Spin, Tooltip, Input, Breadcrumb } from 'antd';
-import { SearchOutlined, LeftOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, Tooltip, Input } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
@@ -275,54 +274,21 @@ export default function LeadPastorMonthDashboard() {
 
   return (
     <>
-      {/* Sticky Controls Bar with Month/Year and Navigation */}
-      <div className="sticky-controls-bar" style={{ 
-        marginBottom: 16,
-        marginLeft: -24,
-        marginRight: -24,
-        marginTop: -24,
-        padding: '12px 24px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      }}>
-        <div style={{ 
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}>
-          {/* Left side: Month/Year, Breadcrumb, Back */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 auto', minWidth: '400px', flexWrap: 'wrap' }}>
-            <Title level={3} style={{ margin: 0, fontWeight: 'bold', color: '#003366' }}>
-              {displayTitle}
-            </Title>
-            <div style={{ width: 1, height: 24, background: '#d9d9d9', margin: '0 4px' }} />
-            <Breadcrumb
-              items={[
-                {
-                  title: (
-                    <Link href="/leadpastor">
-                      <HomeOutlined style={{ marginRight: 4 }} />
-                      Lead Pastor
-                    </Link>
-                  ),
-                },
-                {
-                  title: displayTitle,
-                },
-              ]}
-            />
-            <div style={{ width: 1, height: 20, background: '#d9d9d9', margin: '0 4px' }} />
-            <Button
-              icon={<LeftOutlined />}
-              onClick={() => router.push('/leadpastor')}
-              size="small"
-            >
-              Back
-            </Button>
-          </div>
-          
-          {/* Right side: Action buttons */}
+      {/* Top navigation header */}
+      <div style={{ padding: '0 24px' }}>
+        <div
+          style={{
+            margin: '8px 0 16px 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Title level={3} style={{ margin: 0, fontWeight: 'bold', color: '#003366' }}>
+            {displayTitle}
+          </Title>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <Input
               placeholder="Search names..."
@@ -340,16 +306,17 @@ export default function LeadPastorMonthDashboard() {
             )}
             <Button
               type="primary"
-              icon={<BarChartOutlined />}
+              onClick={() => router.push(`/leadpastor/${month}`)}
+            >
+              Overview
+            </Button>
+            <Button
               onClick={() => router.push(`/leadpastor/${month}/progress`)}
-              size="small"
             >
               Milestones
             </Button>
             <Button
-              icon={<TeamOutlined />}
               onClick={() => router.push(`/leadpastor/${month}/attendance`)}
-              size="small"
             >
               Attendance
             </Button>
@@ -357,7 +324,7 @@ export default function LeadPastorMonthDashboard() {
         </div>
       </div>
 
-      <div style={{ padding: '0 16px' }}>
+      <div style={{ padding: '0 24px' }}>
 
         {/* Compact Summary Stats */}
         <div style={{
