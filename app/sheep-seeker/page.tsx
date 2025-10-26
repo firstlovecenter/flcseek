@@ -227,7 +227,10 @@ export default function SheepSeekerDashboard() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to register person');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to register person');
+      }
 
       message.success('Person registered successfully!');
       form.resetFields();
