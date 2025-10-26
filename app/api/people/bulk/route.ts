@@ -179,14 +179,14 @@ export async function POST(request: Request) {
 
     // Check for existing phone numbers in database
     const existingPhonesResult = await query(
-      `SELECT phone_number, first_name, last_name, full_name FROM new_converts WHERE phone_number = ANY($1)`,
+      `SELECT phone_number, first_name, last_name FROM new_converts WHERE phone_number = ANY($1)`,
       [phoneNumbers]
     );
 
     if (existingPhonesResult.rows.length > 0) {
       const existing = existingPhonesResult.rows.map(row => ({
         phone_number: row.phone_number,
-        name: row.first_name ? `${row.first_name} ${row.last_name}` : row.full_name
+        name: `${row.first_name} ${row.last_name}`
       }));
       return NextResponse.json(
         {
@@ -206,21 +206,19 @@ export async function POST(request: Request) {
         // Support both new and old field structures
         const firstName = person.first_name || (person.full_name ? person.full_name.split(' ')[0] : '');
         const lastName = person.last_name || (person.full_name ? person.full_name.split(' ').slice(1).join(' ') : '');
-        const fullName = `${firstName} ${lastName}`;
 
         const result = await query(
           `INSERT INTO new_converts (
-            first_name, last_name, full_name, phone_number, date_of_birth, gender, 
+            first_name, last_name, phone_number, date_of_birth, gender, 
             residential_location, school_residential_location, occupation_type,
             group_name, registered_by
           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-           RETURNING id, first_name, last_name, full_name, phone_number, date_of_birth, gender, 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           RETURNING id, first_name, last_name, phone_number, date_of_birth, gender, 
                      residential_location, school_residential_location, occupation_type, group_name, created_at`,
           [
             firstName.trim(),
             lastName.trim(),
-            fullName.trim(),
             person.phone_number.trim(),
             person.date_of_birth?.trim() || null,
             person.gender?.trim() || null,
