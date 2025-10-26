@@ -132,7 +132,7 @@ export default function PersonDetailPage() {
             {/* Header Section */}
             <div 
               style={{ 
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
                 padding: '32px',
                 marginBottom: 24,
                 borderRadius: '12px 12px 0 0',
@@ -153,7 +153,7 @@ export default function PersonDetailPage() {
                     justifyContent: 'center',
                     fontSize: 36,
                     fontWeight: 'bold',
-                    color: '#667eea',
+                    color: '#003366',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                   }}
                 >
@@ -172,16 +172,16 @@ export default function PersonDetailPage() {
 
             {/* Contact Information */}
             <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+              <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
                 <PhoneOutlined /> Contact Information
               </Title>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#f8f9ff',
+                    background: '#f0f5ff',
                     borderRadius: 8,
-                    border: '1px solid #e6e8ff'
+                    border: '1px solid #d6e4ff'
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -190,7 +190,7 @@ export default function PersonDetailPage() {
                   <a 
                     href={`tel:${person?.phone_number}`} 
                     style={{ 
-                      color: '#667eea', 
+                      color: '#003366', 
                       fontSize: 16, 
                       fontWeight: 600,
                       textDecoration: 'none' 
@@ -203,9 +203,9 @@ export default function PersonDetailPage() {
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#f8f9ff',
+                    background: '#f0f5ff',
                     borderRadius: 8,
-                    border: '1px solid #e6e8ff'
+                    border: '1px solid #d6e4ff'
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -220,16 +220,16 @@ export default function PersonDetailPage() {
 
             {/* Personal Details */}
             <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+              <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
                 <UserOutlined /> Personal Details
               </Title>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#fff7f0',
+                    background: '#f6ffed',
                     borderRadius: 8,
-                    border: '1px solid #ffe7d1'
+                    border: '1px solid #b7eb8f'
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -243,9 +243,9 @@ export default function PersonDetailPage() {
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#fff7f0',
+                    background: '#f6ffed',
                     borderRadius: 8,
-                    border: '1px solid #ffe7d1'
+                    border: '1px solid #b7eb8f'
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -260,16 +260,16 @@ export default function PersonDetailPage() {
 
             {/* Location Information */}
             <div style={{ marginBottom: 8 }}>
-              <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+              <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
                 <EnvironmentOutlined /> Location Information
               </Title>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#f0fff4',
+                    background: '#fffbe6',
                     borderRadius: 8,
-                    border: '1px solid #c6f6d5'
+                    border: '1px solid #ffe58f'
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -284,9 +284,9 @@ export default function PersonDetailPage() {
                   <div 
                     style={{ 
                       padding: 16,
-                      background: '#f0fff4',
+                      background: '#fffbe6',
                       borderRadius: 8,
-                      border: '1px solid #c6f6d5'
+                      border: '1px solid #ffe58f'
                     }}
                   >
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -303,15 +303,15 @@ export default function PersonDetailPage() {
             {/* Department for Superadmin */}
             {user?.role === 'superadmin' && person?.department_name && (
               <div style={{ marginTop: 24, paddingTop: 24, borderTop: '2px solid #f0f0f0' }}>
-                <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+                <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
                   <TeamOutlined /> Administrative Information
                 </Title>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#fef3f2',
+                    background: '#fff1f0',
                     borderRadius: 8,
-                    border: '1px solid #fecaca'
+                    border: '1px solid #ffccc7'
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
