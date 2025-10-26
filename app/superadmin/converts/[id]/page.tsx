@@ -199,10 +199,10 @@ export default function EditConvertPage({ params }: { params: { id: string } }) 
             </Form.Item>
 
             <Form.Item
-              label="Occupation Type"
+              label="Worker or Student"
               name="occupation_type"
             >
-              <Select placeholder="Select occupation">
+              <Select placeholder="Select worker or student">
                 <Option value="Worker">Worker</Option>
                 <Option value="Student">Student</Option>
                 <Option value="Unemployed">Unemployed</Option>
