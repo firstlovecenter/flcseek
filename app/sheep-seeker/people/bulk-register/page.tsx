@@ -216,7 +216,7 @@ export default function BulkRegisterPage() {
       ellipsis: true,
     },
     {
-      title: 'Occupation',
+      title: 'Worker/Student',
       dataIndex: 'occupation_type',
       key: 'occupation_type',
       width: 100,

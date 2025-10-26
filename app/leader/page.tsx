@@ -618,10 +618,10 @@ export default function SheepSeekerDashboard() {
 
           <Form.Item
             name="occupation_type"
-            label="Occupation Type"
-            rules={[{ required: true, message: 'Please select occupation type' }]}
+            label="Worker or Student"
+            rules={[{ required: true, message: 'Please select worker or student' }]}
           >
-            <Select placeholder="Select occupation type">
+            <Select placeholder="Select worker or student">
               <Select.Option value="Worker">Worker</Select.Option>
               <Select.Option value="Student">Student</Select.Option>
               <Select.Option value="Unemployed">Unemployed</Select.Option>
