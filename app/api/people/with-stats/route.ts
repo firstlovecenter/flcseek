@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     const sqlQuery = `
       SELECT 
         rp.id,
-        rp.full_name,
+        CONCAT(rp.first_name, ' ', rp.last_name) as full_name,
         rp.phone_number,
         rp.gender,
         rp.residential_location,
@@ -88,9 +88,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN progress_records pr ON rp.id = pr.person_id
       LEFT JOIN attendance_records ar ON rp.id = ar.person_id
       ${whereClause}
-      GROUP BY rp.id, rp.full_name, rp.phone_number, rp.gender, rp.residential_location, 
+      GROUP BY rp.id, rp.first_name, rp.last_name, rp.phone_number, rp.gender, rp.residential_location, 
                rp.school_residential_location, rp.occupation_type, rp.group_id, rp.group_name, rp.created_at, g.name
-      ORDER BY rp.full_name ASC
+      ORDER BY rp.first_name ASC, rp.last_name ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 

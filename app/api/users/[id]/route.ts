@@ -21,7 +21,7 @@ export async function GET(
     const { id } = params;
 
     const result = await query(
-      `SELECT id, email, first_name, last_name, phone_number, role, group_name, created_at, updated_at
+      `SELECT id, email, first_name, last_name, phone_number, role, group_name, group_id, created_at, updated_at
        FROM users 
        WHERE id = $1`,
       [id]
@@ -59,7 +59,7 @@ export async function PUT(
 
     const { id } = params;
     const body = await request.json();
-    const { first_name, last_name, email, phone_number, role, group_name, password } = body;
+    const { first_name, last_name, email, phone_number, role, group_name, group_id, password } = body;
     
     console.log('PUT /api/users/[id] - User ID:', id);
     console.log('PUT /api/users/[id] - Request body:', body);
@@ -115,6 +115,10 @@ export async function PUT(
       updates.push(`group_name = $${paramCount++}`);
       values.push(group_name);
     }
+    if (group_id !== undefined) {
+      updates.push(`group_id = $${paramCount++}`);
+      values.push(group_id);
+    }
     if (password) {
       const hashedPassword = hashPassword(password);
       updates.push(`password = $${paramCount++}`);
@@ -128,7 +132,7 @@ export async function PUT(
       UPDATE users 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, email, first_name, last_name, phone_number, role, group_name, created_at, updated_at
+      RETURNING id, email, first_name, last_name, phone_number, role, group_name, group_id, created_at, updated_at
     `;
 
     console.log('PUT /api/users/[id] - SQL:', updateQuery);

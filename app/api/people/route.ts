@@ -34,14 +34,11 @@ export async function POST(request: NextRequest) {
       school_residential_location, 
       occupation_type, 
       group_id, 
-      group_name,
-      // Keep backward compatibility with old field names
-      full_name
+      group_name
     } = await request.json();
 
-    // Support both new and old field structures
-    const firstName = first_name || (full_name ? full_name.split(' ')[0] : '');
-    const lastName = last_name || (full_name ? full_name.split(' ').slice(1).join(' ') : '');
+    const firstName = first_name;
+    const lastName = last_name;
 
     if (!firstName || !lastName || !phone_number) {
       return NextResponse.json(
@@ -122,35 +119,29 @@ export async function POST(request: NextRequest) {
 
     // Check if phone number already exists
     const existingPerson = await query(
-      'SELECT id, first_name, last_name, full_name FROM new_converts WHERE phone_number = $1',
+      'SELECT id, first_name, last_name FROM new_converts WHERE phone_number = $1',
       [phone_number]
     );
 
     if (existingPerson.rows.length > 0) {
-      const existingName = existingPerson.rows[0].first_name 
-        ? `${existingPerson.rows[0].first_name} ${existingPerson.rows[0].last_name}` 
-        : existingPerson.rows[0].full_name;
+      const existingName = `${existingPerson.rows[0].first_name} ${existingPerson.rows[0].last_name}`;
       return NextResponse.json(
         { error: `A person with phone number ${phone_number} is already registered (${existingName})` },
         { status: 409 }
       );
     }
 
-    // Compute full_name for backward compatibility
-    const fullName = `${firstName} ${lastName}`;
-
     const result = await query(
       `INSERT INTO new_converts (
-        first_name, last_name, full_name, phone_number, date_of_birth, gender, 
+        first_name, last_name, phone_number, date_of_birth, gender, 
         residential_location, school_residential_location, occupation_type,
         group_id, group_name, registered_by
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, (SELECT name FROM groups WHERE id = $10), $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT name FROM groups WHERE id = $9), $10)
        RETURNING *`,
       [
         firstName, 
         lastName, 
-        fullName, 
         phone_number, 
         date_of_birth || null, 
         gender || null, 

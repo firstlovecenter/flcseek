@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const result = await query(
       `SELECT 
         rp.id,
-        rp.full_name,
+        CONCAT(rp.first_name, ' ', rp.last_name) as full_name,
         rp.phone_number,
         rp.gender,
         rp.group_name,
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*) FROM attendance_records ar WHERE ar.person_id = rp.id) as total_attendance
        FROM new_converts rp
        LEFT JOIN users u ON rp.registered_by = u.id
-       ORDER BY rp.full_name ASC`
+       ORDER BY rp.first_name ASC, rp.last_name ASC`
     );
 
     return NextResponse.json({ converts: result.rows });
