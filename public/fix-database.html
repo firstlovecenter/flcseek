@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check & Fix Database</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 { color: #1890ff; }
+    button {
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover { background-color: #40a9ff; }
+    button:disabled { background-color: #d9d9d9; cursor: not-allowed; }
+    button.success { background-color: #52c41a; }
+    button.success:hover { background-color: #73d13d; }
+    button.warning { background-color: #faad14; }
+    button.warning:hover { background-color: #ffc53d; }
+    pre {
+      background-color: #f0f0f0;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+    .missing { color: #ff4d4f; font-weight: bold; }
+    .present { color: #52c41a; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Database Setup & Fix</h1>
+    
+    <button onclick="checkColumns()">Step 1: Check Columns</button>
+    <button id="addBtn" onclick="addMissingColumns()" class="success" style="display:none;">Step 2: Add Missing Columns</button>
+    <button onclick="removeOldColumns()" class="warning" style="display:none;" id="removeBtn">Step 3: Remove Old Columns</button>
+    
+    <div id="output"></div>
+  </div>
+
+  <script>
+    let currentTable = 'new_converts';
+    let missingCols = [];
+    let oldCols = [];
+    
+    async function checkColumns() {
+      const output = document.getElementById('output');
+      output.innerHTML = '<p>Checking columns in new_converts table...</p>';
+      
+      try {
+        const response = await fetch('/api/run-migrations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'new_converts' ORDER BY ordinal_position`,
+            description: 'check_columns'
+          })
+        });
+        
+        const result = await response.json();
+        console.log('Columns result:', result);
+        
+        if (!result.rows || result.rows.length === 0) {
+          output.innerHTML = '<p style="color:red;">❌ No columns found! The table might not exist or query failed.</p>';
+          output.innerHTML += '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+          return;
+        }
+        
+        const existingColumns = result.rows.map(r => r.column_name.toLowerCase());
+        
+        let html = '<h2>Current Columns (' + result.rows.length + ')</h2><pre>';
+        result.rows.forEach(row => {
+          html += row.column_name + ' (' + row.data_type + ')\n';
+        });
+        html += '</pre>';
+        
+        // Check required columns
+        const required = [
+          'first_name',
+          'last_name',
+          'phone_number',
+          'date_of_birth',
+          'gender', 
+          'residential_location',
+          'school_residential_location',
+          'occupation_type',
+          'group_id',
+          'group_name',
+          'registered_by'
+        ];
+        
+        html += '<h2>Required Columns Check</h2><ul>';
+        missingCols = [];
+        
+        required.forEach(col => {
+          if (existingColumns.includes(col)) {
+            html += '<li class="present">✅ ' + col + '</li>';
+          } else {
+            html += '<li class="missing">❌ ' + col + ' - MISSING</li>';
+            missingCols.push(col);
+          }
+        });
+        
+        html += '</ul>';
+        
+        // Check for old columns to remove
+        const oldColumnNames = ['home_location', 'work_location'];
+        oldCols = oldColumnNames.filter(col => existingColumns.includes(col));
+        
+        if (oldCols.length > 0) {
+          html += '<h2 style="color:#faad14;">Old Columns Found (should be removed)</h2><ul>';
+          oldCols.forEach(col => {
+            html += '<li class="missing">⚠️ ' + col + '</li>';
+          });
+          html += '</ul>';
+          document.getElementById('removeBtn').style.display = 'inline-block';
+        }
+        
+        if (missingCols.length > 0) {
+          html += '<p style="color:#ff4d4f;"><strong>⚠️ ' + missingCols.length + ' columns need to be added!</strong></p>';
+          document.getElementById('addBtn').style.display = 'inline-block';
+        } else {
+          html += '<p style="color:#52c41a;"><strong>✅ All required columns exist!</strong></p>';
+        }
+        
+        output.innerHTML = html;
+        
+      } catch (error) {
+        output.innerHTML = '<p style="color:red;">Error: ' + error.message + '</p>';
+        console.error(error);
+      }
+    }
+    
+    async function addMissingColumns() {
+      const output = document.getElementById('output');
+      const addBtn = document.getElementById('addBtn');
+      addBtn.disabled = true;
+      
+      output.innerHTML += '<h2>Adding Missing Columns...</h2>';
+      
+      const columnTypes = {
+        'first_name': 'VARCHAR(100)',
+        'last_name': 'VARCHAR(100)',
+        'phone_number': 'VARCHAR(20)',
+        'date_of_birth': 'VARCHAR(10)',
+        'gender': 'VARCHAR(10)',
+        'residential_location': 'TEXT',
+        'school_residential_location': 'TEXT',
+        'occupation_type': 'VARCHAR(20)',
+        'group_id': 'INTEGER',
+        'group_name': 'VARCHAR(100)',
+        'registered_by': 'INTEGER'
+      };
+      
+      for (const col of missingCols) {
+        output.innerHTML += '<p>Adding ' + col + '...</p>';
+        
+        try {
+          const response = await fetch('/api/run-migrations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: `ALTER TABLE new_converts ADD COLUMN IF NOT EXISTS ${col} ${columnTypes[col]}`,
+              description: 'add_' + col
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok) {
+            output.innerHTML += '<p style="color:green;">✅ Added ' + col + '</p>';
+          } else {
+            output.innerHTML += '<p style="color:red;">❌ Error adding ' + col + ': ' + result.error + '</p>';
+          }
+        } catch (error) {
+          output.innerHTML += '<p style="color:red;">❌ Error: ' + error.message + '</p>';
+        }
+      }
+      
+      output.innerHTML += '<h2 style="color:green;">✅ Complete! Click "Check Columns" to verify.</h2>';
+      addBtn.disabled = false;
+      addBtn.style.display = 'none';
+    }
+    
+    async function removeOldColumns() {
+      const output = document.getElementById('output');
+      const removeBtn = document.getElementById('removeBtn');
+      removeBtn.disabled = true;
+      
+      output.innerHTML += '<h2>Removing Old Columns...</h2>';
+      
+      for (const col of oldCols) {
+        output.innerHTML += '<p>Removing ' + col + '...</p>';
+        
+        try {
+          const response = await fetch('/api/run-migrations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: `ALTER TABLE new_converts DROP COLUMN IF EXISTS ${col}`,
+              description: 'remove_' + col
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok) {
+            output.innerHTML += '<p style="color:green;">✅ Removed ' + col + '</p>';
+          } else {
+            output.innerHTML += '<p style="color:red;">❌ Error removing ' + col + ': ' + result.error + '</p>';
+          }
+        } catch (error) {
+          output.innerHTML += '<p style="color:red;">❌ Error: ' + error.message + '</p>';
+        }
+      }
+      
+      output.innerHTML += '<h2 style="color:green;">✅ Complete! Click "Check Columns" to verify.</h2>';
+      removeBtn.disabled = false;
+      removeBtn.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
