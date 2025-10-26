@@ -18,10 +18,11 @@ import {
   CalendarOutlined,
   TeamOutlined,
   IdcardOutlined,
+  BarChartOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
-import TopNav from '@/components/TopNav';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
@@ -77,29 +78,48 @@ export default function PersonDetailPage() {
   } else if (user?.role === 'leadpastor') {
     backUrl = '/leadpastor';
   }
+  
+  // Check if user is a leader (read-only access)
+  const isLeader = user?.role === 'leader';
 
   return (
     <>
-      <TopNav 
-        title={person?.full_name || `${person?.first_name} ${person?.last_name}`} 
-        showBack={true} 
-        backUrl={backUrl}
-      />
-      <div style={{ padding: '24px' }}>
-        <AppBreadcrumb />
-        <div
-          style={{
-            margin: '8px 0 16px 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Space wrap>
-            <Button onClick={() => router.push(backUrl)}>Home</Button>
-          </Space>
+      <AppBreadcrumb />
+      <div>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Title level={2} style={{ margin: 0 }}>
+              {person?.first_name} {person?.last_name}
+            </Title>
+            <Space>
+              <Button
+                icon={<HomeOutlined />}
+                onClick={() => router.push(backUrl)}
+              >
+                Home
+              </Button>
+              <Button
+                icon={<BarChartOutlined />}
+                onClick={() => router.push('/sheep-seeker/progress')}
+              >
+                Milestones
+              </Button>
+              <Button
+                icon={<TeamOutlined />}
+                onClick={() => router.push('/sheep-seeker/attendance')}
+              >
+                Attendance
+              </Button>
+              {!isLeader && (
+                <Button
+                  icon={<UserAddOutlined />}
+                  onClick={() => router.push('/sheep-seeker/people/register')}
+                >
+                  Register
+                </Button>
+              )}
+            </Space>
+          </div>
         </div>
         
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
