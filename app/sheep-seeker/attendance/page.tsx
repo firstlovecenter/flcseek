@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import dayjs from 'dayjs';
+import { useThemeStyles } from '@/lib/theme-utils';
 
 const { Title, Text } = Typography;
 
@@ -25,6 +26,7 @@ export default function AttendancePage() {
   const router = useRouter();
   const [people, setPeople] = useState<PersonAttendance[]>([]);
   const [loading, setLoading] = useState(true);
+  const themeStyles = useThemeStyles();
   
   // Calculate the most recent Sunday as the default date
   const getMostRecentSunday = () => {
@@ -273,7 +275,7 @@ export default function AttendancePage() {
             showSizeChanger: true,
             showTotal: (total) => `Total ${total} new converts`
           }}
-          style={{ background: 'white', borderRadius: 8 }}
+          style={{ background: themeStyles.containerBg, borderRadius: 8 }}
         />
       </div>
     </>

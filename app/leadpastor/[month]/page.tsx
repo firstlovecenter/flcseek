@@ -5,6 +5,7 @@ import { Table, Button, Typography, Spin, Tooltip, Input } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useThemeStyles } from '@/lib/theme-utils';
 
 const { Text } = Typography;
 
@@ -16,14 +17,16 @@ const ReadOnlyMilestoneCell = memo(({
   isCompleted: boolean; 
   stageName: string;
 }) => {
+  const themeStyles = useThemeStyles();
+  
   return (
     <Tooltip title={stageName}>
       <div
         style={{
           padding: '4px',
           borderRadius: '4px',
-          backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
-          border: '1px solid #d9d9d9',
+          backgroundColor: isCompleted ? themeStyles.success : themeStyles.error,
+          border: `1px solid ${themeStyles.border}`,
           transition: 'all 0.3s',
           display: 'flex',
           justifyContent: 'center',
