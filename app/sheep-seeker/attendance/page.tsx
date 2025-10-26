@@ -25,7 +25,14 @@ export default function AttendancePage() {
   const router = useRouter();
   const [people, setPeople] = useState<PersonAttendance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(dayjs());
+  
+  // Calculate the most recent Sunday as the default date
+  const getMostRecentSunday = () => {
+    const today = dayjs();
+    return today.day() === 0 ? today : today.subtract(today.day(), 'day');
+  };
+  
+  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(getMostRecentSunday());
   
   // Check if user is a leader (read-only access)
   const isLeader = user?.role === 'leader';
