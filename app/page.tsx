@@ -1,6 +1,6 @@
 'use client';
 
-import { Form, Input, Button, Card, Typography, message } from 'antd';
+import { Form, Input, Button, Card, Typography, message, theme } from 'antd';
 import { UserOutlined, LockOutlined, BulbOutlined, BulbFilled } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/AppConfigProvider';
@@ -8,12 +8,14 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const { Title, Text } = Typography;
+const { useToken } = theme;
 
 export default function Home() {
   const { login, user, loading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const router = useRouter();
   const [form] = Form.useForm();
+  const { token: antdToken } = useToken();
 
   useEffect(() => {
     if (!loading && user) {
@@ -50,10 +52,15 @@ export default function Home() {
       <div 
         className="min-h-screen flex items-center justify-center"
         style={{
-          background: 'linear-gradient(135deg, #1a0000 0%, #330000 25%, #4d0000 50%, #330000 75%, #1a0000 100%)',
+          background: isDark 
+            ? 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)'
+            : 'linear-gradient(135deg, #e6f0ff 0%, #ffffff 50%, #e6f0ff 100%)',
         }}
       >
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-400"></div>
+        <div 
+          className="animate-spin rounded-full h-12 w-12 border-b-2"
+          style={{ borderColor: isDark ? antdToken.colorPrimary : '#003366' }}
+        ></div>
       </div>
     );
   }
@@ -62,7 +69,9 @@ export default function Home() {
     <div 
       className="min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8"
       style={{
-        background: 'linear-gradient(135deg, #1a0000 0%, #330000 25%, #4d0000 50%, #330000 75%, #1a0000 100%)',
+        background: isDark
+          ? 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 25%, #262626 50%, #1a1a1a 75%, #0a0a0a 100%)'
+          : 'linear-gradient(135deg, #e6f0ff 0%, #f0f5ff 25%, #ffffff 50%, #f0f5ff 75%, #e6f0ff 100%)',
         backgroundAttachment: 'fixed',
         position: 'relative',
       }}
@@ -76,7 +85,7 @@ export default function Home() {
           position: 'absolute',
           top: 20,
           right: 20,
-          color: '#fff',
+          color: isDark ? '#fff' : '#003366',
           fontSize: '20px',
           height: '44px',
           width: '44px',
@@ -84,10 +93,10 @@ export default function Home() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'rgba(255, 255, 255, 0.1)',
+          background: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 51, 102, 0.1)',
           borderRadius: '50%',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
+          border: isDark ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 51, 102, 0.2)',
         }}
         title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       />
@@ -96,9 +105,16 @@ export default function Home() {
         className="w-full max-w-md shadow-2xl" 
         style={{ 
           borderRadius: 12,
-          background: 'rgba(26, 26, 26, 0.95)',
+          background: isDark 
+            ? 'rgba(26, 26, 26, 0.95)'
+            : 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: isDark 
+            ? '1px solid rgba(255, 255, 255, 0.1)'
+            : '1px solid rgba(0, 51, 102, 0.2)',
+          boxShadow: isDark
+            ? '0 8px 32px rgba(0, 0, 0, 0.4)'
+            : '0 8px 32px rgba(0, 51, 102, 0.15)',
         }}
         styles={{ body: { padding: '24px 20px' } }}
       >
@@ -106,10 +122,13 @@ export default function Home() {
           <Title 
             level={2} 
             style={{ 
-              color: '#ff6b6b', 
+              color: isDark ? '#4096ff' : '#003366',
               marginBottom: 8,
               fontSize: 'clamp(1.5rem, 5vw, 2rem)',
-              textShadow: '0 2px 8px rgba(255, 107, 107, 0.3)',
+              textShadow: isDark 
+                ? '0 2px 8px rgba(64, 150, 255, 0.3)'
+                : '0 2px 8px rgba(0, 51, 102, 0.15)',
+              fontWeight: 700,
             }}
           >
             FLC Sheep Seeking
@@ -117,7 +136,7 @@ export default function Home() {
           <Text 
             style={{ 
               fontSize: 'clamp(0.875rem, 3vw, 1rem)',
-              color: 'rgba(255, 255, 255, 0.7)',
+              color: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)',
             }}
           >
             Church Milestone Tracking System
@@ -132,7 +151,7 @@ export default function Home() {
             ]}
           >
             <Input
-              prefix={<UserOutlined />}
+              prefix={<UserOutlined style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }} />}
               placeholder="Username"
               autoComplete="username"
               style={{ height: 44 }}
@@ -144,7 +163,7 @@ export default function Home() {
             rules={[{ required: true, message: 'Please enter your password' }]}
           >
             <Input.Password
-              prefix={<LockOutlined />}
+              prefix={<LockOutlined style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }} />}
               placeholder="Password"
               autoComplete="current-password"
               style={{ height: 44 }}
@@ -162,9 +181,13 @@ export default function Home() {
                 fontWeight: 600,
                 minHeight: 44,
                 touchAction: 'manipulation',
-                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+                background: isDark
+                  ? 'linear-gradient(135deg, #4096ff 0%, #1677ff 100%)'
+                  : 'linear-gradient(135deg, #003366 0%, #004080 100%)',
                 border: 'none',
-                boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
+                boxShadow: isDark
+                  ? '0 4px 12px rgba(64, 150, 255, 0.3)'
+                  : '0 4px 12px rgba(0, 51, 102, 0.25)',
               }}
             >
               Sign In
@@ -176,7 +199,7 @@ export default function Home() {
           <Text 
             style={{ 
               fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)',
-              color: 'rgba(255, 255, 255, 0.6)',
+              color: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.45)',
             }}
           >
             Only authorized users can log in
