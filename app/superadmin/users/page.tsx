@@ -36,6 +36,8 @@ export default function UsersManagementPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -326,10 +328,15 @@ export default function UsersManagementPage() {
           rowKey="id"
           loading={loading}
           pagination={{ 
-            pageSize: 10, 
+            current: currentPage,
+            pageSize: pageSize,
             showSizeChanger: true,
             pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
           }}
           scroll={{ x: 'max-content' }}
         />

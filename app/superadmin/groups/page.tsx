@@ -39,6 +39,8 @@ export default function GroupsManagementPage() {
   const [filter, setFilter] = useState<GroupFilter>(GROUP_FILTERS.ACTIVE);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
 
   // Generate year options
@@ -343,10 +345,15 @@ export default function GroupsManagementPage() {
           rowKey="id"
           loading={loading}
           pagination={{ 
-            pageSize: 10, 
+            current: currentPage,
+            pageSize: pageSize,
             showSizeChanger: true,
             pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} groups`,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
           }}
           scroll={{ x: 'max-content' }}
         />
