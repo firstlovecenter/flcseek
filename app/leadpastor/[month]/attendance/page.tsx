@@ -152,9 +152,6 @@ export default function LeadPastorAttendancePage() {
         >
           <div></div>
           <Space wrap>
-            <Button onClick={() => router.push('/leadpastor')}>
-              Dashboard
-            </Button>
             <Button onClick={() => router.push(`/leadpastor/${month}`)}>
               Milestones
             </Button>
