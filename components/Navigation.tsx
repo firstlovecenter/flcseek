@@ -88,7 +88,7 @@ export default function Navigation({ children }: NavigationProps) {
         const month = monthMatch[1];
         const monthName = month.charAt(0).toUpperCase() + month.slice(1);
         const currentYear = new Date().getFullYear();
-        return `${monthName} ${currentYear}`;
+        return `${monthName} ${currentYear} | Lead Pastor`;
       }
       return 'FLC Sheep Seeking | Lead Pastor';
     }
