@@ -275,7 +275,7 @@ export default function UsersManagementPage() {
   ];
 
   return (
-    <div>
+    <div style={{ padding: '24px', paddingBottom: '80px' }}>
       <Title level={2}>
         <UserOutlined /> User Management
       </Title>
@@ -319,13 +319,20 @@ export default function UsersManagementPage() {
         </Space>
       </Card>
 
-      <Table
-        dataSource={filteredUsers}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
-      />
+      <Card>
+        <Table
+          dataSource={filteredUsers}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          pagination={{ 
+            pageSize: 10, 
+            showSizeChanger: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+          }}
+          scroll={{ x: 'max-content' }}
+        />
+      </Card>
 
       <Modal
         title={editingUser ? 'Edit User' : 'Create New User'}
