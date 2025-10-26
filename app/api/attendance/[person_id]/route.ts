@@ -144,9 +144,9 @@ export async function POST(
     
     await query(
       `UPDATE progress_records 
-       SET is_completed = $1, date_completed = $2, last_updated = $3, updated_by = $4
-       WHERE person_id = $5 AND stage_number = 18`,
-      [milestone18Completed, dateCompleted, new Date().toISOString(), userPayload.id, params.person_id]
+       SET is_completed = $1, date_completed = $2, updated_by = $3
+       WHERE person_id = $4 AND stage_number = 18`,
+      [milestone18Completed, dateCompleted, userPayload.id, params.person_id]
     );
 
     return NextResponse.json({

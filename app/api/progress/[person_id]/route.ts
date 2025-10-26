@@ -85,7 +85,6 @@ export async function PATCH(
     }
 
     const dateCompleted = is_completed ? new Date().toISOString().split('T')[0] : null;
-    const lastUpdated = new Date().toISOString();
 
     // Get the stage name from the milestones table
     const milestoneResult = await query(
@@ -97,16 +96,15 @@ export async function PATCH(
 
     // Use UPSERT to insert if not exists or update if exists
     const progressResult = await query(
-      `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, date_completed, updated_by, last_updated)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, date_completed, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (person_id, stage_number)
        DO UPDATE SET 
          is_completed = $4,
          date_completed = $5,
-         updated_by = $6,
-         last_updated = $7
+         updated_by = $6
        RETURNING *`,
-      [params.person_id, stage_number, stageName, is_completed, dateCompleted, userPayload.id, lastUpdated]
+      [params.person_id, stage_number, stageName, is_completed, dateCompleted, userPayload.id]
     );
 
     const progress = progressResult.rows[0];
