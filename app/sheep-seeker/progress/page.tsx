@@ -6,6 +6,7 @@ import { CheckCircleOutlined, EyeOutlined, HomeOutlined, TeamOutlined, CheckOutl
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { useThemeStyles } from '@/lib/theme-utils';
 
 const { Title, Text } = Typography;
 
@@ -28,6 +29,7 @@ export default function ProgressPage() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [people, setPeople] = useState<PersonProgress[]>([]);
+  const themeStyles = useThemeStyles();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -275,7 +277,7 @@ export default function ProgressPage() {
           size="small"
           scroll={{ x: 600 }}
           pagination={{ pageSize: 20, showSizeChanger: true }}
-          style={{ background: 'white', borderRadius: 8 }}
+          style={{ background: themeStyles.containerBg, borderRadius: 8 }}
         />
 
         <Modal
@@ -292,9 +294,9 @@ export default function ProgressPage() {
                 style={{
                   padding: '12px',
                   marginBottom: '8px',
-                  border: '1px solid #d9d9d9',
+                  border: `1px solid ${themeStyles.border}`,
                   borderRadius: '8px',
-                  backgroundColor: stage.is_completed ? '#f6ffed' : 'white',
+                  backgroundColor: stage.is_completed ? themeStyles.successBg : themeStyles.containerBg,
                 }}
               >
                 <Checkbox

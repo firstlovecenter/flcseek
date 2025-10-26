@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Table, Button, Input, Modal, Space, Card, Typography, Tag, Checkbox, message, Divider, Select } from 'antd';
 import { DeleteOutlined, WarningOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeStyles } from '@/lib/theme-utils';
 
 const { Title, Paragraph, Text } = Typography;
 const { Option } = Select;
@@ -28,6 +29,7 @@ export default function BulkDeleteConvertsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const themeStyles = useThemeStyles();
   const [searchText, setSearchText] = useState('');
   const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
   const [filterYear, setFilterYear] = useState<number | undefined>(undefined);
@@ -266,11 +268,17 @@ export default function BulkDeleteConvertsPage() {
     <div style={{ padding: '30px' }}>
       <Card>
         <Title level={2}>
-          <DeleteOutlined style={{ color: '#ff4d4f' }} /> Bulk Delete New Converts
+          <DeleteOutlined style={{ color: themeStyles.error }} /> Bulk Delete New Converts
         </Title>
         
-        <div style={{ backgroundColor: '#fffbe6', padding: '15px', borderRadius: '4px', marginBottom: '20px', borderLeft: '4px solid #faad14' }}>
-          <Paragraph strong style={{ color: '#ff4d4f' }}>
+        <div style={{ 
+          backgroundColor: themeStyles.warningBg, 
+          padding: '15px', 
+          borderRadius: '4px', 
+          marginBottom: '20px', 
+          borderLeft: `4px solid ${themeStyles.warning}` 
+        }}>
+          <Paragraph strong style={{ color: themeStyles.error }}>
             ⚠️ DANGER ZONE - This operation is irreversible!
           </Paragraph>
           <Paragraph>

@@ -8,6 +8,7 @@ import {
   Card,
   Button,
   Space,
+  theme,
 } from 'antd';
 import {
   HomeOutlined,
@@ -23,8 +24,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { useTheme } from '@/components/AppConfigProvider';
 
 const { Title, Text } = Typography;
+const { useToken } = theme;
 
 export default function PersonDetailPage() {
   const { user, token, loading: authLoading } = useAuth();
@@ -32,6 +35,8 @@ export default function PersonDetailPage() {
   const params = useParams();
   const [person, setPerson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { isDark } = useTheme();
+  const { token: antdToken } = useToken();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -125,14 +130,17 @@ export default function PersonDetailPage() {
           <Card 
             style={{ 
               borderRadius: 12,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              overflow: 'hidden'
+              boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+              background: antdToken.colorBgContainer,
             }}
           >
             {/* Header Section */}
             <div 
               style={{ 
-                background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
+                background: isDark 
+                  ? 'linear-gradient(135deg, #1677ff 0%, #1890ff 100%)'
+                  : 'linear-gradient(135deg, #003366 0%, #004080 100%)',
                 padding: '32px',
                 marginBottom: 24,
                 borderRadius: '12px 12px 0 0',
@@ -147,13 +155,13 @@ export default function PersonDetailPage() {
                     width: 80,
                     height: 80,
                     borderRadius: '50%',
-                    background: 'white',
+                    background: antdToken.colorBgContainer,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 36,
                     fontWeight: 'bold',
-                    color: '#003366',
+                    color: isDark ? antdToken.colorPrimary : '#003366',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                   }}
                 >
@@ -163,7 +171,7 @@ export default function PersonDetailPage() {
                   <Title level={2} style={{ margin: 0, color: 'white', marginBottom: 4 }}>
                     {person?.first_name} {person?.last_name}
                   </Title>
-                  <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 16 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 16 }}>
                     <TeamOutlined /> {person?.group_name}
                   </Text>
                 </div>
@@ -172,16 +180,16 @@ export default function PersonDetailPage() {
 
             {/* Contact Information */}
             <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
+              <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
                 <PhoneOutlined /> Contact Information
               </Title>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#f0f5ff',
+                    background: antdToken.colorInfoBg,
                     borderRadius: 8,
-                    border: '1px solid #d6e4ff'
+                    border: `1px solid ${antdToken.colorInfoBorder}`
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -190,7 +198,7 @@ export default function PersonDetailPage() {
                   <a 
                     href={`tel:${person?.phone_number}`} 
                     style={{ 
-                      color: '#003366', 
+                      color: antdToken.colorPrimary, 
                       fontSize: 16, 
                       fontWeight: 600,
                       textDecoration: 'none' 
@@ -203,9 +211,9 @@ export default function PersonDetailPage() {
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#f0f5ff',
+                    background: antdToken.colorInfoBg,
                     borderRadius: 8,
-                    border: '1px solid #d6e4ff'
+                    border: `1px solid ${antdToken.colorInfoBorder}`
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -220,16 +228,16 @@ export default function PersonDetailPage() {
 
             {/* Personal Details */}
             <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
+              <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
                 <UserOutlined /> Personal Details
               </Title>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#f6ffed',
+                    background: antdToken.colorSuccessBg,
                     borderRadius: 8,
-                    border: '1px solid #b7eb8f'
+                    border: `1px solid ${antdToken.colorSuccessBorder}`
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -243,9 +251,9 @@ export default function PersonDetailPage() {
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#f6ffed',
+                    background: antdToken.colorSuccessBg,
                     borderRadius: 8,
-                    border: '1px solid #b7eb8f'
+                    border: `1px solid ${antdToken.colorSuccessBorder}`
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -260,16 +268,16 @@ export default function PersonDetailPage() {
 
             {/* Location Information */}
             <div style={{ marginBottom: 8 }}>
-              <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
+              <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
                 <EnvironmentOutlined /> Location Information
               </Title>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#fffbe6',
+                    background: antdToken.colorWarningBg,
                     borderRadius: 8,
-                    border: '1px solid #ffe58f'
+                    border: `1px solid ${antdToken.colorWarningBorder}`
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -284,9 +292,9 @@ export default function PersonDetailPage() {
                   <div 
                     style={{ 
                       padding: 16,
-                      background: '#fffbe6',
+                      background: antdToken.colorWarningBg,
                       borderRadius: 8,
-                      border: '1px solid #ffe58f'
+                      border: `1px solid ${antdToken.colorWarningBorder}`
                     }}
                   >
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -302,16 +310,16 @@ export default function PersonDetailPage() {
 
             {/* Department for Superadmin */}
             {user?.role === 'superadmin' && person?.department_name && (
-              <div style={{ marginTop: 24, paddingTop: 24, borderTop: '2px solid #f0f0f0' }}>
-                <Title level={4} style={{ marginBottom: 16, color: '#003366' }}>
+              <div style={{ marginTop: 24, paddingTop: 24, borderTop: `2px solid ${antdToken.colorBorderSecondary}` }}>
+                <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
                   <TeamOutlined /> Administrative Information
                 </Title>
                 <div 
                   style={{ 
                     padding: 16,
-                    background: '#fff1f0',
+                    background: antdToken.colorErrorBg,
                     borderRadius: 8,
-                    border: '1px solid #ffccc7'
+                    border: `1px solid ${antdToken.colorErrorBorder}`
                   }}
                 >
                   <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>

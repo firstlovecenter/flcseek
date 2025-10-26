@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { useThemeStyles } from '@/lib/theme-utils';
 
 const { Title, Text } = Typography;
 
@@ -25,14 +26,16 @@ const MilestoneCell = memo(({
   stageName: string;
   isAuto?: boolean;
 }) => {
+  const themeStyles = useThemeStyles();
+  
   return (
     <Tooltip title={isAuto ? `${stageName} (Auto-calculated)` : stageName}>
       <div
         style={{
           padding: '4px',
           borderRadius: '4px',
-          backgroundColor: 'white',
-          border: '1px solid #d9d9d9',
+          backgroundColor: themeStyles.cellBg,
+          border: `1px solid ${themeStyles.border}`,
           transition: 'all 0.3s',
           display: 'flex',
           justifyContent: 'center',
@@ -47,7 +50,7 @@ const MilestoneCell = memo(({
           size="small"
           disabled={isAuto}
           style={{
-            backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
+            backgroundColor: isCompleted ? themeStyles.success : themeStyles.error,
           }}
         />
       </div>
@@ -63,13 +66,15 @@ const ReadOnlyMilestoneCell = memo(({
   isCompleted: boolean; 
   stageName: string;
 }) => {
+  const themeStyles = useThemeStyles();
+  
   return (
     <Tooltip title={stageName}>
       <div
         style={{
           padding: '4px',
           borderRadius: '4px',
-          backgroundColor: isCompleted ? '#52c41a' : '#ff4d4f',
+          backgroundColor: isCompleted ? themeStyles.success : themeStyles.error,
           transition: 'all 0.3s',
           display: 'flex',
           justifyContent: 'center',

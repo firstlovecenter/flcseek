@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { usePeopleWithStats } from '@/hooks/use-fetch';
+import { useThemeStyles } from '@/lib/theme-utils';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -28,6 +29,7 @@ interface PersonWithStats extends Person {
 }
 
 export default function SheepSeekerPeoplePage() {
+  const themeStyles = useThemeStyles();
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [filteredPeople, setFilteredPeople] = useState<PersonWithStats[]>([]);
@@ -190,7 +192,7 @@ export default function SheepSeekerPeoplePage() {
           size="small"
           scroll={{ x: 700 }}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `Total ${total} people` }}
-          style={{ background: 'white', borderRadius: 8 }}
+          style={{ background: themeStyles.containerBg, borderRadius: 8 }}
         />
       </div>
     </>
