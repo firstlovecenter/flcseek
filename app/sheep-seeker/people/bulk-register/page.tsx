@@ -46,7 +46,7 @@ interface MemberData {
   residential_location: string;
   school_residential_location?: string;
   occupation_type: string;
-  group_name: string;
+  group_name?: string;
 }
 
 interface ValidationError {
@@ -56,7 +56,7 @@ interface ValidationError {
 }
 
 export default function BulkRegisterPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
@@ -142,15 +142,27 @@ export default function BulkRegisterPage() {
       return;
     }
 
+    if (!user?.group_id && !user?.group_name) {
+      message.error('Your account does not have a group assigned. Please contact an administrator.');
+      return;
+    }
+
     setUploading(true);
     try {
+      // Add user's group to all members
+      const membersWithGroup = members.map(member => ({
+        ...member,
+        group_id: user.group_id,
+        group_name: user.group_name,
+      }));
+
       const response = await fetch('/api/people/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ people: members }),
+        body: JSON.stringify({ people: membersWithGroup }),
       });
 
       const result = await response.json();
@@ -219,12 +231,6 @@ export default function BulkRegisterPage() {
       title: 'Worker/Student',
       dataIndex: 'occupation_type',
       key: 'occupation_type',
-      width: 100,
-    },
-    {
-      title: 'Group',
-      dataIndex: 'group_name',
-      key: 'group_name',
       width: 100,
     },
     {
