@@ -226,6 +226,7 @@ export async function GET(request: NextRequest) {
     let sqlQuery = `
       SELECT 
         rp.*,
+        CONCAT(rp.first_name, ' ', rp.last_name) as full_name,
         g.name as group_name_ref,
         g.year as group_year
       FROM new_converts rp
@@ -286,7 +287,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    sqlQuery += ' ORDER BY rp.full_name ASC';
+    sqlQuery += ' ORDER BY rp.first_name ASC, rp.last_name ASC';
 
     const result = await query(sqlQuery, params);
 
