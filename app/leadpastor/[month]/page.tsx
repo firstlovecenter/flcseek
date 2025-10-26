@@ -298,6 +298,11 @@ export default function LeadPastorMonthDashboard() {
               </Text>
             )}
             <Button
+              onClick={() => router.push('/leadpastor')}
+            >
+              Dashboard
+            </Button>
+            <Button
               type="primary"
               onClick={() => router.push(`/leadpastor/${month}`)}
             >
