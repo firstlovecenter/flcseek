@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Table, Button, Typography, Spin, message, Progress, Tag, Space } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
+import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
 
@@ -152,30 +153,32 @@ export default function LeadPastorProgressPage() {
 
   return (
     <>
-      <div style={{ padding: '0 24px' }}>
-        <div
-          style={{
-            margin: '8px 0 16px 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Space wrap>
-            <Button onClick={() => router.push(`/leadpastor/${month}`)}>
-              Overview
-            </Button>
-            <Button type="primary" onClick={() => router.push(`/leadpastor/${month}/progress`)}>
-              Milestones
-            </Button>
-            <Button onClick={() => router.push(`/leadpastor/${month}/attendance`)}>
-              Attendance
-            </Button>
-          </Space>
-        </div>
+      <AppBreadcrumb />
+      {/* Top navigation header */}
+      <div
+        style={{
+          margin: '8px 0 16px 0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Space wrap>
+          <Button onClick={() => router.push(`/leadpastor/${month}`)}>
+            Overview
+          </Button>
+          <Button type="primary" onClick={() => router.push(`/leadpastor/${month}/progress`)}>
+            Milestones
+          </Button>
+          <Button onClick={() => router.push(`/leadpastor/${month}/attendance`)}>
+            Attendance
+          </Button>
+        </Space>
+      </div>
 
+      <div style={{ padding: '0 24px' }}>
         <div style={{ marginBottom: 24 }}>
           <Title level={2} style={{ margin: 0, marginBottom: 8 }}>{monthName} Progress Report</Title>
           <Text type="secondary">

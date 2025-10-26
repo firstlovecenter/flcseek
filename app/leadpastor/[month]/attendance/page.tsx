@@ -5,6 +5,7 @@ import { Table, Button, Typography, Spin, message, Progress, Tag, Space } from '
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
+import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
 
@@ -138,30 +139,32 @@ export default function LeadPastorAttendancePage() {
 
   return (
     <>
-      <div style={{ padding: '0 24px' }}>
-        <div
-          style={{
-            margin: '8px 0 16px 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Space wrap>
-            <Button onClick={() => router.push(`/leadpastor/${month}`)}>
-              Overview
-            </Button>
-            <Button onClick={() => router.push(`/leadpastor/${month}/progress`)}>
-              Milestones
-            </Button>
-            <Button type="primary" onClick={() => router.push(`/leadpastor/${month}/attendance`)}>
-              Attendance
-            </Button>
-          </Space>
-        </div>
+      <AppBreadcrumb />
+      {/* Top navigation header */}
+      <div
+        style={{
+          margin: '8px 0 16px 0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Space wrap>
+          <Button onClick={() => router.push(`/leadpastor/${month}`)}>
+            Overview
+          </Button>
+          <Button onClick={() => router.push(`/leadpastor/${month}/progress`)}>
+            Milestones
+          </Button>
+          <Button type="primary" onClick={() => router.push(`/leadpastor/${month}/attendance`)}>
+            Attendance
+          </Button>
+        </Space>
+      </div>
 
+      <div style={{ padding: '0 24px' }}>
         <div style={{ marginBottom: 24 }}>
           <Title level={2} style={{ margin: 0, marginBottom: 8 }}>
             Attendance Tracking
