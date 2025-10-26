@@ -2,63 +2,36 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Tabs,
   Typography,
   Spin,
   message,
   Card,
-  Switch,
-  Table,
   Button,
   Space,
-  Progress,
-  Tag,
-  Modal,
-  Form,
-  DatePicker,
-  Tooltip,
+  Descriptions,
 } from 'antd';
 import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  PlusOutlined,
   HomeOutlined,
   EnvironmentOutlined,
-  InfoCircleOutlined,
+  UserOutlined,
+  PhoneOutlined,
+  CalendarOutlined,
+  TeamOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
-import dayjs from 'dayjs';
 import TopNav from '@/components/TopNav';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
-
-interface ProgressRecord {
-  id: string;
-  stage_number: number;
-  stage_name: string;
-  is_completed: boolean;
-  date_completed?: string;
-}
-
-interface AttendanceRecord {
-  id: string;
-  date_attended: string;
-  created_at: string;
-}
 
 export default function PersonDetailPage() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
   const [person, setPerson] = useState<any>(null);
-  const [progress, setProgress] = useState<ProgressRecord[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [attendanceModalVisible, setAttendanceModalVisible] = useState(false);
-  const [form] = Form.useForm();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -81,8 +54,6 @@ export default function PersonDetailPage() {
 
       const data = await response.json();
       setPerson(data.person);
-      setProgress(data.progress || []);
-      setAttendance(data.attendance || []);
     } catch (error: any) {
       message.error(error.message || 'Failed to load person details');
       router.back();
@@ -91,133 +62,6 @@ export default function PersonDetailPage() {
     }
   };
 
-  const handleProgressToggle = async (stageNumber: number, isCompleted: boolean) => {
-    try {
-      const response = await fetch(`/api/progress/${params.id}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          stage_number: stageNumber,
-          is_completed: isCompleted,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to update progress');
-
-      message.success(
-        isCompleted ? 'Stage marked as completed!' : 'Stage marked as incomplete'
-      );
-      fetchPersonDetails();
-    } catch (error: any) {
-      message.error(error.message || 'Failed to update progress');
-    }
-  };
-
-  const handleAddAttendance = async (values: any) => {
-    try {
-      const response = await fetch(`/api/attendance/${params.id}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          date_attended: values.date_attended.format('YYYY-MM-DD'),
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to add attendance');
-      }
-
-      message.success('Attendance recorded successfully!');
-      form.resetFields();
-      setAttendanceModalVisible(false);
-      fetchPersonDetails();
-    } catch (error: any) {
-      message.error(error.message);
-    }
-  };
-
-  const progressColumns = [
-    {
-      title: '#',
-      dataIndex: 'stage_number',
-      key: 'stage_number',
-      width: 60,
-    },
-    {
-      title: 'Stage',
-      dataIndex: 'stage_name',
-      key: 'stage_name',
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      width: 120,
-      render: (_: any, record: ProgressRecord) => (
-        <Tag
-          icon={record.is_completed ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
-          color={record.is_completed ? 'success' : 'default'}
-        >
-          {record.is_completed ? 'Completed' : 'Pending'}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Date Completed',
-      dataIndex: 'date_completed',
-      key: 'date_completed',
-      width: 150,
-      render: (date: string) =>
-        date ? dayjs(date).format('MMM DD, YYYY') : '-',
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      width: 150,
-      render: (_: any, record: ProgressRecord) => {
-        // Milestone 18 is auto-calculated from attendance
-        if (record.stage_number === 18) {
-          return (
-            <Tooltip title="Auto-calculated from attendance records">
-              <Tag icon={<InfoCircleOutlined />} color="blue">
-                Auto
-              </Tag>
-            </Tooltip>
-          );
-        }
-        return (
-          <Switch
-            checked={record.is_completed}
-            onChange={(checked) => handleProgressToggle(record.stage_number, checked)}
-            checkedChildren="Done"
-            unCheckedChildren="Todo"
-          />
-        );
-      },
-    },
-  ];
-
-  const attendanceColumns = [
-    {
-      title: 'Date',
-      dataIndex: 'date_attended',
-      key: 'date_attended',
-      render: (date: string) => dayjs(date).format('MMM DD, YYYY'),
-    },
-    {
-      title: 'Recorded At',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date: string) => dayjs(date).format('MMM DD, YYYY h:mm A'),
-    },
-  ];
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -225,14 +69,6 @@ export default function PersonDetailPage() {
       </div>
     );
   }
-
-  const completedStages = progress.filter((p) => p.is_completed).length;
-  const totalStages = progress.length || 18; // Use actual milestone count
-  const progressPercentage = Math.round((completedStages / totalStages) * 100);
-  const attendancePercentage = Math.min(
-    Math.round((attendance.length / ATTENDANCE_GOAL) * 100),
-    100
-  );
 
   // Determine back URL based on user role
   let backUrl = '/sheep-seeker';
@@ -245,7 +81,7 @@ export default function PersonDetailPage() {
   return (
     <>
       <TopNav 
-        title={person?.full_name || 'Person Details'} 
+        title={person?.full_name || `${person?.first_name} ${person?.last_name}`} 
         showBack={true} 
         backUrl={backUrl}
       />
@@ -263,220 +99,65 @@ export default function PersonDetailPage() {
         >
           <Space wrap>
             <Button onClick={() => router.push(backUrl)}>Home</Button>
-            {(user?.role === 'admin' || user?.role === 'leader') && (
-              <>
-                <Button onClick={() => router.push('/sheep-seeker/progress')}>Milestones</Button>
-                <Button onClick={() => router.push('/sheep-seeker/attendance')}>Attendance</Button>
-              </>
-            )}
           </Space>
         </div>
+        
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Card style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-              <div>
-                <Text type="secondary">Phone:</Text>
-                <Title level={4} style={{ margin: '4px 0' }}>
-                  <a href={`tel:${person?.phone_number}`} style={{ color: '#1890ff', textDecoration: 'none' }}>
-                    {person?.phone_number}
-                  </a>
-                </Title>
-              </div>
-              {user?.role === 'superadmin' && (
-                <div>
-                  <Text type="secondary">Department:</Text>
-                  <Title level={4} style={{ margin: '4px 0' }}>
-                    {person?.department_name}
-                  </Title>
-                </div>
-              )}
-              <div>
-                <Text type="secondary">Gender:</Text>
-                <Title level={4} style={{ margin: '4px 0' }}>
-                  {person?.gender || 'N/A'}
-                </Title>
-              </div>
-            </div>
+          <Card>
+            <Title level={3} style={{ marginBottom: 24 }}>
+              <UserOutlined /> Personal Information
+            </Title>
             
-            {(person?.residential_location || person?.school_residential_location) && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
-                <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-                  {person?.residential_location && (
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <HomeOutlined style={{ color: '#1890ff' }} />
-                        <Text type="secondary">Residential Location:</Text>
-                      </div>
-                      <Text strong>{person.residential_location}</Text>
-                    </div>
-                  )}
-                  {person?.school_residential_location && (
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <EnvironmentOutlined style={{ color: '#52c41a' }} />
-                        <Text type="secondary">School Location:</Text>
-                      </div>
-                      <Text strong>{person.school_residential_location}</Text>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            <Descriptions bordered column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }} size="middle">
+              <Descriptions.Item label={<span><UserOutlined /> First Name</span>}>
+                <Text strong>{person?.first_name || 'N/A'}</Text>
+              </Descriptions.Item>
+              
+              <Descriptions.Item label={<span><UserOutlined /> Last Name</span>}>
+                <Text strong>{person?.last_name || 'N/A'}</Text>
+              </Descriptions.Item>
+              
+              <Descriptions.Item label={<span><PhoneOutlined /> Phone Number</span>}>
+                <a href={`tel:${person?.phone_number}`} style={{ color: '#1890ff', textDecoration: 'none', fontWeight: 500 }}>
+                  {person?.phone_number}
+                </a>
+              </Descriptions.Item>
+              
+              <Descriptions.Item label={<span><CalendarOutlined /> Date of Birth</span>}>
+                <Text strong>{person?.date_of_birth || 'N/A'}</Text>
+              </Descriptions.Item>
+              
+              <Descriptions.Item label={<span><UserOutlined /> Gender</span>}>
+                <Text strong>{person?.gender || 'N/A'}</Text>
+              </Descriptions.Item>
+              
+              <Descriptions.Item label={<span><IdcardOutlined /> Occupation Type</span>}>
+                <Text strong>{person?.occupation_type || 'N/A'}</Text>
+              </Descriptions.Item>
+              
+              <Descriptions.Item label={<span><HomeOutlined /> Residential Location</span>} span={2}>
+                <Text strong>{person?.residential_location || 'N/A'}</Text>
+              </Descriptions.Item>
+              
+              {person?.school_residential_location && (
+                <Descriptions.Item label={<span><EnvironmentOutlined /> School Location</span>} span={2}>
+                  <Text strong>{person.school_residential_location}</Text>
+                </Descriptions.Item>
+              )}
+              
+              <Descriptions.Item label={<span><TeamOutlined /> Group</span>} span={2}>
+                <Text strong>{person?.group_name || 'N/A'}</Text>
+              </Descriptions.Item>
+              
+              {user?.role === 'superadmin' && person?.department_name && (
+                <Descriptions.Item label="Department" span={2}>
+                  <Text strong>{person.department_name}</Text>
+                </Descriptions.Item>
+              )}
+            </Descriptions>
           </Card>
-
-          <Tabs
-            defaultActiveKey="progress"
-            size="large"
-            items={[
-              {
-                key: 'progress',
-                label: 'Milestone Tracker',
-                children: (
-                  <Card>
-                    <div style={{ marginBottom: 24 }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          marginBottom: 12,
-                        }}
-                      >
-                        <Text strong>Overall Progress</Text>
-                        <Text strong>
-                          {completedStages} / 15 stages completed
-                        </Text>
-                      </div>
-                      <Progress
-                        percent={progressPercentage}
-                        strokeColor="#003366"
-                        strokeWidth={12}
-                      />
-                    </div>
-                    <Table
-                      columns={progressColumns}
-                      dataSource={progress}
-                      rowKey="id"
-                      pagination={false}
-                    />
-                  </Card>
-                ),
-              },
-              {
-                key: 'attendance',
-                label: 'Attendance Tracker',
-                children: (
-                  <Card>
-                    <div style={{ marginBottom: 24 }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: 12,
-                        }}
-                      >
-                        <div>
-                          <Text strong style={{ fontSize: 16 }}>
-                            Attendance Progress
-                          </Text>
-                          <div style={{ marginTop: 4 }}>
-                            <Text type="secondary">
-                              {attendance.length} / {ATTENDANCE_GOAL} attendances
-                            </Text>
-                            {attendance.length >= ATTENDANCE_GOAL && (
-                              <Tag color="success" style={{ marginLeft: 8 }}>
-                                Completed!
-                              </Tag>
-                            )}
-                          </div>
-                        </div>
-                        <Button
-                          type="primary"
-                          icon={<PlusOutlined />}
-                          onClick={() => {
-                            // Calculate the most recent Sunday
-                            const today = dayjs();
-                            const mostRecentSunday = today.day() === 0 
-                              ? today 
-                              : today.subtract(today.day(), 'day');
-                            
-                            // Set default value to most recent Sunday
-                            form.setFieldsValue({ date_attended: mostRecentSunday });
-                            setAttendanceModalVisible(true);
-                          }}
-                        >
-                          Add Attendance
-                        </Button>
-                      </div>
-                      <Progress
-                        percent={attendancePercentage}
-                        strokeColor="#00b300"
-                        strokeWidth={12}
-                        format={() => `${attendance.length}/${ATTENDANCE_GOAL}`}
-                      />
-                    </div>
-                    <Table
-                      columns={attendanceColumns}
-                      dataSource={attendance}
-                      rowKey="id"
-                      pagination={{ pageSize: 10 }}
-                    />
-                  </Card>
-                ),
-              },
-            ]}
-          />
         </div>
       </div>
-
-      <Modal
-        title="Add Attendance"
-        open={attendanceModalVisible}
-        onCancel={() => {
-          setAttendanceModalVisible(false);
-          form.resetFields();
-        }}
-        footer={null}
-      >
-        <Form form={form} onFinish={handleAddAttendance} layout="vertical">
-          <Form.Item
-            name="date_attended"
-            label="Attendance Date (Sundays only)"
-            rules={[{ required: true, message: 'Please select date' }]}
-            extra="You can only record attendance for the most recent Sunday"
-          >
-            <DatePicker 
-              style={{ width: '100%' }} 
-              disabledDate={(current) => {
-                if (!current) return false;
-                
-                const today = dayjs();
-                
-                // Disable if not a Sunday (day 0)
-                if (current.day() !== 0) return true;
-                
-                // Calculate the most recent Sunday (or today if today is Sunday)
-                const mostRecentSunday = today.day() === 0 
-                  ? today 
-                  : today.subtract(today.day(), 'day');
-                
-                // Only allow the most recent Sunday - disable all other dates
-                if (!current.isSame(mostRecentSunday, 'day')) return true;
-                
-                return false;
-              }}
-              format="YYYY-MM-DD"
-              placeholder="Select the most recent Sunday"
-            />
-          </Form.Item>
-
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block>
-              Record Attendance
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
     </>
   );
 }
