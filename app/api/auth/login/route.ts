@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     let groupId = user.group_id || null;
 
     // Get group name and year if we have group_id
-    if (groupId && !groupName) {
+    if (groupId) {
       try {
         const groupResult = await query(
           'SELECT name, year FROM groups WHERE id = $1',
@@ -64,6 +64,21 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         console.error('[LOGIN] Error fetching group details:', error);
+        // Continue login even if group fetch fails
+      }
+    } else if (groupName && !groupId) {
+      // Fallback: if we have group_name but no group_id, try to get year from group_name
+      try {
+        const groupResult = await query(
+          'SELECT id, year FROM groups WHERE name = $1',
+          [groupName]
+        );
+        if (groupResult.rows.length > 0) {
+          groupId = groupResult.rows[0].id;
+          groupYear = groupResult.rows[0].year || 2025;
+        }
+      } catch (error) {
+        console.error('[LOGIN] Error fetching group by name:', error);
         // Continue login even if group fetch fails
       }
     }
