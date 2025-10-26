@@ -156,8 +156,9 @@ export async function POST(
       milestone18Status: milestone18Completed ? 'completed' : 'pending',
     });
   } catch (error: any) {
+    console.error('Error recording attendance:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
