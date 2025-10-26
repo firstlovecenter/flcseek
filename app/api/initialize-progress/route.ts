@@ -39,10 +39,10 @@ export async function POST(request: NextRequest) {
         // Initialize all milestones for this person
         for (const milestone of milestones) {
           await query(
-            `INSERT INTO progress_records (person_id, stage_number, is_completed, updated_by)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
+             VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (person_id, stage_number) DO NOTHING`,
-            [person.id, milestone.stage_number, false, userPayload.id]
+            [person.id, milestone.stage_number, milestone.name, false, userPayload.id]
           );
         }
         initialized++;
@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
         // Person has some progress records but not all - fill in missing ones
         for (const milestone of milestones) {
           await query(
-            `INSERT INTO progress_records (person_id, stage_number, is_completed, updated_by)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
+             VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (person_id, stage_number) DO NOTHING`,
-            [person.id, milestone.stage_number, false, userPayload.id]
+            [person.id, milestone.stage_number, milestone.name, false, userPayload.id]
           );
         }
         initialized++;

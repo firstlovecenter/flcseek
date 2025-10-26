@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check Database Columns</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #1890ff;
+      margin-bottom: 10px;
+    }
+    button {
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #40a9ff;
+    }
+    button:disabled {
+      background-color: #d9d9d9;
+      cursor: not-allowed;
+    }
+    .log {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .success { color: #52c41a; }
+    .error { color: #ff4d4f; }
+    .info { color: #1890ff; }
+    .warning { color: #faad14; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: left;
+    }
+    th {
+      background-color: #1890ff;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Check Database Columns</h1>
+    <p>This tool will check what columns exist in the <strong>new_converts</strong> table.</p>
+    
+    <button id="checkBtn" onclick="checkColumns()">Check Columns</button>
+    <button id="addBtn" onclick="addMissingColumns()" style="display:none; background-color:#52c41a;">Add Missing Columns</button>
+    
+    <div id="log" class="log" style="display: none;"></div>
+    <div id="results" style="display: none;"></div>
+  </div>
+
+  <script>
+    const logElement = document.getElementById('log');
+    const resultsElement = document.getElementById('results');
+    const checkBtn = document.getElementById('checkBtn');
+    const addBtn = document.getElementById('addBtn');
+    let missingColumns = [];
+
+    function log(message, type = 'info') {
+      logElement.style.display = 'block';
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type;
+      logElement.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    async function runQuery(description, query) {
+      log(`Running: ${description}...`, 'info');
+      try {
+        const response = await fetch('/api/run-migrations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query, description })
+        });
+
+        const result = await response.json();
+        
+        console.log('Query result:', result); // Debug log
+        
+        if (response.ok) {
+          log(`✅ ${description} - Success`, 'success');
+          if (result.rows) {
+            log(`   Returned ${result.rows.length} rows`, 'info');
+          }
+          return result;
+        } else {
+          log(`❌ ${description} - Error: ${result.error}`, 'error');
+          return null;
+        }
+      } catch (error) {
+        log(`❌ ${description} - Error: ${error.message}`, 'error');
+        console.error('Query error:', error);
+        return null;
+      }
+    }
+
+    async function checkColumns() {
+      checkBtn.disabled = true;
+      logElement.innerHTML = '';
+      resultsElement.innerHTML = '';
+      resultsElement.style.display = 'none';
+      addBtn.style.display = 'none';
+      
+      log('Checking columns in new_converts table...', 'info');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+
+      const checkQuery = `
+        SELECT column_name, data_type, is_nullable, column_default
+        FROM information_schema.columns 
+        WHERE table_name = 'new_converts' 
+        ORDER BY ordinal_position
+      `;
+      
+      const result = await runQuery('check_columns', checkQuery);
+      
+      console.log('Result object:', result); // Debug
+      
+      if (result && result.rows) {
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        log(`Found ${result.rows.length} columns in new_converts table`, 'success');
+        
+        // Log all columns for debugging
+        result.rows.forEach(row => {
+          log(`  - ${row.column_name} (${row.data_type})`, 'info');
+        });
+        
+        // Display columns in a table
+        let tableHTML = '<h2>Current Columns in new_converts Table</h2>';
+        tableHTML += '<table><thead><tr><th>Column Name</th><th>Data Type</th><th>Nullable</th><th>Default</th></tr></thead><tbody>';
+        
+        const existingColumns = result.rows.map(row => row.column_name.toLowerCase());
+        
+        result.rows.forEach(row => {
+          tableHTML += `<tr>
+            <td><strong>${row.column_name}</strong></td>
+            <td>${row.data_type}</td>
+            <td>${row.is_nullable}</td>
+            <td>${row.column_default || 'NULL'}</td>
+          </tr>`;
+        });
+        
+        tableHTML += '</tbody></table>';
+        
+        // Check for required columns
+        const requiredColumns = [
+          { name: 'date_of_birth', type: 'VARCHAR(10)', description: 'Birthday in DD-MM format' },
+          { name: 'gender', type: 'VARCHAR(10)', description: 'Male or Female' },
+          { name: 'residential_location', type: 'TEXT', description: 'Primary residential address' },
+          { name: 'school_residential_location', type: 'TEXT', description: 'School address for students' },
+          { name: 'occupation_type', type: 'VARCHAR(20)', description: 'Worker, Student, or Unemployed' }
+        ];
+        
+        missingColumns = [];
+        requiredColumns.forEach(col => {
+          if (!existingColumns.includes(col.name)) {
+            missingColumns.push(col);
+          }
+        });
+        
+        if (missingColumns.length > 0) {
+          tableHTML += '<h2 style="color: #ff4d4f; margin-top: 30px;">⚠️ Missing Required Columns</h2>';
+          tableHTML += '<table><thead><tr><th>Column Name</th><th>Data Type</th><th>Description</th></tr></thead><tbody>';
+          
+          missingColumns.forEach(col => {
+            tableHTML += `<tr style="background-color: #fff2e8;">
+              <td><strong>${col.name}</strong></td>
+              <td>${col.type}</td>
+              <td>${col.description}</td>
+            </tr>`;
+            log(`⚠️ Missing column: ${col.name}`, 'warning');
+          });
+          
+          tableHTML += '</tbody></table>';
+          addBtn.style.display = 'inline-block';
+        } else {
+          tableHTML += '<h2 style="color: #52c41a; margin-top: 30px;">✅ All Required Columns Exist</h2>';
+          log('✅ All required columns are present', 'success');
+        }
+        
+        resultsElement.innerHTML = tableHTML;
+        resultsElement.style.display = 'block';
+      }
+      
+      checkBtn.disabled = false;
+    }
+
+    async function addMissingColumns() {
+      if (missingColumns.length === 0) {
+        log('No missing columns to add', 'info');
+        return;
+      }
+      
+      addBtn.disabled = true;
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('Adding missing columns...', 'info');
+      
+      for (const col of missingColumns) {
+        const addQuery = `
+          ALTER TABLE new_converts 
+          ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}
+        `;
+        
+        await runQuery(`add_${col.name}`, addQuery);
+      }
+      
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+      log('✅ Finished adding missing columns', 'success');
+      log('Click "Check Columns" to verify', 'info');
+      
+      addBtn.disabled = false;
+      addBtn.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
