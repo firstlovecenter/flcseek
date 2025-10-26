@@ -47,32 +47,24 @@ export async function POST(request: NextRequest) {
     console.log(`[LOGIN] Password verified for: ${username}`);
 
     // Get user's group information
-    let groupName = null;
+    let groupName = user.group_name || null;
     let groupYear = null;
     let groupId = user.group_id || null;
 
-    // For admins and leaders who are assigned to a monthly group
-    if ((user.role === 'admin' || user.role === 'leader') && !groupId) {
-      const groupResult = await query(
-        'SELECT id, name FROM groups WHERE sheep_seeker_id = $1',
-        [user.id]
-      );
-      if (groupResult.rows.length > 0) {
-        groupId = groupResult.rows[0].id;
-        groupName = groupResult.rows[0].name;
-        groupYear = 2025; // Default year
-      }
-    }
-
     // Get group name and year if we have group_id
     if (groupId && !groupName) {
-      const groupResult = await query(
-        'SELECT name FROM groups WHERE id = $1',
-        [groupId]
-      );
-      if (groupResult.rows.length > 0) {
-        groupName = groupResult.rows[0].name;
-        groupYear = 2025; // Default year
+      try {
+        const groupResult = await query(
+          'SELECT name, year FROM groups WHERE id = $1',
+          [groupId]
+        );
+        if (groupResult.rows.length > 0) {
+          groupName = groupResult.rows[0].name;
+          groupYear = groupResult.rows[0].year || 2025;
+        }
+      } catch (error) {
+        console.error('[LOGIN] Error fetching group details:', error);
+        // Continue login even if group fetch fails
       }
     }
 
