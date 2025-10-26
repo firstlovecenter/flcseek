@@ -9,6 +9,7 @@ interface User {
   role: 'superadmin' | 'leadpastor' | 'admin' | 'leader';
   group_name?: string;
   group_year?: number;
+  group_id?: string;
   phone_number: string;
   first_name?: string;
   last_name?: string;

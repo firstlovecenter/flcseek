@@ -17,7 +17,6 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
       residential_location: 'Accra, Ghana',
       school_residential_location: '',
       occupation_type: 'Worker',
-      group_name: groups[0] || 'January',
     },
     {
       first_name: 'Jane',
@@ -28,7 +27,6 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
       residential_location: 'Kumasi, Ghana',
       school_residential_location: 'KNUST Campus',
       occupation_type: 'Student',
-      group_name: groups[1] || 'February',
     },
     {
       first_name: 'Samuel',
@@ -39,7 +37,6 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
       residential_location: 'Tema, Ghana',
       school_residential_location: '',
       occupation_type: 'Unemployed',
-      group_name: 'March',
     },
   ];
 
@@ -59,7 +56,6 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
     { wch: 30 }, // residential_location
     { wch: 30 }, // school_residential_location
     { wch: 15 }, // occupation_type
-    { wch: 15 }, // group_name
   ];
 
   // Add worksheet to workbook
@@ -71,8 +67,9 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
     { Instruction: '' },
     { Instruction: '1. Fill in the convert details in the "Members" sheet' },
     { Instruction: '2. Delete the sample rows (rows 2-4) before uploading' },
-    { Instruction: '3. Required fields: first_name, last_name, phone_number, date_of_birth, gender, residential_location, occupation_type, group_name' },
+    { Instruction: '3. Required fields: first_name, last_name, phone_number, date_of_birth, gender, residential_location, occupation_type' },
     { Instruction: '4. Optional fields: school_residential_location (only for students)' },
+    { Instruction: '5. Group will be automatically assigned based on your account' },
     { Instruction: '' },
     { Instruction: 'FIELD SPECIFICATIONS:' },
     { Instruction: '' },
@@ -84,7 +81,6 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
     { Instruction: 'residential_location: Primary home address or location (required)' },
     { Instruction: 'school_residential_location: School address if student (optional)' },
     { Instruction: 'occupation_type: Worker, Student, or Unemployed (required)' },
-    { Instruction: 'group_name: One of the 12 groups (see Groups sheet)' },
     { Instruction: '' },
     { Instruction: 'IMPORTANT NOTES:' },
     { Instruction: '- Do not change the column headers' },
@@ -93,7 +89,7 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
     { Instruction: '- Date of birth must be in DD-MM format (e.g., 25-12, 01-01)' },
     { Instruction: '- Gender must be exactly "Male" or "Female"' },
     { Instruction: '- Occupation type must be exactly "Worker", "Student", or "Unemployed"' },
-    { Instruction: '- Group names must match exactly (see Groups sheet)' },
+    { Instruction: '- Group will be automatically set to your assigned group' },
     { Instruction: '- School residential location is only needed for students' },
     { Instruction: '- Maximum 500 converts per upload' },
   ];
@@ -101,12 +97,6 @@ export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
   const wsInstructions = XLSX.utils.json_to_sheet(instructions);
   wsInstructions['!cols'] = [{ wch: 80 }];
   XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
-
-  // Create groups reference sheet
-  const groupData = groups.map((group) => ({ Group: group }));
-  const wsGroups = XLSX.utils.json_to_sheet(groupData);
-  wsGroups['!cols'] = [{ wch: 20 }];
-  XLSX.utils.book_append_sheet(wb, wsGroups, 'Groups');
 
   // Write to buffer
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -133,7 +123,7 @@ export async function parseExcelFile(
   residential_location: string;
   school_residential_location?: string;
   occupation_type: string;
-  group_name: string;
+  group_name?: string;
 }>> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -188,7 +178,7 @@ export function validateMemberData(members: Array<{
   residential_location: string;
   school_residential_location?: string;
   occupation_type: string;
-  group_name: string;
+  group_name?: string;
 }>, groups: string[] = []): {
   isValid: boolean;
   errors: Array<{ row: number; field: string; message: string }>;
@@ -296,20 +286,6 @@ export function validateMemberData(members: Array<{
         row: rowNumber,
         field: 'occupation_type',
         message: 'Occupation type must be "Worker", "Student", or "Unemployed"',
-      });
-    }
-
-    if (!member.group_name || member.group_name.trim() === '') {
-      errors.push({
-        row: rowNumber,
-        field: 'group_name',
-        message: 'Group is required',
-      });
-    } else if (groups.length > 0 && !groups.includes(member.group_name)) {
-      errors.push({
-        row: rowNumber,
-        field: 'group_name',
-        message: `Invalid group. Must be one of: ${groups.join(', ')}`,
       });
     }
   });
