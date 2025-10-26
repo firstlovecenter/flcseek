@@ -37,12 +37,15 @@ export async function GET(request: NextRequest) {
         rp.phone_number,
         rp.gender,
         rp.group_name,
+        rp.group_id,
         rp.created_at,
+        g.year as group_year,
         u.username as registered_by_name,
         (SELECT COUNT(*) FROM progress_records pr WHERE pr.person_id = rp.id AND pr.is_completed = true) as completed_stages,
         (SELECT COUNT(*) FROM attendance_records ar WHERE ar.person_id = rp.id) as total_attendance
        FROM new_converts rp
        LEFT JOIN users u ON rp.registered_by = u.id
+       LEFT JOIN groups g ON rp.group_id = g.id
        ORDER BY rp.first_name ASC, rp.last_name ASC`
     );
 

@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Modal, Space, Card, Typography, Tag, Checkbox, message, Divider } from 'antd';
-import { DeleteOutlined, WarningOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Modal, Space, Card, Typography, Tag, Checkbox, message, Divider, Select } from 'antd';
+import { DeleteOutlined, WarningOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { Title, Paragraph, Text } = Typography;
+const { Option } = Select;
 
 interface Convert {
   id: string;
@@ -13,6 +14,7 @@ interface Convert {
   phone_number: string;
   gender: string | null;
   group_name: string;
+  group_year: number | null;
   registered_by_name: string;
   created_at: string;
   completed_stages: number;
@@ -27,6 +29,9 @@ export default function BulkDeleteConvertsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
+  const [filterYear, setFilterYear] = useState<number | undefined>(undefined);
+  const [filterGender, setFilterGender] = useState<string | undefined>(undefined);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -37,7 +42,7 @@ export default function BulkDeleteConvertsPage() {
 
   useEffect(() => {
     filterConverts();
-  }, [converts, searchText]);
+  }, [converts, searchText, filterGroup, filterYear, filterGender]);
 
   const fetchConverts = async () => {
     try {
@@ -65,6 +70,18 @@ export default function BulkDeleteConvertsPage() {
       );
     }
 
+    if (filterGroup) {
+      filtered = filtered.filter((convert) => convert.group_name === filterGroup);
+    }
+
+    if (filterYear !== undefined) {
+      filtered = filtered.filter((convert) => convert.group_year === filterYear);
+    }
+
+    if (filterGender) {
+      filtered = filtered.filter((convert) => convert.gender === filterGender);
+    }
+
     setFilteredConverts(filtered);
   };
 
@@ -84,6 +101,24 @@ export default function BulkDeleteConvertsPage() {
     } else {
       setSelectedIds(new Set());
     }
+  };
+
+  const getUniqueGroups = () => {
+    const groups = new Set(converts.map(c => c.group_name).filter(Boolean));
+    return Array.from(groups).sort();
+  };
+
+  const getUniqueYears = () => {
+    const years = new Set(converts.map(c => c.group_year).filter(Boolean) as number[]);
+    return Array.from(years).sort((a, b) => b - a);
+  };
+
+  const clearFilters = () => {
+    setSearchText('');
+    setFilterGroup(undefined);
+    setFilterYear(undefined);
+    setFilterGender(undefined);
+    setSelectedIds(new Set());
   };
 
   const performBulkDelete = async () => {
@@ -206,6 +241,12 @@ export default function BulkDeleteConvertsPage() {
       title: 'Group',
       dataIndex: 'group_name',
       key: 'group_name',
+      render: (text: string, record: Convert) => (
+        <div>
+          <div><Text strong>{text}</Text></div>
+          {record.group_year && <Text type="secondary" style={{ fontSize: '12px' }}>{record.group_year}</Text>}
+        </div>
+      ),
     },
     {
       title: 'Progress',
@@ -241,13 +282,65 @@ export default function BulkDeleteConvertsPage() {
         <Divider />
 
         <div style={{ marginBottom: '20px' }}>
-          <Input
-            placeholder="Search by name or phone number"
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: '300px' }}
-          />
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Space wrap>
+              <Input
+                placeholder="Search by name or phone number"
+                prefix={<SearchOutlined />}
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ width: '300px' }}
+                allowClear
+              />
+              
+              <Select
+                placeholder="Filter by Group"
+                style={{ width: '200px' }}
+                value={filterGroup}
+                onChange={setFilterGroup}
+                allowClear
+              >
+                {getUniqueGroups().map(group => (
+                  <Option key={group} value={group}>{group}</Option>
+                ))}
+              </Select>
+
+              <Select
+                placeholder="Filter by Year"
+                style={{ width: '150px' }}
+                value={filterYear}
+                onChange={setFilterYear}
+                allowClear
+              >
+                {getUniqueYears().map(year => (
+                  <Option key={year} value={year}>{year}</Option>
+                ))}
+              </Select>
+
+              <Select
+                placeholder="Filter by Gender"
+                style={{ width: '150px' }}
+                value={filterGender}
+                onChange={setFilterGender}
+                allowClear
+              >
+                <Option value="Male">Male</Option>
+                <Option value="Female">Female</Option>
+              </Select>
+
+              {(searchText || filterGroup || filterYear || filterGender) && (
+                <Button onClick={clearFilters} icon={<FilterOutlined />}>
+                  Clear Filters
+                </Button>
+              )}
+            </Space>
+
+            <Space>
+              <Text type="secondary">
+                Showing {filteredConverts.length} of {converts.length} converts
+              </Text>
+            </Space>
+          </Space>
         </div>
 
         <div style={{ marginBottom: '20px' }}>
