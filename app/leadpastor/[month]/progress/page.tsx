@@ -164,9 +164,6 @@ export default function LeadPastorProgressPage() {
           }}
         >
           <Space wrap>
-            <Button onClick={() => router.push('/leadpastor')}>
-              Dashboard
-            </Button>
             <Button onClick={() => router.push(`/leadpastor/${month}`)}>
               Overview
             </Button>
