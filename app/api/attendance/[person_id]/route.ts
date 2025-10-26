@@ -42,7 +42,9 @@ export async function POST(
     }
 
     // Validate that the date is a Sunday
-    const attendedDate = new Date(date_attended);
+    // Parse the date string as local time (YYYY-MM-DD format)
+    const [year, month, day] = date_attended.split('-').map(Number);
+    const attendedDate = new Date(year, month - 1, day);
     const dayOfWeek = attendedDate.getDay();
     
     if (dayOfWeek !== 0) { // 0 = Sunday
@@ -55,6 +57,7 @@ export async function POST(
     // Validate that the attendance is not being entered more than 1 week past the Sunday
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day
+    attendedDate.setHours(0, 0, 0, 0); // Ensure we're comparing dates only, not times
     
     const daysDifference = Math.floor((today.getTime() - attendedDate.getTime()) / (1000 * 60 * 60 * 24));
     
