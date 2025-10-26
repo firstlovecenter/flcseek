@@ -8,7 +8,6 @@ import {
   Card,
   Button,
   Space,
-  Descriptions,
 } from 'antd';
 import {
   HomeOutlined,
@@ -123,58 +122,207 @@ export default function PersonDetailPage() {
         </div>
         
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Card>
-            <Title level={3} style={{ marginBottom: 24 }}>
-              <UserOutlined /> Personal Information
-            </Title>
-            
-            <Descriptions bordered column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }} size="middle">
-              <Descriptions.Item label={<span><UserOutlined /> First Name</span>}>
-                <Text strong>{person?.first_name || 'N/A'}</Text>
-              </Descriptions.Item>
-              
-              <Descriptions.Item label={<span><UserOutlined /> Last Name</span>}>
-                <Text strong>{person?.last_name || 'N/A'}</Text>
-              </Descriptions.Item>
-              
-              <Descriptions.Item label={<span><PhoneOutlined /> Phone Number</span>}>
-                <a href={`tel:${person?.phone_number}`} style={{ color: '#1890ff', textDecoration: 'none', fontWeight: 500 }}>
-                  {person?.phone_number}
-                </a>
-              </Descriptions.Item>
-              
-              <Descriptions.Item label={<span><CalendarOutlined /> Date of Birth</span>}>
-                <Text strong>{person?.date_of_birth || 'N/A'}</Text>
-              </Descriptions.Item>
-              
-              <Descriptions.Item label={<span><UserOutlined /> Gender</span>}>
-                <Text strong>{person?.gender || 'N/A'}</Text>
-              </Descriptions.Item>
-              
-              <Descriptions.Item label={<span><IdcardOutlined /> Occupation Type</span>}>
-                <Text strong>{person?.occupation_type || 'N/A'}</Text>
-              </Descriptions.Item>
-              
-              <Descriptions.Item label={<span><HomeOutlined /> Residential Location</span>} span={2}>
-                <Text strong>{person?.residential_location || 'N/A'}</Text>
-              </Descriptions.Item>
-              
-              {person?.school_residential_location && (
-                <Descriptions.Item label={<span><EnvironmentOutlined /> School Location</span>} span={2}>
-                  <Text strong>{person.school_residential_location}</Text>
-                </Descriptions.Item>
-              )}
-              
-              <Descriptions.Item label={<span><TeamOutlined /> Group</span>} span={2}>
-                <Text strong>{person?.group_name || 'N/A'}</Text>
-              </Descriptions.Item>
-              
-              {user?.role === 'superadmin' && person?.department_name && (
-                <Descriptions.Item label="Department" span={2}>
-                  <Text strong>{person.department_name}</Text>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
+          <Card 
+            style={{ 
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Header Section */}
+            <div 
+              style={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                padding: '32px',
+                marginBottom: 24,
+                borderRadius: '12px 12px 0 0',
+                marginTop: -24,
+                marginLeft: -24,
+                marginRight: -24,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div 
+                  style={{ 
+                    width: 80,
+                    height: 80,
+                    borderRadius: '50%',
+                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 36,
+                    fontWeight: 'bold',
+                    color: '#667eea',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}
+                >
+                  {person?.first_name?.charAt(0)}{person?.last_name?.charAt(0)}
+                </div>
+                <div>
+                  <Title level={2} style={{ margin: 0, color: 'white', marginBottom: 4 }}>
+                    {person?.first_name} {person?.last_name}
+                  </Title>
+                  <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 16 }}>
+                    <TeamOutlined /> {person?.group_name}
+                  </Text>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div style={{ marginBottom: 24 }}>
+              <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+                <PhoneOutlined /> Contact Information
+              </Title>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
+                <div 
+                  style={{ 
+                    padding: 16,
+                    background: '#f8f9ff',
+                    borderRadius: 8,
+                    border: '1px solid #e6e8ff'
+                  }}
+                >
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Phone Number
+                  </Text>
+                  <a 
+                    href={`tel:${person?.phone_number}`} 
+                    style={{ 
+                      color: '#667eea', 
+                      fontSize: 16, 
+                      fontWeight: 600,
+                      textDecoration: 'none' 
+                    }}
+                  >
+                    <PhoneOutlined /> {person?.phone_number}
+                  </a>
+                </div>
+                
+                <div 
+                  style={{ 
+                    padding: 16,
+                    background: '#f8f9ff',
+                    borderRadius: 8,
+                    border: '1px solid #e6e8ff'
+                  }}
+                >
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Date of Birth
+                  </Text>
+                  <Text strong style={{ fontSize: 16 }}>
+                    <CalendarOutlined /> {person?.date_of_birth || 'N/A'}
+                  </Text>
+                </div>
+              </div>
+            </div>
+
+            {/* Personal Details */}
+            <div style={{ marginBottom: 24 }}>
+              <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+                <UserOutlined /> Personal Details
+              </Title>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
+                <div 
+                  style={{ 
+                    padding: 16,
+                    background: '#fff7f0',
+                    borderRadius: 8,
+                    border: '1px solid #ffe7d1'
+                  }}
+                >
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Gender
+                  </Text>
+                  <Text strong style={{ fontSize: 16 }}>
+                    {person?.gender || 'N/A'}
+                  </Text>
+                </div>
+                
+                <div 
+                  style={{ 
+                    padding: 16,
+                    background: '#fff7f0',
+                    borderRadius: 8,
+                    border: '1px solid #ffe7d1'
+                  }}
+                >
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Occupation Type
+                  </Text>
+                  <Text strong style={{ fontSize: 16 }}>
+                    <IdcardOutlined /> {person?.occupation_type || 'N/A'}
+                  </Text>
+                </div>
+              </div>
+            </div>
+
+            {/* Location Information */}
+            <div style={{ marginBottom: 8 }}>
+              <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+                <EnvironmentOutlined /> Location Information
+              </Title>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
+                <div 
+                  style={{ 
+                    padding: 16,
+                    background: '#f0fff4',
+                    borderRadius: 8,
+                    border: '1px solid #c6f6d5'
+                  }}
+                >
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    <HomeOutlined /> Residential Location
+                  </Text>
+                  <Text strong style={{ fontSize: 16 }}>
+                    {person?.residential_location || 'N/A'}
+                  </Text>
+                </div>
+                
+                {person?.school_residential_location && (
+                  <div 
+                    style={{ 
+                      padding: 16,
+                      background: '#f0fff4',
+                      borderRadius: 8,
+                      border: '1px solid #c6f6d5'
+                    }}
+                  >
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                      <EnvironmentOutlined /> School Location
+                    </Text>
+                    <Text strong style={{ fontSize: 16 }}>
+                      {person.school_residential_location}
+                    </Text>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Department for Superadmin */}
+            {user?.role === 'superadmin' && person?.department_name && (
+              <div style={{ marginTop: 24, paddingTop: 24, borderTop: '2px solid #f0f0f0' }}>
+                <Title level={4} style={{ marginBottom: 16, color: '#667eea' }}>
+                  <TeamOutlined /> Administrative Information
+                </Title>
+                <div 
+                  style={{ 
+                    padding: 16,
+                    background: '#fef3f2',
+                    borderRadius: 8,
+                    border: '1px solid #fecaca'
+                  }}
+                >
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Department
+                  </Text>
+                  <Text strong style={{ fontSize: 16 }}>
+                    {person.department_name}
+                  </Text>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>
