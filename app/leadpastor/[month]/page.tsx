@@ -6,7 +6,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 // Read-only milestone cell component (no toggle switch)
 const ReadOnlyMilestoneCell = memo(({ 
@@ -268,10 +268,6 @@ export default function LeadPastorMonthDashboard() {
     ? Math.round((completedMilestones / totalMilestones) * 100)
     : 0;
 
-  const currentYear = new Date().getFullYear();
-  const monthName = month.charAt(0).toUpperCase() + month.slice(1);
-  const displayTitle = `${monthName} ${currentYear}`;
-
   return (
     <>
       {/* Top navigation header */}
@@ -280,15 +276,12 @@ export default function LeadPastorMonthDashboard() {
           style={{
             margin: '8px 0 16px 0',
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
             alignItems: 'center',
             gap: 12,
             flexWrap: 'wrap',
           }}
         >
-          <Title level={3} style={{ margin: 0, fontWeight: 'bold', color: '#003366' }}>
-            {displayTitle}
-          </Title>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <Input
               placeholder="Search names..."
@@ -307,11 +300,6 @@ export default function LeadPastorMonthDashboard() {
             <Button
               type="primary"
               onClick={() => router.push(`/leadpastor/${month}`)}
-            >
-              Overview
-            </Button>
-            <Button
-              onClick={() => router.push(`/leadpastor/${month}/progress`)}
             >
               Milestones
             </Button>

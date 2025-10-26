@@ -82,6 +82,14 @@ export default function Navigation({ children }: NavigationProps) {
     }
 
     if (user?.role === 'leadpastor') {
+      // Check if we're on a specific month page
+      const monthMatch = pathname.match(/\/leadpastor\/([^\/]+)/);
+      if (monthMatch && monthMatch[1]) {
+        const month = monthMatch[1];
+        const monthName = month.charAt(0).toUpperCase() + month.slice(1);
+        const currentYear = new Date().getFullYear();
+        return `FLC Sheep Seeking | Lead Pastor | ${monthName} ${currentYear}`;
+      }
       return 'FLC Sheep Seeking | Lead Pastor';
     }
 
