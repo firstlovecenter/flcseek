@@ -28,7 +28,7 @@ export async function GET(
     }
 
     const personResult = await query(
-      'SELECT * FROM new_converts WHERE id = $1',
+      'SELECT *, CONCAT(first_name, \' \', last_name) as full_name FROM new_converts WHERE id = $1',
       [params.id]
     );
 
@@ -101,9 +101,7 @@ export async function PUT(
       school_residential_location,
       occupation_type,
       group_id,
-      group_name,
-      // Backward compatibility
-      full_name
+      group_name
     } = await request.json();
 
     // Verify person exists and user has permission
@@ -140,22 +138,20 @@ export async function PUT(
     }
 
     // Update the person
-    const firstName = first_name || (full_name ? full_name.split(' ')[0] : person.first_name);
-    const lastName = last_name || (full_name ? full_name.split(' ').slice(1).join(' ') : person.last_name);
-    const fullName = `${firstName} ${lastName}`;
+    const firstName = first_name || person.first_name;
+    const lastName = last_name || person.last_name;
 
     const result = await query(
       `UPDATE new_converts 
-       SET first_name = $1, last_name = $2, full_name = $3, phone_number = $4,
-           date_of_birth = $5, gender = $6, residential_location = $7, 
-           school_residential_location = $8, occupation_type = $9, 
-           group_id = $10, group_name = $11
-       WHERE id = $12
+       SET first_name = $1, last_name = $2, phone_number = $3,
+           date_of_birth = $4, gender = $5, residential_location = $6, 
+           school_residential_location = $7, occupation_type = $8, 
+           group_id = $9, group_name = $10
+       WHERE id = $11
        RETURNING *`,
       [
         firstName,
         lastName,
-        fullName,
         phone_number || person.phone_number, 
         date_of_birth || person.date_of_birth,
         gender || person.gender, 

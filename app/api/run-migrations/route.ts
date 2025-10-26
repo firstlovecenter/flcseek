@@ -280,6 +280,13 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Migration 012 completed');
 
+    // Migration 013: Remove full_name column from new_converts
+    console.log('Running migration 013: Remove full_name column...');
+    await query(`
+      ALTER TABLE new_converts DROP COLUMN IF EXISTS full_name
+    `);
+    console.log('✅ Migration 013 completed - full_name column removed. APIs now compute it dynamically from first_name and last_name');
+
     return NextResponse.json({
       success: true,
       message: 'All migrations completed successfully',
@@ -293,7 +300,8 @@ export async function POST(request: NextRequest) {
         '006_add_year_to_groups': 'Added year field to groups',
         '010_unique_phone_constraint': 'Added unique constraint on phone_number',
         '011_add_archived_to_groups': 'Added archived field to groups',
-        '012_fix_leader_columns': 'Standardized to leader_id, removed sheep_seeker_id'
+        '012_fix_leader_columns': 'Standardized to leader_id, removed sheep_seeker_id',
+        '013_remove_full_name': 'Removed full_name column - now computed dynamically'
       }
     });
 

@@ -56,7 +56,7 @@ export async function DELETE(request: NextRequest) {
 
     // 3. Delete the converts themselves
     const deleteResult = await query(
-      `DELETE FROM new_converts WHERE id = ANY($1) RETURNING id, full_name`,
+      `DELETE FROM new_converts WHERE id = ANY($1) RETURNING id, CONCAT(first_name, ' ', last_name) as full_name`,
       [person_ids]
     );
 

@@ -38,7 +38,7 @@ export async function GET(
         id,
         first_name,
         last_name,
-        full_name,
+        CONCAT(first_name, ' ', last_name) as full_name,
         phone_number,
         date_of_birth,
         gender,
@@ -93,29 +93,25 @@ export async function PUT(
       group_name,
     } = body;
 
-    const fullName = `${first_name} ${last_name}`.trim();
-
     const result = await query(
       `UPDATE new_converts 
        SET 
         first_name = $1,
         last_name = $2,
-        full_name = $3,
-        phone_number = $4,
-        date_of_birth = $5,
-        gender = $6,
-        residential_location = $7,
-        school_residential_location = $8,
-        occupation_type = $9,
-        group_name = $10,
+        phone_number = $3,
+        date_of_birth = $4,
+        gender = $5,
+        residential_location = $6,
+        school_residential_location = $7,
+        occupation_type = $8,
+        group_name = $9,
         updated_at = NOW()
-       WHERE id = $11
-       RETURNING id, first_name, last_name, full_name, phone_number, date_of_birth, gender, 
+       WHERE id = $10
+       RETURNING id, first_name, last_name, CONCAT(first_name, ' ', last_name) as full_name, phone_number, date_of_birth, gender, 
                  residential_location, school_residential_location, occupation_type, group_name, updated_at`,
       [
         first_name,
         last_name,
-        fullName,
         phone_number,
         date_of_birth || null,
         gender || null,
