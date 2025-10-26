@@ -283,7 +283,7 @@ export default function GroupsManagementPage() {
   ];
 
   return (
-    <div>
+    <div style={{ padding: '24px', paddingBottom: '80px' }}>
       <Title level={2}>
         <TeamOutlined /> Group Management
       </Title>
@@ -336,13 +336,20 @@ export default function GroupsManagementPage() {
         </Space>
       </Card>
 
-      <Table
-        dataSource={filteredGroups}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
-      />
+      <Card>
+        <Table
+          dataSource={filteredGroups}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          pagination={{ 
+            pageSize: 10, 
+            showSizeChanger: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} groups`,
+          }}
+          scroll={{ x: 'max-content' }}
+        />
+      </Card>
 
       <Modal
         title={editingGroup ? 'Edit Group' : 'Create New Group'}
