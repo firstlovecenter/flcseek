@@ -116,8 +116,9 @@ export async function PATCH(
       progress,
     });
   } catch (error: any) {
+    console.error('Error updating progress:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
