@@ -247,7 +247,7 @@ export default function Navigation({ children }: NavigationProps) {
           <div
             style={{
               color: '#fff',
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: 'bold',
               whiteSpace: 'nowrap',
             }}
