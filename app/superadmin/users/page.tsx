@@ -328,6 +328,7 @@ export default function UsersManagementPage() {
           pagination={{ 
             pageSize: 10, 
             showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
           }}
           scroll={{ x: 'max-content' }}
