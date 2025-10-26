@@ -164,12 +164,11 @@ export async function POST(request: NextRequest) {
     for (const milestone of milestones) {
       const isFirstMilestone = milestone.stage_number === 1;
       await query(
-        `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, date_completed, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO progress_records (person_id, stage_number, is_completed, date_completed, updated_by)
+         VALUES ($1, $2, $3, $4, $5)`,
         [
           person.id, 
           milestone.stage_number, 
-          milestone.name, 
           isFirstMilestone,  // First milestone is completed by default
           isFirstMilestone ? new Date().toISOString().split('T')[0] : null,  // Set completion date for first milestone
           userPayload.id
