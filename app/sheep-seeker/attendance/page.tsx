@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space } from 'antd';
 import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import dayjs from 'dayjs';
@@ -21,9 +21,11 @@ interface PersonAttendance {
   percentage: number;
 }
 
-export default function AttendancePage() {
+function AttendancePageContent() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const groupIdFromUrl = searchParams.get('group_id');
   const [people, setPeople] = useState<PersonAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const themeStyles = useThemeStyles();
@@ -48,11 +50,16 @@ export default function AttendancePage() {
     if (user && token) {
       fetchPeople();
     }
-  }, [user, token, authLoading, router]);
+  }, [user, token, authLoading, router, groupIdFromUrl]);
 
   const fetchPeople = async () => {
     try {
-      const response = await fetch('/api/people', {
+      // Use the optimized endpoint with group_id filtering
+      const url = groupIdFromUrl 
+        ? `/api/people/with-progress?group_id=${groupIdFromUrl}`
+        : '/api/people/with-progress';
+        
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -60,24 +67,15 @@ export default function AttendancePage() {
 
       const data = await response.json();
 
-      const peopleWithAttendance = await Promise.all(
-        data.people.map(async (person: any) => {
-          const detailsRes = await fetch(`/api/people/${person.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const details = await detailsRes.json();
-          const attendanceCount = details.attendanceCount || 0;
-
-          return {
-            id: person.id,
-            full_name: person.full_name,
-            group_name: person.group_name,
-            phone_number: person.phone_number,
-            attendanceCount,
-            percentage: Math.min(Math.round((attendanceCount / ATTENDANCE_GOAL) * 100), 100),
-          };
-        })
-      );
+      // Map the optimized response to attendance format
+      const peopleWithAttendance = data.people.map((person: any) => ({
+        id: person.id,
+        full_name: person.full_name,
+        group_name: person.group_name,
+        phone_number: person.phone_number,
+        attendanceCount: person.attendance_count || 0,
+        percentage: Math.min(Math.round(((person.attendance_count || 0) / ATTENDANCE_GOAL) * 100), 100),
+      }));
 
       setPeople(peopleWithAttendance);
     } catch (error: any) {
@@ -196,7 +194,12 @@ export default function AttendancePage() {
             <Space>
               <Button
                 icon={<BarChartOutlined />}
-                onClick={() => router.push('/sheep-seeker')}
+                onClick={() => {
+                  const url = groupIdFromUrl 
+                    ? `/sheep-seeker?group_id=${groupIdFromUrl}`
+                    : '/sheep-seeker';
+                  router.push(url);
+                }}
               >
                 Milestones
               </Button>
@@ -209,7 +212,12 @@ export default function AttendancePage() {
               {!isLeader && (
                 <Button
                   icon={<UserAddOutlined />}
-                  onClick={() => router.push('/sheep-seeker/people/register')}
+                  onClick={() => {
+                    const url = groupIdFromUrl 
+                      ? `/sheep-seeker/people/register?group_id=${groupIdFromUrl}`
+                      : '/sheep-seeker/people/register';
+                    router.push(url);
+                  }}
                 >
                   Register
                 </Button>
@@ -217,7 +225,12 @@ export default function AttendancePage() {
               {!isLeader && (
                 <Button
                   icon={<FileExcelOutlined />}
-                  onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+                  onClick={() => {
+                    const url = groupIdFromUrl 
+                      ? `/sheep-seeker/people/bulk-register?group_id=${groupIdFromUrl}`
+                      : '/sheep-seeker/people/bulk-register';
+                    router.push(url);
+                  }}
                 >
                   Bulk Register
                 </Button>
@@ -279,5 +292,13 @@ export default function AttendancePage() {
         />
       </div>
     </>
+  );
+}
+
+export default function AttendancePage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>}>
+      <AttendancePageContent />
+    </Suspense>
   );
 }
