@@ -252,21 +252,36 @@ export async function POST(request: Request) {
         const milestonesResult = await query('SELECT stage_number, stage_name FROM milestones ORDER BY stage_number');
         const milestones = milestonesResult.rows;
 
-        // Insert progress records for each milestone
-        // First milestone is automatically completed when someone registers
-        for (const milestone of milestones) {
-          const isFirstMilestone = milestone.stage_number === 1;
+        // OPTIMIZED: Insert all progress records in a single query using bulk INSERT
+        if (milestones.length > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          
+          // Build VALUES clause for bulk insert
+          const values: any[] = [];
+          const placeholders: string[] = [];
+          let paramIndex = 1;
+          
+          milestones.forEach((milestone, index) => {
+            const isFirstMilestone = milestone.stage_number === 1;
+            placeholders.push(
+              `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5})`
+            );
+            values.push(
+              personId,
+              milestone.stage_number,
+              milestone.stage_name,
+              isFirstMilestone,
+              isFirstMilestone ? today : null,
+              user.id
+            );
+            paramIndex += 6;
+          });
+          
+          // Single bulk INSERT instead of loop
           await query(
             `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, date_completed, updated_by)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [
-              personId, 
-              milestone.stage_number,
-              milestone.stage_name,  // Use the stage_name from database
-              isFirstMilestone,  // First milestone is completed by default
-              isFirstMilestone ? new Date().toISOString().split('T')[0] : null,  // Set completion date for first milestone
-              user.id
-            ]
+             VALUES ${placeholders.join(', ')}`,
+            values
           );
         }
       } catch (error: any) {

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "db:setup": "node scripts/setup-initial-db.js",
     "setup-db": "tsx scripts/setup-database.ts",
     "migrate-neon": "tsx scripts/migrate-neon.ts",
     "populate-members": "tsx scripts/populate-members.ts",

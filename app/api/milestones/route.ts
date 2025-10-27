@@ -40,7 +40,15 @@ export async function GET(request: NextRequest) {
       ORDER BY stage_number ASC
     `;
 
-    return NextResponse.json({ milestones });
+    // Milestones rarely change, so cache aggressively (1 hour)
+    return NextResponse.json(
+      { milestones },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Error fetching milestones:', error);
     return NextResponse.json(

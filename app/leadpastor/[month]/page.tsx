@@ -135,7 +135,8 @@ export default function LeadPastorMonthDashboard() {
       // Capitalize first letter of month for API call
       const monthName = month.charAt(0).toUpperCase() + month.slice(1);
       
-      const response = await fetch(`/api/people?month=${monthName}&year=${year}`, {
+      // OPTIMIZED: Use single API call that returns people with progress
+      const response = await fetch(`/api/people/with-progress?month=${monthName}&year=${year}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -143,31 +144,8 @@ export default function LeadPastorMonthDashboard() {
 
       const data = await response.json();
 
-      // Fetch progress for each person
-      const peopleWithProgress = await Promise.all(
-        data.people.map(async (person: any) => {
-          try {
-            const progressResponse = await fetch(`/api/people/${person.id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (progressResponse.ok) {
-              const progressData = await progressResponse.json();
-              return {
-                ...person,
-                progress: progressData.progress || [],
-              };
-            }
-            return { ...person, progress: [] };
-          } catch (error) {
-            console.error(`Error fetching progress for ${person.id}:`, error);
-            return { ...person, progress: [] };
-          }
-        })
-      );
-
       // Sort alphabetically by full_name
-      const sortedPeople = peopleWithProgress.sort((a, b) => 
+      const sortedPeople = (data.people || []).sort((a: any, b: any) => 
         (a.full_name || '').localeCompare(b.full_name || '')
       );
 
