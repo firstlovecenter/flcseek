@@ -187,30 +187,40 @@ function SheepSeekerDashboardContent() {
 
     if (user && token) {
       console.log('[SHEEP-SEEKER] Authorized user:', user.role);
+      console.log('[SHEEP-SEEKER] Group ID from URL:', groupIdFromUrl);
       fetchMilestones();
       fetchAllPeople();
     }
-  }, [user, token, authLoading, router, fetchMilestones]);
+  }, [user, token, authLoading, router, fetchMilestones, groupIdFromUrl]);
 
   const fetchAllPeople = async () => {
     try {
+      setLoading(true);
       // OPTIMIZED: Use single API call that returns people with progress
       // Support filtering by group_id when superadmin navigates from group management
       const url = groupIdFromUrl 
         ? `/api/people/with-progress?group_id=${groupIdFromUrl}`
         : '/api/people/with-progress';
+      
+      console.log('[SHEEP-SEEKER] Fetching from:', url);
         
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch people');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[SHEEP-SEEKER] Fetch error:', response.status, errorData);
+        throw new Error(errorData.error || 'Failed to fetch people');
+      }
 
       const data = await response.json();
+      console.log('[SHEEP-SEEKER] Fetched people:', data.people?.length || 0);
 
       // Data is already formatted with progress included
       setPeople(data.people || []);
     } catch (error: any) {
+      console.error('[SHEEP-SEEKER] Error:', error);
       message.error(error.message || 'Failed to load people');
     } finally {
       setLoading(false);
