@@ -184,7 +184,8 @@ export default function SheepSeekerDashboard() {
 
   const fetchAllPeople = async () => {
     try {
-      const response = await fetch('/api/people', {
+      // OPTIMIZED: Use single API call that returns people with progress
+      const response = await fetch('/api/people/with-progress', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -192,25 +193,8 @@ export default function SheepSeekerDashboard() {
 
       const data = await response.json();
 
-      // Fetch progress for each person
-      const peopleWithProgress = await Promise.all(
-        data.people.map(async (person: any) => {
-          const detailsRes = await fetch(`/api/people/${person.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const details = await detailsRes.json();
-
-          return {
-            id: person.id,
-            full_name: person.full_name,
-            group_name: person.group_name,
-            phone_number: person.phone_number,
-            progress: details.progress || [],
-          };
-        })
-      );
-
-      setPeople(peopleWithProgress);
+      // Data is already formatted with progress included
+      setPeople(data.people || []);
     } catch (error: any) {
       message.error(error.message || 'Failed to load people');
     } finally {
