@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, memo, useMemo } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb } from 'antd';
-import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
+import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -445,13 +445,6 @@ export default function SheepSeekerDashboard() {
       <div className="sticky-controls-bar">
         
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push('/')}
-          >
-            Back
-          </Button>
-          
           <Input
             placeholder="Search by name, phone, group..."
             prefix={<SearchOutlined />}
