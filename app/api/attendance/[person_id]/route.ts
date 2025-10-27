@@ -145,11 +145,23 @@ export async function POST(
     const milestone18Completed = count >= ATTENDANCE_GOAL;
     const dateCompleted = milestone18Completed ? new Date().toISOString().split('T')[0] : null;
     
+    // Get the stage name from milestones table
+    const milestoneResult = await query(
+      'SELECT stage_name FROM milestones WHERE stage_number = 18'
+    );
+    
+    const stageName = milestoneResult.rows[0]?.stage_name || 'Attendance';
+    
+    // Use UPSERT to create or update milestone 18
     await query(
-      `UPDATE progress_records 
-       SET is_completed = $1, date_completed = $2, updated_by = $3
-       WHERE person_id = $4 AND stage_number = 18`,
-      [milestone18Completed, dateCompleted, userPayload.id, params.person_id]
+      `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, date_completed, updated_by)
+       VALUES ($1, 18, $2, $3, $4, $5)
+       ON CONFLICT (person_id, stage_number)
+       DO UPDATE SET 
+         is_completed = $3,
+         date_completed = $4,
+         updated_by = $5`,
+      [params.person_id, stageName, milestone18Completed, dateCompleted, userPayload.id]
     );
 
     return NextResponse.json({
