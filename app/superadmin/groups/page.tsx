@@ -202,7 +202,7 @@ export default function GroupsManagementPage() {
       sorter: (a: Group, b: Group) => a.name.localeCompare(b.name),
       render: (name: string, record: Group) => (
         <a 
-          onClick={() => router.push(`/leadpastor/${name.toLowerCase()}?year=${record.year}`)}
+          onClick={() => router.push(`/sheep-seeker?group_id=${record.id}`)}
           style={{ cursor: 'pointer', color: '#1890ff' }}
         >
           {name}

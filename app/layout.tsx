@@ -5,18 +5,17 @@ import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { AuthProvider } from '@/contexts/AuthContext';
 import AppConfigProvider from '@/components/AppConfigProvider';
 import Navigation from '@/components/Navigation';
-import { APP_NAME, APP_DESCRIPTION } from '@/lib/app-config';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: APP_NAME,
-  description: APP_DESCRIPTION,
+  title: 'FLC Sheep Seeking',
+  description: 'Church milestone tracking system for FLC',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: APP_NAME,
+    title: 'FLC Sheep Seeking',
   },
   formatDetection: {
     telephone: false,
@@ -51,7 +50,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content={APP_NAME} />
+        <meta name="apple-mobile-web-app-title" content="FLC Sheep Seeking" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className={inter.className}>

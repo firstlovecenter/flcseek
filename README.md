@@ -95,14 +95,13 @@ Visit **http://localhost:3000** and log in with:
 - **Leadership Oversight** - Monitor sheep seeker effectiveness
 - **Progress Reports** - Generate month-by-month progress reports
 
-### For Admins (Month Les)
+### For Admins (Month Admins)
 - **Month Management** - Oversee a specific monthly group
 - **Convert Registration** - Register new converts (bulk or individual)
 - **Progress Tracking** - View milestone completion for all group members
 - **Attendance Management** - Mark attendance for group members
-- **Team Coordination** - Manage assigned sheep seekers
 
-### For Sheep Seekers (Leaders)
+### For Sheep Seekers (Month Leaders)
 - **Assigned Converts** - Manage specific converts in your month
 - **Milestone Updates** - Mark milestones as completed
 - **Attendance Recording** - Track church attendance
@@ -214,9 +213,9 @@ Super Admin (Full Access)
     ↓
 Lead Pastor (All Months Read)
     ↓
-Admin/Month Leader (Single Month Full Access)
+Admin (Single Month Edit Access)
     ↓
-Sheep Seeker/Leader (Assigned Converts Only)
+Leader (Single Month View Access)
 ```
 
 ### Permission Matrix
@@ -225,12 +224,12 @@ Sheep Seeker/Leader (Assigned Converts Only)
 |---------|-------------|-------------|-------|---------|
 | View All Months | ✅ | ✅ | ❌ | ❌ |
 | Manage Assigned Month | ✅ | ❌ | ✅ | ✅ |
-| Register New Converts | ✅ | ❌ | ✅ | ✅ |
-| Mark Milestones | ✅ | ❌ | ✅ | ✅ |
-| Track Attendance | ✅ | ❌ | ✅ | ✅ |
+| Register New Converts | ✅ | ❌ | ✅ | ❌ |
+| Mark Milestones | ✅ | ❌ | ✅ | ❌ |
+| Track Attendance | ✅ | ✅ | ✅ | ✅ |
 | Create Users | ✅ | ❌ | ❌ | ❌ |
 | Edit Milestones | ✅ | ❌ | ❌ | ❌ |
-| View Analytics | ✅ | ✅ | ✅ | ❌ |
+| View Analytics | ✅ | ✅ | ❌ | ❌ |
 | Database Management | ✅ | ❌ | ❌ | ❌ |
 | Bulk Delete | ✅ | ❌ | ❌ | ❌ |
 

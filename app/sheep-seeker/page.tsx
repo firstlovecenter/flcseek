@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, memo, useMemo } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb } from 'antd';
 import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -112,6 +112,8 @@ interface PersonWithProgress {
 export default function SheepSeekerDashboard() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const groupIdFromUrl = searchParams.get('group_id');
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -185,7 +187,12 @@ export default function SheepSeekerDashboard() {
   const fetchAllPeople = async () => {
     try {
       // OPTIMIZED: Use single API call that returns people with progress
-      const response = await fetch('/api/people/with-progress', {
+      // Support filtering by group_id when superadmin navigates from group management
+      const url = groupIdFromUrl 
+        ? `/api/people/with-progress?group_id=${groupIdFromUrl}`
+        : '/api/people/with-progress';
+        
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
