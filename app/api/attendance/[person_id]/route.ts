@@ -55,17 +55,20 @@ export async function POST(
     }
 
     // Validate that the attendance is not being entered more than 1 week past the Sunday
+    // UNLESS the user is a superadmin (who can enter any past Sunday)
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
-    attendedDate.setHours(0, 0, 0, 0); // Ensure we're comparing dates only, not times
+    today.setHours(0, 0, 0, 0);
+    attendedDate.setHours(0, 0, 0, 0);
     
-    const daysDifference = Math.floor((today.getTime() - attendedDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (daysDifference > 7) {
-      return NextResponse.json(
-        { error: 'Attendance cannot be recorded more than 1 week after the Sunday service date' },
-        { status: 400 }
-      );
+    if (userPayload.role !== 'superadmin') {
+      const daysDifference = Math.floor((today.getTime() - attendedDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDifference > 7) {
+        return NextResponse.json(
+          { error: 'Attendance cannot be recorded more than 1 week after the Sunday service date' },
+          { status: 400 }
+        );
+      }
     }
 
     // Don't allow future dates

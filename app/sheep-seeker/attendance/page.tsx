@@ -38,8 +38,9 @@ function AttendancePageContent() {
   
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(getMostRecentSunday());
   
-  // Check if user is a leader (read-only access)
+  // Check if user is a leader (read-only access) or superadmin (full access)
   const isLeader = user?.role === 'leader';
+  const isSuperAdmin = user?.role === 'superadmin';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -258,6 +259,17 @@ function AttendancePageContent() {
               disabledDate={(current) => {
                 if (!current) return false;
                 
+                // Superadmin can select any Sunday in the past or present
+                if (isSuperAdmin) {
+                  const today = dayjs();
+                  // Disable if not a Sunday (day 0)
+                  if (current.day() !== 0) return true;
+                  // Disable if future date
+                  if (current.isAfter(today, 'day')) return true;
+                  return false;
+                }
+                
+                // Non-superadmin: only allow the most recent Sunday
                 const today = dayjs();
                 
                 // Disable if not a Sunday (day 0)
@@ -274,6 +286,11 @@ function AttendancePageContent() {
                 return false;
               }}
             />
+            {isSuperAdmin && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                (Superadmin: Can select any past Sunday)
+              </Text>
+            )}
           </div>
         )}
 
