@@ -44,6 +44,14 @@ export async function PATCH(
       );
     }
 
+    // Milestone 1 is automatically completed on registration and cannot be edited
+    if (stage_number === 1) {
+      return NextResponse.json(
+        { error: 'Milestone 1 is automatically completed when a person is registered and cannot be manually edited' },
+        { status: 400 }
+      );
+    }
+
     // Milestone 18 (Attendance) is auto-calculated from attendance records
     if (stage_number === 18) {
       return NextResponse.json(
