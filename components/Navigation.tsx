@@ -23,7 +23,6 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { APP_NAME } from '@/lib/app-config';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/AppConfigProvider';
 
@@ -79,7 +78,7 @@ export default function Navigation({ children }: NavigationProps) {
 
   const getHeaderTitle = () => {
     if (user?.role === 'superadmin') {
-      return APP_NAME;
+      return 'FLC Sheep Seeking';
     }
 
     if (user?.role === 'leadpastor') {
@@ -91,7 +90,7 @@ export default function Navigation({ children }: NavigationProps) {
         const currentYear = new Date().getFullYear();
         return `${monthName} ${currentYear} | Lead Pastor`;
       }
-      return `${APP_NAME} | Lead Pastor`;
+      return 'FLC Sheep Seeking | Lead Pastor';
     }
 
     if (!groupInfo) {

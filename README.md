@@ -15,7 +15,6 @@ FLCSeek is a Progressive Web App (PWA) designed to help churches systematically 
 ✅ **Bulk Registration** - Register multiple converts via Excel import  
 ✅ **Real-Time Analytics** - Department performance dashboards with visual progress indicators  
 ✅ **Performance Optimized** - Sub-second page loads with advanced database indexing  
-✅ **Mobile-First PWA** - Installable on mobile devices with offline capability  
 ✅ **Theme Support** - Light and dark mode with WCAG AA color contrast compliance  
 
 ## 🚀 Quick Start (5 Minutes Setup)
@@ -62,7 +61,7 @@ npm run db:setup
 This will create:
 - 6 database tables (`users`, `groups`, `milestones`, `new_converts`, `progress_records`, `attendance_records`)
 - 15+ performance indexes for optimized queries
-- Default admin account (username: `admin`, password: `admin123`)
+- Default superadmin account (username: `superadmin`, password: `admin123`)
 - 18 spiritual growth milestones
 - 12 month groups for 2025
 
@@ -72,10 +71,11 @@ npm run dev
 ```
 
 Visit **http://localhost:3000** and log in with:
-- **Username:** `admin`
+- **Username:** `superadmin`
 - **Password:** `admin123`
+- **Role:** Super Administrator (full system access)
 
-**⚠️ IMPORTANT:** Change the admin password immediately after first login!
+**⚠️ IMPORTANT:** Change the superadmin password immediately after first login!
 
 ---
 
@@ -95,7 +95,7 @@ Visit **http://localhost:3000** and log in with:
 - **Leadership Oversight** - Monitor sheep seeker effectiveness
 - **Progress Reports** - Generate month-by-month progress reports
 
-### For Admins (Month Leaders)
+### For Admins (Month Les)
 - **Month Management** - Oversee a specific monthly group
 - **Convert Registration** - Register new converts (bulk or individual)
 - **Progress Tracking** - View milestone completion for all group members
@@ -374,14 +374,14 @@ This is normal if tables already exist. The migrations use `IF NOT EXISTS` claus
 **Problem:** "Invalid credentials" despite correct password
 
 **Solution:**
-1. Verify admin account exists:
+1. Verify superadmin account exists:
    ```sql
-   SELECT username, role FROM users WHERE username = 'admin';
+   SELECT username, role FROM users WHERE username = 'superadmin';
    ```
-2. Reset admin password if needed (requires database access):
+2. Reset superadmin password if needed (requires database access):
    ```sql
    -- Password: admin123
-   UPDATE users SET password = '$2a$10$XQK9c5J5R.QF5Y0YKVk8HOJyPmrqOYqXqHPxQZxQZUJGZKZQZxQZU' WHERE username = 'admin';
+   UPDATE users SET password = '$2a$10$XQK9c5J5R.QF5Y0YKVk8HOJyPmrqOYqXqHPxQZxQZUJGZKZQZxQZU' WHERE username = 'superadmin';
    ```
 
 ### Slow Performance
@@ -447,7 +447,7 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "username": "admin",
+  "username": "superadmin",
   "password": "admin123"
 }
 

@@ -79,8 +79,8 @@ psqlCheck.on('close', (code) => {
         console.log('\nNext steps:');
         console.log('  1. Run: npm run dev');
         console.log('  2. Visit: http://localhost:3000');
-        console.log('  3. Login with username: admin, password: admin123');
-        console.log('  4. Change admin password immediately!\n');
+        console.log('  3. Login with username: superadmin, password: admin123');
+        console.log('  4. Change superadmin password immediately!\n');
       } else {
         console.error('\n❌ Migration failed with exit code:', code);
         process.exit(code);
