@@ -169,7 +169,7 @@ export default function LeadPastorAttendancePage() {
             Attendance Tracking
           </Title>
           <Text type="secondary">
-            View attendance records for all new converts (Goal: {ATTENDANCE_GOAL} Sundays) - Read-only access
+            View attendance records for all new converts (Goal: {ATTENDANCE_GOAL} Sundays)
           </Text>
         </div>
       </div>

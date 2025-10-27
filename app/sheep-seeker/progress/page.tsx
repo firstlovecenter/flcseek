@@ -283,7 +283,7 @@ export default function ProgressPage() {
           </div>
           <Text type="secondary">
             {isLeader 
-              ? 'View spiritual growth milestones for all new converts - Read-only access'
+              ? 'View spiritual growth milestones for all new converts'
               : 'Update and monitor spiritual growth milestones'
             }
           </Text>

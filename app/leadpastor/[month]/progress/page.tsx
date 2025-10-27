@@ -182,7 +182,7 @@ export default function LeadPastorProgressPage() {
         <div style={{ marginBottom: 24 }}>
           <Title level={2} style={{ margin: 0, marginBottom: 8 }}>{monthName} Progress Report</Title>
           <Text type="secondary">
-            Track milestone completion for all new converts - Read-only access
+            Track milestone completion for all new converts
           </Text>
         </div>
 

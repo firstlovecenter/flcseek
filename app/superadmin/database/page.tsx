@@ -260,26 +260,6 @@ export default function DatabaseManagementPage() {
         <DatabaseOutlined /> Database Management
       </Title>
 
-      {!isSkaduteye && (
-        <Alert
-          message="Read-Only Access"
-          description="You can view database tables and records, but only skaduteye can edit or delete data."
-          type="info"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-      )}
-
-      {isSkaduteye && (
-        <Alert
-          message="Full Database Access"
-          description="You have full edit and delete permissions on all database tables. Use with caution."
-          type="warning"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-      )}
-
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={8}>
           <Card>
