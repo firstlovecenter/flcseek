@@ -1,24 +1,38 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, Card, Typography, message, Space } from 'antd';
+import { useState, useEffect, Suspense } from 'react';
+import { Form, Input, Select, Button, Card, Typography, message, Space, Spin } from 'antd';
 import { UserAddOutlined, HomeOutlined, BarChartOutlined, TeamOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 
 const { Title, Text } = Typography;
 
-export default function RegisterPersonPage() {
+function RegisterPersonContent() {
   const { token } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const groupIdFromUrl = searchParams.get('group_id');
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [groups, setGroups] = useState<string[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupIdFromUrl);
 
   useEffect(() => {
     fetchGroups();
   }, []);
+
+  useEffect(() => {
+    // Pre-select group if group_id is in URL
+    if (groupIdFromUrl && groups.length > 0) {
+      const group = groups.find(g => g.id === groupIdFromUrl);
+      if (group) {
+        form.setFieldsValue({ group_id: groupIdFromUrl });
+        setSelectedGroupId(groupIdFromUrl);
+      }
+    }
+  }, [groupIdFromUrl, groups, form]);
 
   const fetchGroups = async () => {
     try {
@@ -27,7 +41,7 @@ export default function RegisterPersonPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setGroups(data.groups?.map((g: any) => g.name) || []);
+        setGroups(data.groups || []);
       }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -53,7 +67,11 @@ export default function RegisterPersonPage() {
 
       message.success('Person registered successfully!');
       form.resetFields();
-      router.push('/sheep-seeker');
+      // Navigate back with group_id if present
+      const returnUrl = groupIdFromUrl 
+        ? `/sheep-seeker?group_id=${groupIdFromUrl}`
+        : '/sheep-seeker';
+      router.push(returnUrl);
     } catch (error: any) {
       message.error(error.message || 'Failed to register person');
     } finally {
@@ -68,13 +86,23 @@ export default function RegisterPersonPage() {
         <Space>
           <Button
             icon={<BarChartOutlined />}
-            onClick={() => router.push('/sheep-seeker')}
+            onClick={() => {
+              const url = groupIdFromUrl 
+                ? `/sheep-seeker?group_id=${groupIdFromUrl}`
+                : '/sheep-seeker';
+              router.push(url);
+            }}
           >
             Milestones
           </Button>
           <Button
             icon={<TeamOutlined />}
-            onClick={() => router.push('/sheep-seeker/attendance')}
+            onClick={() => {
+              const url = groupIdFromUrl 
+                ? `/sheep-seeker/attendance?group_id=${groupIdFromUrl}`
+                : '/sheep-seeker/attendance';
+              router.push(url);
+            }}
           >
             Attendance
           </Button>
@@ -86,7 +114,12 @@ export default function RegisterPersonPage() {
           </Button>
           <Button
             icon={<FileExcelOutlined />}
-            onClick={() => router.push('/sheep-seeker/people/bulk-register')}
+            onClick={() => {
+              const url = groupIdFromUrl 
+                ? `/sheep-seeker/people/bulk-register?group_id=${groupIdFromUrl}`
+                : '/sheep-seeker/people/bulk-register';
+              router.push(url);
+            }}
           >
             Bulk Register
           </Button>
@@ -187,14 +220,19 @@ export default function RegisterPersonPage() {
             </Form.Item>
 
             <Form.Item
-              name="group_name"
+              name="group_id"
               label="Group"
               rules={[{ required: true, message: 'Please select group' }]}
             >
-              <Select placeholder="Select group" size="large">
+              <Select 
+                placeholder="Select group" 
+                size="large"
+                onChange={(value) => setSelectedGroupId(value)}
+                disabled={!!groupIdFromUrl} // Disable if pre-selected from URL
+              >
                 {groups.map((group) => (
-                  <Select.Option key={group} value={group}>
-                    {group}
+                  <Select.Option key={group.id} value={group.id}>
+                    {group.name} ({group.year})
                   </Select.Option>
                 ))}
               </Select>
@@ -216,5 +254,13 @@ export default function RegisterPersonPage() {
         </Card>
       </div>
     </>
+  );
+}
+
+export default function RegisterPersonPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>}>
+      <RegisterPersonContent />
+    </Suspense>
   );
 }

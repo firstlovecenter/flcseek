@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import {
   Card,
   Button,
@@ -13,6 +13,8 @@ import {
   Space,
   Tag,
   Modal,
+  Spin,
+  Select,
 } from 'antd';
 import {
   UploadOutlined,
@@ -26,7 +28,7 @@ import {
   UserAddOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import {
   generateBulkRegistrationTemplate,
@@ -46,6 +48,7 @@ interface MemberData {
   residential_location: string;
   school_residential_location?: string;
   occupation_type: string;
+  group_id?: string;
   group_name?: string;
 }
 
@@ -55,20 +58,30 @@ interface ValidationError {
   message: string;
 }
 
-export default function BulkRegisterPage() {
+function BulkRegisterContent() {
   const { token, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const groupIdFromUrl = searchParams.get('group_id');
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [members, setMembers] = useState<MemberData[]>([]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
-  const [groups, setGroups] = useState<string[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupIdFromUrl);
 
   useEffect(() => {
     fetchGroups();
   }, []);
+
+  useEffect(() => {
+    // Set default group if provided in URL
+    if (groupIdFromUrl) {
+      setSelectedGroupId(groupIdFromUrl);
+    }
+  }, [groupIdFromUrl]);
 
   const fetchGroups = async () => {
     try {
@@ -77,7 +90,7 @@ export default function BulkRegisterPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setGroups(data.groups?.map((g: any) => g.name) || []);
+        setGroups(data.groups || []);
       }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -85,7 +98,7 @@ export default function BulkRegisterPage() {
   };
 
   const handleDownloadTemplate = () => {
-    const blob = generateBulkRegistrationTemplate(groups);
+    const blob = generateBulkRegistrationTemplate(groups.map(g => g.name));
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -114,7 +127,7 @@ export default function BulkRegisterPage() {
         return false;
       }
 
-      const validation = validateMemberData(parsedMembers, groups);
+      const validation = validateMemberData(parsedMembers, groups.map(g => g.name));
 
       if (!validation.isValid) {
         setErrors(validation.errors);
@@ -142,18 +155,21 @@ export default function BulkRegisterPage() {
       return;
     }
 
-    if (!user?.group_id && !user?.group_name) {
-      message.error('Your account does not have a group assigned. Please contact an administrator.');
+    // Determine which group_id to use (URL param, selected, or user's default)
+    const targetGroupId = selectedGroupId || user?.group_id;
+    
+    if (!targetGroupId && !user?.group_name) {
+      message.error('Please select a group or your account does not have a group assigned.');
       return;
     }
 
     setUploading(true);
     try {
-      // Add user's group to all members
+      // Add the target group to all members
       const membersWithGroup = members.map(member => ({
         ...member,
-        group_id: user.group_id,
-        group_name: user.group_name,
+        group_id: targetGroupId || user?.group_id,
+        group_name: user?.group_name, // Keep for backwards compatibility
       }));
 
       const response = await fetch('/api/people/bulk', {
@@ -293,23 +309,62 @@ export default function BulkRegisterPage() {
   return (
     <>
       <AppBreadcrumb />
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        {/* Group selector for superadmin */}
+        {user?.role === 'superadmin' && !groupIdFromUrl && (
+          <Select
+            placeholder="Select a group (optional)"
+            style={{ width: 250 }}
+            onChange={(value) => setSelectedGroupId(value)}
+            value={selectedGroupId}
+            allowClear
+          >
+            {groups.map((group) => (
+              <Select.Option key={group.id} value={group.id}>
+                {group.name} ({group.year})
+              </Select.Option>
+            ))}
+          </Select>
+        )}
+        {groupIdFromUrl && (
+          <Alert
+            message={`Registering to: ${groups.find(g => g.id === groupIdFromUrl)?.name || 'Selected Group'}`}
+            type="info"
+            showIcon
+            style={{ flex: 1 }}
+          />
+        )}
         <Space>
           <Button
             icon={<BarChartOutlined />}
-            onClick={() => router.push('/sheep-seeker')}
+            onClick={() => {
+              const url = groupIdFromUrl 
+                ? `/sheep-seeker?group_id=${groupIdFromUrl}`
+                : '/sheep-seeker';
+              router.push(url);
+            }}
           >
             Milestones
           </Button>
           <Button
             icon={<TeamOutlined />}
-            onClick={() => router.push('/sheep-seeker/attendance')}
+            onClick={() => {
+              const url = groupIdFromUrl 
+                ? `/sheep-seeker/attendance?group_id=${groupIdFromUrl}`
+                : '/sheep-seeker/attendance';
+              router.push(url);
+            }}
           >
             Attendance
           </Button>
           <Button
             icon={<UserAddOutlined />}
-            onClick={() => router.push('/sheep-seeker/people/register')}
+            onClick={() => {
+              const url = groupIdFromUrl 
+                ? `/sheep-seeker/people/register?group_id=${groupIdFromUrl}`
+                : '/sheep-seeker/people/register';
+              router.push(url);
+            }}
           >
             Register
           </Button>
@@ -527,7 +582,12 @@ export default function BulkRegisterPage() {
                 <Button
                   type="primary"
                   size="large"
-                  onClick={() => router.push('/sheep-seeker')}
+                  onClick={() => {
+                    const url = groupIdFromUrl 
+                      ? `/sheep-seeker?group_id=${groupIdFromUrl}`
+                      : '/sheep-seeker';
+                    router.push(url);
+                  }}
                 >
                   Go to Dashboard
                 </Button>
@@ -537,5 +597,13 @@ export default function BulkRegisterPage() {
         </Card>
       </div>
     </>
+  );
+}
+
+export default function BulkRegisterPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>}>
+      <BulkRegisterContent />
+    </Suspense>
   );
 }
