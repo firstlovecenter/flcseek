@@ -35,5 +35,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# PWA auto-generated files
+/public/sw.js
+/public/workbox-*.js
+
 # bolt.new
 .bolt/
+
+# Test files
+test-*.js
+test-*.ts
