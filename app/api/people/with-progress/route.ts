@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
         -- Count completed stages
         COUNT(CASE WHEN pr.is_completed = true THEN 1 END) as completed_stages,
         -- Get attendance count
-        (SELECT COUNT(*) FROM attendance a WHERE a.person_id = nc.id) as attendance_count
+        (SELECT COUNT(*) FROM attendance_records a WHERE a.person_id = nc.id) as attendance_count
       FROM new_converts nc
       LEFT JOIN groups g ON nc.group_id = g.id
       LEFT JOIN progress_records pr ON pr.person_id = nc.id
