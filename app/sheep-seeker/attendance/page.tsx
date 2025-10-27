@@ -240,7 +240,7 @@ function AttendancePageContent() {
           </div>
           <Text type="secondary">
             {isLeader 
-              ? `View attendance records for all new converts (Goal: ${ATTENDANCE_GOAL} Sundays) - Read-only access`
+              ? `View attendance records for all new converts (Goal: ${ATTENDANCE_GOAL} Sundays)`
               : `Mark attendance for church services (Goal: ${ATTENDANCE_GOAL} Sundays)`
             }
           </Text>
