@@ -197,11 +197,15 @@ export default function DatabaseManagementPage() {
     const columns = schema[tableName] || [];
     const idField = tableName === 'milestones' ? 'stage_number' : 'id';
     
-    const tableColumns: any[] = columns.slice(0, 6).map(col => ({
+    // Show all columns for attendance_records, limit others to prevent overwhelming display
+    const columnLimit = tableName === 'attendance_records' ? columns.length : 8;
+    
+    const tableColumns: any[] = columns.slice(0, columnLimit).map(col => ({
       title: col.name,
       dataIndex: col.name,
       key: col.name,
       ellipsis: true,
+      width: col.name === 'id' || col.name === 'person_id' ? 120 : undefined, // Ensure ID columns are visible
       render: (text: any) => {
         if (text === null || text === undefined) return <Text type="secondary">NULL</Text>;
         if (typeof text === 'boolean') return text ? <Tag color="green">true</Tag> : <Tag color="red">false</Tag>;
