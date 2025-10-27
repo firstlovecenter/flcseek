@@ -63,12 +63,14 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
   }, [user, token]);
 
   const getHeaderTitle = () => {
+    const appName = process.env.NEXT_PUBLIC_APP_NAME || 'FLC Sheep Seeking';
+    
     if (user?.role === 'superadmin') {
-      return 'FLC Sheep Seeking';
+      return appName;
     }
 
     if (user?.role === 'leadpastor') {
-      return 'FLC Sheep Seeking | Lead Pastor';
+      return `${appName} | Lead Pastor`;
     }
 
     if (!groupInfo) {

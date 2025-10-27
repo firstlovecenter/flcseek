@@ -77,8 +77,10 @@ export default function Navigation({ children }: NavigationProps) {
   }, [user, token]);
 
   const getHeaderTitle = () => {
+    const appName = process.env.NEXT_PUBLIC_APP_NAME || 'FLC Sheep Seeking';
+    
     if (user?.role === 'superadmin') {
-      return 'FLC Sheep Seeking';
+      return appName;
     }
 
     if (user?.role === 'leadpastor') {
@@ -90,7 +92,7 @@ export default function Navigation({ children }: NavigationProps) {
         const currentYear = new Date().getFullYear();
         return `${monthName} ${currentYear} | Lead Pastor`;
       }
-      return 'FLC Sheep Seeking | Lead Pastor';
+      return `${appName} | Lead Pastor`;
     }
 
     if (!groupInfo) {
@@ -193,23 +195,11 @@ export default function Navigation({ children }: NavigationProps) {
   // Mobile Bottom Navigation for Sheep Seeker (Empty - navigation on pages)
   const sheepSeekerBottomMenuItems: any[] = [];
 
-  // Top Navigation items for Lead Pastor
-  const leadPastorTopMenuItems = [
-    {
-      key: '/leadpastor',
-      icon: <DashboardOutlined />,
-      label: <Link href="/leadpastor">Dashboard</Link>,
-    },
-  ];
+  // Top Navigation items for Lead Pastor (Empty - navigation on pages)
+  const leadPastorTopMenuItems: any[] = [];
 
-  // Mobile Bottom Navigation for Lead Pastor
-  const leadPastorBottomMenuItems = [
-    {
-      key: '/leadpastor',
-      icon: <HomeOutlined />,
-      label: <Link href="/leadpastor">Dashboard</Link>,
-    },
-  ];
+  // Mobile Bottom Navigation for Lead Pastor (Empty - navigation on pages)
+  const leadPastorBottomMenuItems: any[] = [];
 
   // Top Navigation items for Leader (Empty - navigation on pages)
   const leaderTopMenuItems: any[] = [];
