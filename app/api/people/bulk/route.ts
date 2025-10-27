@@ -207,15 +207,27 @@ export async function POST(request: Request) {
         const firstName = person.first_name || (person.full_name ? person.full_name.split(' ')[0] : '');
         const lastName = person.last_name || (person.full_name ? person.full_name.split(' ').slice(1).join(' ') : '');
 
+        // Look up group_id from group_name
+        let groupId = null;
+        if (person.group_name) {
+          const groupResult = await query(
+            'SELECT id FROM groups WHERE name = $1',
+            [person.group_name.trim()]
+          );
+          if (groupResult.rows.length > 0) {
+            groupId = groupResult.rows[0].id;
+          }
+        }
+
         const result = await query(
           `INSERT INTO new_converts (
             first_name, last_name, phone_number, date_of_birth, gender, 
             residential_location, school_residential_location, occupation_type,
-            group_name, registered_by
+            group_id, group_name, registered_by
           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING id, first_name, last_name, phone_number, date_of_birth, gender, 
-                     residential_location, school_residential_location, occupation_type, group_name, created_at`,
+                     residential_location, school_residential_location, occupation_type, group_id, group_name, created_at`,
           [
             firstName.trim(),
             lastName.trim(),
@@ -225,6 +237,7 @@ export async function POST(request: Request) {
             person.residential_location?.trim() || null,
             person.school_residential_location?.trim() || null,
             person.occupation_type?.trim() || null,
+            groupId,
             person.group_name.trim(),
             user.id,
           ]
