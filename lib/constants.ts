@@ -16,7 +16,7 @@ export const ATTENDANCE_GOAL = 20;
 
 // Year-related constants
 export const CURRENT_YEAR = new Date().getFullYear();
-export const MIN_YEAR = 2020; // Minimum year for group filtering
+export const MIN_YEAR = 2025; // Minimum year for group filtering
 export const MAX_YEAR = CURRENT_YEAR + 1; // Allow creating groups for next year
 
 // Group filters
