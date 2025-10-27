@@ -19,6 +19,7 @@ import {
   OrderedListOutlined,
   AppstoreOutlined,
   EyeOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -161,6 +162,11 @@ export default function Navigation({ children }: NavigationProps) {
       icon: <TeamOutlined />,
       label: <Link href="/superadmin/converts">New Converts</Link>,
     },
+    {
+      key: 'database',
+      icon: <DatabaseOutlined />,
+      label: <Link href="/superadmin/database">Database</Link>,
+    },
   ];
 
   // Mobile Bottom Navigation items for Super Admin
@@ -184,6 +190,11 @@ export default function Navigation({ children }: NavigationProps) {
       key: '/superadmin/groups',
       icon: <UsergroupAddOutlined />,
       label: <Link href="/superadmin/groups">Groups</Link>,
+    },
+    {
+      key: '/superadmin/database',
+      icon: <DatabaseOutlined />,
+      label: <Link href="/superadmin/database">Database</Link>,
     },
   ];
 

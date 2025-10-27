@@ -166,7 +166,7 @@ export default function SuperAdminDashboard() {
       </Row>
 
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24} lg={16}>
+        <Col xs={24}>
           <Card title="Recent Activity" extra={<CalendarOutlined />}>
             <Table
               dataSource={recentActivity}
@@ -175,37 +175,6 @@ export default function SuperAdminDashboard() {
               pagination={{ pageSize: 5 }}
               size="small"
             />
-          </Card>
-        </Col>
-
-        <Col xs={24} lg={8}>
-          <Card title="Quick Actions">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Link href="/superadmin/users">
-                <Card.Grid hoverable style={{ width: '100%', textAlign: 'center' }}>
-                  <UserOutlined style={{ fontSize: 24, marginBottom: 8 }} />
-                  <div>Manage Users</div>
-                </Card.Grid>
-              </Link>
-              <Link href="/superadmin/groups">
-                <Card.Grid hoverable style={{ width: '100%', textAlign: 'center' }}>
-                  <TeamOutlined style={{ fontSize: 24, marginBottom: 8 }} />
-                  <div>Manage Groups</div>
-                </Card.Grid>
-              </Link>
-              <Link href="/superadmin/converts">
-                <Card.Grid hoverable style={{ width: '100%', textAlign: 'center' }}>
-                  <HeartOutlined style={{ fontSize: 24, marginBottom: 8 }} />
-                  <div>View New Converts</div>
-                </Card.Grid>
-              </Link>
-              <Link href="/superadmin/database">
-                <Card.Grid hoverable style={{ width: '100%', textAlign: 'center' }}>
-                  <TrophyOutlined style={{ fontSize: 24, marginBottom: 8 }} />
-                  <div>Database Backup</div>
-                </Card.Grid>
-              </Link>
-            </div>
           </Card>
         </Col>
       </Row>
