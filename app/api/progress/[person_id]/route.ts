@@ -63,6 +63,21 @@ export async function PATCH(
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
+    // Check if trying to unmark a completed milestone (only superadmin can do this)
+    if (is_completed === false && userPayload.role !== 'superadmin') {
+      const existingProgress = await query(
+        'SELECT is_completed FROM progress_records WHERE person_id = $1 AND stage_number = $2',
+        [params.person_id, stage_number]
+      );
+      
+      if (existingProgress.rows.length > 0 && existingProgress.rows[0].is_completed === true) {
+        return NextResponse.json(
+          { error: 'Only superadmins can unmark completed milestones' },
+          { status: 403 }
+        );
+      }
+    }
+
     // For admins, check if person is in their group
     if (userPayload.role === 'admin') {
       if (userPayload.group_id && person.group_id !== userPayload.group_id) {

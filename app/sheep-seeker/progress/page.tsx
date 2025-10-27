@@ -37,8 +37,9 @@ export default function ProgressPage() {
   const [progressStages, setProgressStages] = useState<any[]>([]);
   const [updating, setUpdating] = useState(false);
   
-  // Check if user is a leader (read-only access)
+  // Check if user is a leader (read-only access) or superadmin (full edit access)
   const isLeader = user?.role === 'leader';
+  const isSuperAdmin = user?.role === 'superadmin';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -104,6 +105,12 @@ export default function ProgressPage() {
   };
 
   const toggleStage = async (stageNumber: number, isCompleted: boolean) => {
+    // Only superadmin can toggle a completed milestone back to incomplete
+    if (isCompleted && !isSuperAdmin) {
+      message.warning('Only superadmins can edit completed milestones');
+      return;
+    }
+    
     setUpdating(true);
     try {
       const response = await fetch(`/api/progress/${selectedPerson.id}`, {
@@ -302,9 +309,14 @@ export default function ProgressPage() {
                 <Checkbox
                   checked={stage.is_completed}
                   onChange={() => toggleStage(stage.stage_number, stage.is_completed)}
-                  disabled={updating}
+                  disabled={updating || (stage.is_completed && !isSuperAdmin)}
                 >
                   <Text strong>{milestones.find(m => m.stage_number === stage.stage_number)?.stage_name || `Stage ${stage.stage_number}`}</Text>
+                  {stage.is_completed && !isSuperAdmin && (
+                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                      (Completed - Contact superadmin to edit)
+                    </Text>
+                  )}
                 </Checkbox>
               </div>
             ))}
