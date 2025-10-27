@@ -23,6 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { APP_NAME } from '@/lib/app-config';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/AppConfigProvider';
 
@@ -77,10 +78,8 @@ export default function Navigation({ children }: NavigationProps) {
   }, [user, token]);
 
   const getHeaderTitle = () => {
-    const appName = process.env.NEXT_PUBLIC_APP_NAME || 'FLC Sheep Seeking';
-    
     if (user?.role === 'superadmin') {
-      return appName;
+      return APP_NAME;
     }
 
     if (user?.role === 'leadpastor') {
@@ -92,7 +91,7 @@ export default function Navigation({ children }: NavigationProps) {
         const currentYear = new Date().getFullYear();
         return `${monthName} ${currentYear} | Lead Pastor`;
       }
-      return `${appName} | Lead Pastor`;
+      return `${APP_NAME} | Lead Pastor`;
     }
 
     if (!groupInfo) {
