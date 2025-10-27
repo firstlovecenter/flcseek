@@ -100,11 +100,18 @@ export default function DatabaseManagementPage() {
           offset: (page - 1) * pagination.pageSize,
         }),
       });
+      
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch table data');
+      }
+      
       setTableData(data.data || []);
       setPagination(prev => ({ ...prev, total: data.total, current: page }));
-    } catch (error) {
-      message.error('Failed to fetch table data');
+    } catch (error: any) {
+      console.error('Error fetching table data:', error);
+      message.error(error.message || 'Failed to fetch table data');
     } finally {
       setTableLoading(false);
     }
