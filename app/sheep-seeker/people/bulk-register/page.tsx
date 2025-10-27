@@ -163,13 +163,22 @@ function BulkRegisterContent() {
       return;
     }
 
+    // Get the group name for the selected group
+    const selectedGroup = groups.find(g => g.id === targetGroupId);
+    const targetGroupName = selectedGroup?.name || user?.group_name;
+
+    if (!targetGroupName) {
+      message.error('Unable to determine group name. Please select a valid group.');
+      return;
+    }
+
     setUploading(true);
     try {
       // Add the target group to all members
       const membersWithGroup = members.map(member => ({
         ...member,
         group_id: targetGroupId || user?.group_id,
-        group_name: user?.group_name, // Keep for backwards compatibility
+        group_name: targetGroupName,
       }));
 
       const response = await fetch('/api/people/bulk', {
