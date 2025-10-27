@@ -8,14 +8,17 @@ import Navigation from '@/components/Navigation';
 
 const inter = Inter({ subsets: ['latin'] });
 
+const appName = process.env.NEXT_PUBLIC_APP_NAME || 'FLC Sheep Seeking';
+const appDescription = process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'Church milestone tracking system';
+
 export const metadata: Metadata = {
-  title: 'FLC Sheep Seeking',
-  description: 'Church milestone tracking system for FLC',
+  title: appName,
+  description: appDescription,
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'FLC Sheep Seeking',
+    title: appName,
   },
   formatDetection: {
     telephone: false,
@@ -50,7 +53,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="FLC Sheep Seeking" />
+        <meta name="apple-mobile-web-app-title" content={appName} />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className={inter.className}>

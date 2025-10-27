@@ -131,7 +131,7 @@ export default function Home() {
               fontWeight: 700,
             }}
           >
-            FLC Sheep Seeking
+            {process.env.NEXT_PUBLIC_APP_NAME || 'FLC Sheep Seeking'}
           </Title>
           <Text 
             style={{ 
@@ -139,7 +139,7 @@ export default function Home() {
               color: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)',
             }}
           >
-            Church Milestone Tracking System
+            {process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'Church Milestone Tracking System'}
           </Text>
         </div>
 
