@@ -11,7 +11,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { APP_NAME } from '@/lib/app-config';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -65,11 +64,11 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
 
   const getHeaderTitle = () => {
     if (user?.role === 'superadmin') {
-      return APP_NAME;
+      return 'FLC Sheep Seeking';
     }
 
     if (user?.role === 'leadpastor') {
-      return `${APP_NAME} | Lead Pastor`;
+      return 'FLC Sheep Seeking | Lead Pastor';
     }
 
     if (!groupInfo) {

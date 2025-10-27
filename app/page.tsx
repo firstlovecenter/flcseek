@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/AppConfigProvider';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { APP_NAME, APP_DESCRIPTION } from '@/lib/app-config';
 
 const { Title, Text } = Typography;
 const { useToken } = theme;
@@ -132,7 +131,7 @@ export default function Home() {
               fontWeight: 700,
             }}
           >
-            {APP_NAME}
+            FLC Sheep Seeking
           </Title>
           <Text 
             style={{ 
@@ -140,7 +139,7 @@ export default function Home() {
               color: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)',
             }}
           >
-            {APP_DESCRIPTION}
+            Church Milestone Tracking System
           </Text>
         </div>
 

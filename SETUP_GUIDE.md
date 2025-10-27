@@ -107,7 +107,7 @@ npm run db:setup
 **What this creates:**
 - ✅ 6 database tables with proper relationships
 - ✅ 15+ performance indexes for fast queries
-- ✅ Default admin account (username: `admin`, password: `admin123`)
+- ✅ Default superadmin account (username: `superadmin`, password: `admin123`)
 - ✅ 18 pre-configured spiritual growth milestones
 - ✅ 12 month groups for current year (2025)
 - ✅ Foreign key constraints for data integrity
@@ -130,8 +130,8 @@ NOTICE:  FLCSeek Database Setup Complete!
 Next steps:
   1. Run: npm run dev
   2. Visit: http://localhost:3000
-  3. Login with username: admin, password: admin123
-  4. Change admin password immediately!
+  3. Login with username: superadmin, password: admin123
+  4. Change superadmin password immediately!
 ```
 
 ### 3.4 Troubleshooting Database Setup
@@ -177,12 +177,13 @@ npm run dev
 Open your browser and visit: **http://localhost:3000**
 
 ### First Login
-- **Username:** `admin`
+- **Username:** `superadmin`
 - **Password:** `admin123`
+- **Role:** Super Administrator (full system access)
 
-**🔒 IMPORTANT: Change the admin password immediately!**
+**🔒 IMPORTANT: Change the superadmin password immediately!**
 1. After logging in, go to **Super Admin** → **Users**
-2. Click on **admin** user
+2. Click on **superadmin** user
 3. Click **Edit**
 4. Set a strong new password
 5. Save changes
@@ -394,7 +395,7 @@ vercel env add JWT_SECRET production
 **Can't login after deployment**
 - Check environment variables are set in Netlify/Vercel
 - Ensure `NEON_DATABASE_URL` points to your database
-- Verify admin account exists: Run SQL query `SELECT * FROM users WHERE username='admin'`
+- Verify superadmin account exists: Run SQL query `SELECT * FROM users WHERE username='superadmin'`
 
 **Database connection errors**
 - Check Neon database is active (not paused on free tier)

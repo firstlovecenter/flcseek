@@ -215,13 +215,15 @@ ALTER TABLE attendance_records
 
 -- =============================================================================
 -- SEED DATA: Default Super Admin User
--- Purpose: Create initial admin account (username: admin, password: admin123)
+-- Purpose: Create initial superadmin account for system setup and management
+-- Username: superadmin
+-- Password: admin123 (CHANGE THIS IMMEDIATELY AFTER FIRST LOGIN!)
 -- =============================================================================
 -- Password hash for 'admin123' using bcrypt (cost factor: 10)
 INSERT INTO users (id, username, password, role, first_name, last_name, created_at)
 VALUES (
   gen_random_uuid(),
-  'admin',
+  'superadmin',
   '$2a$10$XQK9c5J5R.QF5Y0YKVk8HOJyPmrqOYqXqHPxQZxQZUJGZKZQZxQZU', -- admin123
   'superadmin',
   'System',
@@ -283,21 +285,23 @@ BEGIN
   RAISE NOTICE 'FLCSeek Database Setup Complete!';
   RAISE NOTICE '=============================================================================';
   RAISE NOTICE 'Tables Created:';
-  RAISE NOTICE '  ✅ users (with default admin account)';
+  RAISE NOTICE '  ✅ users (with default superadmin account)';
   RAISE NOTICE '  ✅ groups (12 months for 2025)';
   RAISE NOTICE '  ✅ milestones (18 spiritual growth stages)';
   RAISE NOTICE '  ✅ new_converts (convert registration)';
   RAISE NOTICE '  ✅ progress_records (milestone tracking)';
   RAISE NOTICE '  ✅ attendance_records (attendance tracking)';
   RAISE NOTICE '';
-  RAISE NOTICE 'Default Login Credentials:';
-  RAISE NOTICE '  Username: admin';
+  RAISE NOTICE 'Default Superadmin Login:';
+  RAISE NOTICE '  Username: superadmin';
   RAISE NOTICE '  Password: admin123';
+  RAISE NOTICE '  Role: superadmin (full system access)';
   RAISE NOTICE '';
   RAISE NOTICE 'Next Steps:';
-  RAISE NOTICE '  1. Change the admin password immediately';
-  RAISE NOTICE '  2. Create additional user accounts';
-  RAISE NOTICE '  3. Customize milestones if needed';
-  RAISE NOTICE '  4. Start registering new converts!';
+  RAISE NOTICE '  1. Login and CHANGE the superadmin password immediately';
+  RAISE NOTICE '  2. Create month groups and assign leaders';
+  RAISE NOTICE '  3. Create user accounts for admins and leaders';
+  RAISE NOTICE '  4. Customize milestones if needed';
+  RAISE NOTICE '  5. Start registering new converts!';
   RAISE NOTICE '=============================================================================';
 END $$;
