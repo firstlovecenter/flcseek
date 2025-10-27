@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, memo, useMemo } from 'react';
+import { useEffect, useState, useCallback, memo, useMemo, Suspense } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb } from 'antd';
 import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -110,6 +110,14 @@ interface PersonWithProgress {
 }
 
 export default function SheepSeekerDashboard() {
+  return (
+    <Suspense fallback={<div style={{ padding: '50px', textAlign: 'center' }}><Spin size="large" tip="Loading..." /></div>}>
+      <SheepSeekerDashboardContent />
+    </Suspense>
+  );
+}
+
+function SheepSeekerDashboardContent() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
