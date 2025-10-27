@@ -105,6 +105,18 @@ export default function ProgressPage() {
   };
 
   const toggleStage = async (stageNumber: number, isCompleted: boolean) => {
+    // Milestone 1 cannot be edited by anyone
+    if (stageNumber === 1) {
+      message.warning('Milestone 1 is automatically completed on registration and cannot be edited');
+      return;
+    }
+
+    // Milestone 18 (Attendance) cannot be manually edited
+    if (stageNumber === 18) {
+      message.warning('Attendance milestone is automatically calculated from attendance records');
+      return;
+    }
+
     // Only superadmin can toggle a completed milestone back to incomplete
     if (isCompleted && !isSuperAdmin) {
       message.warning('Only superadmins can edit completed milestones');
@@ -309,10 +321,20 @@ export default function ProgressPage() {
                 <Checkbox
                   checked={stage.is_completed}
                   onChange={() => toggleStage(stage.stage_number, stage.is_completed)}
-                  disabled={updating || (stage.is_completed && !isSuperAdmin)}
+                  disabled={updating || stage.stage_number === 1 || stage.stage_number === 18 || (stage.is_completed && !isSuperAdmin)}
                 >
                   <Text strong>{milestones.find(m => m.stage_number === stage.stage_number)?.stage_name || `Stage ${stage.stage_number}`}</Text>
-                  {stage.is_completed && !isSuperAdmin && (
+                  {stage.stage_number === 1 && (
+                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                      (Auto-completed on registration)
+                    </Text>
+                  )}
+                  {stage.stage_number === 18 && (
+                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                      (Auto-calculated from attendance)
+                    </Text>
+                  )}
+                  {stage.is_completed && !isSuperAdmin && stage.stage_number !== 1 && stage.stage_number !== 18 && (
                     <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                       (Completed - Contact superadmin to edit)
                     </Text>
