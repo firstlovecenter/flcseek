@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all milestones ordered by stage number
+    // Fetch only active milestones ordered by stage number
     const milestones = await sql`
       SELECT 
         id,
@@ -34,9 +34,11 @@ export async function GET(request: NextRequest) {
         stage_name,
         short_name,
         description,
+        is_active,
         created_at,
         updated_at
       FROM milestones
+      WHERE is_active = true
       ORDER BY stage_number ASC
     `;
 
