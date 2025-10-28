@@ -248,8 +248,8 @@ export async function POST(request: Request) {
         // Initialize progress stages for the new person
         const personId = result.rows[0].id;
         
-        // Get all milestones from the database
-        const milestonesResult = await query('SELECT stage_number, stage_name FROM milestones ORDER BY stage_number');
+        // Get all active milestones from the database
+        const milestonesResult = await query('SELECT stage_number, stage_name FROM milestones WHERE is_active = true ORDER BY stage_number');
         const milestones = milestonesResult.rows;
 
         // OPTIMIZED: Insert all progress records in a single query using bulk INSERT
