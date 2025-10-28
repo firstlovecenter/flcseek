@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await query(
-      `SELECT id, stage_number, stage_name, short_name, description, created_at, updated_at
+      `SELECT id, stage_number, stage_name, short_name, description, is_active, created_at, updated_at
        FROM milestones
        ORDER BY stage_number ASC`
     );
@@ -157,6 +157,40 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: 'Milestone deleted successfully' });
   } catch (error) {
     console.error('Error deleting milestone:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PATCH - Toggle milestone active status
+export async function PATCH(request: NextRequest) {
+  const user = verifyAdmin(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id, is_active } = body;
+
+    if (!id || typeof is_active !== 'boolean') {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const result = await query(
+      `UPDATE milestones 
+       SET is_active = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [is_active, id]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ milestone: result.rows[0] });
+  } catch (error) {
+    console.error('Error toggling milestone status:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

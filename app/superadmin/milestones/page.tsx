@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Typography, Table, Tag, Button, Space, Modal, Form, Input, message, Spin, Popconfirm, InputNumber } from 'antd';
+import { Card, Typography, Table, Tag, Button, Space, Modal, Form, Input, message, Spin, Popconfirm, InputNumber, Switch } from 'antd';
 import { TrophyOutlined, CheckCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import dayjs from 'dayjs';
@@ -15,6 +15,7 @@ interface Milestone {
   stage_name: string;
   short_name: string;
   description: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -93,6 +94,33 @@ export default function MilestonesPage() {
     } catch (error: any) {
       console.error('Error deleting milestone:', error);
       message.error(error.message || 'Failed to delete milestone');
+    }
+  };
+
+  const handleToggleActive = async (id: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch('/api/superadmin/milestones', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id,
+          is_active: !currentStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update milestone status');
+      }
+
+      message.success(`Milestone ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      fetchMilestones();
+    } catch (error: any) {
+      console.error('Error toggling milestone status:', error);
+      message.error(error.message || 'Failed to update milestone status');
     }
   };
 
@@ -191,6 +219,25 @@ export default function MilestonesPage() {
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
+    },
+    {
+      title: 'Active',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: 100,
+      render: (is_active: boolean, record: Milestone) => (
+        <Switch
+          checked={is_active}
+          onChange={() => handleToggleActive(record.id, is_active)}
+          checkedChildren="Active"
+          unCheckedChildren="Inactive"
+        />
+      ),
+      filters: [
+        { text: 'Active', value: true },
+        { text: 'Inactive', value: false },
+      ],
+      onFilter: (value: any, record: Milestone) => record.is_active === value,
     },
     {
       title: 'Created',
