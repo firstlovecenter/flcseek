@@ -194,20 +194,36 @@ export async function PATCH(request: NextRequest) {
     if (is_active === true) {
       console.log(`Reactivating milestone ${milestone.stage_number}, checking for missing progress records...`);
       
-      // Find all converts who don't have a progress record for this milestone
+      // Get the total number of active milestones to check for completion
+      const totalMilestonesResult = await query(
+        `SELECT COUNT(*) as count FROM milestones WHERE is_active = true`
+      );
+      const totalActiveMilestones = parseInt(totalMilestonesResult.rows[0].count);
+      
+      // Find all converts who:
+      // 1. Don't have a progress record for this milestone
+      // 2. Are NOT in archived groups
+      // 3. Have NOT completed all their milestones (haven't graduated)
       const missingRecords = await query(
         `SELECT nc.id as person_id
          FROM new_converts nc
+         LEFT JOIN groups g ON nc.group_id = g.id
          WHERE NOT EXISTS (
            SELECT 1 FROM progress_records pr
            WHERE pr.person_id = nc.id
            AND pr.stage_number = $1
-         )`,
-        [milestone.stage_number]
+         )
+         AND (g.archived IS NULL OR g.archived = false)
+         AND (
+           SELECT COUNT(*) FROM progress_records pr
+           WHERE pr.person_id = nc.id 
+           AND pr.is_completed = true
+         ) < $2`,
+        [milestone.stage_number, totalActiveMilestones]
       );
 
       if (missingRecords.rows.length > 0) {
-        console.log(`Found ${missingRecords.rows.length} converts missing this milestone, backfilling...`);
+        console.log(`Found ${missingRecords.rows.length} active converts missing this milestone, backfilling...`);
         
         // Backfill progress records for all missing converts
         // Use bulk insert for efficiency
