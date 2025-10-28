@@ -116,7 +116,15 @@ export default function MilestonesPage() {
         throw new Error(error.error || 'Failed to update milestone status');
       }
 
-      message.success(`Milestone ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      const data = await response.json();
+      
+      // Show detailed message if records were backfilled
+      if (data.backfilled && data.backfilled > 0) {
+        message.success(`Milestone activated! ${data.backfilled} progress record(s) automatically created for existing converts.`, 5);
+      } else {
+        message.success(`Milestone ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      }
+      
       fetchMilestones();
     } catch (error: any) {
       console.error('Error toggling milestone status:', error);

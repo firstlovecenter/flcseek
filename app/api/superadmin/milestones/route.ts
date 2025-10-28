@@ -188,6 +188,56 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
 
+    const milestone = result.rows[0];
+
+    // If reactivating a milestone, backfill missing progress records for all converts
+    if (is_active === true) {
+      console.log(`Reactivating milestone ${milestone.stage_number}, checking for missing progress records...`);
+      
+      // Find all converts who don't have a progress record for this milestone
+      const missingRecords = await query(
+        `SELECT nc.id as person_id
+         FROM new_converts nc
+         WHERE NOT EXISTS (
+           SELECT 1 FROM progress_records pr
+           WHERE pr.person_id = nc.id
+           AND pr.stage_number = $1
+         )`,
+        [milestone.stage_number]
+      );
+
+      if (missingRecords.rows.length > 0) {
+        console.log(`Found ${missingRecords.rows.length} converts missing this milestone, backfilling...`);
+        
+        // Backfill progress records for all missing converts
+        // Use bulk insert for efficiency
+        const values = missingRecords.rows.map((row, index) => {
+          const offset = index * 5;
+          return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`;
+        }).join(', ');
+
+        const params = missingRecords.rows.flatMap(row => [
+          row.person_id,
+          milestone.stage_number,
+          milestone.stage_name,
+          false, // is_completed = false
+          user.username || 'system' // updated_by
+        ]);
+
+        await query(
+          `INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, updated_by)
+           VALUES ${values}`,
+          params
+        );
+
+        return NextResponse.json({ 
+          milestone: milestone,
+          backfilled: missingRecords.rows.length,
+          message: `Milestone activated and ${missingRecords.rows.length} progress record(s) backfilled`
+        });
+      }
+    }
+
     return NextResponse.json({ milestone: result.rows[0] });
   } catch (error) {
     console.error('Error toggling milestone status:', error);
