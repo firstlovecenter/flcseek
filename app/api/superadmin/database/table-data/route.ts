@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     } else if (tableName === 'progress_records') {
       orderByClause = 'person_id, stage_number';
     } else if (tableName === 'attendance_records') {
-      orderByClause = 'attendance_date DESC, person_id';
+      orderByClause = 'date_attended DESC, person_id';
     }
 
     const dataResult = await query(`
