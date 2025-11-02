@@ -76,7 +76,7 @@ export default function LeadPastorMonthDashboard() {
   const [milestones, setMilestones] = useState<Array<{ number: number; name: string; shortName: string }>>([]);
 
   useEffect(() => {
-    if (!authLoading && (!user || (user.role !== 'leadpastor' && user.role !== 'superadmin'))) {
+    if (!authLoading && (!user || user.role !== 'leadpastor')) {
       console.log('[LEAD-PASTOR-MONTH] Unauthorized access attempt, redirecting to home');
       router.push('/');
       return;
