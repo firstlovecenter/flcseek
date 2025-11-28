@@ -141,3 +141,51 @@ export async function PUT(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE - Delete a single convert and all related data
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const user = verifyAdmin(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    // First, get the convert's name for the response message
+    const convertResult = await query(
+      `SELECT first_name, last_name, phone_number FROM new_converts WHERE id = $1`,
+      [params.id]
+    );
+
+    if (convertResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Convert not found' }, { status: 404 });
+    }
+
+    const convert = convertResult.rows[0];
+    const convertName = `${convert.first_name} ${convert.last_name}`;
+
+    // Delete the convert (CASCADE will automatically delete progress_records and attendance_records)
+    await query(
+      `DELETE FROM new_converts WHERE id = $1`,
+      [params.id]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${convertName} and all related data`,
+      deletedConvert: {
+        name: convertName,
+        phone: convert.phone_number,
+      },
+    });
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      console.error('Error deleting convert:', (error as any).message);
+      return NextResponse.json({ error: (error as any).message }, { status: 500 });
+    }
+    console.error('Error deleting convert:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
