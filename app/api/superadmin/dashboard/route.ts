@@ -19,54 +19,74 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get total users
-    const usersResult = await query(
-      `SELECT COUNT(*) as total, 
-              COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as active
-       FROM users`
-    );
+    // Use CTE to combine all dashboard queries into one database round trip
+    const dashboardResult = await query(`
+      WITH 
+      user_stats AS (
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as active
+        FROM users
+      ),
+      group_stats AS (
+        SELECT COUNT(*) as total FROM groups
+      ),
+      leader_stats AS (
+        SELECT COUNT(*) as total 
+        FROM users 
+        WHERE role IN ('leader', 'admin', 'leadpastor')
+      ),
+      convert_stats AS (
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as this_month
+        FROM new_converts
+      ),
+      recent_activity AS (
+        SELECT 
+          'USER' as type,
+          'New user registered: ' || COALESCE(NULLIF(first_name || ' ' || last_name, ' '), username) as description,
+          COALESCE(NULLIF(first_name || ' ' || last_name, ' '), username) as user,
+          created_at as timestamp,
+          id::text as id
+        FROM users 
+        ORDER BY created_at DESC 
+        LIMIT 10
+      )
+      SELECT 
+        (SELECT row_to_json(user_stats.*) FROM user_stats) as user_stats,
+        (SELECT row_to_json(group_stats.*) FROM group_stats) as group_stats,
+        (SELECT row_to_json(leader_stats.*) FROM leader_stats) as leader_stats,
+        (SELECT row_to_json(convert_stats.*) FROM convert_stats) as convert_stats,
+        (SELECT json_agg(row_to_json(recent_activity.*)) FROM recent_activity) as recent_activity
+    `);
 
-    // Get total groups
-    const groupsResult = await query(`SELECT COUNT(*) as total FROM groups`);
-
-    // Get active group leaders - count users with leader, admin, or leadpastor roles
-    const leadersResult = await query(
-      `SELECT COUNT(*) as total FROM users WHERE role IN ('leader', 'admin', 'leadpastor')`
-    );
-
-    // Get total converts (people registered)
-    const convertsResult = await query(
-      `SELECT COUNT(*) as total,
-              COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as this_month
-       FROM new_converts`
-    );
-
-    // Get recent activity (last 10 actions)
-    const activityResult = await query(
-      `SELECT 
-        'USER' as type,
-        'New user registered: ' || username as description,
-        username as user,
-        created_at as timestamp,
-        id::text as id
-       FROM users 
-       ORDER BY created_at DESC 
-       LIMIT 10`
-    );
+    const data = dashboardResult.rows[0];
+    const userStats = data.user_stats || {};
+    const groupStats = data.group_stats || {};
+    const leaderStats = data.leader_stats || {};
+    const convertStats = data.convert_stats || {};
 
     const stats = {
-      totalUsers: parseInt(usersResult.rows[0]?.total || '0'),
-      activeUsers: parseInt(usersResult.rows[0]?.active || '0'),
-      totalGroups: parseInt(groupsResult.rows[0]?.total || '0'),
-      activeGroupLeaders: parseInt(leadersResult.rows[0]?.total || '0'),
-      totalConverts: parseInt(convertsResult.rows[0]?.total || '0'),
-      convertsThisMonth: parseInt(convertsResult.rows[0]?.this_month || '0'),
+      totalUsers: parseInt(userStats.total || '0'),
+      activeUsers: parseInt(userStats.active || '0'),
+      totalGroups: parseInt(groupStats.total || '0'),
+      activeGroupLeaders: parseInt(leaderStats.total || '0'),
+      totalConverts: parseInt(convertStats.total || '0'),
+      convertsThisMonth: parseInt(convertStats.this_month || '0'),
     };
 
-    return NextResponse.json({
-      stats,
-      recentActivity: activityResult.rows,
-    });
+    return NextResponse.json(
+      {
+        stats,
+        recentActivity: data.recent_activity || [],
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+        },
+      }
+    );
   } catch (error) {
     console.error('Dashboard API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyToken } from '@/lib/auth';
 
-// Disable caching for this route
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 // Helper function to check if a group is archived
 async function isGroupArchived(groupId: string): Promise<boolean> {
   const result = await query(
@@ -286,9 +282,7 @@ export async function GET(request: NextRequest) {
       { people: result.rows },
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
+          'Cache-Control': 'private, max-age=5, stale-while-revalidate=10',
         },
       }
     );
