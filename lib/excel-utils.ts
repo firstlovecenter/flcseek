@@ -136,21 +136,65 @@ export async function parseExcelFile(
         // Get first sheet
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
 
-        // Convert to JSON
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        // Convert to JSON with raw values to handle dates properly
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { raw: false });
 
         // Map to expected format
-        const members = jsonData.map((row: any) => ({
-          first_name: row.first_name?.toString().trim() || '',
-          last_name: row.last_name?.toString().trim() || '',
-          phone_number: row.phone_number?.toString().trim() || '',
-          date_of_birth: row.date_of_birth?.toString().trim() || '',
-          gender: row.gender?.toString().trim() || '',
-          residential_location: row.residential_location?.toString().trim() || '',
-          school_residential_location: row.school_residential_location?.toString().trim() || undefined,
-          occupation_type: row.occupation_type?.toString().trim() || '',
-          group_name: row.group_name?.toString().trim() || '',
-        }));
+        const members = jsonData.map((row: any) => {
+          let dateOfBirth = '';
+          
+          // Handle date_of_birth - could be a Date object, string with year, or DD-MM string
+          if (row.date_of_birth) {
+            const dobValue = row.date_of_birth;
+            
+            // Check if it's a date string with slashes (e.g., "01/09/2025" or "9/1/2025")
+            if (typeof dobValue === 'string' && dobValue.includes('/')) {
+              // Parse the date string to extract day and month
+              const parts = dobValue.split('/');
+              if (parts.length >= 2) {
+                const day = parts[1].padStart(2, '0');  // Month is usually second in MM/DD/YYYY
+                const month = parts[0].padStart(2, '0'); // Day is usually first
+                dateOfBirth = `${day}-${month}`;
+              }
+            }
+            // Check if it's already in DD-MM format
+            else if (typeof dobValue === 'string' && dobValue.includes('-')) {
+              const parts = dobValue.split('-');
+              if (parts.length === 2) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                dateOfBirth = `${day}-${month}`;
+              } else {
+                dateOfBirth = dobValue.trim();
+              }
+            }
+            // If it's any other format, try to parse as date
+            else {
+              const dateStr = dobValue.toString();
+              // Try to extract DD-MM from various formats
+              const dateMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})/);
+              if (dateMatch) {
+                const day = dateMatch[1].padStart(2, '0');
+                const month = dateMatch[2].padStart(2, '0');
+                dateOfBirth = `${day}-${month}`;
+              } else {
+                dateOfBirth = dateStr.trim();
+              }
+            }
+          }
+
+          return {
+            first_name: row.first_name?.toString().trim() || '',
+            last_name: row.last_name?.toString().trim() || '',
+            phone_number: row.phone_number?.toString().trim() || '',
+            date_of_birth: dateOfBirth,
+            gender: row.gender?.toString().trim() || '',
+            residential_location: row.residential_location?.toString().trim() || '',
+            school_residential_location: row.school_residential_location?.toString().trim() || undefined,
+            occupation_type: row.occupation_type?.toString().trim() || '',
+            group_name: row.group_name?.toString().trim() || '',
+          };
+        });
 
         resolve(members);
       } catch (error) {

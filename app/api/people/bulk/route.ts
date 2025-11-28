@@ -88,13 +88,13 @@ export async function POST(request: Request) {
         });
       }
 
-      // Validate date_of_birth (DD-MM format)
+      // Validate date_of_birth (DD-MM format, flexible with or without leading zeros)
       if (person.date_of_birth) {
-        if (!/^\d{2}-\d{2}$/.test(person.date_of_birth)) {
+        if (!/^\d{1,2}-\d{1,2}$/.test(person.date_of_birth)) {
           errors.push({
             row: rowNumber,
             field: 'date_of_birth',
-            message: 'Date of birth must be in DD-MM format (e.g., 15-03)',
+            message: 'Date of birth must be in DD-MM format (e.g., 15-03, 5-3, 01-12)',
           });
         } else {
           const [day, month] = person.date_of_birth.split('-').map(Number);
