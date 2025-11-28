@@ -218,18 +218,18 @@ export function validateMemberData(members: Array<{
       });
     }
 
-    // Validate date_of_birth (DD-MM format)
+    // Validate date_of_birth (DD-MM format, flexible with or without leading zeros)
     if (!member.date_of_birth || member.date_of_birth.trim() === '') {
       errors.push({
         row: rowNumber,
         field: 'date_of_birth',
         message: 'Date of birth is required',
       });
-    } else if (!/^\d{2}-\d{2}$/.test(member.date_of_birth)) {
+    } else if (!/^\d{1,2}-\d{1,2}$/.test(member.date_of_birth)) {
       errors.push({
         row: rowNumber,
         field: 'date_of_birth',
-        message: 'Date of birth must be in DD-MM format (e.g., 15-03)',
+        message: 'Date of birth must be in DD-MM format (e.g., 15-03, 5-3, 01-12)',
       });
     } else {
       // Validate day and month ranges
@@ -248,6 +248,8 @@ export function validateMemberData(members: Array<{
           message: 'Month must be between 01 and 12',
         });
       }
+      // Normalize to DD-MM format with leading zeros
+      member.date_of_birth = `${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}`;
     }
 
     // Validate gender (required)
