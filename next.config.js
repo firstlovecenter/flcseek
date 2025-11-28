@@ -157,6 +157,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  compress: true, // Enable gzip/brotli compression (reduces payload by 70-80%)
+  poweredByHeader: false, // Remove X-Powered-By header for security
 };
 
 module.exports = withPWA(nextConfig);

@@ -58,7 +58,11 @@ export async function GET(request: Request) {
       ? await query(sql, params)
       : await query(sql);
 
-    return NextResponse.json(result.rows);
+    return NextResponse.json(result.rows, {
+      headers: {
+        'Cache-Control': 'private, max-age=10, stale-while-revalidate=20',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
