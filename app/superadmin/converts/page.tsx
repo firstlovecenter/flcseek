@@ -42,11 +42,13 @@ export default function NewConvertsManagementPage() {
   const [searchText, setSearchText] = useState('');
   const [groupFilter, setGroupFilter] = useState<string>('all');
   const [groups, setGroups] = useState<string[]>([]);
+  const [totalMilestones, setTotalMilestones] = useState<number>(18); // Default to 18
 
   useEffect(() => {
     if (token) {
       fetchConverts();
       fetchStats();
+      fetchMilestoneCount();
     }
   }, [token]);
 
@@ -70,6 +72,19 @@ export default function NewConvertsManagementPage() {
       console.error('Failed to fetch converts');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMilestoneCount = async () => {
+    try {
+      const response = await fetch('/api/milestones', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      const activeMilestones = data.milestones?.filter((m: any) => m.is_active) || [];
+      setTotalMilestones(activeMilestones.length);
+    } catch (error) {
+      console.error('Failed to fetch milestone count');
     }
   };
 
@@ -169,7 +184,7 @@ export default function NewConvertsManagementPage() {
       key: 'progress',
       render: (_: any, record: Convert) => (
         <div>
-          <div>Stages: {record.completed_stages}/15</div>
+          <div>Stages: {record.completed_stages}/{totalMilestones}</div>
           <div>Attendance: {record.total_attendance}</div>
         </div>
       ),
