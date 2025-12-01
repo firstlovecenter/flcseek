@@ -4,6 +4,14 @@ const sql = neon(process.env.NEON_DATABASE_URL || 'postgresql://neondb_owner:npg
 
 async function createSysadmin() {
   try {
+    // First, try to delete existing sysadmin user if it exists
+    try {
+      await sql`DELETE FROM users WHERE username = 'sysadmin'`;
+      console.log('🗑️  Deleted existing sysadmin user');
+    } catch (deleteError) {
+      // User doesn't exist, that's fine
+    }
+
     const result = await sql`
       INSERT INTO users (username, password, role, phone_number, first_name, last_name, email)
       VALUES (
@@ -24,11 +32,7 @@ async function createSysadmin() {
     console.log('Username: sysadmin');
     console.log('Password: REDACTED_PASSWORD');
   } catch (error) {
-    if (error.message.includes('duplicate key')) {
-      console.log('❌ User "sysadmin" already exists in the database');
-    } else {
-      console.error('❌ Error creating sysadmin user:', error.message);
-    }
+    console.error('❌ Error creating sysadmin user:', error.message);
   }
 }
 
