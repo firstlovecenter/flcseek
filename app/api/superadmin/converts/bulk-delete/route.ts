@@ -13,8 +13,8 @@ function verifyAdmin(request: NextRequest) {
   try {
     const token = authHeader.substring(7);
     const decoded: any = jwt.verify(token, JWT_SECRET);
-    // Only allow skaduteye superadmin
-    if (decoded.role !== 'superadmin' || decoded.username !== 'skaduteye') {
+    // Only allow skaduteye and sysadmin superadmins
+    if (decoded.role !== 'superadmin' || !['skaduteye', 'sysadmin'].includes(decoded.username)) {
       return null;
     }
     return decoded;
@@ -27,7 +27,7 @@ function verifyAdmin(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const user = verifyAdmin(request);
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized - Only skaduteye can perform bulk delete' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized - Only skaduteye and sysadmin can perform bulk delete' }, { status: 401 });
   }
 
   try {

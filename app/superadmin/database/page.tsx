@@ -58,7 +58,8 @@ export default function DatabaseManagementPage() {
     }
   };
 
-  const isSkaduteye = getUsernameFromToken() === 'skaduteye';
+  const username = getUsernameFromToken();
+  const isSkaduteye = username === 'skaduteye' || username === 'sysadmin';
 
   useEffect(() => {
     if (token) {
