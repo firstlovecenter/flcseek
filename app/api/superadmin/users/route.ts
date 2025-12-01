@@ -31,6 +31,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // skaduteye can see all users including sysadmin
+    // sysadmin can see all users except skaduteye
+    // other superadmins can't see skaduteye or sysadmin
+    let whereClause = '';
+    if (user.username === 'skaduteye') {
+      // skaduteye sees everyone
+      whereClause = '';
+    } else if (user.username === 'sysadmin') {
+      // sysadmin sees everyone except skaduteye
+      whereClause = "WHERE username != 'skaduteye'";
+    } else {
+      // regular superadmins don't see skaduteye or sysadmin
+      whereClause = "WHERE username NOT IN ('skaduteye', 'sysadmin')";
+    }
+
     const result = await query(
       `SELECT 
          id, 
@@ -44,7 +59,7 @@ export async function GET(request: NextRequest) {
          created_at, 
          updated_at
        FROM users
-       WHERE username NOT IN ('skaduteye', 'sysadmin')
+       ${whereClause}
        ORDER BY 
          COALESCE(NULLIF(first_name, ''), username) ASC,
          COALESCE(NULLIF(last_name, ''), '') ASC`
