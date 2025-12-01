@@ -7,10 +7,10 @@ export async function PATCH(request: NextRequest) {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
 
-    // Only skaduteye can edit database
-    if (!userPayload || userPayload.role !== 'superadmin' || userPayload.username !== 'skaduteye') {
+    // Only skaduteye and sysadmin can edit database
+    if (!userPayload || userPayload.role !== 'superadmin' || !['skaduteye', 'sysadmin'].includes(userPayload.username)) {
       return NextResponse.json(
-        { error: 'Unauthorized. Only skaduteye can edit database records.' },
+        { error: 'Unauthorized. Only skaduteye and sysadmin can edit database records.' },
         { status: 403 }
       );
     }
@@ -74,10 +74,10 @@ export async function DELETE(request: NextRequest) {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     const userPayload = token ? verifyToken(token) : null;
 
-    // Only skaduteye can delete database records
-    if (!userPayload || userPayload.role !== 'superadmin' || userPayload.username !== 'skaduteye') {
+    // Only skaduteye and sysadmin can delete database records
+    if (!userPayload || userPayload.role !== 'superadmin' || !['skaduteye', 'sysadmin'].includes(userPayload.username)) {
       return NextResponse.json(
-        { error: 'Unauthorized. Only skaduteye can delete database records.' },
+        { error: 'Unauthorized. Only skaduteye and sysadmin can delete database records.' },
         { status: 403 }
       );
     }

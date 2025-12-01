@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         d.name as department_name
        FROM users u
        LEFT JOIN groups d ON d.leader_id = u.id
-       WHERE u.role = 'leader' AND u.username != 'skaduteye'
+       WHERE u.role = 'leader' AND u.username NOT IN ('skaduteye', 'sysadmin')
        ORDER BY u.username ASC`
     );
 

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
          created_at, 
          updated_at
        FROM users
-       WHERE username != 'skaduteye'
+       WHERE username NOT IN ('skaduteye', 'sysadmin')
        ORDER BY 
          COALESCE(NULLIF(first_name, ''), username) ASC,
          COALESCE(NULLIF(last_name, ''), '') ASC`
