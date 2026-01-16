@@ -439,11 +439,12 @@ function SheepSeekerDashboardContent() {
     ? Math.round((completedMilestones / totalMilestones) * 100)
     : 0;
 
-  // Get current year if group_year is not available (fallback)
-  const currentYear = new Date().getFullYear();
+  // Get group year - use group_year from user if available, otherwise default to 2025
+  // Note: Most groups are 2025, so we default to 2025 instead of current year
+  const groupYear = user?.group_year || 2025;
   
   // Display group name (which is already a month) and year
-  const displayTitle = `${user?.group_name} ${user?.group_year || currentYear}`;
+  const displayTitle = `${user?.group_name} ${groupYear}`;
 
   // Check if user is admin (can access bulk registration)
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
