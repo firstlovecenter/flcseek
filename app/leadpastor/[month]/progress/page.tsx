@@ -38,8 +38,10 @@ export default function LeadPastorProgressPage() {
   const fetchPeople = async () => {
     try {
       const monthName = month.charAt(0).toUpperCase() + month.slice(1);
+      // Use current year for lead pastor views
+      const currentYear = new Date().getFullYear();
       
-      const response = await fetch(`/api/people?month=${monthName}`, {
+      const response = await fetch(`/api/people?month=${monthName}&year=${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
