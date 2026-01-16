@@ -125,6 +125,42 @@ export default function SheepSeekerDashboard() {
     description: string;
   }>>([]);
   const [form] = Form.useForm();
+  const [groupYear, setGroupYear] = useState<number | null>(null);
+
+  // Fetch group year from user token or API
+  useEffect(() => {
+    const fetchGroupYear = async () => {
+      if (!user || !token) return;
+
+      // First try to use year from user token
+      if (user.group_year) {
+        setGroupYear(user.group_year);
+        return;
+      }
+
+      // Otherwise fetch from groups API
+      if (user.group_id || user.group_name) {
+        try {
+          const response = await fetch('/api/groups', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const userGroup = data.groups?.find((g: any) => 
+              g.id === user.group_id || g.name === user.group_name
+            );
+            if (userGroup) {
+              setGroupYear(userGroup.year);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch group year:', error);
+        }
+      }
+    };
+
+    fetchGroupYear();
+  }, [user, token]);
 
   // Fetch milestones from database
   const fetchMilestones = useCallback(async () => {
@@ -415,14 +451,8 @@ export default function SheepSeekerDashboard() {
     ? Math.round((completedMilestones / totalMilestones) * 100)
     : 0;
 
-  // Get group year from user token (fetched from database during login)
-  // If people data is available, use the year from there as it's fresher
-  const groupYear = people.length > 0 && people[0].group_year 
-    ? people[0].group_year 
-    : (user?.group_year || new Date().getFullYear());
-  
   // Display group name (which is already a month) and year
-  const displayTitle = `${user?.group_name} ${groupYear}`;
+  const displayTitle = `${user?.group_name} ${groupYear || new Date().getFullYear()}`;
 
   // Check if user is admin (can access bulk registration)
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
