@@ -54,7 +54,8 @@ export default function ProgressPage() {
 
   const fetchPeople = async () => {
     try {
-      const response = await fetch('/api/people', {
+      // Use the optimized endpoint that already includes progress data
+      const response = await fetch('/api/people/with-progress', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -62,24 +63,19 @@ export default function ProgressPage() {
 
       const data = await response.json();
 
-      const peopleWithProgress = await Promise.all(
-        data.people.map(async (person: any) => {
-          const detailsRes = await fetch(`/api/people/${person.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const details = await detailsRes.json();
-          const completedStages = details.progress?.filter((p: any) => p.is_completed).length || 0;
+      // Map the data to progress format
+      const peopleWithProgress = data.people.map((person: any) => {
+        const completedStages = person.progress?.filter((p: any) => p.is_completed).length || 0;
 
-          return {
-            id: person.id,
-            full_name: person.full_name,
-            group_name: person.group_name,
-            phone_number: person.phone_number,
-            completedStages,
-            percentage: Math.round((completedStages / 18) * 100),
-          };
-        })
-      );
+        return {
+          id: person.id,
+          full_name: person.full_name,
+          group_name: person.group_name,
+          phone_number: person.phone_number,
+          completedStages,
+          percentage: Math.round((completedStages / 18) * 100),
+        };
+      });
 
       setPeople(peopleWithProgress);
     } catch (error: any) {
