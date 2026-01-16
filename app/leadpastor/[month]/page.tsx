@@ -69,8 +69,8 @@ export default function LeadPastorMonthDashboard() {
   const params = useParams();
   const searchParams = useSearchParams();
   const month = params?.month as string;
-  // Default to 2025 for groups without explicit year parameter
-  const year = searchParams.get('year') || '2025';
+  // Use year from URL parameter, or default to current year
+  const year = searchParams.get('year') || new Date().getFullYear().toString();
   const [people, setPeople] = useState<PersonWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');

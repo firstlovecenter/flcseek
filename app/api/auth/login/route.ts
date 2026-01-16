@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         );
         if (groupResult.rows.length > 0) {
           groupName = groupResult.rows[0].name;
-          groupYear = groupResult.rows[0].year || 2025;
+          groupYear = groupResult.rows[0].year; // Use actual year from database
         }
       } catch (error) {
         console.error('[LOGIN] Error fetching group details:', error);
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         );
         if (groupResult.rows.length > 0) {
           groupId = groupResult.rows[0].id;
-          groupYear = groupResult.rows[0].year || 2025;
+          groupYear = groupResult.rows[0].year; // Use actual year from database
         }
       } catch (error) {
         console.error('[LOGIN] Error fetching group by name:', error);

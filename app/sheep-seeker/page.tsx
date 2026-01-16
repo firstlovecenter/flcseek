@@ -102,6 +102,7 @@ interface PersonWithProgress {
   id: string;
   full_name: string;
   group_name: string;
+  group_year?: number;
   phone_number: string;
   progress: Array<{
     stage_number: number;
@@ -439,9 +440,11 @@ function SheepSeekerDashboardContent() {
     ? Math.round((completedMilestones / totalMilestones) * 100)
     : 0;
 
-  // Get group year - use group_year from user if available, otherwise default to 2025
-  // Note: Most groups are 2025, so we default to 2025 instead of current year
-  const groupYear = user?.group_year || 2025;
+  // Get group year from user token (fetched from database during login)
+  // If people data is available, use the year from there as it's fresher
+  const groupYear = people.length > 0 && people[0].group_year 
+    ? people[0].group_year 
+    : (user?.group_year || new Date().getFullYear());
   
   // Display group name (which is already a month) and year
   const displayTitle = `${user?.group_name} ${groupYear}`;
