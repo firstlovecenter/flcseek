@@ -39,9 +39,10 @@ export default function LeadPastorAttendancePage() {
   const fetchPeople = async () => {
     try {
       const monthName = month.charAt(0).toUpperCase() + month.slice(1);
-      const currentYear = new Date().getFullYear();
+      // Default to 2025 for groups without explicit year
+      const groupYear = 2025;
       
-      const response = await fetch(`/api/people?month=${monthName}&year=${currentYear}`, {
+      const response = await fetch(`/api/people?month=${monthName}&year=${groupYear}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
