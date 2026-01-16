@@ -88,8 +88,9 @@ export default function Navigation({ children }: NavigationProps) {
       if (monthMatch && monthMatch[1]) {
         const month = monthMatch[1];
         const monthName = month.charAt(0).toUpperCase() + month.slice(1);
-        const currentYear = new Date().getFullYear();
-        return `${monthName} ${currentYear} | Lead Pastor`;
+        // Default to 2025 for groups without explicit year
+        const groupYear = user?.group_year || 2025;
+        return `${monthName} ${groupYear} | Lead Pastor`;
       }
       return 'FLC Sheep Seeking | Lead Pastor';
     }
