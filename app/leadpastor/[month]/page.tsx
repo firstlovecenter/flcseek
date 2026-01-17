@@ -6,6 +6,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useThemeStyles } from '@/lib/theme-utils';
+import { api } from '@/lib/api';
 
 const { Text } = Typography;
 
@@ -91,14 +92,12 @@ export default function LeadPastorMonthDashboard() {
 
   const fetchMilestones = async () => {
     try {
-      const response = await fetch('/api/milestones', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.milestones.list();
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Fetched milestones from API:', data.milestones);
-        const formattedMilestones = data.milestones.map((m: any) => {
+      if (response.success) {
+        const milestoneData = response.data?.milestones || [];
+        console.log('Fetched milestones from API:', milestoneData);
+        const formattedMilestones = milestoneData.map((m: any) => {
           let shortName = m.short_name || m.stage_name.substring(0, 10);
           // Ensure shortName has a line break if it doesn't already and has multiple words
           if (!shortName.includes('\n')) {
@@ -137,16 +136,16 @@ export default function LeadPastorMonthDashboard() {
       const monthName = month.charAt(0).toUpperCase() + month.slice(1);
       
       // OPTIMIZED: Use single API call that returns people with progress
-      const response = await fetch(`/api/people/with-progress?month=${monthName}&year=${year}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await api.people.list({
+        month: monthName,
+        year: parseInt(year),
+        include: 'progress',
       });
 
-      if (!response.ok) throw new Error('Failed to fetch people');
-
-      const data = await response.json();
+      if (!response.success) throw new Error('Failed to fetch people');
 
       // Sort alphabetically by full_name
-      const sortedPeople = (data.people || []).sort((a: any, b: any) => 
+      const sortedPeople = (response.data?.people || []).sort((a: any, b: any) => 
         (a.full_name || '').localeCompare(b.full_name || '')
       );
 

@@ -1,7 +1,26 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Security: Throw error if JWT_SECRET is not configured
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  // Only throw in runtime, not during build
+  if (typeof window === 'undefined' && process.env.NODE_ENV !== 'development') {
+    console.error('CRITICAL: JWT_SECRET environment variable is not set!');
+  }
+}
+
+// Fallback only for build time, runtime will use actual secret
+const getJwtSecret = (): string => {
+  if (!JWT_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be configured in production');
+    }
+    // Development fallback
+    return 'development-secret-change-in-production';
+  }
+  return JWT_SECRET;
+};
 
 export interface UserPayload {
   id: string;
@@ -30,12 +49,12 @@ export function verifyPassword(password: string, hash: string): boolean {
 }
 
 export function generateToken(user: UserPayload): string {
-  return jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(user, getJwtSecret(), { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string): UserPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as UserPayload;
+    return jwt.verify(token, getJwtSecret()) as UserPayload;
   } catch {
     return null;
   }

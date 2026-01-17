@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { useThemeStyles } from '@/lib/theme-utils';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -31,6 +32,7 @@ export default function ProgressPage() {
   const [people, setPeople] = useState<PersonProgress[]>([]);
   const themeStyles = useThemeStyles();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [totalMilestones, setTotalMilestones] = useState<number>(18);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
@@ -48,23 +50,34 @@ export default function ProgressPage() {
     }
 
     if (user && token) {
+      fetchMilestones();
       fetchPeople();
     }
   }, [user, token, authLoading, router]);
 
+  // Fetch milestones to get dynamic count
+  const fetchMilestones = async () => {
+    try {
+      const response = await api.milestones.list();
+      if (response.success) {
+        setMilestones(response.data?.milestones || []);
+        setTotalMilestones(response.data?.milestones?.length || 18);
+      }
+    } catch (error) {
+      console.error('Failed to fetch milestones:', error);
+    }
+  };
+
   const fetchPeople = async () => {
     try {
       // Use the optimized endpoint that already includes progress data
-      const response = await fetch('/api/people/with-progress', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.people.list({ include: 'progress' });
 
-      if (!response.ok) throw new Error('Failed to fetch people');
+      if (!response.success) throw new Error('Failed to fetch people');
 
-      const data = await response.json();
-
-      // Map the data to progress format
-      const peopleWithProgress = data.people.map((person: any) => {
+      // Map the data to progress format - use dynamic milestone count
+      const milestoneCount = totalMilestones || 18;
+      const peopleWithProgress = (response.data?.people || []).map((person: any) => {
         const completedStages = person.progress?.filter((p: any) => p.is_completed).length || 0;
 
         return {
@@ -73,7 +86,7 @@ export default function ProgressPage() {
           group_name: person.group_name,
           phone_number: person.phone_number,
           completedStages,
-          percentage: Math.round((completedStages / 18) * 100),
+          percentage: Math.round((completedStages / milestoneCount) * 100),
         };
       });
 
@@ -87,13 +100,11 @@ export default function ProgressPage() {
 
   const openProgressModal = async (person: PersonProgress) => {
     try {
-      const response = await fetch(`/api/people/${person.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const details = await response.json();
+      const response = await api.people.get(person.id);
+      if (!response.success) throw new Error('Failed to load progress details');
       
       setSelectedPerson(person);
-      setProgressStages(details.progress || []);
+      setProgressStages(response.data?.progress || []);
       setModalVisible(true);
     } catch (error: any) {
       message.error(error.message || 'Failed to load progress details');
@@ -121,28 +132,20 @@ export default function ProgressPage() {
     
     setUpdating(true);
     try {
-      const response = await fetch(`/api/progress/${selectedPerson.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          stage_number: stageNumber,
-          is_completed: !isCompleted,
-        }),
+      const response = await api.progress.update(selectedPerson.id, {
+        stage_number: stageNumber,
+        is_completed: !isCompleted,
       });
 
-      if (!response.ok) throw new Error('Failed to update progress');
+      if (!response.success) throw new Error('Failed to update progress');
 
       message.success('Progress updated successfully!');
       
       // Refresh progress stages
-      const detailsRes = await fetch(`/api/people/${selectedPerson.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const details = await detailsRes.json();
-      setProgressStages(details.progress || []);
+      const detailsRes = await api.people.get(selectedPerson.id);
+      if (detailsRes.success) {
+        setProgressStages(detailsRes.data?.progress || []);
+      }
       
       // Refresh people list
       fetchPeople();

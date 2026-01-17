@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon';
 import { verifyPassword, generateToken } from '@/lib/auth';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 
 export async function POST(request: NextRequest) {
   try {
+    // Check rate limit first
+    const rateLimitResponse = await checkRateLimit(request, '/api/auth/login');
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const body = await request.json();
     const { username, password } = body;
+    const { ipAddress, userAgent } = extractRequestInfo(request.headers);
 
-    console.log(`[LOGIN] Attempt for user: ${username}`);
+    // Remove sensitive console.log in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[LOGIN] Attempt for user: ${username}`);
+    }
 
     if (!username || !password) {
       return NextResponse.json(
@@ -25,26 +37,37 @@ export async function POST(request: NextRequest) {
     const user = result.rows[0];
 
     if (!user) {
-      console.log(`[LOGIN] User not found: ${username}`);
+      // Log failed login attempt
+      await logAuditEvent({
+        action: 'LOGIN_FAILED',
+        newValues: { username, reason: 'user_not_found' },
+        ipAddress,
+        userAgent,
+      });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
-
-    console.log(`[LOGIN] User found: ${user.username} (${user.role})`);
 
     const isValidPassword = verifyPassword(password, user.password);
 
     if (!isValidPassword) {
-      console.log(`[LOGIN] Invalid password for: ${username}`);
+      // Log failed login attempt
+      await logAuditEvent({
+        userId: user.id,
+        action: 'LOGIN_FAILED',
+        entityType: 'user',
+        entityId: user.id,
+        newValues: { reason: 'invalid_password' },
+        ipAddress,
+        userAgent,
+      });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
-
-    console.log(`[LOGIN] Password verified for: ${username}`);
 
     // Get user's group information
     let groupName = user.group_name || null;
@@ -93,6 +116,17 @@ export async function POST(request: NextRequest) {
       group_id: groupId || undefined,
     });
 
+    // Log successful login
+    await logAuditEvent({
+      userId: user.id,
+      action: 'LOGIN',
+      entityType: 'user',
+      entityId: user.id,
+      newValues: { role: user.role, group_name: groupName },
+      ipAddress,
+      userAgent,
+    });
+
     return NextResponse.json({
       token,
       user: {
@@ -109,7 +143,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Login error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Login error:', error);
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

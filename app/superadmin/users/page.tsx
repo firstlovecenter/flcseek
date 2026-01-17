@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Button, Input, Select, Tag, Space, Modal, Form, message, Typography, Card } from 'antd';
-import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import UserGroupsModal from '@/components/UserGroupsModal';
+import { api } from '@/lib/api';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -39,6 +41,10 @@ export default function UsersManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
+  
+  // Groups modal state
+  const [groupsModalVisible, setGroupsModalVisible] = useState(false);
+  const [selectedUserForGroups, setSelectedUserForGroups] = useState<User | null>(null);
 
   useEffect(() => {
     if (token) {
@@ -53,12 +59,14 @@ export default function UsersManagementPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/superadmin/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setUsers(data.users || []);
-      setFilteredUsers(data.users || []);
+      // Use new v1 API
+      const response = await api.users.list();
+      if (response.success && response.data) {
+        setUsers(response.data.users || []);
+        setFilteredUsers(response.data.users || []);
+      } else {
+        message.error(response.error?.message || 'Failed to fetch users');
+      }
     } catch (error) {
       message.error('Failed to fetch users');
     } finally {
@@ -68,12 +76,13 @@ export default function UsersManagementPage() {
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch('/api/superadmin/groups?filter=active', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setGroups(data.groups || []);
-      return data.groups || [];
+      // Use new v1 API
+      const response = await api.groups.list({ active: true });
+      if (response.success && response.data) {
+        setGroups(response.data.groups || []);
+        return response.data.groups || [];
+      }
+      return [];
     } catch (error) {
       console.error('Failed to fetch groups');
       return [];
@@ -258,6 +267,17 @@ export default function UsersManagementPage() {
         <Space>
           <Button
             type="link"
+            icon={<TeamOutlined />}
+            onClick={() => {
+              setSelectedUserForGroups(record);
+              setGroupsModalVisible(true);
+            }}
+            title="Manage Groups"
+          >
+            Groups
+          </Button>
+          <Button
+            type="link"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
@@ -440,6 +460,19 @@ export default function UsersManagementPage() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* User Groups Management Modal */}
+      {selectedUserForGroups && (
+        <UserGroupsModal
+          visible={groupsModalVisible}
+          onClose={() => {
+            setGroupsModalVisible(false);
+            setSelectedUserForGroups(null);
+          }}
+          userId={selectedUserForGroups.id}
+          username={selectedUserForGroups.username}
+        />
+      )}
     </div>
   );
 }

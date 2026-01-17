@@ -11,6 +11,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import NotificationBell from './NotificationBell';
+import { api } from '@/lib/api';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -41,13 +43,10 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
 
       // Otherwise fetch from API
       try {
-        const response = await fetch('/api/groups', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
+        const response = await api.groups.list();
+        if (response.success && response.data) {
           // Find the user's group
-          const userGroup = data.groups?.find((g: any) => 
+          const userGroup = response.data?.find((g: any) => 
             g.name === user.group_name
           );
           if (userGroup) {
@@ -154,6 +153,7 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
             {getHeaderTitle()}
           </Text>
         </Link>
+        <NotificationBell />
         <Button
           type="primary"
           danger
