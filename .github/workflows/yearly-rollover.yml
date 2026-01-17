@@ -1,0 +1,60 @@
+name: Yearly Group Rollover
+
+on:
+  schedule:
+    # Run at 00:00 UTC on January 1st every year
+    - cron: '0 0 1 1 *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  clone-groups:
+    runs-on: ubuntu-latest
+    name: Clone Groups to New Year - ${{ matrix.instance.name }}
+    strategy:
+      matrix:
+        instance: ${{ fromJSON(secrets.PRODUCTION_INSTANCES) }}
+      max-parallel: 2  # Run max 2 instances in parallel to avoid overload
+      fail-fast: false  # Continue with other instances if one fails
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Clone groups for ${{ matrix.instance.name }}
+        id: clone
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ matrix.instance.url }}/api/superadmin/groups/clone-previous-year" \
+            -H "Authorization: Bearer ${{ secrets.SUPERADMIN_TOKEN }}" \
+            -H "Content-Type: application/json")
+          
+          # Extract status code (last line) and body (everything else)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          echo "response=$BODY" >> $GITHUB_OUTPUT
+          
+          # Print for debugging
+          echo "Instance: ${{ matrix.instance.name }}"
+          echo "URL: ${{ matrix.instance.url }}"
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          
+          # Fail if not successful
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "❌ Failed to clone groups on ${{ matrix.instance.name }}"
+            exit 1
+          fi
+      
+      - name: Parse and log results
+        if: success()
+        run: |
+          echo "✅ Groups successfully cloned for ${{ matrix.instance.name }}"
+          echo "${{ steps.clone.outputs.response }}" | jq '.'
+      
+      - name: Log failure
+        if: failure()
+        run: |
+          echo "❌ Yearly group rollover failed for ${{ matrix.instance.name }}!"
+          echo "Response: ${{ steps.clone.outputs.response }}"

@@ -35,8 +35,8 @@ export default function SheepSeekerPeoplePage() {
   const [filteredPeople, setFilteredPeople] = useState<PersonWithStats[]>([]);
   const [searchText, setSearchText] = useState('');
 
-  // Use optimized hook for fetching people with stats
-  const { data, loading, error, refetch } = usePeopleWithStats(token);
+  // Use optimized hook for fetching people with stats; include year to isolate cache per cohort
+  const { data, loading, error, refetch } = usePeopleWithStats(token, { year: user?.group_year });
   const people = data?.people || [];
 
   useEffect(() => {

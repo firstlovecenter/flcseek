@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, Spin, Table, Tag } from 'antd';
+import { Card, Row, Col, Statistic, Typography, Spin, Table, Tag, message } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -53,14 +54,39 @@ export default function SuperAdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      // Use new v1 stats API
+      const statsResponse = await api.stats.getDashboard();
+      
+      if (statsResponse.success && statsResponse.data) {
+        const { summary, groupStats } = statsResponse.data;
+        setStats({
+          totalUsers: 0, // Will be fetched separately if needed
+          activeUsers: 0,
+          totalGroups: summary.totalGroups || 0,
+          totalConverts: summary.totalPeople || 0,
+          convertsThisMonth: 0,
+          activeGroupLeaders: 0,
+        });
+      }
+      
+      // Fallback to old API for activity data (can be migrated later)
       const response = await fetch('/api/superadmin/dashboard', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
-      setStats(data.stats || stats);
+      if (data.stats) {
+        setStats(prev => ({
+          ...prev,
+          totalUsers: data.stats.totalUsers || prev.totalUsers,
+          activeUsers: data.stats.activeUsers || prev.activeUsers,
+          activeGroupLeaders: data.stats.activeGroupLeaders || prev.activeGroupLeaders,
+          convertsThisMonth: data.stats.convertsThisMonth || prev.convertsThisMonth,
+        }));
+      }
       setRecentActivity(data.recentActivity || []);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+      message.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }

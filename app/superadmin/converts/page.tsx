@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Select, Space, Card, Typography, Tag, Statistic, Row, Col } from 'antd';
-import { HeartOutlined, SearchOutlined, UserOutlined, CalendarOutlined, TeamOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Space, Card, Typography, Tag, Statistic, Row, Col, Dropdown, message } from 'antd';
+import { HeartOutlined, SearchOutlined, UserOutlined, CalendarOutlined, TeamOutlined, DownloadOutlined, DeleteOutlined, FileExcelOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import { api } from '@/lib/api';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -77,12 +78,11 @@ export default function NewConvertsManagementPage() {
 
   const fetchMilestoneCount = async () => {
     try {
-      const response = await fetch('/api/milestones', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      const activeMilestones = data.milestones?.filter((m: any) => m.is_active) || [];
-      setTotalMilestones(activeMilestones.length);
+      const response = await api.milestones.list();
+      if (response.success) {
+        const activeMilestones = response.data?.filter((m: any) => m.is_active) || [];
+        setTotalMilestones(activeMilestones.length);
+      }
     } catch (error) {
       console.error('Failed to fetch milestone count');
     }
@@ -118,22 +118,73 @@ export default function NewConvertsManagementPage() {
     setFilteredConverts(filtered);
   };
 
-  const handleExport = async () => {
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async (format: 'csv' | 'json', type: 'converts' | 'progress' | 'attendance' | 'all') => {
     try {
-      const response = await fetch('/api/superadmin/converts/export', {
+      setExporting(true);
+      const params = new URLSearchParams();
+      params.append('type', type);
+      params.append('format', format);
+      
+      const response = await fetch(`/api/export?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `converts-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `flcseek-${type}-${new Date().toISOString().split('T')[0]}.${format}`;
       a.click();
       window.URL.revokeObjectURL(url);
+      message.success(`Exported ${type} as ${format.toUpperCase()}`);
     } catch (error) {
-      console.error('Failed to export');
+      console.error('Failed to export:', error);
+      message.error('Failed to export data');
+    } finally {
+      setExporting(false);
     }
   };
+
+  const exportMenuItems = [
+    {
+      key: 'converts-csv',
+      label: 'Converts (CSV)',
+      icon: <FileExcelOutlined />,
+      onClick: () => handleExport('csv', 'converts'),
+    },
+    {
+      key: 'converts-json',
+      label: 'Converts (JSON)',
+      icon: <FileTextOutlined />,
+      onClick: () => handleExport('json', 'converts'),
+    },
+    { type: 'divider' as const },
+    {
+      key: 'progress-csv',
+      label: 'Progress Data (CSV)',
+      icon: <FileExcelOutlined />,
+      onClick: () => handleExport('csv', 'progress'),
+    },
+    {
+      key: 'attendance-csv',
+      label: 'Attendance Data (CSV)',
+      icon: <FileExcelOutlined />,
+      onClick: () => handleExport('csv', 'attendance'),
+    },
+    { type: 'divider' as const },
+    {
+      key: 'all-json',
+      label: 'All Data (JSON)',
+      icon: <FileTextOutlined />,
+      onClick: () => handleExport('json', 'all'),
+    },
+  ];
 
   const columns = [
     {
@@ -266,12 +317,14 @@ export default function NewConvertsManagementPage() {
               </Option>
             ))}
           </Select>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={handleExport}
-          >
-            Export
-          </Button>
+          <Dropdown menu={{ items: exportMenuItems }} trigger={['click']}>
+            <Button
+              icon={<DownloadOutlined />}
+              loading={exporting}
+            >
+              Export Data
+            </Button>
+          </Dropdown>
           <Link href="/superadmin/converts/bulk-delete">
             <Button
               danger
