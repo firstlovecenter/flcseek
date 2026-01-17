@@ -6,6 +6,7 @@ import { UserAddOutlined, HomeOutlined, BarChartOutlined, TeamOutlined, FileExce
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -22,12 +23,9 @@ export default function RegisterPersonPage() {
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch('/api/groups', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setGroups(data.groups?.map((g: any) => g.name) || []);
+      const response = await api.groups.list();
+      if (response.success) {
+        setGroups(response.data?.groups?.map((g: any) => g.name) || []);
       }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -37,18 +35,10 @@ export default function RegisterPersonPage() {
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/people', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
+      const response = await api.people.create(values);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to register person');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to register person');
       }
 
       message.success('Person registered successfully!');

@@ -61,6 +61,7 @@ export function useFetch<T>(
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
         signal: controller.signal,
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -122,9 +123,10 @@ export function useFetch<T>(
 // Hook for fetching people with stats
 export function usePeopleWithStats(
   token: string | null,
-  filters?: { group_id?: string; group?: string; month?: string; limit?: number; offset?: number }
+  filters?: { year?: number; group_id?: string; group?: string; month?: string; limit?: number; offset?: number }
 ) {
   const queryParams = new URLSearchParams();
+  if (filters?.year) queryParams.set('year', filters.year.toString());
   if (filters?.group_id) queryParams.set('group_id', filters.group_id);
   if (filters?.group) queryParams.set('group', filters.group);
   if (filters?.month) queryParams.set('month', filters.month);
@@ -134,7 +136,7 @@ export function usePeopleWithStats(
   const url = token ? `/api/people/with-stats${queryParams.toString() ? '?' + queryParams.toString() : ''}` : null;
 
   return useFetch<{ people: any[]; total: number; has_more: boolean }>(url, token, {
-    cacheTime: 15000, // 15 seconds cache
+    cacheTime: 0, // disable in-memory cache for year-dependent list
   });
 }
 

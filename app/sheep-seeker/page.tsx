@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback, memo, useMemo, Suspense } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb } from 'antd';
-import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
+import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, ArrowLeftOutlined, HomeOutlined, CalendarOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
+import { ATTENDANCE_GOAL, CURRENT_YEAR } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { useThemeStyles } from '@/lib/theme-utils';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -133,56 +134,70 @@ function SheepSeekerDashboardContent() {
     name: string;
     shortName: string;
     description: string;
+    isAutoCalculated: boolean;
   }>>([]);
   const [form] = Form.useForm();
   const [groupYear, setGroupYear] = useState<number | null>(null);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
-  // Fetch group year from user token or API
+  // Fetch available years for the user's group (month)
   useEffect(() => {
-    const fetchGroupYear = async () => {
+    const fetchAvailableYears = async () => {
       if (!user || !token) return;
 
-      // First try to use year from user token
-      if (user.group_year) {
-        setGroupYear(user.group_year);
-        return;
-      }
+      try {
+        const response = await api.groups.list({ active: true });
+        
+        if (response.success && response.data) {
+          const groups = response.data.groups || [];
 
-      // Otherwise fetch from groups API
-      if (user.group_id || user.group_name) {
-        try {
-          const response = await fetch('/api/groups', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            const userGroup = data.groups?.find((g: any) => 
-              g.id === user.group_id || g.name === user.group_name
+          // Filter by the user's month group name
+          const userMonthName = user.group_name;
+          const matchingGroups = userMonthName
+            ? groups.filter((g: any) => g.name.toLowerCase() === userMonthName.toLowerCase())
+            : groups;
+
+          // Extract unique years
+          const years = Array.from(new Set(matchingGroups.map((g: any) => g.year))) as number[];
+          years.sort((a, b) => b - a); // Descending order (newest first)
+
+          setAvailableYears(years);
+
+          // Set the default year from user's assigned group
+          if (user.group_year) {
+            setGroupYear(user.group_year);
+            setSelectedYear(user.group_year);
+          } else if (years.length > 0) {
+            // Find the user's assigned group year or use the most recent
+            const userGroup = groups.find((g: any) => 
+              g.id === user.group_id || (g.name === user.group_name && g.year)
             );
-            if (userGroup) {
-              setGroupYear(userGroup.year);
-            }
+            const defaultYear = userGroup?.year || years[0];
+            setGroupYear(defaultYear);
+            setSelectedYear(defaultYear);
           }
-        } catch (error) {
-          console.error('Failed to fetch group year:', error);
         }
+      } catch (error) {
+        console.error('Failed to fetch available years:', error);
+        // Fallback to current year
+        setAvailableYears([CURRENT_YEAR]);
+        setSelectedYear(CURRENT_YEAR);
       }
     };
 
-    fetchGroupYear();
+    fetchAvailableYears();
   }, [user, token]);
 
   // Fetch milestones from database
   const fetchMilestones = useCallback(async () => {
     try {
-      const response = await fetch('/api/milestones', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch milestones');
+      const response = await api.milestones.list();
+      if (!response.success) throw new Error('Failed to fetch milestones');
       
-      const data = await response.json();
-      console.log('Fetched milestones from API:', data.milestones);
-      const formattedMilestones = data.milestones.map((milestone: any) => {
+      const milestoneData = response.data?.milestones || [];
+      console.log('Fetched milestones from API:', milestoneData);
+      const formattedMilestones = milestoneData.map((milestone: any) => {
         // Format short_name: split multi-word names across two lines, keep single words intact
         let formattedShortName = milestone.short_name || milestone.stage_name.substring(0, 10);
         if (milestone.short_name && !formattedShortName.includes('\n')) {
@@ -202,6 +217,7 @@ function SheepSeekerDashboardContent() {
           name: milestone.stage_name,
           shortName: formattedShortName,
           description: milestone.description,
+          isAutoCalculated: milestone.is_auto_calculated || false,
         };
       });
       console.log('Formatted milestones:', formattedMilestones);
@@ -212,7 +228,7 @@ function SheepSeekerDashboardContent() {
       message.error('Failed to load milestones from database');
       setMilestones([]);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     // Allow leader, admin, leadpastor, and superadmin to access this page
@@ -226,36 +242,38 @@ function SheepSeekerDashboardContent() {
       console.log('[SHEEP-SEEKER] Authorized user:', user.role);
       console.log('[SHEEP-SEEKER] Group ID from URL:', groupIdFromUrl);
       fetchMilestones();
-      fetchAllPeople();
     }
   }, [user, token, authLoading, router, fetchMilestones, groupIdFromUrl]);
 
-  const fetchAllPeople = async () => {
+  // Fetch people when selectedYear changes
+  useEffect(() => {
+    if (user && token && selectedYear) {
+      console.log('[SHEEP-SEEKER] Fetching people for year:', selectedYear);
+      fetchAllPeople(selectedYear);
+    }
+  }, [user, token, selectedYear, groupIdFromUrl]);
+
+  const fetchAllPeople = async (year?: number) => {
     try {
       setLoading(true);
       // OPTIMIZED: Use single API call that returns people with progress
-      // Support filtering by group_id when superadmin navigates from group management
-      const url = groupIdFromUrl 
-        ? `/api/people/with-progress?group_id=${groupIdFromUrl}`
-        : '/api/people/with-progress';
-      
-      console.log('[SHEEP-SEEKER] Fetching from:', url);
-        
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await api.people.list({
+        group_id: groupIdFromUrl || undefined,
+        year: year,
+        include: 'progress',
       });
+      
+      console.log('[SHEEP-SEEKER] Fetching people for year:', year);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[SHEEP-SEEKER] Fetch error:', response.status, errorData);
-        throw new Error(errorData.error || 'Failed to fetch people');
+      if (!response.success) {
+        console.error('[SHEEP-SEEKER] Fetch error:', response.error);
+        throw new Error(response.error?.message || 'Failed to fetch people');
       }
 
-      const data = await response.json();
-      console.log('[SHEEP-SEEKER] Fetched people:', data.people?.length || 0);
+      console.log('[SHEEP-SEEKER] Fetched people:', response.data?.people?.length || 0);
 
       // Data is already formatted with progress included
-      setPeople(data.people || []);
+      setPeople(response.data?.people || []);
     } catch (error: any) {
       console.error('[SHEEP-SEEKER] Error:', error);
       message.error(error.message || 'Failed to load people');
@@ -266,21 +284,13 @@ function SheepSeekerDashboardContent() {
 
   const handleRegister = async (values: any) => {
     try {
-      const response = await fetch('/api/people', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...values,
-          group_name: user?.group_name,
-        }),
+      const response = await api.people.create({
+        ...values,
+        group_name: user?.group_name,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to register person');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to register person');
       }
 
       message.success('Person registered successfully!');
@@ -294,27 +304,21 @@ function SheepSeekerDashboardContent() {
 
   // Optimized toggle function with useCallback
   const toggleMilestone = useCallback(async (personId: string, stageNumber: number, currentStatus: boolean) => {
-    // Prevent toggling milestone 18 (auto-calculated from attendance)
-    if (stageNumber === 18) {
-      message.warning('Attendance milestone is auto-calculated from attendance records');
+    // Check if this milestone is auto-calculated
+    const milestone = milestones.find(m => m.number === stageNumber);
+    if (milestone?.isAutoCalculated) {
+      message.warning(`${milestone.name} is auto-calculated and cannot be toggled manually`);
       return;
     }
 
     setUpdating(`${personId}-${stageNumber}`);
     try {
-      const response = await fetch(`/api/progress/${personId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          stage_number: stageNumber,
-          is_completed: !currentStatus,
-        }),
+      const response = await api.progress.update(personId, {
+        stage_number: stageNumber,
+        is_completed: !currentStatus,
       });
 
-      if (!response.ok) throw new Error('Failed to update milestone');
+      if (!response.success) throw new Error('Failed to update milestone');
 
       // Update local state
       setPeople(prevPeople =>
@@ -354,7 +358,7 @@ function SheepSeekerDashboardContent() {
     } finally {
       setUpdating(null);
     }
-  }, [token]);
+  }, [token, milestones]);
 
   const getMilestoneStatus = useCallback((person: PersonWithProgress, stageNumber: number) => {
     const stage = person.progress.find(p => p.stage_number === stageNumber);
@@ -408,7 +412,7 @@ function SheepSeekerDashboardContent() {
       render: (_: any, record: PersonWithProgress) => {
         const isCompleted = getMilestoneStatus(record, stage.number);
         const isUpdating = updating === `${record.id}-${stage.number}`;
-        const isAuto = stage.number === 18; // Milestone 18 is auto-calculated
+        const isAuto = stage.isAutoCalculated; // Use flag from API instead of hardcoded check
         
         // Use read-only cell for leaders
         if (isLeader) {
@@ -421,11 +425,7 @@ function SheepSeekerDashboardContent() {
         }
         
         const handleToggle = () => {
-          // Prevent toggling milestone 18 (auto-calculated from attendance)
-          if (stage.number === 18) {
-            message.warning('Attendance milestone is auto-calculated from attendance records');
-            return;
-          }
+          // toggleMilestone already checks for auto-calculated milestones
           toggleMilestone(record.id, stage.number, isCompleted);
         };
         
@@ -476,11 +476,16 @@ function SheepSeekerDashboardContent() {
     ? Math.round((completedMilestones / totalMilestones) * 100)
     : 0;
 
-  // Display group name (which is already a month) and year
-  const displayTitle = `${user?.group_name} ${groupYear || new Date().getFullYear()}`;
+  // Display group name (which is already a month) and selected year
+  const displayTitle = `${user?.group_name} ${selectedYear || groupYear || new Date().getFullYear()}`;
 
   // Check if user is admin (can access bulk registration)
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
+  // Handle year change
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+  };
 
   return (
     <>
@@ -488,6 +493,21 @@ function SheepSeekerDashboardContent() {
       <div className="sticky-controls-bar">
         
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          
+          {/* Year Selector - only show if multiple years available */}
+          {availableYears.length > 1 && (
+            <Select
+              value={selectedYear}
+              onChange={handleYearChange}
+              style={{ width: 100 }}
+              options={availableYears.map((year) => ({
+                label: year.toString(),
+                value: year,
+              }))}
+              placeholder="Year"
+              suffixIcon={<CalendarOutlined />}
+            />
+          )}
           
           <Input
             placeholder="Search by name, phone, group..."

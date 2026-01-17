@@ -6,6 +6,7 @@ import { UserAddOutlined, HomeOutlined, BarChartOutlined, TeamOutlined, FileExce
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -36,12 +37,9 @@ function RegisterPersonContent() {
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch('/api/groups', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setGroups(data.groups || []);
+      const response = await api.groups.list();
+      if (response.success) {
+        setGroups(response.data?.groups || []);
       }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -51,18 +49,10 @@ function RegisterPersonContent() {
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/people', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
+      const response = await api.people.create(values);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to register person');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to register person');
       }
 
       message.success('Person registered successfully!');

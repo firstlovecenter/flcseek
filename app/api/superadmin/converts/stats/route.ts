@@ -30,13 +30,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const { searchParams } = new URL(request.url);
+    const yearParam = searchParams.get('year');
+
+    let whereClause = '';
+    let queryParams: any[] = [];
+
+    if (yearParam) {
+      whereClause = `WHERE g.year = $1`;
+      queryParams = [parseInt(yearParam)];
+    }
+
     const statsResult = await query(
       `SELECT 
         COUNT(*) as total_converts,
-        COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as this_month,
-        COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END) as this_week,
-        COUNT(DISTINCT group_name) as active_groups
-       FROM new_converts`
+        COUNT(CASE WHEN nc.created_at > NOW() - INTERVAL '30 days' THEN 1 END) as this_month,
+        COUNT(CASE WHEN nc.created_at > NOW() - INTERVAL '7 days' THEN 1 END) as this_week,
+        COUNT(DISTINCT nc.group_name) as active_groups
+       FROM new_converts nc
+       LEFT JOIN groups g ON nc.group_id = g.id
+       ${whereClause}`,
+      queryParams
     );
 
     const stats = {

@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space } from 'antd';
-import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space, Select } from 'antd';
+import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined, CalendarOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ATTENDANCE_GOAL } from '@/lib/constants';
+import { ATTENDANCE_GOAL, CURRENT_YEAR } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import dayjs from 'dayjs';
 import { useThemeStyles } from '@/lib/theme-utils';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -29,6 +30,8 @@ function AttendancePageContent() {
   const [people, setPeople] = useState<PersonAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const themeStyles = useThemeStyles();
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   
   // Calculate the most recent Sunday as the default date
   const getMostRecentSunday = () => {
@@ -42,34 +45,78 @@ function AttendancePageContent() {
   const isLeader = user?.role === 'leader';
   const isSuperAdmin = user?.role === 'superadmin';
 
+  // Fetch available years for the user's group (month)
+  useEffect(() => {
+    const fetchAvailableYears = async () => {
+      if (!user || !token) return;
+
+      try {
+        const response = await api.groups.list({ active: true });
+        
+        if (response.success && response.data) {
+          const groups = response.data.groups || [];
+
+          // Filter by the user's month group name
+          const userMonthName = user.group_name;
+          const matchingGroups = userMonthName
+            ? groups.filter((g: any) => g.name.toLowerCase() === userMonthName.toLowerCase())
+            : groups;
+
+          // Extract unique years
+          const years = Array.from(new Set(matchingGroups.map((g: any) => g.year))) as number[];
+          years.sort((a, b) => b - a); // Descending order (newest first)
+
+          setAvailableYears(years);
+
+          // Set the default year from user's assigned group
+          if (user.group_year) {
+            setSelectedYear(user.group_year);
+          } else if (years.length > 0) {
+            // Find the user's assigned group year or use the most recent
+            const userGroup = groups.find((g: any) => 
+              g.id === user.group_id || (g.name === user.group_name && g.year)
+            );
+            const defaultYear = userGroup?.year || years[0];
+            setSelectedYear(defaultYear);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch available years:', error);
+        // Fallback to current year
+        setAvailableYears([CURRENT_YEAR]);
+        setSelectedYear(CURRENT_YEAR);
+      }
+    };
+
+    fetchAvailableYears();
+  }, [user, token]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/');
       return;
     }
 
-    if (user && token) {
+    // Only fetch when we have a selected year (or for superadmin/groupIdFromUrl)
+    if (user && token && (selectedYear || groupIdFromUrl || isSuperAdmin)) {
       fetchPeople();
     }
-  }, [user, token, authLoading, router, groupIdFromUrl]);
+  }, [user, token, authLoading, router, groupIdFromUrl, selectedYear]);
 
   const fetchPeople = async () => {
     try {
-      // Use the optimized endpoint with group_id filtering
-      const url = groupIdFromUrl 
-        ? `/api/people/with-progress?group_id=${groupIdFromUrl}`
-        : '/api/people/with-progress';
-        
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
+      setLoading(true);
+      // Use the optimized endpoint with group_id and year filtering
+      const response = await api.people.list({
+        group_id: groupIdFromUrl || undefined,
+        year: selectedYear || undefined,
+        include: 'progress',
       });
 
-      if (!response.ok) throw new Error('Failed to fetch people');
-
-      const data = await response.json();
+      if (!response.success) throw new Error('Failed to fetch people');
 
       // Map the optimized response to attendance format
-      const peopleWithAttendance = data.people.map((person: any) => ({
+      const peopleWithAttendance = (response.data?.people || []).map((person: any) => ({
         id: person.id,
         full_name: person.full_name,
         group_name: person.group_name,
@@ -88,20 +135,12 @@ function AttendancePageContent() {
 
   const markAttendance = async (personId: string) => {
     try {
-      const response = await fetch(`/api/attendance/${personId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          date_attended: selectedDate.format('YYYY-MM-DD'),
-        }),
+      const response = await api.attendance.mark(personId, {
+        date_attended: selectedDate.format('YYYY-MM-DD'),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to mark attendance');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to mark attendance');
       }
 
       message.success('Attendance marked successfully!');
@@ -245,6 +284,23 @@ function AttendancePageContent() {
             }
           </Text>
         </div>
+
+        {/* Year Selector - only show if multiple years available */}
+        {availableYears.length > 1 && (
+          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Text><CalendarOutlined /> Year:</Text>
+            <Select
+              value={selectedYear}
+              onChange={(year) => setSelectedYear(year)}
+              style={{ width: 100 }}
+              options={availableYears.map((year) => ({
+                label: year.toString(),
+                value: year,
+              }))}
+              placeholder="Year"
+            />
+          </div>
+        )}
 
         {/* Only show date picker for admins (not for leaders) */}
         {!isLeader && (
