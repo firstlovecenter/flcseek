@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { useThemeStyles } from '@/lib/theme-utils';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -141,12 +142,9 @@ export default function SheepSeekerDashboard() {
       // Otherwise fetch from groups API
       if (user.group_id || user.group_name) {
         try {
-          const response = await fetch('/api/groups', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            const userGroup = data.groups?.find((g: any) => 
+          const response = await api.groups.list();
+          if (response.success) {
+            const userGroup = response.data?.groups?.find((g: any) => 
               g.id === user.group_id || g.name === user.group_name
             );
             if (userGroup) {
@@ -165,14 +163,12 @@ export default function SheepSeekerDashboard() {
   // Fetch milestones from database
   const fetchMilestones = useCallback(async () => {
     try {
-      const response = await fetch('/api/milestones', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch milestones');
+      const response = await api.milestones.list();
+      if (!response.success) throw new Error('Failed to fetch milestones');
       
-      const data = await response.json();
-      console.log('Fetched milestones from API:', data.milestones);
-      const formattedMilestones = data.milestones.map((milestone: any) => {
+      const milestoneData = response.data?.milestones || [];
+      console.log('Fetched milestones from API:', milestoneData);
+      const formattedMilestones = milestoneData.map((milestone: any) => {
         // Format short_name: split multi-word names across two lines, keep single words intact
         let formattedShortName = milestone.short_name || milestone.stage_name.substring(0, 10);
         if (milestone.short_name && !formattedShortName.includes('\n')) {
@@ -222,16 +218,12 @@ export default function SheepSeekerDashboard() {
   const fetchAllPeople = async () => {
     try {
       // OPTIMIZED: Use single API call that returns people with progress
-      const response = await fetch('/api/people/with-progress', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.people.list({ include: 'progress' });
 
-      if (!response.ok) throw new Error('Failed to fetch people');
-
-      const data = await response.json();
+      if (!response.success) throw new Error('Failed to fetch people');
 
       // Data is already formatted with progress included
-      setPeople(data.people || []);
+      setPeople(response.data?.people || []);
     } catch (error: any) {
       message.error(error.message || 'Failed to load people');
     } finally {
@@ -241,21 +233,13 @@ export default function SheepSeekerDashboard() {
 
   const handleRegister = async (values: any) => {
     try {
-      const response = await fetch('/api/people', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...values,
-          group_name: user?.group_name,
-        }),
+      const response = await api.people.create({
+        ...values,
+        group_name: user?.group_name,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to register person');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to register person');
       }
 
       message.success('Person registered successfully!');
@@ -277,19 +261,12 @@ export default function SheepSeekerDashboard() {
 
     setUpdating(`${personId}-${stageNumber}`);
     try {
-      const response = await fetch(`/api/progress/${personId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          stage_number: stageNumber,
-          is_completed: !currentStatus,
-        }),
+      const response = await api.progress.update(personId, {
+        stage_number: stageNumber,
+        is_completed: !currentStatus,
       });
 
-      if (!response.ok) throw new Error('Failed to update milestone');
+      if (!response.success) throw new Error('Failed to update milestone');
 
       // Update local state
       setPeople(prevPeople =>
@@ -329,7 +306,7 @@ export default function SheepSeekerDashboard() {
     } finally {
       setUpdating(null);
     }
-  }, [token]);
+  }, []);
 
   const getMilestoneStatus = useCallback((person: PersonWithProgress, stageNumber: number) => {
     const stage = person.progress.find(p => p.stage_number === stageNumber);

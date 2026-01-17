@@ -6,6 +6,7 @@ import { CalendarOutlined, DownOutlined, TeamOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { CURRENT_YEAR } from '@/lib/constants';
+import { api } from '@/lib/api';
 
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
@@ -46,14 +47,11 @@ export default function LeadPastorDashboard() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/groups?filter=active', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.groups.list({ active: true });
 
-      if (!response.ok) throw new Error('Failed to fetch groups');
+      if (!response.success) throw new Error('Failed to fetch groups');
 
-      const data = await response.json();
-      setGroups(data.groups || []);
+      setGroups(response.data?.groups || []);
     } catch (error) {
       console.error('Error fetching groups:', error);
       setGroups([]);

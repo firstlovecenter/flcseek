@@ -33,6 +33,7 @@ import {
   parseExcelFile,
   validateMemberData,
 } from '@/lib/excel-utils';
+import { api } from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -72,12 +73,9 @@ export default function BulkRegisterPage() {
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch('/api/groups', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setGroups(data.groups?.map((g: any) => g.name) || []);
+      const response = await api.groups.list();
+      if (response.success) {
+        setGroups(response.data?.groups?.map((g: any) => g.name) || []);
       }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -156,25 +154,16 @@ export default function BulkRegisterPage() {
         group_name: user.group_name,
       }));
 
-      const response = await fetch('/api/people/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ people: membersWithGroup }),
-      });
+      const response = await api.people.bulkCreate(membersWithGroup);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to upload members');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to upload members');
       }
 
-      setUploadResult(result);
+      setUploadResult(response.data);
       setCurrentStep(2);
       message.success(
-        `Successfully registered ${result.inserted} convert(s)!`
+        `Successfully registered ${response.data?.inserted || 0} convert(s)!`
       );
     } catch (error: any) {
       message.error(error.message || 'Failed to upload converts');

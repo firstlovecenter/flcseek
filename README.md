@@ -377,11 +377,7 @@ This is normal if tables already exist. The migrations use `IF NOT EXISTS` claus
    ```sql
    SELECT username, role FROM users WHERE username = 'superadmin';
    ```
-2. Reset superadmin password if needed (requires database access):
-   ```sql
-   -- Password: admin123
-   UPDATE users SET password = '$2a$10$XQK9c5J5R.QF5Y0YKVk8HOJyPmrqOYqXqHPxQZxQZUJGZKZQZxQZU' WHERE username = 'superadmin';
-   ```
+2. If issues persist, verify environment variables and database connectivity.
 
 ### Slow Performance
 **Problem:** Pages load slowly despite optimizations
