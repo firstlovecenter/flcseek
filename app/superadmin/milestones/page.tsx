@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, Typography, Table, Tag, Button, Space, Modal, Form, Input, message, Spin, Popconfirm, InputNumber, Switch } from 'antd';
 import { TrophyOutlined, CheckCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 import dayjs from 'dayjs';
 
 const { Title, Paragraph, Text } = Typography;
@@ -36,19 +37,14 @@ export default function MilestonesPage() {
   const fetchMilestones = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/superadmin/milestones', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.milestones.listAll();
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch milestones');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch milestones');
       }
 
-      const data = await response.json();
-      setMilestones(data.milestones);
-    } catch (error) {
+      setMilestones(response.data?.milestones || []);
+    } catch (error: any) {
       console.error('Error fetching milestones:', error);
       message.error('Failed to load milestones');
     } finally {
@@ -99,27 +95,16 @@ export default function MilestonesPage() {
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const response = await fetch('/api/superadmin/milestones', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          id,
-          is_active: !currentStatus,
-        }),
-      });
+      const response = await api.milestones.update(id, { is_active: !currentStatus });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update milestone status');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update milestone status');
       }
 
-      const data = await response.json();
+      const data = response.data;
       
       // Show detailed message if records were backfilled
-      if (data.backfilled && data.backfilled > 0) {
+      if (data?.backfilled && data.backfilled > 0) {
         message.success(`Milestone activated! ${data.backfilled} progress record(s) automatically created for existing converts.`, 5);
       } else {
         message.success(`Milestone ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
@@ -136,23 +121,15 @@ export default function MilestonesPage() {
     try {
       if (isCreating) {
         // Create new milestone
-        const response = await fetch('/api/superadmin/milestones', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            stage_number: values.stage_number,
-            stage_name: values.stage_name,
-            short_name: values.short_name,
-            description: values.description,
-          }),
+        const response = await api.milestones.create({
+          stage_number: values.stage_number,
+          stage_name: values.stage_name,
+          short_name: values.short_name,
+          description: values.description,
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create milestone');
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Failed to create milestone');
         }
 
         message.success('Milestone created successfully');
@@ -160,21 +137,13 @@ export default function MilestonesPage() {
         // Update existing milestone
         if (!editingMilestone) return;
 
-        const response = await fetch('/api/superadmin/milestones', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            id: editingMilestone.id,
-            stage_name: values.stage_name,
-            short_name: values.short_name,
-            description: values.description,
-          }),
+        const response = await api.milestones.update(editingMilestone.id, {
+          stage_name: values.stage_name,
+          short_name: values.short_name,
+          description: values.description,
         });
 
-        if (!response.ok) {
+        if (!response.success) {
           throw new Error('Failed to update milestone');
         }
 

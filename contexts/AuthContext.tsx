@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { clearCache } from '@/hooks/use-fetch';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -65,6 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.token);
     setUser(data.user);
 
+    // Clear any cached API responses to avoid stale year/group data
+    clearCache();
+
     // Use setTimeout to ensure localStorage is written before redirect
     setTimeout(() => {
       if (data.user.role === 'superadmin') {
@@ -84,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    // Clear all cached data on logout
+    clearCache();
     router.push('/');
   };
 

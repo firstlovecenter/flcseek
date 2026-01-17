@@ -26,6 +26,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/AppConfigProvider';
+import { api } from '@/lib/api';
 
 const { Header, Content, Footer } = Layout;
 
@@ -56,13 +57,10 @@ export default function Navigation({ children }: NavigationProps) {
 
       // Otherwise fetch from API
       try {
-        const response = await fetch('/api/groups', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
+        const response = await api.groups.list();
+        if (response.success && response.data) {
           // Find the user's group
-          const userGroup = data.groups?.find((g: any) => 
+          const userGroup = response.data?.find((g: any) => 
             g.name === user.group_name
           );
           if (userGroup) {

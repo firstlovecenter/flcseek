@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Space, Modal, Form, message, Typography, Card, Select, Tag, Segmented } from 'antd';
-import { TeamOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, UserOutlined, InboxOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Space, Modal, Form, message, Typography, Card, Select, Tag, Segmented, Tooltip } from 'antd';
+import { TeamOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, UserOutlined, InboxOutlined, CheckCircleOutlined, CopyOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { CURRENT_YEAR, MIN_YEAR, MAX_YEAR, GROUP_FILTERS, GroupFilter } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -42,6 +43,7 @@ export default function GroupsManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
+  const [cloning, setCloning] = useState(false);
 
   // Generate year options
   const yearOptions = [{ label: 'All Years', value: 'all' }];
@@ -63,18 +65,19 @@ export default function GroupsManagementPage() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedYear !== 'all') {
-        params.append('year', selectedYear);
-      }
-      params.append('filter', filter);
-
-      const response = await fetch(`/api/superadmin/groups?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      
+      // Use new v1 API
+      const response = await api.groups.list({
+        year: selectedYear !== 'all' ? parseInt(selectedYear) : undefined,
+        active: filter === GROUP_FILTERS.ACTIVE ? true : filter === GROUP_FILTERS.ARCHIVED ? false : undefined,
       });
-      const data = await response.json();
-      setGroups(data.groups || []);
-      setFilteredGroups(data.groups || []);
+      
+      if (response.success && response.data) {
+        setGroups(response.data.groups || []);
+        setFilteredGroups(response.data.groups || []);
+      } else {
+        message.error(response.error?.message || 'Failed to fetch groups');
+      }
     } catch (error) {
       message.error('Failed to fetch groups');
     } finally {
@@ -84,11 +87,11 @@ export default function GroupsManagementPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/superadmin/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setUsers(data.users || []);
+      // Use new v1 API for leaders
+      const response = await api.users.getLeaders();
+      if (response.success && response.data) {
+        setUsers(response.data.users || []);
+      }
     } catch (error) {
       console.error('Failed to fetch users');
     }
@@ -158,6 +161,39 @@ export default function GroupsManagementPage() {
           fetchGroups();
         } catch (error) {
           message.error('Failed to delete group');
+        }
+      },
+    });
+  };
+
+  const handleClonePreviousYear = () => {
+    Modal.confirm({
+      title: 'Clone Groups from Previous Year?',
+      content: `This will clone all active groups from ${CURRENT_YEAR - 1} to ${CURRENT_YEAR}, preserving their leaders and descriptions. Groups that already exist in ${CURRENT_YEAR} will be skipped.`,
+      okText: 'Clone',
+      okType: 'primary',
+      onOk: async () => {
+        try {
+          setCloning(true);
+          const response = await fetch('/api/superadmin/groups/clone-previous-year', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            message.success(
+              `${data.clonedCount} groups cloned${data.skippedCount > 0 ? `, ${data.skippedCount} skipped` : ''}`
+            );
+            fetchGroups();
+          } else {
+            message.error(data.error || 'Failed to clone groups');
+          }
+        } catch (error) {
+          message.error('Failed to clone groups');
+        } finally {
+          setCloning(false);
         }
       },
     });
@@ -323,18 +359,29 @@ export default function GroupsManagementPage() {
             />
           </Space>
           
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingGroup(null);
-              form.resetFields();
-              form.setFieldsValue({ year: CURRENT_YEAR, archived: false });
-              setIsModalVisible(true);
-            }}
-          >
-            Create Group
-          </Button>
+          <Space>
+            <Tooltip title={`Clone all active groups from ${CURRENT_YEAR - 1} to ${CURRENT_YEAR}`}>
+              <Button
+                icon={<CopyOutlined />}
+                onClick={handleClonePreviousYear}
+                loading={cloning}
+              >
+                Clone {CURRENT_YEAR - 1} Groups
+              </Button>
+            </Tooltip>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingGroup(null);
+                form.resetFields();
+                form.setFieldsValue({ year: CURRENT_YEAR, archived: false });
+                setIsModalVisible(true);
+              }}
+            >
+              Create Group
+            </Button>
+          </Space>
         </Space>
       </Card>
 
