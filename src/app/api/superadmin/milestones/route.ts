@@ -238,11 +238,11 @@ export async function PATCH(request: NextRequest) {
       });
 
       // Filter to find converts missing this milestone and not graduated
-      const missingConverts = convertsWithProgress.filter(convert => {
+      const missingConverts = convertsWithProgress.filter((convert: any) => {
         const hasThisMilestone = convert.progressRecords.some(
-          pr => pr.stageNumber === milestone.stageNumber
+          (pr: any) => pr.stageNumber === milestone.stageNumber
         );
-        const completedCount = convert.progressRecords.filter(pr => pr.isCompleted).length;
+        const completedCount = convert.progressRecords.filter((pr: any) => pr.isCompleted).length;
         return !hasThisMilestone && completedCount < totalActiveMilestones;
       });
 
@@ -251,7 +251,7 @@ export async function PATCH(request: NextRequest) {
         
         // Backfill progress records for all missing converts
         await prisma.progressRecord.createMany({
-          data: missingConverts.map(convert => ({
+          data: missingConverts.map((convert: any) => ({
             personId: convert.id,
             stageNumber: milestone.stageNumber,
             stageName: milestone.stageName || `Stage ${milestone.stageNumber}`,

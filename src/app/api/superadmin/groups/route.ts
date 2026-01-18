@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform and sort by month order
-    const transformedGroups = groups.map(g => {
+    const transformedGroups = groups.map((g: any) => {
       let leaderName = 'No Leader';
       if (g.leader) {
         if (g.leader.firstName && g.leader.lastName) {
