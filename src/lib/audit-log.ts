@@ -4,7 +4,6 @@
  */
 
 import { prisma } from './prisma';
-import { Prisma } from '@prisma/client';
 
 // Action types for audit logging
 export type AuditAction =
@@ -61,8 +60,8 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
         action: entry.action,
         entityType: entry.entityType || null,
         entityId: entry.entityId || null,
-        oldValues: entry.oldValues ? JSON.stringify(entry.oldValues) : Prisma.JsonNull,
-        newValues: entry.newValues ? JSON.stringify(entry.newValues) : Prisma.JsonNull,
+        oldValues: entry.oldValues ? JSON.stringify(entry.oldValues) : null,
+        newValues: entry.newValues ? JSON.stringify(entry.newValues) : null,
         ipAddress: entry.ipAddress || null,
         userAgent: entry.userAgent || null,
       }
