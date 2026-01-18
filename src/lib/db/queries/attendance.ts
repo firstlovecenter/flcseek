@@ -4,7 +4,6 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 
 // Type definitions
@@ -54,7 +53,7 @@ function transformAttendanceRecord(a: {
  * Get attendance records with optional filters
  */
 export async function findMany(filters: AttendanceFilters = {}): Promise<AttendanceRecord[]> {
-  const where: Prisma.AttendanceRecordWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.personId) {
     where.personId = filters.personId;
@@ -66,14 +65,14 @@ export async function findMany(filters: AttendanceFilters = {}): Promise<Attenda
 
   if (filters.startDate) {
     where.attendanceDate = {
-      ...((where.attendanceDate as Prisma.DateTimeFilter) || {}),
+      ...((where.attendanceDate as Record<string, any>) || {}),
       gte: new Date(filters.startDate),
     };
   }
 
   if (filters.endDate) {
     where.attendanceDate = {
-      ...((where.attendanceDate as Prisma.DateTimeFilter) || {}),
+      ...((where.attendanceDate as Record<string, any>) || {}),
       lte: new Date(filters.endDate),
     };
   }
@@ -206,10 +205,7 @@ export async function remove(id: string): Promise<boolean> {
     await prisma.attendanceRecord.delete({ where: { id } });
     return true;
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    if ((error as any)?.code === 'P2025') {
       return false;
     }
     throw error;
@@ -265,7 +261,7 @@ export async function getWeeklyStats(
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - weeks * 7);
 
-  const where: Prisma.AttendanceRecordWhereInput = {
+  const where: Record<string, any> = {
     attendanceDate: { gte: startDate },
   };
 
