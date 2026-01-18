@@ -4,7 +4,6 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 
 // Type definitions
 export interface Group {
@@ -42,7 +41,7 @@ export interface GroupFilters {
  * Get all groups with optional filters
  */
 export async function findMany(filters: GroupFilters = {}): Promise<Group[]> {
-  const where: Prisma.GroupWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.year !== undefined) {
     where.year = filters.year;
@@ -182,7 +181,7 @@ export async function update(
   id: string,
   updates: Partial<CreateGroupInput & { archived?: boolean }>
 ): Promise<Group | null> {
-  const data: Prisma.GroupUpdateInput = {};
+  const data: Record<string, any> = {};
 
   if (updates.name !== undefined) {
     data.name = updates.name;
@@ -236,10 +235,7 @@ export async function update(
       member_count: group._count.newConverts,
     };
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    if ((error as any)?.code === 'P2025') {
       return null;
     }
     throw error;
@@ -254,10 +250,7 @@ export async function remove(id: string): Promise<boolean> {
     await prisma.group.delete({ where: { id } });
     return true;
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    if ((error as any)?.code === 'P2025') {
       return false;
     }
     throw error;
@@ -268,7 +261,7 @@ export async function remove(id: string): Promise<boolean> {
  * Count groups with filters
  */
 export async function count(filters: GroupFilters = {}): Promise<number> {
-  const where: Prisma.GroupWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.year !== undefined) {
     where.year = filters.year;

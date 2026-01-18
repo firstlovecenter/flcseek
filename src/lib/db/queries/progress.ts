@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+
 
 // Type definitions
 export interface ProgressRecord {
@@ -200,10 +200,7 @@ export async function initializeForPerson(
         results.push(transformProgressRecord(record));
       } catch (error) {
         // Ignore duplicate key errors (P2002)
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
+        if ((error as any)?.code === 'P2002') {
           continue;
         }
         throw error;

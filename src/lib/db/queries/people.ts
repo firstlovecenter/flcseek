@@ -4,7 +4,6 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 
 // Type definitions
@@ -105,7 +104,7 @@ function transformPerson(p: {
  * Get all people with optional filters
  */
 export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
-  const where: Prisma.NewConvertWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -118,7 +117,7 @@ export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
   // Month filter is an alias for groupName (groups are named after months)
   if (filters.month) {
     where.group = { 
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       name: { equals: filters.month, mode: 'insensitive' } 
     };
   }
@@ -126,7 +125,7 @@ export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
   // Year filter
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       year: filters.year,
     };
   }
@@ -173,7 +172,7 @@ export async function findManyWithProgress(
   filters: PersonFilters = {},
   totalMilestones: number = 18
 ): Promise<PersonWithProgress[]> {
-  const where: Prisma.NewConvertWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -181,21 +180,21 @@ export async function findManyWithProgress(
 
   if (filters.groupName) {
     where.group = { 
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       name: filters.groupName 
     };
   }
 
   if (filters.month) {
     where.group = { 
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       name: { equals: filters.month, mode: 'insensitive' } 
     };
   }
 
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       year: filters.year,
     };
   }
@@ -258,7 +257,7 @@ export async function findManyWithStats(
   filters: PersonFilters = {},
   totalMilestones: number = 18
 ): Promise<{ people: PersonWithStats[]; total: number }> {
-  const where: Prisma.NewConvertWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -266,14 +265,14 @@ export async function findManyWithStats(
 
   if (filters.groupName) {
     where.group = { 
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       name: filters.groupName 
     };
   }
 
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       year: filters.year,
     };
   }
@@ -374,7 +373,7 @@ export async function update(
   id: string,
   updates: Partial<CreatePersonInput>
 ): Promise<Person | null> {
-  const data: Prisma.NewConvertUpdateInput = {};
+  const data: Record<string, any> = {};
 
   if (updates.first_name !== undefined) {
     data.firstName = updates.first_name;
@@ -417,10 +416,7 @@ export async function update(
 
     return transformPerson(person);
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    if ((error as any)?.code === 'P2025') {
       return null;
     }
     throw error;
@@ -436,10 +432,7 @@ export async function remove(id: string): Promise<boolean> {
     await prisma.newConvert.delete({ where: { id } });
     return true;
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    if ((error as any)?.code === 'P2025') {
       return false;
     }
     throw error;
@@ -482,8 +475,7 @@ export async function createMany(
       created.push(transformPerson(person));
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002' &&
+        (error as any)?.code === 'P2002' &&
         options.skipDuplicates
       ) {
         skipped++;
@@ -502,7 +494,7 @@ export async function createMany(
  * Count people with filters
  */
 export async function count(filters: PersonFilters = {}): Promise<number> {
-  const where: Prisma.NewConvertWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -510,14 +502,14 @@ export async function count(filters: PersonFilters = {}): Promise<number> {
 
   if (filters.groupName) {
     where.group = { 
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       name: filters.groupName 
     };
   }
 
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Prisma.GroupWhereInput) || {}),
+      ...((where.group as Record<string, any>) || {}),
       year: filters.year,
     };
   }

@@ -10,21 +10,6 @@ import { prisma } from '@/lib/prisma';
 // Re-export prisma client for direct use
 export { prisma };
 
-// Export Prisma types for convenience
-export type { 
-  User, 
-  Group, 
-  Milestone, 
-  NewConvert, 
-  ProgressRecord, 
-  AttendanceRecord,
-  UserGroup,
-  ActivityLog,
-  Notification,
-  PasswordResetToken,
-  RateLimitRecord,
-} from '@prisma/client';
-
 /**
  * Transaction helper - wraps Prisma's transaction API
  */
