@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+
 
 // Type definitions
 export interface Milestone {
@@ -121,7 +121,7 @@ export async function update(
   id: string,
   updates: Partial<CreateMilestoneInput>
 ): Promise<Milestone | null> {
-  const data: Prisma.MilestoneUpdateInput = {};
+  const data: Record<string, any> = {};
 
   if (updates.stage_number !== undefined) {
     data.stageNumber = updates.stage_number;
@@ -148,10 +148,8 @@ export async function update(
 
     return transformMilestone(milestone);
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    // P2025 = Record not found
+    if ((error as any)?.code === 'P2025') {
       return null;
     }
     throw error;

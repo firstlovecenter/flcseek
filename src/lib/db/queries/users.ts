@@ -4,7 +4,6 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { hashPassword } from '@/lib/auth';
 import { UserRole } from '@/lib/constants';
 
@@ -85,7 +84,7 @@ function transformUser(u: {
  * Get all users with optional filters
  */
 export async function findMany(filters: UserFilters = {}): Promise<User[]> {
-  const where: Prisma.UserWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.role) {
     const roles = Array.isArray(filters.role) ? filters.role : [filters.role];
@@ -238,7 +237,7 @@ export async function update(
   id: string,
   updates: Partial<Omit<CreateUserInput, 'username'> & { password?: string }>
 ): Promise<User | null> {
-  const data: Prisma.UserUpdateInput = {};
+  const data: Record<string, any> = {};
 
   if (updates.password !== undefined) {
     data.password = hashPassword(updates.password);
@@ -290,10 +289,7 @@ export async function update(
 
     return transformUser(user);
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    if ((error as any)?.code === 'P2025') {
       return null;
     }
     throw error;
@@ -314,10 +310,7 @@ export async function remove(id: string): Promise<boolean> {
     await prisma.user.delete({ where: { id } });
     return true;
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+    if ((error as any)?.code === 'P2025') {
       return false;
     }
     throw error;
@@ -328,7 +321,7 @@ export async function remove(id: string): Promise<boolean> {
  * Check if username exists
  */
 export async function usernameExists(username: string, excludeId?: string): Promise<boolean> {
-  const where: Prisma.UserWhereInput = {
+  const where: Record<string, any> = {
     username: { equals: username, mode: 'insensitive' },
   };
 
@@ -381,7 +374,7 @@ export async function assignToGroup(userId: string, groupId: string): Promise<vo
  * Count users with filters
  */
 export async function count(filters: UserFilters = {}): Promise<number> {
-  const where: Prisma.UserWhereInput = {};
+  const where: Record<string, any> = {};
 
   if (filters.role) {
     const roles = Array.isArray(filters.role) ? filters.role : [filters.role];
