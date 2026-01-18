@@ -45,6 +45,8 @@ function AttendancePageContent() {
   // Check if user is a leader (read-only access) or superadmin (full access)
   const isLeader = user?.role === 'leader';
   const isSuperAdmin = user?.role === 'superadmin';
+  // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
+  const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
 
   // Fetch available years for the group
   useEffect(() => {
@@ -140,6 +142,12 @@ function AttendancePageContent() {
   };
 
   const markAttendance = async (personId: string) => {
+    // Read-only users cannot mark attendance
+    if (isReadOnly) {
+      message.warning('You do not have permission to mark attendance');
+      return;
+    }
+
     try {
       const response = await api.attendance.mark(personId, {
         date_attended: selectedDate.format('YYYY-MM-DD'),
@@ -182,8 +190,8 @@ function AttendancePageContent() {
         </div>
       ),
     },
-    // Only show Actions column for admins (not for leaders)
-    ...(!isLeader ? [{
+    // Only show Actions column for admins/superadmin (not for leaders/overseers/leadpastors)
+    ...(!isReadOnly ? [{
       title: 'Actions',
       key: 'actions',
       width: 150,

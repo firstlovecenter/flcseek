@@ -48,8 +48,11 @@ export default function LoginPage() {
   if (loading) {
     return (
       <div 
-        className="min-h-screen flex items-center justify-center"
         style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           background: isDark 
             ? 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)'
             : 'linear-gradient(135deg, #e6f0ff 0%, #ffffff 50%, #e6f0ff 100%)',
@@ -65,8 +68,12 @@ export default function LoginPage() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8"
       style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem 1rem',
         background: isDark
           ? 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 25%, #262626 50%, #1a1a1a 75%, #0a0a0a 100%)'
           : 'linear-gradient(135deg, #e6f0ff 0%, #f0f5ff 25%, #ffffff 50%, #f0f5ff 75%, #e6f0ff 100%)',
@@ -100,8 +107,9 @@ export default function LoginPage() {
       />
       
       <Card 
-        className="w-full max-w-md shadow-2xl" 
         style={{ 
+          width: '100%',
+          maxWidth: '500px',
           borderRadius: 12,
           background: isDark 
             ? 'rgba(26, 26, 26, 0.95)'
@@ -114,14 +122,14 @@ export default function LoginPage() {
             ? '0 8px 32px rgba(0, 0, 0, 0.4)'
             : '0 8px 32px rgba(0, 51, 102, 0.15)',
         }}
-        styles={{ body: { padding: '24px 20px' } }}
+        styles={{ body: { padding: '40px 32px' } }}
       >
         <div className="text-center mb-6 sm:mb-8">
           <Title 
             level={2} 
             style={{ 
               color: isDark ? '#4096ff' : '#003366',
-              marginBottom: 8,
+              marginBottom: 16,
               fontSize: 'clamp(1.5rem, 5vw, 2rem)',
               textShadow: isDark 
                 ? '0 2px 8px rgba(64, 150, 255, 0.3)'

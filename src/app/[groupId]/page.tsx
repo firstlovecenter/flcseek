@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, memo, useMemo, Suspense } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb } from 'antd';
-import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined } from '@ant-design/icons';
+import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -369,7 +369,8 @@ function SheepSeekerDashboardContent() {
     return stage?.is_completed || false;
   }, []);
 
-  const isLeader = user?.role === 'leader';
+  // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
+  const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
 
   const filteredPeople = useMemo(() => {
     if (!searchText) return people;
@@ -420,7 +421,7 @@ function SheepSeekerDashboardContent() {
       width: 60,
       align: 'center' as const,
       render: (_: any, record: PersonWithProgress) =>
-        isLeader ? (
+        isReadOnly ? (
           <ReadOnlyMilestoneCell
             isCompleted={getMilestoneStatus(record, milestone.number)}
             stageName={milestone.name}
@@ -437,7 +438,7 @@ function SheepSeekerDashboardContent() {
     }));
 
     return baseColumns.concat(milestoneColumns);
-  }, [milestones, getMilestoneStatus, toggleMilestone, updating, isLeader, router, groupId]);
+  }, [milestones, getMilestoneStatus, toggleMilestone, updating, isReadOnly, router, groupId]);
 
   if (authLoading || loading) {
     return (
@@ -465,8 +466,21 @@ function SheepSeekerDashboardContent() {
             style={{ width: 250 }}
           />
 
+          {(
+            user?.role === 'leadpastor' ||
+            user?.role === 'overseer' ||
+            ((user?.role === 'admin' || user?.role === 'leader') && (!user?.group_id || (user as any)?.groups_assigned?.length > 1))
+          ) && (
+            <Button
+              icon={<HomeOutlined />}
+              onClick={() => router.push('/groups')}
+            >
+              Home
+            </Button>
+          )}
+
           <Button
-            icon={<SearchOutlined />}
+            icon={<BarChartOutlined />}
             type="primary"
           >
             Milestones

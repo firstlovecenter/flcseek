@@ -11,6 +11,7 @@ interface User {
   group_name?: string;
   group_year?: number;
   group_id?: string;
+  groups_assigned?: string[]; // optional: multiple group assignments
   phone_number: string;
   first_name?: string;
   last_name?: string;
