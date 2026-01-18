@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { verifyToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -13,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all tables and their columns using raw query (information_schema is not available via Prisma models)
-    const tablesResult = await prisma.$queryRaw<
+    const tablesResult = await prisma.$queryRawUnsafe<
       Array<{
         table_name: string;
         column_name: string;
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
         column_default: string | null;
         ordinal_position: number;
       }>
-    >(Prisma.sql`
+    >(`
       SELECT 
         table_name,
         column_name,

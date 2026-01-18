@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
-import { Prisma } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -134,7 +133,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ milestone: transformMilestone(milestone) });
   } catch (error) {
     console.error('Error updating milestone:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    if ((error as any)?.code === 'P2025') {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -271,7 +270,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ milestone: transformMilestone(milestone) });
   } catch (error) {
     console.error('Error toggling milestone status:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    if ((error as any)?.code === 'P2025') {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
