@@ -86,7 +86,7 @@ export default function LeadPastorProgressPage() {
 
   const monthName = month.charAt(0).toUpperCase() + month.slice(1);
   const averageProgress = people.length > 0
-    ? Math.round(people.reduce((sum, p) => sum + p.percentage, 0) / people.length)
+    ? Math.round(people.reduce((sum: number, p: any) => sum + p.percentage, 0) / people.length)
     : 0;
   const completed = people.filter(p => p.percentage === 100).length;
   const inProgress = people.filter(p => p.percentage > 0 && p.percentage < 100).length;
