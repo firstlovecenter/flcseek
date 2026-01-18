@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     }, {} as Record<string, number>);
 
     const userStats = {
-      total: Object.values(roleMap).reduce((a: number, b: number) => a + b, 0),
+      total: (Object.values(roleMap) as number[]).reduce((a: number, b: number) => a + b, 0),
       superAdmins: roleMap['superadmin'] || 0,
       leaders: roleMap['leader'] || 0,
       admins: roleMap['admin'] || 0,
