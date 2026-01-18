@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
-import { Prisma } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -39,7 +38,7 @@ export async function PUT(
     const { id } = await params;
 
     // Build dynamic update data based on provided fields
-    const data: Prisma.GroupUpdateInput = {};
+    const data: Record<string, any> = {};
 
     if (name !== undefined) data.name = name;
     if (description !== undefined) data.description = description || null;
@@ -67,13 +66,12 @@ export async function PUT(
     });
   } catch (error) {
     console.error('Error updating group:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return NextResponse.json({ error: 'Group not found' }, { status: 404 });
-      }
-      if (error.code === 'P2002') {
-        return NextResponse.json({ error: 'Group name and year combination already exists' }, { status: 400 });
-      }
+    const errorCode = (error as any)?.code;
+    if (errorCode === 'P2025') {
+      return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    }
+    if (errorCode === 'P2002') {
+      return NextResponse.json({ error: 'Group name and year combination already exists' }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -99,7 +97,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting group:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    if ((error as any)?.code === 'P2025') {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
