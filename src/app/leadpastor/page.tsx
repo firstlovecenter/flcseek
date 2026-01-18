@@ -69,7 +69,7 @@ export default function LeadPastorDashboard() {
   }
 
   // Organize groups by year
-  const groupsByYear: GroupsByYear = groups.reduce((acc, group) => {
+  const groupsByYear: GroupsByYear = groups.reduce((acc: GroupsByYear, group: any) => {
     if (!acc[group.year]) {
       acc[group.year] = [];
     }
