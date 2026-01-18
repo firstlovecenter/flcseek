@@ -52,7 +52,7 @@ export default function ProgressPage() {
     }
 
     // Check group access: superadmin/leadpastor can view any; admin/leader limited to their group
-    if (user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.group_id !== groupId) {
+    if (user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer' && user.group_id !== groupId) {
       router.push('/');
       return;
     }

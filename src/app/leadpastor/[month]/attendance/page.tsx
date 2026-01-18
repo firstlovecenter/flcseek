@@ -27,7 +27,7 @@ export default function LeadPastorAttendancePage() {
   const [groupInfo, setGroupInfo] = useState<{ name: string; year: number } | null>(null);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'leadpastor')) {
+    if (!authLoading && (!user || (user.role !== 'leadpastor' && user.role !== 'overseer'))) {
       router.push('/');
       return;
     }
