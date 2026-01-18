@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
-import { Prisma } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -134,7 +133,7 @@ export async function PUT(
     });
   } catch (error) {
     console.error('Error updating convert:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    if ((error as any)?.code === 'P2025') {
       return NextResponse.json({ error: 'Convert not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -185,7 +184,7 @@ export async function DELETE(
     });
   } catch (error) {
     console.error('Error deleting convert:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    if ((error as any)?.code === 'P2025') {
       return NextResponse.json({ error: 'Convert not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

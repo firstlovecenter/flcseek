@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
-import { Prisma } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -44,7 +43,7 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get('filter') || 'active';
 
     // Build where clause
-    const where: Prisma.GroupWhereInput = {};
+    const where: Record<string, any> = {};
     if (filter === 'active') {
       where.archived = false;
     } else if (filter === 'archived') {
@@ -146,7 +145,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating group:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    if ((error as any)?.code === 'P2002') {
       return NextResponse.json({ error: 'Group name already exists' }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
