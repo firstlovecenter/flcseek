@@ -44,6 +44,8 @@ export default function ProgressPage() {
   // Check if user is a leader (read-only access) or superadmin (full edit access)
   const isLeader = user?.role === 'leader';
   const isSuperAdmin = user?.role === 'superadmin';
+  // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
+  const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -120,6 +122,12 @@ export default function ProgressPage() {
   };
 
   const toggleStage = async (stageNumber: number, isCompleted: boolean) => {
+    // Read-only users cannot toggle stages
+    if (isReadOnly) {
+      message.warning('You do not have permission to edit progress');
+      return;
+    }
+
     // Milestone 1 cannot be edited by anyone
     if (stageNumber === 1) {
       message.warning('Milestone 1 is automatically completed on registration and cannot be edited');
@@ -210,8 +218,8 @@ export default function ProgressPage() {
         </div>
       ),
     },
-    // Only show Actions column for admins (not for leaders)
-    ...(!isLeader ? [{
+    // Only show Actions column for admins/superadmin (not for leaders/overseers/leadpastors)
+    ...(!isReadOnly ? [{
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: PersonProgress) => (
