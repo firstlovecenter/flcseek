@@ -3,6 +3,7 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { AntdRegistry } from '@ant-design/nextjs-registry';
+import { App } from 'antd';
 import { AuthProvider } from '@/contexts/AuthContext';
 import AppConfigProvider from '@/components/AppConfigProvider';
 import Navigation from '@/components/Navigation';
@@ -58,9 +59,11 @@ export default function RootLayout({
       <body className={inter.className}>
         <AntdRegistry>
           <AppConfigProvider>
-            <AuthProvider>
-              <Navigation>{children}</Navigation>
-            </AuthProvider>
+            <App>
+              <AuthProvider>
+                <Navigation>{children}</Navigation>
+              </AuthProvider>
+            </App>
           </AppConfigProvider>
         </AntdRegistry>
       </body>
