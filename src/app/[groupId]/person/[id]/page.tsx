@@ -48,7 +48,7 @@ export default function PersonDetailPage() {
     }
 
     // Validate access
-    if (!authLoading && user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.group_id !== groupId) {
+    if (!authLoading && user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer' && user.group_id !== groupId) {
       message.error('Unauthorized access to this group');
       router.push('/');
       return;

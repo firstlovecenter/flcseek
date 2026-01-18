@@ -21,7 +21,7 @@ export default function LoginPage() {
     if (!loading && user) {
       if (user.role === 'superadmin') {
         router.push('/superadmin');
-      } else if (user.role === 'leadpastor') {
+      } else if (user.role === 'leadpastor' || user.role === 'overseer') {
         router.push('/leadpastor');
       } else if (user.role === 'admin' || user.role === 'leader') {
         // Redirect to their group or group selector

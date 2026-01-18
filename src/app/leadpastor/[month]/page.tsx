@@ -77,7 +77,7 @@ export default function LeadPastorGroupDashboard() {
   const [groupInfo, setGroupInfo] = useState<{ name: string; year: number } | null>(null);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'leadpastor')) {
+    if (!authLoading && (!user || (user.role !== 'leadpastor' && user.role !== 'overseer'))) {
       console.log('[LEAD-PASTOR-MONTH] Unauthorized access attempt, redirecting to home');
       router.push('/');
       return;
