@@ -33,7 +33,7 @@ export default function LeadPastorDashboard() {
   const [activeKeys, setActiveKeys] = useState<string[]>([CURRENT_YEAR.toString()]);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'leadpastor')) {
+    if (!authLoading && (!user || (user.role !== 'leadpastor' && user.role !== 'overseer'))) {
       console.log('[LEAD-PASTOR] Unauthorized access attempt, redirecting to home');
       router.push('/');
       return;

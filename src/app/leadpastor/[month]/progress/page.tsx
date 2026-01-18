@@ -25,7 +25,7 @@ export default function LeadPastorProgressPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'leadpastor')) {
+    if (!authLoading && (!user || (user.role !== 'leadpastor' && user.role !== 'overseer'))) {
       router.push('/');
       return;
     }

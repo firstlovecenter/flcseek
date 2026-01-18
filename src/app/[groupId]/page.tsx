@@ -236,8 +236,8 @@ function SheepSeekerDashboardContent() {
     }
 
     // Superadmin can access any group
-    // Others (admin, leader, leadpastor) can only access their assigned group
-    if (!authLoading && user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.group_id !== groupId) {
+    // Others (admin, leader, leadpastor, overseer) can only access their assigned group
+    if (!authLoading && user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer' && user.group_id !== groupId) {
       message.error('Unauthorized access to this group');
       router.push('/');
       return;

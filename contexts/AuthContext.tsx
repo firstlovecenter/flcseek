@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 interface User {
   id: string;
   email: string;
-  role: 'superadmin' | 'leadpastor' | 'admin' | 'leader';
+  role: 'superadmin' | 'leadpastor' | 'overseer' | 'admin' | 'leader';
   group_name?: string;
   group_year?: number;
   group_id?: string;
@@ -73,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTimeout(() => {
       if (data.user.role === 'superadmin') {
         router.push('/superadmin');
-      } else if (data.user.role === 'leadpastor') {
-        // Leadpastors go to group selector
+      } else if (data.user.role === 'leadpastor' || data.user.role === 'overseer') {
+        // Leadpastors and overseers go to group selector
         router.push('/leadpastor');
       } else if (data.user.role === 'admin' || data.user.role === 'leader') {
         // Admin/leader with assigned group goes directly to group

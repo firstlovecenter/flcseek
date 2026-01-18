@@ -17,8 +17,8 @@ export default function RootPage() {
       } else if (user.role === 'superadmin') {
         // Superadmin goes to superadmin dashboard
         router.push('/superadmin');
-      } else if (user.role === 'leadpastor') {
-        // Leadpastor goes to group selector
+      } else if (user.role === 'leadpastor' || user.role === 'overseer') {
+        // Leadpastors and overseers go to group selector
         router.push('/leadpastor');
       } else if (user.group_id) {
         // Admin/leader with group_id goes directly to their group
