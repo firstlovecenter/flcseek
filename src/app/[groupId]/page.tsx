@@ -524,7 +524,7 @@ function SheepSeekerDashboardContent() {
             <div className="stats-card-value">
               {(() => {
                 const total = filteredPeople.length * milestones.length;
-                const completed = filteredPeople.reduce((sum, p) => sum + p.progress.filter(pr => pr.is_completed).length, 0);
+                const completed = filteredPeople.reduce((sum: number, p: any) => sum + p.progress.filter((pr: any) => pr.is_completed).length, 0);
                 return total > 0 ? Math.round((completed / total) * 100) : 0;
               })()}%
             </div>

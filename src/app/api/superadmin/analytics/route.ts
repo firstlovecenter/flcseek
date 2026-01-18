@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Calculate user stats
-    const roleMap = usersByRole.reduce((acc, r) => {
+    const roleMap = usersByRole.reduce((acc: Record<string, number>, r: any) => {
       if (r.role) {
         acc[r.role] = r._count.role;
       }
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     }, {} as Record<string, number>);
 
     const userStats = {
-      total: Object.values(roleMap).reduce((a, b) => a + b, 0),
+      total: Object.values(roleMap).reduce((a: number, b: number) => a + b, 0),
       superAdmins: roleMap['superadmin'] || 0,
       leaders: roleMap['leader'] || 0,
       admins: roleMap['admin'] || 0,
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
     // Calculate group stats
     const totalGroups = groups.length;
     const avgMembersPerGroup = totalGroups > 0
-      ? groups.reduce((sum, g) => sum + g._count.newConverts, 0) / totalGroups
+      ? groups.reduce((sum: number, g: any) => sum + g._count.newConverts, 0) / totalGroups
       : 0;
 
     const groupStats = {
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
       return (c.progressRecords.length / totalActiveMilestones) * 100;
     });
     const avgProgressCompletion = completionRates.length > 0
-      ? completionRates.reduce((a, b) => a + b, 0) / completionRates.length
+      ? completionRates.reduce((a: number, b: number) => a + b, 0) / completionRates.length
       : 0;
 
     const convertStats = {
