@@ -1,0 +1,357 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Table, Button, Typography, Spin, message, Progress, Tag, Modal, Checkbox, Space } from 'antd';
+import { CheckCircleOutlined, EyeOutlined, HomeOutlined, TeamOutlined, CheckOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter, useParams } from 'next/navigation';
+import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { useThemeStyles } from '@/lib/theme-utils';
+import { api } from '@/lib/api';
+
+const { Title, Text } = Typography;
+
+interface Milestone {
+  stage_number: number;
+  stage_name: string;
+  short_name?: string;
+}
+
+interface PersonProgress {
+  id: string;
+  full_name: string;
+  group_name: string;
+  phone_number: string;
+  completedStages: number;
+  percentage: number;
+}
+
+export default function ProgressPage() {
+  const { user, token, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const params = useParams();
+  const groupId = params.groupId as string;
+  const [people, setPeople] = useState<PersonProgress[]>([]);
+  const themeStyles = useThemeStyles();
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [totalMilestones, setTotalMilestones] = useState<number>(18);
+  const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<any>(null);
+  const [progressStages, setProgressStages] = useState<any[]>([]);
+  const [updating, setUpdating] = useState(false);
+  
+  // Check if user is a leader (read-only access) or superadmin (full edit access)
+  const isLeader = user?.role === 'leader';
+  const isSuperAdmin = user?.role === 'superadmin';
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/');
+      return;
+    }
+
+    // Check group access: superadmin/leadpastor can view any; admin/leader limited to their group
+    if (user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.group_id !== groupId) {
+      router.push('/');
+      return;
+    }
+
+    if (user && token) {
+      fetchMilestones();
+      fetchPeople();
+    }
+  }, [user, token, authLoading, router, groupId]);
+
+  // Fetch milestones to get dynamic count
+  const fetchMilestones = async () => {
+    try {
+      const response = await api.milestones.list();
+      if (response.success) {
+        setMilestones(response.data?.milestones || []);
+        setTotalMilestones(response.data?.milestones?.length || 18);
+      }
+    } catch (error) {
+      console.error('Failed to fetch milestones:', error);
+    }
+  };
+
+  const fetchPeople = async () => {
+    try {
+      // Use the optimized endpoint that already includes progress data
+      const response = await api.people.list({ include: 'progress' });
+
+      if (!response.success) throw new Error('Failed to fetch people');
+
+      // Map the data to progress format - use dynamic milestone count
+      const milestoneCount = totalMilestones || 18;
+      const peopleWithProgress = (response.data?.people || []).map((person: any) => {
+        const completedStages = person.progress?.filter((p: any) => p.is_completed).length || 0;
+
+        return {
+          id: person.id,
+          full_name: person.full_name,
+          group_name: person.group_name,
+          phone_number: person.phone_number,
+          completedStages,
+          percentage: Math.round((completedStages / milestoneCount) * 100),
+        };
+      });
+
+      setPeople(peopleWithProgress);
+    } catch (error: any) {
+      message.error(error.message || 'Failed to load people');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openProgressModal = async (person: PersonProgress) => {
+    try {
+      const response = await api.people.get(person.id);
+      if (!response.success) throw new Error('Failed to load progress details');
+      
+      setSelectedPerson(person);
+      setProgressStages(response.data?.progress || []);
+      setModalVisible(true);
+    } catch (error: any) {
+      message.error(error.message || 'Failed to load progress details');
+    }
+  };
+
+  const toggleStage = async (stageNumber: number, isCompleted: boolean) => {
+    // Milestone 1 cannot be edited by anyone
+    if (stageNumber === 1) {
+      message.warning('Milestone 1 is automatically completed on registration and cannot be edited');
+      return;
+    }
+
+    // Milestone 18 (Attendance) cannot be manually edited
+    if (stageNumber === 18) {
+      message.warning('Attendance milestone is automatically calculated from attendance records');
+      return;
+    }
+
+    // Only superadmin can toggle a completed milestone back to incomplete
+    if (isCompleted && !isSuperAdmin) {
+      message.warning('Only superadmins can edit completed milestones');
+      return;
+    }
+    
+    setUpdating(true);
+    try {
+      const response = await api.progress.update(selectedPerson.id, {
+        stage_number: stageNumber,
+        is_completed: !isCompleted,
+      });
+
+      if (!response.success) throw new Error('Failed to update progress');
+
+      message.success('Progress updated successfully!');
+      
+      // Refresh progress stages
+      const detailsRes = await api.people.get(selectedPerson.id);
+      if (detailsRes.success) {
+        setProgressStages(detailsRes.data?.progress || []);
+      }
+      
+      // Refresh people list
+      fetchPeople();
+    } catch (error: any) {
+      message.error(error.message || 'Failed to update progress');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const columns = [
+    {
+      title: 'Name',
+      dataIndex: 'full_name',
+      key: 'full_name',
+      width: isLeader ? 200 : undefined,
+      render: (text: string, record: PersonProgress) => (
+        <div>
+          <Button
+            type="link"
+            onClick={() => router.push(`/${groupId}/person/${record.id}`)}
+            style={{ padding: 0 }}
+          >
+            {text}
+          </Button>
+          {isLeader && (
+            <div style={{ fontSize: 12, color: '#888' }}>
+              <a href={`tel:${record.phone_number}`} style={{ color: '#888' }}>
+                📞 {record.phone_number}
+              </a>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Completed Stages',
+      key: 'completed',
+      width: isLeader ? 100 : undefined,
+      render: (_: any, record: PersonProgress) => (
+        <Tag color="blue">{record.completedStages}/18</Tag>
+      ),
+    },
+    {
+      title: 'Progress',
+      key: 'progress',
+      render: (_: any, record: PersonProgress) => (
+        <div style={{ width: isLeader ? undefined : 150 }}>
+          <Progress
+            percent={record.percentage}
+            strokeColor="#52c41a"
+            size="small"
+          />
+        </div>
+      ),
+    },
+    // Only show Actions column for admins (not for leaders)
+    ...(!isLeader ? [{
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, record: PersonProgress) => (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            size="small"
+            type="primary"
+            icon={<CheckCircleOutlined />}
+            onClick={() => openProgressModal(record)}
+          >
+            Update Progress
+          </Button>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => router.push(`/${groupId}/person/${record.id}`)}
+          >
+            View
+          </Button>
+        </div>
+      ),
+    }] : []),
+  ];
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <AppBreadcrumb />
+      <div>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Title level={2} style={{ margin: 0 }}>Milestone Tracking</Title>
+            <Space>
+              <Button
+                icon={<HomeOutlined />}
+                onClick={() => router.push(`/${groupId}`)}
+              >
+                Home
+              </Button>
+              <Button
+                icon={<BarChartOutlined />}
+                type="primary"
+              >
+                Milestones
+              </Button>
+              <Button
+                icon={<TeamOutlined />}
+                onClick={() => router.push(`/${groupId}/attendance`)}
+              >
+                Attendance
+              </Button>
+              {!isLeader && (
+                <Button
+                  icon={<UserAddOutlined />}
+                  onClick={() => router.push(`/${groupId}/people/register`)}
+                >
+                  Register
+                </Button>
+              )}
+              {!isLeader && (
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={() => router.push(`/${groupId}/people/bulk-register`)}
+                >
+                  Bulk Register
+                </Button>
+              )}
+            </Space>
+          </div>
+          <Text type="secondary">
+            {isLeader 
+              ? 'View spiritual growth milestones for all new converts'
+              : 'Update and monitor spiritual growth milestones'
+            }
+          </Text>
+        </div>
+
+        <Table
+          columns={columns}
+          dataSource={people}
+          rowKey="id"
+          size="small"
+          scroll={{ x: 600 }}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
+          style={{ background: themeStyles.containerBg, borderRadius: 8 }}
+        />
+
+        <Modal
+          title={`Update Progress - ${selectedPerson?.full_name}`}
+          open={modalVisible}
+          onCancel={() => setModalVisible(false)}
+          footer={null}
+          width={600}
+        >
+          <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            {progressStages.map((stage: any) => (
+              <div
+                key={stage.stage_number}
+                style={{
+                  padding: '12px',
+                  marginBottom: '8px',
+                  border: `1px solid ${themeStyles.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: stage.is_completed ? themeStyles.successBg : themeStyles.containerBg,
+                }}
+              >
+                <Checkbox
+                  checked={stage.is_completed}
+                  onChange={() => toggleStage(stage.stage_number, stage.is_completed)}
+                  disabled={updating || stage.stage_number === 1 || stage.stage_number === 18 || (stage.is_completed && !isSuperAdmin)}
+                >
+                  <Text strong>{milestones.find(m => m.stage_number === stage.stage_number)?.stage_name || `Stage ${stage.stage_number}`}</Text>
+                  {stage.stage_number === 1 && (
+                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                      (Auto-completed on registration)
+                    </Text>
+                  )}
+                  {stage.stage_number === 18 && (
+                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                      (Auto-calculated from attendance)
+                    </Text>
+                  )}
+                  {stage.is_completed && !isSuperAdmin && stage.stage_number !== 1 && stage.stage_number !== 18 && (
+                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                      (Completed - Contact superadmin to edit)
+                    </Text>
+                  )}
+                </Checkbox>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      </div>
+    </>
+  );
+}

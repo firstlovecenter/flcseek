@@ -74,11 +74,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user.role === 'superadmin') {
         router.push('/superadmin');
       } else if (data.user.role === 'leadpastor') {
+        // Leadpastors go to group selector
         router.push('/leadpastor');
-      } else if (data.user.role === 'leader') {
-        router.push('/leader');
+      } else if (data.user.role === 'admin' || data.user.role === 'leader') {
+        // Admin/leader with assigned group goes directly to group
+        if (data.user.group_id) {
+          router.push(`/${data.user.group_id}`);
+        } else {
+          // If no group_id, show group selector
+          router.push('/groups');
+        }
       } else {
-        router.push('/sheep-seeker');
+        router.push('/auth');
       }
     }, 100);
   };
@@ -90,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user');
     // Clear all cached data on logout
     clearCache();
-    router.push('/');
+    router.push('/auth');
   };
 
   return (
