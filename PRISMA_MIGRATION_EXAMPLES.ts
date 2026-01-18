@@ -178,7 +178,7 @@ const milestones = [
   { stageNumber: 2, stageName: 'Stage 2' },
 ];
 
-await prisma.$transaction(async (tx) => {
+await prisma.$transaction(async (tx: any) => {
   const convert = await tx.newConvert.create({
     data: {
       firstName: 'Jane',
