@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         ]
       });
 
-      data.converts = converts.map(nc => ({
+      data.converts = converts.map((nc: any) => ({
         id: nc.id,
         first_name: nc.firstName,
         last_name: nc.lastName,
