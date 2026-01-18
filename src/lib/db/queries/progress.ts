@@ -253,7 +253,7 @@ export async function getGroupStats(groupId: string): Promise<{
   return {
     total_people: totalPeople,
     milestone_stats: stats.map((s) => {
-      const completedCount = completedMap.get(s.stageNumber) || 0;
+      const completedCount = Number(completedMap.get(s.stageNumber) || 0);
       return {
         stage_number: s.stageNumber,
         completed_count: completedCount,
