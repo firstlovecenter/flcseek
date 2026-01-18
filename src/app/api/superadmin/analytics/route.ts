@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Calculate convert stats with average completion
-    const completionRates = convertsWithProgress.map(c => {
+    const completionRates = convertsWithProgress.map((c: any) => {
       if (totalActiveMilestones === 0) return 0;
       return (c.progressRecords.length / totalActiveMilestones) * 100;
     });
@@ -148,8 +148,8 @@ export async function GET(request: NextRequest) {
     }
 
     const topGroups = Array.from(groupProgress.values())
-      .filter(g => g.members > 0)
-      .map(g => ({
+      .filter((g: any) => g.members > 0)
+      .map((g: any) => ({
         name: g.name,
         year: g.year,
         members: g.members,
@@ -160,8 +160,8 @@ export async function GET(request: NextRequest) {
 
     // Format top seekers
     const formattedTopSeekers = topSeekers
-      .filter(s => s._count.registeredConverts > 0)
-      .map(s => ({
+      .filter((s: any) => s._count.registeredConverts > 0)
+      .map((s: any) => ({
         name: (s.firstName && s.lastName) 
           ? `${s.firstName} ${s.lastName}`.trim()
           : s.username,

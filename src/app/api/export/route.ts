@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
       const progressData: unknown[] = [];
       for (const nc of converts) {
         for (const m of milestones) {
-          const pr = nc.progressRecords.find(p => p.stageNumber === m.stageNumber);
+          const pr = nc.progressRecords.find((p: any) => p.stageNumber === m.stageNumber);
           progressData.push({
             first_name: nc.firstName,
             last_name: nc.lastName,
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
         ]
       });
 
-      data.attendance = attendanceRecords.map(ar => ({
+      data.attendance = attendanceRecords.map((ar: any) => ({
         first_name: ar.person.firstName,
         last_name: ar.person.lastName,
         phone_number: ar.person.phoneNumber,
@@ -163,15 +163,15 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' }
       });
 
-      data.summary = groups.map(g => ({
+      data.summary = groups.map((g: any) => ({
         group_name: g.name,
         group_year: g.year,
         total_converts: g._count.newConverts,
         completed_milestones: g.newConverts.reduce(
-          (sum, nc) => sum + nc.progressRecords.length, 0
+          (sum: number, nc: any) => sum + nc.progressRecords.length, 0
         ),
         total_attendance_records: g.newConverts.reduce(
-          (sum, nc) => sum + nc.attendanceRecords.length, 0
+          (sum: number, nc: any) => sum + nc.attendanceRecords.length, 0
         ),
       }));
     }
