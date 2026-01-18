@@ -59,9 +59,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       success: true,
       deleted_count: convertsToDelete.length,
-      deleted_records: convertsToDelete.map((c) => ({
+      deleted_records: convertsToDelete.map((c: { id: string; firstName: string | null; lastName: string | null }) => ({
         id: c.id,
-        full_name: `${c.firstName} ${c.lastName}`,
+        full_name: `${c.firstName || ''} ${c.lastName || ''}`.trim(),
       })),
       message: `Successfully deleted ${convertsToDelete.length} convert(s) and all related data`,
     });
