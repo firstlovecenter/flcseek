@@ -6,11 +6,11 @@ import * as dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+const connectionString = process.env.NEON_DATABASE_URL;
 
 if (!connectionString) {
   console.error('❌ Error: No database connection string found.');
-  console.error('   Please set NEON_DATABASE_URL or DATABASE_URL in your .env file');
+  console.error('   Please set NEON_DATABASE_URL in your .env file');
   process.exit(1);
 }
 
