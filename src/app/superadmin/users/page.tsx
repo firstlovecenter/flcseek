@@ -183,6 +183,8 @@ export default function UsersManagementPage() {
         body: JSON.stringify(values),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         message.success(`User ${editingUser ? 'updated' : 'created'} successfully`);
         setIsModalVisible(false);
@@ -190,10 +192,11 @@ export default function UsersManagementPage() {
         setEditingUser(null);
         fetchUsers();
       } else {
-        message.error('Failed to save user');
+        message.error(data.error || 'Failed to save user');
       }
-    } catch (error) {
-      message.error('An error occurred');
+    } catch (error: any) {
+      console.error('Error saving user:', error);
+      message.error(error.message || 'An error occurred');
     }
   };
 
@@ -212,12 +215,14 @@ export default function UsersManagementPage() {
         const roleColors: Record<string, string> = {
           superadmin: 'red',
           leadpastor: 'purple',
+          overseer: 'orange',
           admin: 'blue',
           leader: 'green',
         };
         const roleLabels: Record<string, string> = {
           superadmin: 'Super Admin',
           leadpastor: 'Lead Pastor',
+          overseer: 'Overseer',
           admin: 'Admin',
           leader: 'Leader',
         };
@@ -319,6 +324,7 @@ export default function UsersManagementPage() {
             <Option value="all">All Roles</Option>
             <Option value="superadmin">Super Admin</Option>
             <Option value="leadpastor">Lead Pastor</Option>
+            <Option value="overseer">Overseer</Option>
             <Option value="admin">Admin</Option>
             <Option value="leader">Leader</Option>
           </Select>
@@ -414,6 +420,7 @@ export default function UsersManagementPage() {
             <Select>
               <Option value="superadmin">Super Admin</Option>
               <Option value="leadpastor">Lead Pastor</Option>
+              <Option value="overseer">Overseer</Option>
               <Option value="admin">Admin</Option>
               <Option value="leader">Leader</Option>
             </Select>

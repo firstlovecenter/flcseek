@@ -45,6 +45,7 @@ export function requireAuth(request: NextRequest) {
 const RoleHierarchy: Record<UserRole, number> = {
   [ROLES.SUPERADMIN]: 100,
   [ROLES.LEADPASTOR]: 80,
+  [ROLES.OVERSEER]: 70,
   [ROLES.ADMIN]: 60,
   [ROLES.LEADER]: 40,
 };

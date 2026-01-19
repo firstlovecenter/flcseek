@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           router.push(`/${data.user.group_id}`);
         } else {
           // If no group_id, show group selector
-          router.push('/groups');
+          router.push('/');
         }
       } else {
         router.push('/auth');

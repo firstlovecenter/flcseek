@@ -16,6 +16,7 @@ interface Convert {
   phone_number: string;
   gender: string | null;
   group_name: string;
+  group_year: number | null;
   registered_by_name: string;
   created_at: string;
   completed_stages: number;
@@ -42,7 +43,9 @@ export default function NewConvertsManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<'all' | number>('all');
   const [groups, setGroups] = useState<string[]>([]);
+  const [years, setYears] = useState<number[]>([]);
   const [totalMilestones, setTotalMilestones] = useState<number>(18); // Default to 18
 
   useEffect(() => {
@@ -55,7 +58,10 @@ export default function NewConvertsManagementPage() {
 
   useEffect(() => {
     filterConverts();
-  }, [converts, searchText, groupFilter]);
+  }, [converts, searchText, groupFilter, yearFilter]);
+
+  const formatGroupLabel = (groupName: string, groupYear: number | null) =>
+    groupYear ? `${groupName} ${groupYear}` : groupName;
 
   const fetchConverts = async () => {
     try {
@@ -67,8 +73,22 @@ export default function NewConvertsManagementPage() {
       setFilteredConverts(data.converts || []);
       
       // Extract unique groups
-      const uniqueGroups = Array.from(new Set(data.converts.map((c: Convert) => c.group_name))) as string[];
+      const uniqueGroups = Array.from(
+        new Set(
+          data.converts.map((c: Convert) => formatGroupLabel(c.group_name, c.group_year))
+        )
+      ) as string[];
       setGroups(uniqueGroups);
+
+      // Extract unique years
+      const uniqueYears = Array.from(
+        new Set(
+          data.converts
+            .map((c: Convert) => c.group_year)
+            .filter((year): year is number => typeof year === 'number')
+        )
+      ).sort((a: number, b: number) => b - a) as number[];
+      setYears(uniqueYears);
     } catch (error) {
       console.error('Failed to fetch converts');
     } finally {
@@ -112,7 +132,13 @@ export default function NewConvertsManagementPage() {
     }
 
     if (groupFilter !== 'all') {
-      filtered = filtered.filter((convert) => convert.group_name === groupFilter);
+      filtered = filtered.filter(
+        (convert) => formatGroupLabel(convert.group_name, convert.group_year) === groupFilter
+      );
+    }
+
+    if (yearFilter !== 'all') {
+      filtered = filtered.filter((convert) => convert.group_year === yearFilter);
     }
 
     setFilteredConverts(filtered);
@@ -222,7 +248,11 @@ export default function NewConvertsManagementPage() {
       title: 'Group',
       dataIndex: 'group_name',
       key: 'group_name',
-      render: (group: string) => <Tag color="blue"><TeamOutlined /> {group}</Tag>,
+      render: (_: string, record: Convert) => (
+        <Tag color="blue">
+          <TeamOutlined /> {formatGroupLabel(record.group_name, record.group_year)}
+        </Tag>
+      ),
     },
     {
       title: 'Registered By',
@@ -314,6 +344,18 @@ export default function NewConvertsManagementPage() {
             {groups.map((group) => (
               <Option key={group} value={group}>
                 {group}
+              </Option>
+            ))}
+          </Select>
+          <Select
+            value={yearFilter}
+            onChange={setYearFilter}
+            style={{ width: 160 }}
+          >
+            <Option value="all">All Years</Option>
+            {years.map((year) => (
+              <Option key={year} value={year}>
+                {year}
               </Option>
             ))}
           </Select>

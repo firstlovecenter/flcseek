@@ -141,6 +141,7 @@ function SheepSeekerDashboardContent() {
   const [form] = Form.useForm();
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const isRegisterRestricted = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
 
   // Fetch available years for the user's group (month)
   useEffect(() => {
@@ -473,7 +474,7 @@ function SheepSeekerDashboardContent() {
           ) && (
             <Button
               icon={<HomeOutlined />}
-              onClick={() => router.push('/groups')}
+              onClick={() => router.push('/')}
             >
               Home
             </Button>
@@ -493,7 +494,7 @@ function SheepSeekerDashboardContent() {
             Attendance
           </Button>
 
-          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+          {!isRegisterRestricted && (
             <Button
               icon={<UserAddOutlined />}
               onClick={() => setRegisterModalVisible(true)}
@@ -502,7 +503,7 @@ function SheepSeekerDashboardContent() {
             </Button>
           )}
 
-          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+          {!isRegisterRestricted && (
             <Button
               icon={<FileExcelOutlined />}
               onClick={() => router.push(`/${groupId}/people/bulk-register`)}

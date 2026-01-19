@@ -13,8 +13,12 @@ export interface Person {
   last_name: string;
   full_name?: string;
   phone_number: string;
+  date_of_birth?: string;
   gender?: string;
   address?: string;
+  residential_location?: string;
+  school_residential_location?: string;
+  occupation_type?: string;
   group_id?: string;
   group_name?: string;
   group_year?: number;
@@ -72,8 +76,11 @@ function transformPerson(p: {
   firstName: string | null;
   lastName: string | null;
   phoneNumber: string;
+  dateOfBirth: string | null;
   gender: string | null;
   residentialLocation: string | null;
+  schoolResidentialLocation: string | null;
+  occupationType: string | null;
   groupId: string | null;
   groupName: string;
   registeredById: string;
@@ -89,8 +96,12 @@ function transformPerson(p: {
     last_name: lastName,
     full_name: `${firstName} ${lastName}`.trim(),
     phone_number: p.phoneNumber,
+    date_of_birth: p.dateOfBirth || undefined,
     gender: p.gender || undefined,
     address: p.residentialLocation || undefined,
+    residential_location: p.residentialLocation || undefined,
+    school_residential_location: p.schoolResidentialLocation || undefined,
+    occupation_type: p.occupationType || undefined,
     group_id: p.groupId || undefined,
     group_name: p.group?.name || p.groupName || undefined,
     group_year: p.group?.year,
@@ -140,7 +151,21 @@ export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
 
   const people = await prisma.newConvert.findMany({
     where,
-    include: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phoneNumber: true,
+      dateOfBirth: true,
+      gender: true,
+      residentialLocation: true,
+      schoolResidentialLocation: true,
+      occupationType: true,
+      groupId: true,
+      groupName: true,
+      registeredById: true,
+      createdAt: true,
+      updatedAt: true,
       group: { select: { name: true, year: true } },
     },
     orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
@@ -157,7 +182,21 @@ export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
 export async function findById(id: string): Promise<Person | null> {
   const person = await prisma.newConvert.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phoneNumber: true,
+      dateOfBirth: true,
+      gender: true,
+      residentialLocation: true,
+      schoolResidentialLocation: true,
+      occupationType: true,
+      groupId: true,
+      groupName: true,
+      registeredById: true,
+      createdAt: true,
+      updatedAt: true,
       group: { select: { name: true, year: true } },
     },
   });

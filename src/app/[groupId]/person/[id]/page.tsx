@@ -38,8 +38,10 @@ export default function PersonDetailPage() {
   
   const [person, setPerson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { isDark } = useTheme();
   const { token: antdToken } = useToken();
+  const isRegisterRestricted = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -61,17 +63,39 @@ export default function PersonDetailPage() {
 
   const fetchPersonDetails = async () => {
     try {
+      setError(null);
       const response = await fetch(`/api/people/${personId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch person details');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error Response:', errorData);
+        
+        // Extract error message from nested structures
+        let errorMsg = 'Failed to fetch person details';
+        if (typeof errorData.error === 'string') {
+          errorMsg = errorData.error;
+        } else if (typeof errorData.error === 'object' && errorData.error?.message) {
+          errorMsg = errorData.error.message;
+        } else if (typeof errorData.message === 'string') {
+          errorMsg = errorData.message;
+        } else if (response.status === 403) {
+          errorMsg = 'You do not have permission to view this person';
+        } else if (response.status === 404) {
+          errorMsg = 'Person not found';
+        } else {
+          errorMsg = `HTTP ${response.status}`;
+        }
+        throw new Error(errorMsg);
+      }
 
       const data = await response.json();
-      setPerson(data.person);
+      setPerson(data.data?.person || data.person);
     } catch (error: any) {
-      message.error(error.message || 'Failed to load person details');
-      router.back();
+      const errorMsg = error.message || 'Failed to load person details';
+      setError(errorMsg);
+      console.error('Error fetching person details:', error);
     } finally {
       setLoading(false);
     }
@@ -91,6 +115,18 @@ export default function PersonDetailPage() {
   return (
     <>
       <AppBreadcrumb />
+      {error && (
+        <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fff2e8', border: '1px solid #ffbb96', borderRadius: 6, color: '#d4380d' }}>
+          {error}
+          <Button 
+            size="small" 
+            style={{ marginLeft: 16 }} 
+            onClick={() => router.back()}
+          >
+            Go Back
+          </Button>
+        </div>
+      )}
       <div>
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -116,7 +152,7 @@ export default function PersonDetailPage() {
               >
                 Attendance
               </Button>
-              {!isLeader && (
+              {!isRegisterRestricted && (
                 <Button
                   icon={<UserAddOutlined />}
                   onClick={() => router.push(`/${groupId}/people/register`)}

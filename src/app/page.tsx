@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Button, Typography, Spin, message, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox } from 'antd';
-import { CheckCircleOutlined, TeamOutlined, CalendarOutlined, DownOutlined } from '@ant-design/icons';
+import { Card, Button, Typography, Spin, message, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox, Divider } from 'antd';
+import { CheckCircleOutlined, TeamOutlined, CalendarOutlined, DownOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -172,14 +172,26 @@ export default function RootPage() {
   // Show leadpastor/overseer view with collapsible years
   if (user.role === 'leadpastor' || user.role === 'overseer') {
     return (
-      <div style={{ padding: '0 24px', minHeight: '100vh' }}>
-        <div style={{ marginBottom: 32, textAlign: 'center' }}>
-          <Title level={2}>Select Your Group</Title>
-          <Text type="secondary" style={{ fontSize: 16 }}>
-            Choose a group to view milestone tracking and attendance
-          </Text>
+      <div style={{ minHeight: '100vh', backgroundColor: isDark ? '#141414' : '#f5f5f5' }}>
+        {/* Header Section */}
+        <div style={{ 
+          backgroundColor: isDark ? '#1f1f1f' : '#ffffff',
+          borderBottom: `1px solid ${isDark ? '#434343' : '#e8e8e8'}`,
+          padding: '16px 24px'
+        }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <HomeOutlined style={{ fontSize: 24 }} />
+              <div>
+                <Title level={3} style={{ margin: 0, fontSize: 18 }}>Select A Group</Title>
+                <Text type="secondary" style={{ fontSize: 12 }}>Choose a group to view milestone tracking and attendance</Text>
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Content Section */}
+        <div style={{ padding: '32px 8px' }}>
         {sortedYears.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 0' }}>
             <Empty description="No groups found" />
@@ -189,7 +201,7 @@ export default function RootPage() {
             activeKey={activeKeys}
             onChange={(keys) => setActiveKeys(Array.isArray(keys) ? keys : [keys])}
             expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
-            style={{ background: 'transparent', border: 'none', maxWidth: 1200, margin: '0 auto' }}
+            style={{ background: 'transparent', border: 'none' }}
           >
             {sortedYears.map((year) => (
               <Panel
@@ -215,9 +227,9 @@ export default function RootPage() {
                   background: '#fff',
                 }}
               >
-                <Row gutter={[24, 24]} style={{ paddingTop: 8 }}>
+                <Row gutter={[32, 24]} style={{ paddingTop: 8 }}>
                   {groupsByYear[year].map((group, index) => (
-                    <Col xs={24} sm={12} md={8} lg={6} key={group.id}>
+                    <Col xs={24} sm={12} md={6} lg={6} key={group.id}>
                       <Card
                         hoverable
                         onClick={() => handleSelectGroup(group.id)}
@@ -268,19 +280,38 @@ export default function RootPage() {
             ))}
           </Collapse>
         )}
+        </div>
       </div>
     );
   }
 
   // Show admin/leader view with year filter
   return (
-    <div style={{ minHeight: '100vh', padding: '40px 20px', background: isDark ? '#0a0a0a' : '#f5f5f5' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <Title level={2} style={{ marginBottom: 8 }}>
-            <TeamOutlined /> Select Your Group
+    <div style={{ minHeight: '100vh', backgroundColor: isDark ? '#141414' : '#f5f5f5' }}>
+      {/* Header Section */}
+      <div style={{ 
+        backgroundColor: isDark ? '#1f1f1f' : '#ffffff',
+        borderBottom: `1px solid ${isDark ? '#434343' : '#e8e8e8'}`,
+        padding: '16px 24px'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <HomeOutlined style={{ fontSize: 24 }} />
+            <div>
+              <Title level={3} style={{ margin: 0, fontSize: 18 }}>Select A Group</Title>
+              <Text type="secondary" style={{ fontSize: 12 }}>Choose a group to view milestone tracking and attendance</Text>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <div style={{ padding: '32px 24px', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
+            Select Your Group
           </Title>
-          <Text type="secondary">
+          <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginBottom: 24 }}>
             Choose which group and year you want to manage
           </Text>
           
