@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     const groupId = user.groupId || null;
 
     // Ensure role is valid
-    const validRoles = ['superadmin', 'leadpastor', 'admin', 'leader'] as const;
+    const validRoles = ['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'] as const;
     const role = validRoles.includes(user.role as typeof validRoles[number])
       ? (user.role as typeof validRoles[number])
       : 'leader'; // Default to 'leader' if role is missing or invalid

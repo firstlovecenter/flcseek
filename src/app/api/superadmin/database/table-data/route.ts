@@ -29,6 +29,11 @@ export async function POST(request: NextRequest) {
       'attendance_records',
       'milestones',
       'departments',
+      'user_groups',
+      'activity_logs',
+      'notifications',
+      'password_reset_tokens',
+      'rate_limit_records',
     ];
     if (!allowedTables.includes(tableName)) {
       return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });

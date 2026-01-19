@@ -122,11 +122,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, year, leader_id } = body;
 
+    const yearNumber = year !== undefined && year !== null ? Number(year) : null;
+    if (yearNumber !== null && Number.isNaN(yearNumber)) {
+      return NextResponse.json({ error: 'Invalid year' }, { status: 400 });
+    }
+
     const group = await prisma.group.create({
       data: {
         name,
         description: description || null,
-        year: year || null,
+        year: yearNumber,
         archived: false,
         leaderId: leader_id || null,
       }

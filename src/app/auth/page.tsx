@@ -28,7 +28,7 @@ export default function LoginPage() {
         if (user.group_id) {
           router.push(`/${user.group_id}`);
         } else {
-          router.push('/groups');
+          router.push('/');
         }
       } else {
         router.push('/');

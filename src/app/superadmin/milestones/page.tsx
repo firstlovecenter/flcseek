@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Card, Typography, Table, Tag, Button, Space, Modal, Form, Input, message, Spin, Popconfirm, InputNumber, Switch } from 'antd';
 import { TrophyOutlined, CheckCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import dayjs from 'dayjs';
 
@@ -22,7 +21,6 @@ interface Milestone {
 }
 
 export default function MilestonesPage() {
-  const { token } = useAuth();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -73,16 +71,10 @@ export default function MilestonesPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/superadmin/milestones?id=${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.milestones.delete(id);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete milestone');
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to delete milestone');
       }
 
       message.success('Milestone deleted successfully');
@@ -95,7 +87,7 @@ export default function MilestonesPage() {
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const response = await api.milestones.update(id, { is_active: !currentStatus });
+      const response = await api.milestones.toggleActive(id, !currentStatus);
 
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to update milestone status');
@@ -104,7 +96,7 @@ export default function MilestonesPage() {
       const data = response.data;
       
       // Show detailed message if records were backfilled
-      if (data?.backfilled && data.backfilled > 0) {
+      if ((data as any)?.backfilled && (data as any).backfilled > 0) {
         message.success(`Milestone activated! ${data.backfilled} progress record(s) automatically created for existing converts.`, 5);
       } else {
         message.success(`Milestone ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
@@ -137,7 +129,7 @@ export default function MilestonesPage() {
         // Update existing milestone
         if (!editingMilestone) return;
 
-        const response = await api.milestones.update(editingMilestone.id, {
+        const response = await api.milestones.updateDetails(editingMilestone.id, {
           stage_name: values.stage_name,
           short_name: values.short_name,
           description: values.description,
