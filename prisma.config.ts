@@ -10,6 +10,6 @@ export default defineConfig({
   },
   datasource: {
     // Use direct connection for CLI operations (migrations, db push)
-    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"],
+    url: process.env["DIRECT_URL"] || process.env["NEON_DATABASE_URL"],
   },
 });
