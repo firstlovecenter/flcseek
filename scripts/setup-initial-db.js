@@ -20,7 +20,7 @@ if (!fs.existsSync(envPath)) {
 // Load environment variables
 require('dotenv').config({ path: envPath });
 
-const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+const dbUrl = process.env.NEON_DATABASE_URL;
 
 if (!dbUrl) {
   console.error('❌ Error: NEON_DATABASE_URL not found in .env.local');
