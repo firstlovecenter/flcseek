@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all tables and their columns using raw query (information_schema is not available via Prisma models)
+    // Cast name columns to text to avoid Prisma deserialization errors on the 'name' type
     const tablesResult = await prisma.$queryRawUnsafe<
       Array<{
         table_name: string;
@@ -23,15 +24,28 @@ export async function GET(request: NextRequest) {
       }>
     >(`
       SELECT 
-        table_name,
-        column_name,
-        data_type,
-        is_nullable,
-        column_default,
+        table_name::text AS table_name,
+        column_name::text AS column_name,
+        data_type::text AS data_type,
+        is_nullable::text AS is_nullable,
+        column_default::text AS column_default,
         ordinal_position
       FROM information_schema.columns
       WHERE table_schema = 'public'
-      AND table_name IN ('users', 'groups', 'new_converts', 'progress_records', 'attendance_records', 'milestones', 'departments')
+      AND table_name IN (
+        'users',
+        'groups',
+        'new_converts',
+        'progress_records',
+        'attendance_records',
+        'milestones',
+        'departments',
+        'user_groups',
+        'activity_logs',
+        'notifications',
+        'password_reset_tokens',
+        'rate_limit_records'
+      )
       ORDER BY table_name, ordinal_position
     `);
 

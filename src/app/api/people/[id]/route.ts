@@ -37,8 +37,14 @@ export async function GET(
       return errors.notFound('Person');
     }
     
-    // Check access: leaders can only see people in their group
-    if (user!.role === ROLES.LEADER) {
+    // Check access: 
+    // - superadmin, leadpastor, overseer can view any person
+    // - admin and leader can only view people in their group (and must have a group_id)
+    const restrictedRoles: string[] = [ROLES.LEADER, ROLES.ADMIN];
+    if (restrictedRoles.includes(user!.role)) {
+      if (!user!.group_id) {
+        return errors.forbidden('You must be assigned to a group to view people');
+      }
       if (person.group_id !== user!.group_id) {
         return errors.forbidden('You can only view people in your group');
       }
@@ -86,8 +92,19 @@ export async function PATCH(
       return errors.notFound('Person');
     }
     
-    // Leaders can only edit people in their group
-    if (user!.role === ROLES.LEADER) {
+    // Logs for debugging
+    console.log(`[PATCH /api/v1/people/[id]] User role: ${user!.role}, Person group_id: ${existing.group_id}, User group_id: ${user!.group_id}`);
+    
+    // Only admin and superadmin can edit people
+    if (user!.role !== ROLES.SUPERADMIN && user!.role !== ROLES.ADMIN) {
+      return errors.forbidden('You do not have permission to edit people');
+    }
+    
+    // Admin can only edit people in their group; superadmin can edit anyone
+    if (user!.role === ROLES.ADMIN) {
+      if (!user!.group_id) {
+        return errors.forbidden('You must be assigned to a group to edit people');
+      }
       if (existing.group_id !== user!.group_id) {
         return errors.forbidden('You can only edit people in your group');
       }

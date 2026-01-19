@@ -83,8 +83,8 @@ class APIClient {
 
       return {
         success: true,
-        data: data.data,
-        meta: data.meta,
+        data: data?.data !== undefined ? data.data : data,
+        meta: data?.meta,
       };
     } catch (err) {
       console.error(`[API ${options.method || 'GET'}] ${path}:`, err);
@@ -105,6 +105,14 @@ class APIClient {
   async post<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
     return this.request<T>(path, {
       method: 'POST',
+      body: JSON.stringify(body),
+      params,
+    });
+  }
+
+  async put<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
+    return this.request<T>(path, {
+      method: 'PUT',
       body: JSON.stringify(body),
       params,
     });
@@ -276,7 +284,7 @@ class APIClient {
       this.get('/milestones', { include_inactive: includeInactive }),
 
     // Admin operations
-    listAll: () => this.get('/api/milestones'),
+    listAll: () => this.get('/superadmin/milestones'),
 
     create: (data: {
       stage_number: number;
@@ -284,14 +292,18 @@ class APIClient {
       short_name?: string;
       description?: string;
       is_active?: boolean;
-    }) => this.post('/api/milestones', data),
+    }) => this.post('/superadmin/milestones', data),
 
-    update: (id: string, data: Partial<{
+    updateDetails: (id: string, data: Partial<{
       stage_name: string;
       short_name: string;
       description: string;
-      is_active: boolean;
-    }>) => this.patch('/api/milestones', data, { id }),
+    }>) => this.put('/superadmin/milestones', { id, ...data }),
+
+    toggleActive: (id: string, is_active: boolean) =>
+      this.patch('/superadmin/milestones', { id, is_active }),
+
+    delete: (id: string) => this.delete('/superadmin/milestones', { id }),
   };
 
   // ========== Stats ==========

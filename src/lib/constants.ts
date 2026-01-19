@@ -2,6 +2,7 @@
 export const ROLES = {
   SUPERADMIN: 'superadmin',
   LEADPASTOR: 'leadpastor',
+  OVERSEER: 'overseer',
   ADMIN: 'admin',
   LEADER: 'leader',
 } as const;

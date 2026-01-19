@@ -56,7 +56,11 @@ export default function UserGroupsModal({ visible, onClose, userId, username }: 
 
       const assignedData = await assignedRes.json();
 
-      setAllGroups(groupsRes.success ? (groupsRes.data || []) : []);
+      let groupsList = [];
+      if (groupsRes.success && groupsRes.data) {
+        groupsList = Array.isArray(groupsRes.data) ? groupsRes.data : (groupsRes.data.groups || []);
+      }
+      setAllGroups(groupsList);
       setAssignedGroups(assignedData.groups || []);
       setSelectedGroupIds((assignedData.groups || []).map((g: UserGroup) => g.group_id));
     } catch (error) {

@@ -232,8 +232,8 @@ export default function Navigation({ children }: NavigationProps) {
 
   const { top: topMenuItems, bottom: bottomMenuItems } = getMenuItemsByRole();
 
-  // Don't show navigation on login page
-  if (pathname === '/' || pathname === '/auth' || !user) {
+  // Don't show navigation on login page or if not authenticated
+  if (pathname === '/auth' || !user) {
     return <>{children}</>;
   }
 

@@ -11,9 +11,25 @@ import { api } from '@/lib/api';
 const { Title } = Typography;
 const { Option } = Select;
 
+const monthOrder: Record<string, number> = {
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12,
+};
+
 interface Group {
   id: string;
   name: string;
+  year: number;
   description: string;
   archived: boolean;
   leader_id: string | null;
@@ -41,6 +57,11 @@ export default function GroupsManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
+
+  const availableYears = Array.from(
+    { length: new Date().getFullYear() - 2025 + 1 },
+    (_, idx) => 2025 + idx
+  );
 
   useEffect(() => {
     if (token) {
@@ -77,8 +98,15 @@ export default function GroupsManagementPage() {
       });
       
       if (response.success && response.data) {
-        setGroups(response.data.groups || []);
-        setFilteredGroups(response.data.groups || []);
+        const sorted = (response.data.groups || []).slice().sort((a: Group, b: Group) => {
+          if (b.year !== a.year) return b.year - a.year;
+          const aOrder = monthOrder[a.name.toLowerCase()] || 999;
+          const bOrder = monthOrder[b.name.toLowerCase()] || 999;
+          return aOrder - bOrder;
+        });
+
+        setGroups(sorted);
+        setFilteredGroups(sorted);
       } else {
         message.error(response.error?.message || 'Failed to fetch groups');
       }
@@ -102,6 +130,7 @@ export default function GroupsManagementPage() {
     setEditingGroup(group);
     form.setFieldsValue({
       name: group.name,
+      year: group.year,
       description: group.description,
       archived: group.archived,
       leader_id: group.leader_id,
@@ -160,13 +189,18 @@ export default function GroupsManagementPage() {
       
       const method = editingGroup ? 'PUT' : 'POST';
 
+      const payload = {
+        ...values,
+        year: values.year ? Number(values.year) : undefined,
+      };
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -194,7 +228,7 @@ export default function GroupsManagementPage() {
           onClick={() => router.push(`/?group_id=${record.id}`)}
           style={{ cursor: 'pointer', color: '#1890ff' }}
         >
-          {name}
+          {`${name} ${record.year}`}
         </a>
       ),
     },
@@ -341,13 +375,57 @@ export default function GroupsManagementPage() {
         footer={null}
         width={600}
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{ year: new Date().getFullYear() }}
+        >
           <Form.Item
             name="name"
             label="Group Name"
             rules={[{ required: true, message: 'Please enter group name' }]}
           >
-            <Input />
+            <Input placeholder="e.g., January, February, March" />
+          </Form.Item>
+          
+          <Form.Item
+            name="year"
+            label="Year"
+            rules={[{ required: true, message: 'Please select year' }]}
+          >
+            <Select
+              placeholder="Select year"
+              options={availableYears.map((y) => ({ label: y, value: y }))}
+            />
+          </Form.Item>
+          
+          <Form.Item
+            name="description"
+            label="Description"
+          >
+            <Input.TextArea rows={3} placeholder="Optional description for this group" />
+          </Form.Item>
+          
+          <Form.Item
+            name="leader_id"
+            label="Group Leader"
+          >
+            <Select 
+              placeholder="Select a leader (optional)" 
+              allowClear
+              showSearch
+              filterOption={(input, option) => {
+                const label = `${option?.children}`;
+                return label.toLowerCase().includes(input.toLowerCase());
+              }}
+            >
+              {users.map(user => (
+                <Option key={user.id} value={user.id}>
+                  {user.username}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
           
           {editingGroup && (

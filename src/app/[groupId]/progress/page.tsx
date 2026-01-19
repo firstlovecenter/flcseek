@@ -46,6 +46,7 @@ export default function ProgressPage() {
   const isSuperAdmin = user?.role === 'superadmin';
   // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
   const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
+  const isRegisterRestricted = isLeader || user?.role === 'overseer' || user?.role === 'leadpastor';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -278,7 +279,7 @@ export default function ProgressPage() {
               >
                 Attendance
               </Button>
-              {!isLeader && (
+              {!isRegisterRestricted && (
                 <Button
                   icon={<UserAddOutlined />}
                   onClick={() => router.push(`/${groupId}/people/register`)}
@@ -286,7 +287,7 @@ export default function ProgressPage() {
                   Register
                 </Button>
               )}
-              {!isLeader && (
+              {!isRegisterRestricted && (
                 <Button
                   icon={<FileExcelOutlined />}
                   onClick={() => router.push(`/${groupId}/people/bulk-register`)}

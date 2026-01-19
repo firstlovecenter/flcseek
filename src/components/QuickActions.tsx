@@ -15,6 +15,7 @@ import type { MenuProps } from 'antd';
 export default function QuickActions() {
   const { user } = useAuth();
   const router = useRouter();
+  const isRegisterRestricted = user?.role === 'leadpastor' || user?.role === 'overseer';
 
   const superAdminActions: MenuProps['items'] = [
     {

@@ -8,6 +8,22 @@ import { useAuth } from '@/contexts/AuthContext';
 const { Title, Paragraph, Text } = Typography;
 const { TabPane } = Tabs;
 
+// Keep allowed tables aligned with the API allowlist
+const ALLOWED_TABLES = [
+  'users',
+  'groups',
+  'new_converts',
+  'progress_records',
+  'attendance_records',
+  'milestones',
+  'departments',
+  'user_groups',
+  'activity_logs',
+  'notifications',
+  'password_reset_tokens',
+  'rate_limit_records',
+];
+
 interface DatabaseInfo {
   tables: {
     users: number;
@@ -73,6 +89,18 @@ export default function DatabaseManagementPage() {
       fetchTableData(selectedTable, pagination.current);
     }
   }, [selectedTable, pagination.current]);
+
+  // Auto-select first allowed table present in schema when it loads
+  useEffect(() => {
+    const tableNames = ALLOWED_TABLES.filter((t) => schema[t]);
+    if (tableNames.length > 0) {
+      const first = tableNames[0];
+      if (!selectedTable || !schema[selectedTable]) {
+        setSelectedTable(first);
+        setPagination((prev) => ({ ...prev, current: 1 }));
+      }
+    }
+  }, [schema, selectedTable]);
 
   const fetchSchema = async () => {
     try {
@@ -257,7 +285,7 @@ export default function DatabaseManagementPage() {
     return <div>Loading database information...</div>;
   }
 
-  const tables = Object.keys(schema).sort();
+  const tables = ALLOWED_TABLES.filter((t) => schema[t]);
 
   return (
     <div>
@@ -299,7 +327,13 @@ export default function DatabaseManagementPage() {
       </Row>
 
       <Card title="Database Tables & Data" style={{ marginBottom: 24 }}>
-        <Tabs activeKey={selectedTable} onChange={setSelectedTable}>
+        <Tabs
+          activeKey={selectedTable && schema[selectedTable] ? selectedTable : tables[0] || ''}
+          onChange={(key) => {
+            setSelectedTable(key);
+            setPagination((prev) => ({ ...prev, current: 1 }));
+          }}
+        >
           {tables.map(table => (
             <TabPane tab={table} key={table}>
               <div style={{ marginBottom: 16 }}>

@@ -47,6 +47,7 @@ function AttendancePageContent() {
   const isSuperAdmin = user?.role === 'superadmin';
   // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
   const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
+  const isRegisterRestricted = isLeader || user?.role === 'overseer' || user?.role === 'leadpastor';
 
   // Fetch available years for the group
   useEffect(() => {
@@ -258,7 +259,7 @@ function AttendancePageContent() {
               >
                 Attendance
               </Button>
-              {!isLeader && (
+              {!isRegisterRestricted && (
                 <Button
                   icon={<UserAddOutlined />}
                   onClick={() => router.push(`/${groupId}/people/register`)}
@@ -266,7 +267,7 @@ function AttendancePageContent() {
                   Register
                 </Button>
               )}
-              {!isLeader && (
+              {!isRegisterRestricted && (
                 <Button
                   icon={<FileExcelOutlined />}
                   onClick={() => router.push(`/${groupId}/people/bulk-register`)}

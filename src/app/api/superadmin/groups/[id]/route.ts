@@ -42,7 +42,13 @@ export async function PUT(
 
     if (name !== undefined) data.name = name;
     if (description !== undefined) data.description = description || null;
-    if (year !== undefined) data.year = year;
+    if (year !== undefined) {
+      const yearNumber = Number(year);
+      if (Number.isNaN(yearNumber)) {
+        return NextResponse.json({ error: 'Invalid year' }, { status: 400 });
+      }
+      data.year = yearNumber;
+    }
     if (archived !== undefined) data.archived = archived;
     if (leader_id !== undefined) {
       data.leader = leader_id ? { connect: { id: leader_id } } : { disconnect: true };

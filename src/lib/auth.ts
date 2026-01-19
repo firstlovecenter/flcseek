@@ -27,7 +27,7 @@ export interface UserPayload {
   userId?: string; // Backward compatibility
   username: string;
   email?: string;  // Optional, for backwards compatibility
-  role: 'superadmin' | 'leadpastor' | 'admin' | 'leader';
+  role: 'superadmin' | 'leadpastor' | 'overseer' | 'admin' | 'leader';
   group_name?: string; // deprecated - use group_id
   group_year?: number; // Year of the group (e.g., 2025, 2026)
   group_id?: string;   // Assigned month group (Jan-Dec)
