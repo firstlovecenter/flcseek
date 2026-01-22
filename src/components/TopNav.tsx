@@ -32,10 +32,17 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
     const fetchGroupInfo = async () => {
       if (!user || !token) return;
       
-      // Only fetch for admin and leader users
-      if (user.role === 'superadmin' || user.role === 'leadpastor') return;
+      // Superadmin doesn't need group info in header
+      if (user.role === 'superadmin') return;
 
-      // Use user's stored group info if available
+      // For leadpastor and overseer roles, we'll need to get group info from context/props
+      // This component is typically used in specific contexts where group info is known
+      if (user.role === 'leadpastor' || user.role === 'overseer') {
+        // Group info will be set via props or context when viewing a specific group
+        return;
+      }
+
+      // Use user's stored group info if available (for admin and leader)
       if (user.group_name && user.group_year) {
         setGroupInfo({ name: user.group_name, year: user.group_year });
         return;
@@ -67,7 +74,17 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
     }
 
     if (user?.role === 'leadpastor') {
+      if (groupInfo) {
+        return `${groupInfo.name} ${groupInfo.year} | Lead Pastor`;
+      }
       return 'FLC Sheep Seeking | Lead Pastor';
+    }
+
+    if (user?.role === 'overseer') {
+      if (groupInfo) {
+        return `${groupInfo.name} ${groupInfo.year} | Overseer`;
+      }
+      return 'FLC Sheep Seeking | Overseer';
     }
 
     if (!groupInfo) {

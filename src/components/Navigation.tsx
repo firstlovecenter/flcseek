@@ -46,10 +46,34 @@ export default function Navigation({ children }: NavigationProps) {
     const fetchGroupInfo = async () => {
       if (!user || !token) return;
       
-      // Only fetch for admin and leader users
-      if (user.role === 'superadmin' || user.role === 'leadpastor') return;
+      // Superadmin doesn't need group info in header
+      if (user.role === 'superadmin') return;
 
-      // Use user's stored group info if available
+      // For leadpastor and overseer, extract group info from the current path if viewing a group
+      if (user.role === 'leadpastor' || user.role === 'overseer') {
+        const groupIdMatch = pathname.match(/^\/([a-f0-9-]{36})/);
+        if (groupIdMatch) {
+          const groupId = groupIdMatch[1];
+          try {
+            const response = await api.groups.list({ active: true });
+            if (response.success && response.data) {
+              const groups = response.data.groups || [];
+              const currentGroup = groups.find((g: any) => g.id === groupId);
+              if (currentGroup) {
+                setGroupInfo({ name: currentGroup.name, year: currentGroup.year });
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('Failed to fetch group info:', error);
+          }
+        }
+        // If not viewing a specific group, don't show group info
+        setGroupInfo(null);
+        return;
+      }
+
+      // Use user's stored group info if available (for admin and leader)
       if (user.group_name && user.group_year) {
         setGroupInfo({ name: user.group_name, year: user.group_year });
         return;
@@ -73,7 +97,7 @@ export default function Navigation({ children }: NavigationProps) {
     };
 
     fetchGroupInfo();
-  }, [user, token]);
+  }, [user, token, pathname]);
 
   const getHeaderTitle = () => {
     if (user?.role === 'superadmin') {
@@ -81,7 +105,11 @@ export default function Navigation({ children }: NavigationProps) {
     }
 
     if (user?.role === 'leadpastor') {
-      // Check if we're on a specific month page
+      // If viewing a specific group, show group info
+      if (groupInfo) {
+        return `${groupInfo.name} ${groupInfo.year} | Lead Pastor`;
+      }
+      // Check if we're on a specific month page (legacy path)
       const monthMatch = pathname.match(/\/leadpastor\/([^\/]+)/);
       if (monthMatch && monthMatch[1]) {
         const month = monthMatch[1];
@@ -91,6 +119,14 @@ export default function Navigation({ children }: NavigationProps) {
         return `${monthName} ${currentYear} | Lead Pastor`;
       }
       return 'FLC Sheep Seeking | Lead Pastor';
+    }
+
+    if (user?.role === 'overseer') {
+      // If viewing a specific group, show group info
+      if (groupInfo) {
+        return `${groupInfo.name} ${groupInfo.year} | Overseer`;
+      }
+      return 'FLC Sheep Seeking | Overseer';
     }
 
     if (!groupInfo) {
