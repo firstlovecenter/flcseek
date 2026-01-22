@@ -124,7 +124,7 @@ export default function LoginPage() {
         }}
         styles={{ body: { padding: '40px 32px' } }}
       >
-        <div className="text-center mb-6 sm:mb-8">
+        <div className="text-center mb-6 sm:mb-8" style={{ textAlign: 'center' }}>
           <Title 
             level={2} 
             style={{ 
@@ -135,6 +135,7 @@ export default function LoginPage() {
                 ? '0 2px 8px rgba(64, 150, 255, 0.3)'
                 : '0 2px 8px rgba(0, 51, 102, 0.15)',
               fontWeight: 700,
+              textAlign: 'center',
             }}
           >
             FLC Sheep Seeking
@@ -143,6 +144,8 @@ export default function LoginPage() {
             style={{ 
               fontSize: 'clamp(0.875rem, 3vw, 1rem)',
               color: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)',
+              textAlign: 'center',
+              display: 'block',
             }}
           >
             Church Milestone Tracking System
@@ -155,24 +158,26 @@ export default function LoginPage() {
             rules={[
               { required: true, message: 'Please enter your username' }
             ]}
+            style={{ textAlign: 'center' }}
           >
             <Input
               prefix={<UserOutlined style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }} />}
               placeholder="Username"
               autoComplete="username"
-              style={{ height: 44 }}
+              style={{ height: 44, textAlign: 'left' }}
             />
           </Form.Item>
 
           <Form.Item
             name="password"
             rules={[{ required: true, message: 'Please enter your password' }]}
+            style={{ textAlign: 'center' }}
           >
             <Input.Password
               prefix={<LockOutlined style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }} />}
               placeholder="Password"
               autoComplete="current-password"
-              style={{ height: 44 }}
+              style={{ height: 44, textAlign: 'left' }}
             />
           </Form.Item>
 
@@ -201,11 +206,13 @@ export default function LoginPage() {
           </Form.Item>
         </Form>
 
-        <div className="text-center mt-4 sm:mt-6">
+        <div className="text-center mt-4 sm:mt-6" style={{ textAlign: 'center' }}>
           <Text 
             style={{ 
               fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)',
               color: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.45)',
+              textAlign: 'center',
+              display: 'block',
             }}
           >
             Only authorized users can log in
