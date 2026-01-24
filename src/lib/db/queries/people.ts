@@ -377,6 +377,7 @@ export async function findManyWithStats(
 
 /**
  * Create a new person
+ * IMPORTANT: group_id should be provided to ensure the record appears in filtered queries
  */
 export async function create(input: CreatePersonInput): Promise<Person> {
   if (!input.group_name) {
@@ -384,6 +385,9 @@ export async function create(input: CreatePersonInput): Promise<Person> {
   }
   if (!input.registered_by) {
     throw new Error('registered_by is required');
+  }
+  if (!input.group_id) {
+    console.warn('[create] Creating person without group_id - record may not appear in filtered views');
   }
   
   const person = await prisma.newConvert.create({
@@ -480,6 +484,8 @@ export async function remove(id: string): Promise<boolean> {
 
 /**
  * Bulk create people
+ * IMPORTANT: group_id must be a valid UUID that exists in the groups table
+ * Records with invalid/missing group_id will be skipped to prevent orphaned records
  */
 export async function createMany(
   people: CreatePersonInput[],
@@ -491,6 +497,15 @@ export async function createMany(
   for (const input of people) {
     // Skip if required fields are missing
     if (!input.group_name || !input.registered_by) {
+      console.warn('[createMany] Skipping record: missing group_name or registered_by');
+      skipped++;
+      continue;
+    }
+    
+    // Skip if group_id is missing - this ensures records are properly linked to a group
+    // and will appear in filtered queries
+    if (!input.group_id) {
+      console.warn('[createMany] Skipping record: missing group_id - records without group_id will not appear in filtered views');
       skipped++;
       continue;
     }
@@ -503,7 +518,7 @@ export async function createMany(
           phoneNumber: input.phone_number,
           gender: input.gender || null,
           residentialLocation: input.address || null,
-          groupId: input.group_id || null,
+          groupId: input.group_id,  // Required - must be a valid UUID
           groupName: input.group_name,
           registeredById: input.registered_by,
         },
