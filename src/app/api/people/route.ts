@@ -126,6 +126,13 @@ export async function POST(request: NextRequest) {
       return errors.validation('Invalid input', validation.errors);
     }
     
+    // Determine target group_id
+    const targetGroupId = body.group_id || user!.group_id;
+    
+    if (!targetGroupId) {
+      return errors.validation('group_id is required. Either provide it in the request or ensure your user account has a group assigned.');
+    }
+    
     // Set group info from user if not provided
     const input: People.CreatePersonInput = {
       first_name: body.first_name,
@@ -133,7 +140,7 @@ export async function POST(request: NextRequest) {
       phone_number: body.phone_number,
       gender: body.gender,
       address: body.address,
-      group_id: body.group_id || user!.group_id,
+      group_id: targetGroupId,
       group_name: body.group_name || user!.group_name,
       registered_by: user!.id,
     };
