@@ -6,6 +6,7 @@ import {
   validatePersonData,
 } from '@/lib/api';
 import * as People from '@/lib/db/queries/people';
+import { prisma } from '@/lib/prisma';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,24 @@ export async function POST(request: NextRequest) {
       return errors.validation('Maximum 500 people can be imported at once');
     }
     
+    // Determine the target group_id - use from first person or fallback to user's group
+    const targetGroupId = body.people[0]?.group_id || user!.group_id;
+    
+    // Validate that the target group exists
+    if (!targetGroupId) {
+      return errors.validation('group_id is required. Either provide it in the request or ensure your user account has a group assigned.');
+    }
+    
+    // Verify the group exists in the database
+    const targetGroup = await prisma.group.findUnique({
+      where: { id: targetGroupId },
+      select: { id: true, name: true, year: true },
+    });
+    
+    if (!targetGroup) {
+      return errors.validation(`Invalid group_id: ${targetGroupId}. The specified group does not exist.`);
+    }
+    
     // Validate all records
     const validationErrors: string[] = [];
     const validPeople: People.CreatePersonInput[] = [];
@@ -44,14 +63,15 @@ export async function POST(request: NextRequest) {
       if (!validation.valid) {
         validationErrors.push(`Row ${i + 1}: ${validation.errors.join(', ')}`);
       } else {
+        // Always use the validated target group to ensure consistency
         validPeople.push({
           first_name: person.first_name,
           last_name: person.last_name,
           phone_number: person.phone_number,
           gender: person.gender,
           address: person.address,
-          group_id: person.group_id || user!.group_id,
-          group_name: person.group_name || user!.group_name,
+          group_id: targetGroup.id,        // Use verified group ID
+          group_name: targetGroup.name,     // Use verified group name
           registered_by: user!.id,
         });
       }
@@ -67,7 +87,8 @@ export async function POST(request: NextRequest) {
     );
     
     return success({
-      created: created.length,
+      inserted: created.length, // Frontend expects 'inserted'
+      created: created.length,  // Keep for backwards compatibility
       skipped,
       validationErrors: validationErrors.length,
       details: {
