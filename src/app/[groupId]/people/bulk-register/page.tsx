@@ -193,9 +193,19 @@ function BulkRegisterContent() {
 
       setUploadResult(response.data);
       setCurrentStep(2);
-      message.success(
-        `Successfully registered ${response.data?.inserted || 0} member(s)!`
-      );
+      
+      const insertedCount = response.data?.inserted || response.data?.created || 0;
+      const skippedCount = response.data?.skipped || 0;
+      
+      if (skippedCount > 0) {
+        message.success(
+          `Successfully registered ${insertedCount} member(s)! (${skippedCount} duplicate(s) skipped)`
+        );
+      } else {
+        message.success(
+          `Successfully registered ${insertedCount} member(s)!`
+        );
+      }
     } catch (error: any) {
       message.error(error.message || 'Failed to upload members');
     } finally {
