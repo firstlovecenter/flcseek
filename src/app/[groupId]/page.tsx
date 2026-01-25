@@ -494,12 +494,14 @@ function SheepSeekerDashboardContent() {
             Attendance
           </Button>
 
-          <Button
-            icon={<FileExcelOutlined />}
-            onClick={() => router.push(`/${groupId}/reports`)}
-          >
-            Reports
-          </Button>
+          {(user?.role === 'superadmin' || user?.role === 'leadpastor' || user?.role === 'overseer') && (
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={() => router.push(`/${groupId}/reports`)}
+            >
+              Reports
+            </Button>
+          )}
 
           {!isRegisterRestricted && (
             <Button
