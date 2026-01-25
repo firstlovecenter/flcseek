@@ -178,9 +178,9 @@ function SheepSeekerDashboardContent() {
             setSelectedYear(years[0]);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch available years:', error);
-        message.error('Failed to load group data');
+        message.error(`Failed to load group information: ${error.message || 'Unknown error'}. Redirecting to home...`);
         router.push('/'); // Redirect on group not found
       }
     };
@@ -222,9 +222,9 @@ function SheepSeekerDashboardContent() {
       console.log('Formatted milestones:', formattedMilestones);
       
       setMilestones(formattedMilestones);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch milestones:', error);
-      message.error('Failed to load milestones from database');
+      message.error(`Failed to load milestones: ${error.message || 'Database error'}. Some features may not work correctly.`);
       setMilestones([]);
     }
   }, []);

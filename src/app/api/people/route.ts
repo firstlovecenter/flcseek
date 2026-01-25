@@ -11,6 +11,8 @@ import {
 } from '@/lib/api';
 import * as People from '@/lib/db/queries/people';
 import * as Milestones from '@/lib/db/queries/milestones';
+import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import { logger } from '@/lib/logger';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -151,15 +153,34 @@ export async function POST(request: NextRequest) {
     
     const person = await People.create(input);
     
+    // Audit log person creation
+    const reqInfo = extractRequestInfo(request.headers);
+    await logAuditEvent({
+      userId: user!.id,
+      action: 'CREATE_CONVERT',
+      entityType: 'new_convert',
+      entityId: person.id,
+      newValues: { full_name: person.full_name, group_id: person.group_id, phone_number: person.phone_number },
+      ipAddress: reqInfo.ipAddress,
+      userAgent: reqInfo.userAgent,
+    });
+    
+    logger.info(`[CREATE_CONVERT] User ${user!.username} registered ${person.full_name} (${person.phone_number}) in group ${person.group_name}`);
+    
     return created({ person });
   } catch (err: any) {
-    console.error('[POST /api/v1/people]', err);
+    logger.error('[POST /api/v1/people] Error:', err);
     
     // Handle duplicate phone number
     if (err.message?.includes('duplicate') || err.code === '23505') {
-      return errors.validation('Phone number already registered');
+      return errors.validation(`This phone number is already registered. Each person must have a unique phone number.`);
     }
     
-    return errors.internal();
+    // Handle invalid group reference
+    if (err.message?.includes('foreign key') || err.code === '23503') {
+      return errors.validation(`Invalid group_id. The specified group does not exist in the database.`);
+    }
+    
+    return errors.internal('Failed to register person. Please check your data and try again.');
   }
 }

@@ -89,7 +89,7 @@ function AttendancePageContent() {
         }
       } catch (error) {
         console.error('Failed to fetch available years:', error);
-        message.error('Failed to load group data');
+        message.error('Failed to load group information. Please refresh the page or contact support.');
         router.push(`/${groupId}`);
       }
     };
@@ -165,7 +165,14 @@ function AttendancePageContent() {
       message.success('Attendance marked successfully!');
       fetchPeople();
     } catch (error: any) {
-      message.error(error.message || 'Failed to mark attendance');
+      const errorMsg = error.message || 'Failed to mark attendance';
+      if (errorMsg.includes('duplicate') || errorMsg.includes('already')) {
+        message.warning('Attendance already marked for this date');
+      } else if (errorMsg.includes('not found')) {
+        message.error('Person not found. They may have been removed.');
+      } else {
+        message.error(errorMsg);
+      }
     }
   };
 
