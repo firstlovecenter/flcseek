@@ -337,6 +337,12 @@ function AttendancePageContent() {
                   Bulk Register
                 </Button>
               )}
+              <Button
+                icon={<BarChartOutlined />}
+                onClick={() => router.push(`/${groupId}/reports`)}
+              >
+                Reports
+              </Button>
             </Space>
           </div>
           <Text type="secondary">

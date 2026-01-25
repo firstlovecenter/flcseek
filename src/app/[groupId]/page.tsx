@@ -494,6 +494,13 @@ function SheepSeekerDashboardContent() {
             Attendance
           </Button>
 
+          <Button
+            icon={<FileExcelOutlined />}
+            onClick={() => router.push(`/${groupId}/reports`)}
+          >
+            Reports
+          </Button>
+
           {!isRegisterRestricted && (
             <Button
               icon={<UserAddOutlined />}
