@@ -139,7 +139,11 @@ export async function POST(request: NextRequest) {
       last_name: body.last_name,
       phone_number: body.phone_number,
       gender: body.gender,
-      address: body.address,
+      date_of_birth: body.date_of_birth,
+      residential_location: body.residential_location,
+      school_residential_location: body.school_residential_location,
+      occupation_type: body.occupation_type,
+      address: body.address,  // Legacy field support
       group_id: targetGroupId,
       group_name: body.group_name || user!.group_name,
       registered_by: user!.id,
