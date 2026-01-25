@@ -194,6 +194,20 @@ async function updateAttendanceMilestone(personId: string, updatedById: string):
         updatedById,
       },
     });
+    // Audit log milestone auto-completion
+    try {
+      const { logAuditEvent } = await import('@/lib/audit-log');
+      await logAuditEvent({
+        userId: updatedById,
+        action: 'UPDATE_PROGRESS',
+        entityType: 'progress_record',
+        entityId: personId,
+        oldValues: { stage_number: 18 },
+        newValues: { stage_number: 18, is_completed: true, attendanceCount },
+      });
+    } catch (_) {
+      // ignore logging errors
+    }
   }
 }
 
