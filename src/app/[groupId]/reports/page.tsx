@@ -92,7 +92,8 @@ export default function ReportsPage() {
       return;
     }
 
-    if (user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer' && user.role !== 'admin' && user.group_id !== groupId) {
+    // Reports only available to superadmin, leadpastor, and overseer (NOT admin or leader)
+    if (user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer') {
       router.push('/');
       return;
     }
