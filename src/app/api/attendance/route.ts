@@ -10,6 +10,8 @@ import {
 import * as Attendance from '@/lib/db/queries/attendance';
 import * as People from '@/lib/db/queries/people';
 import { ROLES } from '@/lib/constants';
+import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import { logger } from '@/lib/logger';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -97,6 +99,24 @@ export async function POST(request: NextRequest) {
       
       const { created: createdRecords, errors: recordErrors } = await Attendance.createMany(records);
       
+      // Audit log bulk attendance
+      const reqInfo = extractRequestInfo(request.headers);
+      await logAuditEvent({
+        userId: user!.id,
+        action: 'MARK_ATTENDANCE',
+        entityType: 'attendance_record',
+        newValues: { 
+          bulk: true, 
+          created_count: createdRecords.length, 
+          errors_count: recordErrors.length,
+          date: body.records[0]?.date_attended 
+        },
+        ipAddress: reqInfo.ipAddress,
+        userAgent: reqInfo.userAgent,
+      });
+      
+      logger.info(`[BULK_ATTENDANCE] User ${user!.username} marked attendance for ${createdRecords.length} converts, ${recordErrors.length} errors`);
+      
       return success({
         created: createdRecords.length,
         errors: recordErrors,
@@ -112,11 +132,11 @@ export async function POST(request: NextRequest) {
     // Verify person exists and user has access
     const person = await People.findById(body.person_id);
     if (!person) {
-      return errors.notFound('Person');
+      return errors.validation(`No convert found with ID: ${body.person_id}`);
     }
     
     if (user!.role === ROLES.LEADER && person.group_id !== user!.group_id) {
-      return errors.forbidden('You can only record attendance for people in your group');
+      return errors.forbidden(`You can only record attendance for people in your group. This person (${person.full_name}) belongs to a different group.`);
     }
     
     const record = await Attendance.create({
@@ -125,9 +145,34 @@ export async function POST(request: NextRequest) {
       recorded_by: user!.id,
     });
     
+    // Audit log attendance marking
+    const reqInfo = extractRequestInfo(request.headers);
+    await logAuditEvent({
+      userId: user!.id,
+      action: 'MARK_ATTENDANCE',
+      entityType: 'attendance_record',
+      entityId: record.id,
+      newValues: { person_id: body.person_id, person_name: person.full_name, date_attended: body.date_attended },
+      ipAddress: reqInfo.ipAddress,
+      userAgent: reqInfo.userAgent,
+    });
+    
+    logger.info(`[MARK_ATTENDANCE] User ${user!.username} marked attendance for ${person.full_name} on ${body.date_attended}`);
+    
     return created({ attendance: record });
-  } catch (err) {
-    console.error('[POST /api/v1/attendance]', err);
-    return errors.internal();
+  } catch (err: any) {
+    logger.error('[POST /api/v1/attendance] Attendance marking failed:', err);
+    
+    // Handle duplicate attendance
+    if (err.message?.includes('duplicate') || err.code === '23505') {
+      return errors.validation(`Attendance already marked for this person on this date.`);
+    }
+    
+    // Handle invalid person reference
+    if (err.message?.includes('foreign key') || err.code === '23503') {
+      return errors.validation(`Invalid person_id. The specified person does not exist.`);
+    }
+    
+    return errors.internal('Failed to mark attendance. Please try again.');
   }
 }

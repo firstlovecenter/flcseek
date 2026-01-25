@@ -66,7 +66,16 @@ function RegisterPersonContent() {
       // Navigate back with groupId in path
       router.push(`/${groupId}`);
     } catch (error: any) {
-      message.error(error.message || 'Failed to register person');
+      const errorMsg = error.message || 'Failed to register person';
+      if (errorMsg.includes('phone number') && errorMsg.includes('already')) {
+        message.error(`This phone number is already registered. Each person must have a unique phone number.`);
+      } else if (errorMsg.includes('group_id') || errorMsg.includes('Invalid group')) {
+        message.error(`Invalid group selection. Please select a valid group and try again.`);
+      } else if (errorMsg.includes('required')) {
+        message.warning(`Missing required field: ${errorMsg}`);
+      } else {
+        message.error(`Registration failed: ${errorMsg}`);
+      }
     } finally {
       setLoading(false);
     }
