@@ -42,9 +42,11 @@ function AttendancePageContent() {
   
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(getMostRecentSunday());
   
-  // Check if user is a leader (read-only access) or superadmin (full access)
+  // Check if user is a leader (read-only access) or superadmin/admin (full access)
   const isLeader = user?.role === 'leader';
   const isSuperAdmin = user?.role === 'superadmin';
+  const isAdmin = user?.role === 'admin';
+  const canSelectPastDates = isSuperAdmin || isAdmin;  // Both superadmin and admin can enter past records
   // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
   const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
   const isRegisterRestricted = isLeader || user?.role === 'overseer' || user?.role === 'leadpastor';
@@ -315,8 +317,8 @@ function AttendancePageContent() {
               disabledDate={(current) => {
                 if (!current) return false;
                 
-                // Superadmin can select any Sunday in the past or present
-                if (isSuperAdmin) {
+                // Superadmin and Admin can select any Sunday in the past or present
+                if (canSelectPastDates) {
                   const today = dayjs();
                   // Disable if not a Sunday (day 0)
                   if (current.day() !== 0) return true;
@@ -325,7 +327,7 @@ function AttendancePageContent() {
                   return false;
                 }
                 
-                // Non-superadmin: only allow the most recent Sunday
+                // Non-admin: only allow the most recent Sunday
                 const today = dayjs();
                 
                 // Disable if not a Sunday (day 0)
@@ -342,9 +344,9 @@ function AttendancePageContent() {
                 return false;
               }}
             />
-            {isSuperAdmin && (
+            {canSelectPastDates && (
               <Text type="secondary" style={{ fontSize: 12 }}>
-                (Superadmin: Can select any past Sunday)
+                (Can select any past Sunday)
               </Text>
             )}
           </div>
