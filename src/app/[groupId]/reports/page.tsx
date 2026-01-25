@@ -18,6 +18,8 @@ import {
   Select,
   DatePicker,
   Tooltip,
+  Dropdown,
+  Menu,
 } from 'antd';
 import {
   BarChartOutlined,
@@ -28,6 +30,7 @@ import {
   FilterOutlined,
   HomeOutlined,
   DownloadOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -224,33 +227,124 @@ export default function ReportsPage() {
     setConvertDetails(details);
   };
 
-  const downloadAsCSV = () => {
-    if (convertDetails.length === 0) {
-      message.warning('No data to download');
-      return;
+  const downloadAsCSV = (type: string = 'all') => {
+    let csvContent = '';
+    let filename = '';
+
+    switch (type) {
+      case 'attendance':
+        if (convertDetails.length === 0) {
+          message.warning('No attendance data to download');
+          return;
+        }
+        const attendanceHeaders = ['Name', 'Phone', 'Attendance Count', 'Attendance %', 'Goal', 'Status'];
+        const attendanceRows = convertDetails.map((d) => [
+          `"${d.full_name}"`,
+          d.phone_number,
+          d.attendanceCount,
+          d.attendancePercentage,
+          ATTENDANCE_GOAL,
+          d.attendanceCount >= ATTENDANCE_GOAL ? 'Achieved' : 'In Progress',
+        ]);
+        csvContent = [
+          attendanceHeaders.join(','),
+          ...attendanceRows.map((row) => row.join(',')),
+        ].join('\n');
+        filename = `attendance-report-${groupId}-${selectedYear || dayjs().year()}.csv`;
+        break;
+
+      case 'milestones':
+        if (milestoneSummaries.length === 0) {
+          message.warning('No milestone data to download');
+          return;
+        }
+        const milestoneHeaders = ['Stage #', 'Milestone Name', 'Completed', 'Total Converts', 'Completion %'];
+        const milestoneRows = milestoneSummaries.map((m) => [
+          m.stageNumber,
+          `"${m.stageName}"`,
+          m.completed,
+          m.total,
+          m.percentage,
+        ]);
+        csvContent = [
+          milestoneHeaders.join(','),
+          ...milestoneRows.map((row) => row.join(',')),
+        ].join('\n');
+        filename = `milestone-report-${groupId}-${selectedYear || dayjs().year()}.csv`;
+        break;
+
+      case 'performance':
+        if (convertDetails.length === 0) {
+          message.warning('No performance data to download');
+          return;
+        }
+        const perfHeaders = ['Name', 'Phone', 'Attendance Count', 'Attendance %', 'Milestones Completed', 'Milestone %', 'Overall %'];
+        const perfRows = convertDetails.map((d) => {
+          const overall = Math.round((d.attendancePercentage + d.milestonePercentage) / 2);
+          return [
+            `"${d.full_name}"`,
+            d.phone_number,
+            d.attendanceCount,
+            d.attendancePercentage,
+            d.milestonesCompleted,
+            d.milestonePercentage,
+            overall,
+          ];
+        });
+        csvContent = [
+          perfHeaders.join(','),
+          ...perfRows.map((row) => row.join(',')),
+        ].join('\n');
+        filename = `performance-report-${groupId}-${selectedYear || dayjs().year()}.csv`;
+        break;
+
+      case 'all':
+      default:
+        if (convertDetails.length === 0) {
+          message.warning('No data to download');
+          return;
+        }
+        
+        // Summary Section
+        let allContent = '=== SUMMARY ===\n';
+        allContent += `Report Date:,${dayjs().format('YYYY-MM-DD HH:mm:ss')}\n`;
+        allContent += `Year:,${selectedYear || dayjs().year()}\n`;
+        allContent += `Total Converts:,${attendanceSummary?.totalConverts || 0}\n`;
+        allContent += `Converts with Attendance:,${attendanceSummary?.withAttendance || 0}\n`;
+        allContent += `Attendance Percentage:,${attendanceSummary?.percentage || 0}%\n`;
+        allContent += `Average Attendance:,${attendanceSummary?.avgAttendance || 0}\n`;
+        allContent += `Attendance Goal:,${ATTENDANCE_GOAL}\n`;
+        allContent += `Total Milestones:,${milestoneSummaries.length}\n\n`;
+
+        // Milestone Summary
+        allContent += '=== MILESTONE COMPLETION SUMMARY ===\n';
+        allContent += 'Stage #,Milestone Name,Completed,Total Converts,Completion %\n';
+        milestoneSummaries.forEach((m) => {
+          allContent += `${m.stageNumber},"${m.stageName}",${m.completed},${m.total},${m.percentage}%\n`;
+        });
+        allContent += '\n';
+
+        // Detailed Convert Performance
+        allContent += '=== CONVERT PERFORMANCE DETAILS ===\n';
+        allContent += 'Name,Phone,Attendance Count,Attendance %,Milestones Completed,Milestone %,Overall %\n';
+        convertDetails.forEach((d) => {
+          const overall = Math.round((d.attendancePercentage + d.milestonePercentage) / 2);
+          allContent += `"${d.full_name}",${d.phone_number},${d.attendanceCount},${d.attendancePercentage}%,${d.milestonesCompleted},${d.milestonePercentage}%,${overall}%\n`;
+        });
+
+        csvContent = allContent;
+        filename = `complete-report-${groupId}-${selectedYear || dayjs().year()}.csv`;
+        break;
     }
 
-    const headers = ['Name', 'Phone', 'Attendance', 'Attendance %', 'Milestones Completed', 'Milestone %'];
-    const rows = convertDetails.map((d) => [
-      d.full_name,
-      d.phone_number,
-      d.attendanceCount,
-      d.attendancePercentage,
-      d.milestonesCompleted,
-      d.milestonePercentage,
-    ]);
-
-    const csv = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `report-${groupId}-${selectedYear}.csv`;
+    a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     message.success('Report downloaded successfully');
   };
@@ -389,6 +483,37 @@ export default function ReportsPage() {
     );
   }
 
+  const exportMenu = (
+    <Menu
+      items={[
+        {
+          key: 'all',
+          label: 'Complete Report (All Data)',
+          icon: <FileTextOutlined />,
+          onClick: () => downloadAsCSV('all'),
+        },
+        {
+          key: 'attendance',
+          label: 'Attendance Report',
+          icon: <CheckCircleOutlined />,
+          onClick: () => downloadAsCSV('attendance'),
+        },
+        {
+          key: 'milestones',
+          label: 'Milestone Report',
+          icon: <BarChartOutlined />,
+          onClick: () => downloadAsCSV('milestones'),
+        },
+        {
+          key: 'performance',
+          label: 'Performance Report',
+          icon: <LineChartOutlined />,
+          onClick: () => downloadAsCSV('performance'),
+        },
+      ]}
+    />
+  );
+
   return (
     <>
       <AppBreadcrumb />
@@ -406,13 +531,11 @@ export default function ReportsPage() {
                 options={availableYears.map((y) => ({ label: y.toString(), value: y }))}
               />
             )}
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={downloadAsCSV}
-            >
-              Download CSV
-            </Button>
+            <Dropdown overlay={exportMenu} placement="bottomRight">
+              <Button type="primary" icon={<DownloadOutlined />}>
+                Export Report
+              </Button>
+            </Dropdown>
           </Space>
         </div>
         <Text type="secondary">
@@ -522,43 +645,70 @@ export default function ReportsPage() {
               key: 'attendance',
               label: 'Attendance Details',
               children: (
-                <Table
-                  columns={attendanceColumns}
-                  dataSource={convertDetails.sort((a, b) => b.attendanceCount - a.attendanceCount)}
-                  rowKey="id"
-                  pagination={{ pageSize: 20 }}
-                  style={{ marginTop: 16 }}
-                />
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                    <Button
+                      icon={<DownloadOutlined />}
+                      onClick={() => downloadAsCSV('attendance')}
+                    >
+                      Export Attendance
+                    </Button>
+                  </div>
+                  <Table
+                    columns={attendanceColumns}
+                    dataSource={convertDetails.sort((a, b) => b.attendanceCount - a.attendanceCount)}
+                    rowKey="id"
+                    pagination={{ pageSize: 20 }}
+                  />
+                </div>
               ),
             },
             {
               key: 'milestones',
               label: 'Milestone Progress',
               children: (
-                <Table
-                  columns={milestoneCols}
-                  dataSource={milestoneSummaries.sort((a, b) => a.stageNumber - b.stageNumber)}
-                  rowKey="stageNumber"
-                  pagination={false}
-                  style={{ marginTop: 16 }}
-                />
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                    <Button
+                      icon={<DownloadOutlined />}
+                      onClick={() => downloadAsCSV('milestones')}
+                    >
+                      Export Milestones
+                    </Button>
+                  </div>
+                  <Table
+                    columns={milestoneCols}
+                    dataSource={milestoneSummaries.sort((a, b) => a.stageNumber - b.stageNumber)}
+                    rowKey="stageNumber"
+                    pagination={false}
+                  />
+                </div>
               ),
             },
             {
               key: 'converts',
               label: 'Convert Performance',
               children: (
-                <Table
-                  columns={convertCols}
-                  dataSource={convertDetails.sort((a, b) => {
-                    const overallA = (a.attendancePercentage + a.milestonePercentage) / 2;
-                    const overallB = (b.attendancePercentage + b.milestonePercentage) / 2;
-                    return overallB - overallA;
-                  })}
-                  rowKey="id"
-                  pagination={{ pageSize: 20 }}
-                  style={{ marginTop: 16 }}
-                />
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                    <Button
+                      icon={<DownloadOutlined />}
+                      onClick={() => downloadAsCSV('performance')}
+                    >
+                      Export Performance
+                    </Button>
+                  </div>
+                  <Table
+                    columns={convertCols}
+                    dataSource={convertDetails.sort((a, b) => {
+                      const overallA = (a.attendancePercentage + a.milestonePercentage) / 2;
+                      const overallB = (b.attendancePercentage + b.milestonePercentage) / 2;
+                      return overallB - overallA;
+                    })}
+                    rowKey="id"
+                    pagination={{ pageSize: 20 }}
+                  />
+                </div>
               ),
             },
           ]}
