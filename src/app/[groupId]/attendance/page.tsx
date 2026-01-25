@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space, Select } from 'antd';
-import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined, CalendarOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space, Select, Checkbox } from 'antd';
+import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined, CalendarOutlined, CheckSquareOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { ATTENDANCE_GOAL, CURRENT_YEAR } from '@/lib/constants';
@@ -41,6 +41,8 @@ function AttendancePageContent() {
   };
   
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(getMostRecentSunday());
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [bulkMarking, setBulkMarking] = useState(false);
   
   // Check if user is a leader (read-only access) or superadmin/admin (full access)
   const isLeader = user?.role === 'leader';
@@ -165,6 +167,57 @@ function AttendancePageContent() {
     } catch (error: any) {
       message.error(error.message || 'Failed to mark attendance');
     }
+  };
+
+  // Bulk mark attendance for all selected people
+  const bulkMarkAttendance = async () => {
+    if (isReadOnly) {
+      message.warning('You do not have permission to mark attendance');
+      return;
+    }
+
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select at least one person');
+      return;
+    }
+
+    try {
+      setBulkMarking(true);
+      const records = selectedRowKeys.map((personId) => ({
+        person_id: personId as string,
+        date_attended: selectedDate.format('YYYY-MM-DD'),
+      }));
+
+      const response = await api.attendance.bulkCreate(records);
+
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to mark attendance');
+      }
+
+      const created = response.data?.created || 0;
+      const errors = response.data?.errors || [];
+
+      if (errors.length > 0) {
+        message.warning(`Marked ${created} attendance(s). ${errors.length} already marked for this date.`);
+      } else {
+        message.success(`Successfully marked attendance for ${created} person(s)!`);
+      }
+
+      setSelectedRowKeys([]);
+      fetchPeople();
+    } catch (error: any) {
+      message.error(error.message || 'Failed to mark attendance');
+    } finally {
+      setBulkMarking(false);
+    }
+  };
+
+  // Row selection configuration for bulk operations
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (newSelectedRowKeys: React.Key[]) => {
+      setSelectedRowKeys(newSelectedRowKeys);
+    },
   };
 
   const columns = [
@@ -352,12 +405,36 @@ function AttendancePageContent() {
           </div>
         )}
 
+        {/* Bulk actions - only show for admins with selected items */}
+        {!isReadOnly && (
+          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button
+              type="primary"
+              icon={<CheckSquareOutlined />}
+              onClick={bulkMarkAttendance}
+              disabled={selectedRowKeys.length === 0}
+              loading={bulkMarking}
+            >
+              Mark Selected ({selectedRowKeys.length})
+            </Button>
+            {selectedRowKeys.length > 0 && (
+              <Button onClick={() => setSelectedRowKeys([])}>
+                Clear Selection
+              </Button>
+            )}
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Select converts and click "Mark Selected" to bulk mark attendance
+            </Text>
+          </div>
+        )}
+
         <Table
           columns={columns}
           dataSource={people}
           rowKey="id"
           size="middle"
           scroll={{ x: 800 }}
+          rowSelection={!isReadOnly ? rowSelection : undefined}
           pagination={{ 
             pageSize: 20, 
             showSizeChanger: true,
