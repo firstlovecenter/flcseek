@@ -7,6 +7,8 @@ import {
 } from '@/lib/api';
 import * as People from '@/lib/db/queries/people';
 import { prisma } from '@/lib/prisma';
+import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import { logger } from '@/lib/logger';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -90,6 +92,25 @@ export async function POST(request: NextRequest) {
       { skipDuplicates: body.skipDuplicates !== false }
     );
     
+    // Audit log bulk registration
+    const reqInfo = extractRequestInfo(request.headers);
+    await logAuditEvent({
+      userId: user!.id,
+      action: 'BULK_REGISTER',
+      entityType: 'new_convert',
+      newValues: { 
+        created_count: created.length, 
+        skipped_count: skipped, 
+        validation_errors: validationErrors.length,
+        group_id: targetGroup.id,
+        group_name: targetGroup.name 
+      },
+      ipAddress: reqInfo.ipAddress,
+      userAgent: reqInfo.userAgent,
+    });
+    
+    logger.info(`[BULK_REGISTER] User ${user!.username} bulk registered ${created.length} converts to ${targetGroup.name}, ${skipped} skipped, ${validationErrors.length} validation errors`);
+    
     return success({
       inserted: created.length, // Frontend expects 'inserted'
       created: created.length,  // Keep for backwards compatibility
@@ -100,8 +121,14 @@ export async function POST(request: NextRequest) {
         errors: validationErrors.slice(0, 10), // Limit error details
       },
     });
-  } catch (err) {
-    console.error('[POST /api/v1/people/bulk]', err);
-    return errors.internal();
+  } catch (err: any) {
+    logger.error('[POST /api/v1/people/bulk] Bulk registration failed:', err);
+    
+    // Provide specific error context
+    if (err.message?.includes('foreign key') || err.code === '23503') {
+      return errors.internal(`Database constraint error: Invalid group reference. Please verify the group exists.`);
+    }
+    
+    return errors.internal(`Failed to complete bulk registration. Please check your data and try again.`);
   }
 }
