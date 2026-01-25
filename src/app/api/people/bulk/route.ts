@@ -69,7 +69,11 @@ export async function POST(request: NextRequest) {
           last_name: person.last_name,
           phone_number: person.phone_number,
           gender: person.gender,
-          address: person.address,
+          date_of_birth: person.date_of_birth,
+          residential_location: person.residential_location,
+          school_residential_location: person.school_residential_location,
+          occupation_type: person.occupation_type,
+          address: person.address,  // Legacy field support
           group_id: targetGroup.id,        // Use verified group ID
           group_name: targetGroup.name,     // Use verified group name
           registered_by: user!.id,

@@ -150,7 +150,11 @@ class APIClient {
       last_name: string;
       phone_number: string;
       gender?: 'Male' | 'Female';
-      address?: string;
+      date_of_birth?: string;
+      residential_location?: string;
+      school_residential_location?: string;
+      occupation_type?: string;
+      address?: string;  // Legacy field
       group_id?: string;
       group_name?: string;
     }) => this.post('/people', data),
@@ -160,6 +164,10 @@ class APIClient {
       last_name: string;
       phone_number: string;
       gender: string;
+      date_of_birth: string;
+      residential_location: string;
+      school_residential_location: string;
+      occupation_type: string;
       address: string;
       group_id: string;
       group_name: string;
