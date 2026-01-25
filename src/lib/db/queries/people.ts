@@ -52,7 +52,11 @@ export interface CreatePersonInput {
   last_name: string;
   phone_number: string;
   gender?: string;
-  address?: string;
+  date_of_birth?: string;
+  residential_location?: string;
+  school_residential_location?: string;
+  occupation_type?: string;
+  address?: string;  // Legacy field - mapped to residential_location
   group_id?: string;
   group_name?: string;
   registered_by?: string;
@@ -396,7 +400,10 @@ export async function create(input: CreatePersonInput): Promise<Person> {
       lastName: input.last_name,
       phoneNumber: input.phone_number,
       gender: input.gender || null,
-      residentialLocation: input.address || null,
+      dateOfBirth: input.date_of_birth || null,
+      residentialLocation: input.residential_location || input.address || null,
+      schoolResidentialLocation: input.school_residential_location || null,
+      occupationType: input.occupation_type || null,
       groupId: input.group_id || null,
       groupName: input.group_name,
       registeredById: input.registered_by,
@@ -517,7 +524,10 @@ export async function createMany(
           lastName: input.last_name,
           phoneNumber: input.phone_number,
           gender: input.gender || null,
-          residentialLocation: input.address || null,
+          dateOfBirth: input.date_of_birth || null,
+          residentialLocation: input.residential_location || input.address || null,
+          schoolResidentialLocation: input.school_residential_location || null,
+          occupationType: input.occupation_type || null,
           groupId: input.group_id,  // Required - must be a valid UUID
           groupName: input.group_name,
           registeredById: input.registered_by,
