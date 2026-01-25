@@ -148,7 +148,14 @@ function BulkRegisterContent() {
       setMembers(parsedMembers);
       return false; // Prevent default upload
     } catch (error: any) {
-      message.error('Error parsing file: ' + error.message);
+      const errorMsg = error.message || 'Unknown error';
+      if (errorMsg.includes('format') || errorMsg.includes('extension')) {
+        message.error(`Invalid file format: ${errorMsg}. Please upload an Excel file (.xlsx or .xls)`);
+      } else if (errorMsg.includes('column') || errorMsg.includes('header')) {
+        message.error(`File structure error: ${errorMsg}. Please check the template and ensure all required columns are present.`);
+      } else {
+        message.error(`Error parsing file: ${errorMsg}. Please check your file format and try again.`);
+      }
       return false;
     }
   };
@@ -207,7 +214,18 @@ function BulkRegisterContent() {
         );
       }
     } catch (error: any) {
-      message.error(error.message || 'Failed to upload members');
+      const errorMsg = error.message || 'Failed to upload members';
+      if (errorMsg.includes('duplicate') || errorMsg.includes('phone number')) {
+        message.error(`Duplicate phone numbers detected: ${errorMsg}`);
+      } else if (errorMsg.includes('group') || errorMsg.includes('Invalid group')) {
+        message.error(`Group error: ${errorMsg}. Please verify the group selection.`);
+      } else if (errorMsg.includes('validation')) {
+        message.error(`Validation failed: ${errorMsg}. Please check your data.`);
+      } else if (errorMsg.includes('500') || errorMsg.includes('Maximum')) {
+        message.error(`Too many records: You can upload a maximum of 500 members at once.`);
+      } else {
+        message.error(`Upload failed: ${errorMsg}`);
+      }
     } finally {
       setUploading(false);
     }

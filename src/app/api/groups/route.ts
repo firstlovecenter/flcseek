@@ -9,6 +9,8 @@ import {
   validateGroupData,
 } from '@/lib/api';
 import * as Groups from '@/lib/db/queries/groups';
+import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import { logger } from '@/lib/logger';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -83,9 +85,34 @@ export async function POST(request: NextRequest) {
       description: body.description,
     });
     
+    // Audit log group creation
+    const reqInfo = extractRequestInfo(request.headers);
+    await logAuditEvent({
+      userId: user!.id,
+      action: 'CREATE_GROUP',
+      entityType: 'group',
+      entityId: group.id,
+      newValues: { name: group.name, leader_id: body.leader_id },
+      ipAddress: reqInfo.ipAddress,
+      userAgent: reqInfo.userAgent,
+    });
+    
+    logger.info(`[CREATE_GROUP] User ${user!.username} created group ${group.name}`);
+    
     return created({ group });
-  } catch (err) {
-    console.error('[POST /api/v1/groups]', err);
-    return errors.internal();
+  } catch (err: any) {
+    logger.error('[POST /api/v1/groups] Group creation failed:', err);
+    
+    // Handle duplicate group name
+    if (err.message?.includes('duplicate') || err.code === '23505') {
+      return errors.validation(`A group with this name already exists. Please choose a different name.`);
+    }
+    
+    // Handle invalid leader reference
+    if (err.message?.includes('foreign key') || err.code === '23503') {
+      return errors.validation(`Invalid leader_id. The specified leader does not exist.`);
+    }
+    
+    return errors.internal('Failed to create group. Please verify your input and try again.');
   }
 }
