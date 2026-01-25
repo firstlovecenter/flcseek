@@ -275,7 +275,7 @@ class APIClient {
     }) => this.post('/attendance', data),
 
     mark: (personId: string, data: { date_attended: string }) =>
-      this.post(`/attendance/${personId}`, data),
+      this.post('/attendance', { person_id: personId, date_attended: data.date_attended }),
 
     bulkCreate: (records: Array<{
       person_id: string;

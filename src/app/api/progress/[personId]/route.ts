@@ -9,6 +9,7 @@ import {
 import * as Progress from '@/lib/db/queries/progress';
 import * as People from '@/lib/db/queries/people';
 import { ROLES } from '@/lib/constants';
+import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -91,7 +92,18 @@ export async function PATCH(
     
     // Prevent manual update of attendance milestone (milestone 18)
     if (body.stage_number === 18) {
-      return errors.validation('Attendance milestone is auto-calculated from attendance records');
+      const reqInfo = extractRequestInfo(request.headers);
+      await logAuditEvent({
+        userId: user!.id,
+        action: 'UPDATE_PROGRESS',
+        entityType: 'progress_record',
+        entityId: personId,
+        oldValues: { attempted_stage: 18 },
+        newValues: { is_completed: body.is_completed },
+        ipAddress: reqInfo.ipAddress,
+        userAgent: reqInfo.userAgent,
+      });
+      return errors.validation('Milestone 18 depends on Attendance. Please mark attendance for the required number of Sundays to complete this milestone automatically.');
     }
     
     // Check person exists and access

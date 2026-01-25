@@ -135,9 +135,9 @@ export default function ProgressPage() {
       return;
     }
 
-    // Milestone 18 (Attendance) cannot be manually edited
+    // Milestone 18 (Attendance) depends on attendance tracking and cannot be manually edited
     if (stageNumber === 18) {
-      message.warning('Attendance milestone is automatically calculated from attendance records');
+      message.error('Milestone 18 depends on Attendance. Mark attendance for the required Sundays to complete automatically.');
       return;
     }
 
@@ -154,7 +154,7 @@ export default function ProgressPage() {
         is_completed: !isCompleted,
       });
 
-      if (!response.success) throw new Error('Failed to update progress');
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update progress');
 
       message.success('Progress updated successfully!');
       
@@ -167,7 +167,14 @@ export default function ProgressPage() {
       // Refresh people list
       fetchPeople();
     } catch (error: any) {
-      message.error(error.message || 'Failed to update progress');
+      const errorMsg = error.message || 'Failed to update progress';
+      if (errorMsg.includes('Milestone 18')) {
+        message.error(errorMsg);  // Already specific
+      } else if (errorMsg.includes('permission') || errorMsg.includes('superadmin')) {
+        message.warning('You do not have permission to edit this milestone');
+      } else {
+        message.error(`Failed to update progress: ${errorMsg}`);
+      }
     } finally {
       setUpdating(false);
     }
