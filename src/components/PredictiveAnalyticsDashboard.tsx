@@ -30,6 +30,8 @@ import dayjs from 'dayjs';
 
 interface PredictiveAnalyticsDashboardProps {
   groupId: string;
+  userId: string;
+  token?: string;
 }
 
 interface GroupOutcomes {
@@ -42,7 +44,7 @@ interface GroupOutcomes {
   predictions: Prediction[];
 }
 
-export function PredictiveAnalyticsDashboard({ groupId }: PredictiveAnalyticsDashboardProps) {
+export function PredictiveAnalyticsDashboard({ groupId, userId, token }: PredictiveAnalyticsDashboardProps) {
   const [outcomes, setOutcomes] = useState<GroupOutcomes | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'overview' | 'byCategory'>('overview');
@@ -54,7 +56,8 @@ export function PredictiveAnalyticsDashboard({ groupId }: PredictiveAnalyticsDas
         setLoading(true);
         const response = await fetch(`/api/predictions?groupId=${groupId}`, {
           headers: {
-            'x-user-id': 'current-user-id',
+            'x-user-id': userId,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         });
 
