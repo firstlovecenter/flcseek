@@ -107,7 +107,7 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
       width: 150,
       render: (_: any, record: Prediction) => (
         <div>
-          <div className="font-medium">{record.convertId}</div>
+          <div className="font-medium">{record.convertName || record.convertId}</div>
           <div className="text-xs text-gray-500">{record.recommendation.substring(0, 30)}...</div>
         </div>
       ),
