@@ -28,9 +28,9 @@ import {
   CheckCircleOutlined,
   FileExcelOutlined,
   FilterOutlined,
-  HomeOutlined,
   DownloadOutlined,
   FileTextOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -39,6 +39,8 @@ import { api } from '@/lib/api';
 import { useThemeStyles } from '@/lib/theme-utils';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import dayjs from 'dayjs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const { Title, Text } = Typography;
 
@@ -84,6 +86,7 @@ export default function ReportsPage() {
   const [convertDetails, setConvertDetails] = useState<ConvertDetail[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [groupName, setGroupName] = useState<string>('');
 
   // Check auth
   useEffect(() => {
@@ -118,6 +121,7 @@ export default function ReportsPage() {
         const years = Array.from(new Set(matchingGroups.map((g: any) => g.year))) as number[];
         years.sort((a, b) => b - a);
 
+        setGroupName(monthName);
         setAvailableYears(years);
         if (selectedGroup.year) {
           setSelectedYear(selectedGroup.year);
@@ -228,6 +232,227 @@ export default function ReportsPage() {
     setConvertDetails(details);
   };
 
+  const downloadAsPDF = (type: string = 'all') => {
+    if (!attendanceSummary) {
+      message.warning('No data to export');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPos = 20;
+
+    // Header
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    const typeLabel = {
+      all: 'Complete Report',
+      attendance: 'Attendance Report',
+      milestones: 'Milestone Report',
+      performance: 'Performance Report',
+    }[type] || 'Report';
+    doc.text(typeLabel, pageWidth / 2, yPos, { align: 'center' });
+    
+    // Group name and year
+    yPos += 10;
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${groupName} - ${selectedYear || dayjs().year()}`, pageWidth / 2, yPos, { align: 'center' });
+    
+    // Subheader
+    yPos += 8;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated: ${dayjs().format('YYYY-MM-DD HH:mm')}`, pageWidth / 2, yPos, { align: 'center' });
+    
+    yPos += 15;
+
+    const addSummarySection = () => {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Summary', 14, yPos);
+      yPos += 10;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Metric', 'Value']],
+        body: [
+          ['Total Converts', `${attendanceSummary?.totalConverts || 0}`],
+          ['Converts with Attendance', `${attendanceSummary?.withAttendance || 0} (${attendanceSummary?.percentage || 0}%)`],
+          ['Average Attendance', `${attendanceSummary?.avgAttendance || 0} / ${ATTENDANCE_GOAL} Sundays`],
+          ['Attendance Goal', `${ATTENDANCE_GOAL} Sundays`],
+          ['Total Milestones', `${milestoneSummaries.length}`],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        margin: { left: 14, right: 14 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    };
+
+    const addMilestonesTable = () => {
+      if (yPos > pageHeight - 60) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Milestone Completion', 14, yPos);
+      yPos += 10;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Stage', 'Milestone Name', 'Completed', 'Total', 'Percentage']],
+        body: milestoneSummaries.map((m) => [
+          `${m.stageNumber}`,
+          m.stageName,
+          `${m.completed}`,
+          `${m.total}`,
+          `${m.percentage}%`,
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [52, 152, 219], textColor: 255, fontStyle: 'bold' },
+        margin: { left: 14, right: 14 },
+        columnStyles: {
+          0: { cellWidth: 15 },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 25, halign: 'center' },
+          3: { cellWidth: 20, halign: 'center' },
+          4: { cellWidth: 25, halign: 'center' },
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    };
+
+    const addAttendanceTable = () => {
+      if (yPos > pageHeight - 60) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Attendance Details', 14, yPos);
+      yPos += 10;
+
+      const sortedByAttendance = [...convertDetails].sort((a, b) => b.attendanceCount - a.attendanceCount);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Name', 'Phone', 'Attendance', 'Goal', 'Progress']],
+        body: sortedByAttendance.map((d) => [
+          d.full_name,
+          d.phone_number || 'N/A',
+          `${d.attendanceCount}`,
+          `${ATTENDANCE_GOAL}`,
+          `${d.attendancePercentage}%`,
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [46, 204, 113], textColor: 255, fontStyle: 'bold' },
+        margin: { left: 14, right: 14 },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 25, halign: 'center' },
+          3: { cellWidth: 20, halign: 'center' },
+          4: { cellWidth: 25, halign: 'center' },
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    };
+
+    const addPerformanceTable = () => {
+      if (yPos > pageHeight - 60) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Convert Performance', 14, yPos);
+      yPos += 10;
+
+      const sorted = [...convertDetails].sort((a, b) => {
+        const overallA = (a.attendancePercentage + a.milestonePercentage) / 2;
+        const overallB = (b.attendancePercentage + b.milestonePercentage) / 2;
+        return overallB - overallA;
+      });
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Name', 'Phone', 'Attendance', 'Milestones', 'Overall']],
+        body: sorted.map((d) => {
+          const overall = Math.round((d.attendancePercentage + d.milestonePercentage) / 2);
+          return [
+            d.full_name,
+            d.phone_number || 'N/A',
+            `${d.attendancePercentage}%`,
+            `${d.milestonePercentage}%`,
+            `${overall}%`,
+          ];
+        }),
+        theme: 'striped',
+        headStyles: { fillColor: [155, 89, 182], textColor: 255, fontStyle: 'bold' },
+        margin: { left: 14, right: 14 },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 25, halign: 'center' },
+          3: { cellWidth: 25, halign: 'center' },
+          4: { cellWidth: 25, halign: 'center' },
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    };
+
+    // Generate content based on type
+    switch (type) {
+      case 'attendance':
+        addSummarySection();
+        addAttendanceTable();
+        break;
+      case 'milestones':
+        addSummarySection();
+        addMilestonesTable();
+        break;
+      case 'performance':
+        addSummarySection();
+        addPerformanceTable();
+        break;
+      case 'all':
+      default:
+        addSummarySection();
+        addMilestonesTable();
+        addAttendanceTable();
+        addPerformanceTable();
+        break;
+    }
+
+    // Footer on all pages
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+    }
+
+    const filename = `${type}-report-${groupId}-${selectedYear || dayjs().year()}.pdf`;
+    doc.save(filename);
+    message.success('PDF exported successfully');
+  };
+
   const downloadAsCSV = (type: string = 'all') => {
     let csvContent = '';
     let filename = '';
@@ -308,8 +533,9 @@ export default function ReportsPage() {
         
         // Summary Section
         let allContent = '=== SUMMARY ===\n';
-        allContent += `Report Date:,${dayjs().format('YYYY-MM-DD HH:mm:ss')}\n`;
+        allContent += `Group:,${groupName}\n`;
         allContent += `Year:,${selectedYear || dayjs().year()}\n`;
+        allContent += `Report Date:,${dayjs().format('YYYY-MM-DD HH:mm:ss')}\n`;
         allContent += `Total Converts:,${attendanceSummary?.totalConverts || 0}\n`;
         allContent += `Converts with Attendance:,${attendanceSummary?.withAttendance || 0}\n`;
         allContent += `Attendance Percentage:,${attendanceSummary?.percentage || 0}%\n`;
@@ -494,10 +720,22 @@ export default function ReportsPage() {
           onClick: () => downloadAsCSV('all'),
         },
         {
+          key: 'all-pdf',
+          label: 'Complete Report (PDF)',
+          icon: <FilePdfOutlined />,
+          onClick: () => downloadAsPDF('all'),
+        },
+        {
           key: 'attendance',
           label: 'Attendance Report',
           icon: <CheckCircleOutlined />,
           onClick: () => downloadAsCSV('attendance'),
+        },
+        {
+          key: 'attendance-pdf',
+          label: 'Attendance Report (PDF)',
+          icon: <FilePdfOutlined />,
+          onClick: () => downloadAsPDF('attendance'),
         },
         {
           key: 'milestones',
@@ -506,10 +744,22 @@ export default function ReportsPage() {
           onClick: () => downloadAsCSV('milestones'),
         },
         {
+          key: 'milestones-pdf',
+          label: 'Milestone Report (PDF)',
+          icon: <FilePdfOutlined />,
+          onClick: () => downloadAsPDF('milestones'),
+        },
+        {
           key: 'performance',
           label: 'Performance Report',
           icon: <LineChartOutlined />,
           onClick: () => downloadAsCSV('performance'),
+        },
+        {
+          key: 'performance-pdf',
+          label: 'Performance Report (PDF)',
+          icon: <FilePdfOutlined />,
+          onClick: () => downloadAsPDF('performance'),
         },
       ]}
     />
@@ -519,10 +769,31 @@ export default function ReportsPage() {
     <>
       <AppBreadcrumb />
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
           <Title level={2} style={{ margin: 0 }}>
             <BarChartOutlined /> Reports
           </Title>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <Button icon={<BarChartOutlined />} onClick={() => router.push(`/${groupId}/progress`)}>
+              Milestones
+            </Button>
+
+            <Button icon={<TeamOutlined />} onClick={() => router.push(`/${groupId}/attendance`)}>
+              Attendance
+            </Button>
+
+            <Button type="primary" icon={<FileExcelOutlined />} onClick={() => router.push(`/${groupId}/reports`)}>
+              Reports
+            </Button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Text type="secondary">
+            Comprehensive analytics and reporting for convert tracking and milestone progress
+          </Text>
+
           <Space>
             {availableYears.length > 1 && (
               <Select
@@ -539,9 +810,6 @@ export default function ReportsPage() {
             </Dropdown>
           </Space>
         </div>
-        <Text type="secondary">
-          Comprehensive analytics and reporting for convert tracking and milestone progress
-        </Text>
       </div>
 
       {/* Summary Cards */}

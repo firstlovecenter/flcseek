@@ -268,6 +268,31 @@ export default function Navigation({ children }: NavigationProps) {
 
   const { top: topMenuItems, bottom: bottomMenuItems } = getMenuItemsByRole();
 
+  // Add Reports nav when viewing a specific group and the role is allowed
+  const groupIdMatch = pathname.match(/^\/([a-f0-9-]{36})/);
+  const groupIdFromPath = groupIdMatch?.[1];
+
+  const canViewReports = user?.role === 'superadmin' || user?.role === 'leadpastor' || user?.role === 'overseer';
+  const reportsNavItem = groupIdFromPath
+    ? {
+        key: `/${groupIdFromPath}/reports`,
+        icon: <LineChartOutlined />,
+        label: <Link href={`/${groupIdFromPath}/reports`}>Reports</Link>,
+      }
+    : null;
+
+  const augmentedTopMenuItems = (() => {
+    if (!reportsNavItem || !canViewReports) return topMenuItems;
+    const hasItem = (topMenuItems || []).some((item: any) => item.key === reportsNavItem.key);
+    return hasItem ? topMenuItems : [...(topMenuItems || []), reportsNavItem];
+  })();
+
+  const augmentedBottomMenuItems = (() => {
+    if (!reportsNavItem || !canViewReports) return bottomMenuItems;
+    const hasItem = (bottomMenuItems || []).some((item: any) => item.key === reportsNavItem.key);
+    return hasItem ? bottomMenuItems : [...(bottomMenuItems || []), reportsNavItem];
+  })();
+
   // Don't show navigation on login page or if not authenticated
   if (pathname === '/auth' || !user) {
     return <>{children}</>;
