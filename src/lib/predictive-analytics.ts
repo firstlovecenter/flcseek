@@ -17,6 +17,7 @@ export interface PredictionFactors {
 
 export interface Prediction {
   convertId: string;
+  convertName: string; // Added: Display name of convert
   completionProbability: number; // 0-100
   dropoutRisk: number; // 0-100
   confidence: number; // 0-100
@@ -214,6 +215,7 @@ export class PredictiveAnalyticsService {
 
       return {
         convertId,
+        convertName: `${convert?.firstName || ''} ${convert?.lastName || ''}`.trim(),
         completionProbability: Math.round(completionProbability * 10) / 10,
         dropoutRisk: Math.round(dropoutRisk * 10) / 10,
         confidence: Math.round(confidencePercentage),

@@ -16,6 +16,7 @@ export interface RiskFactors {
 
 export interface RiskAssessment {
   convertId: string
+  convertName: string // Added: Display name
   overallScore: number // 0-100
   level: 'low' | 'medium' | 'high' | 'critical'
   factors: RiskFactors
@@ -49,6 +50,7 @@ export async function calculateConvertRiskScore(convertId: string): Promise<Risk
 
     const assessment: RiskAssessment = {
       convertId,
+      convertName: `${convert.firstName || ''} ${convert.lastName || ''}`.trim(),
       overallScore,
       level,
       factors,
