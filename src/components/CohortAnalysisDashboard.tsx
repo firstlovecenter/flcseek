@@ -18,9 +18,11 @@ interface CohortRow {
 interface CohortAnalysisDashboardProps {
   groupId?: string;
   months?: number;
+  userId: string;
+  token?: string;
 }
 
-export function CohortAnalysisDashboard({ groupId, months = 6 }: CohortAnalysisDashboardProps) {
+export function CohortAnalysisDashboard({ groupId, months = 6, userId, token }: CohortAnalysisDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'table' | 'compare'>('table');
   const [rows, setRows] = useState<CohortRow[]>([]);
@@ -32,7 +34,8 @@ export function CohortAnalysisDashboard({ groupId, months = 6 }: CohortAnalysisD
       try {
         const res = await fetch(`/api/cohorts/compare?months=${months}${groupId ? `&groupId=${groupId}` : ''}`, {
           headers: {
-            'x-user-id': 'current-user-id',
+            'x-user-id': userId,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         });
         if (res.ok) {
