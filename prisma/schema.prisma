@@ -13,30 +13,34 @@ datasource db {
 // Users: All system users (superadmin, lead pastor, admin, leader)
 // ============================================================================
 model User {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  username      String    @unique
-  password      String
-  role          String?   // 'superadmin', 'leadpastor', 'overseer', 'admin', 'leader'
-  firstName     String?   @map("first_name")
-  lastName      String?   @map("last_name")
-  email         String?
-  groupId       String?   @map("group_id") @db.Uuid
-  groupName     String?   @map("group_name") // Legacy field
-  phoneNumber   String?   @map("phone_number") @db.VarChar(20)
-  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username    String    @unique
+  password    String
+  role        String? // 'superadmin', 'leadpastor', 'overseer', 'admin', 'leader'
+  firstName   String?   @map("first_name")
+  lastName    String?   @map("last_name")
+  email       String?
+  groupId     String?   @map("group_id") @db.Uuid
+  groupName   String?   @map("group_name") // Legacy field
+  phoneNumber String?   @map("phone_number") @db.VarChar(20)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  group              Group?                   @relation("UserToGroupPrimary", fields: [groupId], references: [id], onUpdate: NoAction)
+  group              Group?               @relation("UserToGroupPrimary", fields: [groupId], references: [id], onUpdate: NoAction)
   groups             UserGroup[]
-  leaderGroups       Group[]                  @relation("GroupLeader")
-  registeredConverts NewConvert[]             @relation("RegisteredBy")
-  progressRecords    ProgressRecord[]         @relation("ProgressUpdatedBy")
-  attendanceRecords  AttendanceRecord[]       @relation("MarkedBy")
+  leaderGroups       Group[]              @relation("GroupLeader")
+  registeredConverts NewConvert[]         @relation("RegisteredBy")
+  progressRecords    ProgressRecord[]     @relation("ProgressUpdatedBy")
+  attendanceRecords  AttendanceRecord[]   @relation("MarkedBy")
   activityLogs       ActivityLog[]
   notifications      Notification[]
   passwordTokens     PasswordResetToken[]
+  savedSearches      SavedSearch[]
+  userBadges         UserBadge[]
+  reportTemplates    ReportTemplate[]
+  acknowledgedAlerts ConvertAlert[]       @relation("AcknowledgedBy")
 
   @@index([role])
   @@index([groupId], map: "idx_users_group")
@@ -49,21 +53,22 @@ model User {
 // Groups: Month-based groups (January 2025, February 2025, etc.)
 // ============================================================================
 model Group {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String    // 'January', 'February', etc.
-  year      Int       @default(2025)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String // 'January', 'February', etc.
+  year        Int       @default(2025)
   description String?
-  leaderId  String?   @map("leader_id") @db.Uuid
-  archived  Boolean?  @default(false)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  leaderId    String?   @map("leader_id") @db.Uuid
+  archived    Boolean?  @default(false)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  leader             User?              @relation("GroupLeader", fields: [leaderId], references: [id], onUpdate: NoAction, map: "groups_leader_id_fkey1")
-  primaryUsers       User[]             @relation("UserToGroupPrimary")
+  leader             User?               @relation("GroupLeader", fields: [leaderId], references: [id], onUpdate: NoAction, map: "groups_leader_id_fkey1")
+  primaryUsers       User[]              @relation("UserToGroupPrimary")
   users              UserGroup[]
   newConverts        NewConvert[]
+  analyticsSnapshots AnalyticsSnapshot[]
 
   @@unique([name, year], map: "groups_name_year_unique")
   @@index([year], map: "idx_groups_year")
@@ -77,18 +82,24 @@ model Group {
 // Milestones: Spiritual growth stages (18 milestones)
 // ============================================================================
 model Milestone {
-  id              String    @id(map: "progress_stages_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stageNumber     Int       @unique(map: "progress_stages_stage_number_key") @map("stage_number")
-  stageName       String?   @map("stage_name") @db.VarChar(255)
-  shortName       String?   @map("short_name")
-  description     String?
-  isAutoCalculated Boolean? @default(false) @map("is_auto_calculated")
-  isActive        Boolean?  @default(true) @map("is_active")
-  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  id                String    @id(map: "progress_stages_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stageNumber       Int       @unique(map: "progress_stages_stage_number_key") @map("stage_number")
+  stageName         String?   @map("stage_name") @db.VarChar(255)
+  shortName         String?   @map("short_name")
+  description       String?
+  isAutoCalculated  Boolean?  @default(false) @map("is_auto_calculated")
+  autoTriggerConfig Json?     @map("auto_trigger_config")
+  badgeId           String?   @map("badge_id") @db.Uuid
+  isActive          Boolean?  @default(true) @map("is_active")
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  badge AchievementBadge? @relation(fields: [badgeId], references: [id], onUpdate: NoAction)
 
   @@index([stageNumber], map: "idx_milestones_number")
   @@index([isAutoCalculated], map: "idx_milestones_auto_calculated")
+  @@index([badgeId], map: "idx_milestones_badge_id")
   @@index([isActive], map: "idx_milestones_is_active")
   @@map("milestones")
 }
@@ -97,33 +108,39 @@ model Milestone {
 // NewConverts: People being discipled
 // ============================================================================
 model NewConvert {
-  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  firstName                String?   @map("first_name") @db.VarChar(255)
-  lastName                 String?   @map("last_name") @db.VarChar(255)
-  phoneNumber              String    @unique(map: "unique_phone_number") @map("phone_number")
-  dateOfBirth              String?   @map("date_of_birth") @db.VarChar(10)
-  gender                   String?
-  residentialLocation      String?   @map("residential_location")
-  schoolResidentialLocation String?  @map("school_residential_location")
-  occupationType           String?   @map("occupation_type") @db.VarChar(20)
-  homeLocation             String?   @map("home_location") @db.VarChar(255)
-  workLocation             String?   @map("work_location")
-  groupId                  String?   @map("group_id") @db.Uuid
-  groupName                String    @map("group_name") // Legacy
-  registeredById           String    @map("registered_by") @db.Uuid
-  deletedAt                DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt                DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firstName                 String?   @map("first_name") @db.VarChar(255)
+  lastName                  String?   @map("last_name") @db.VarChar(255)
+  phoneNumber               String    @unique(map: "unique_phone_number") @map("phone_number")
+  dateOfBirth               String?   @map("date_of_birth") @db.VarChar(10)
+  gender                    String?
+  residentialLocation       String?   @map("residential_location")
+  schoolResidentialLocation String?   @map("school_residential_location")
+  occupationType            String?   @map("occupation_type") @db.VarChar(20)
+  homeLocation              String?   @map("home_location") @db.VarChar(255)
+  workLocation              String?   @map("work_location")
+  groupId                   String?   @map("group_id") @db.Uuid
+  groupName                 String    @map("group_name") // Legacy
+  registeredById            String    @map("registered_by") @db.Uuid
+  riskScore                 Int?      @default(0) @map("risk_score")
+  lastAttendanceDate        DateTime? @map("last_attendance_date") @db.Date
+  lastMilestoneDate         DateTime? @map("last_milestone_date") @db.Date
+  deletedAt                 DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt                 DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  group              Group?             @relation(fields: [groupId], references: [id], onUpdate: NoAction)
-  registeredBy       User               @relation("RegisteredBy", fields: [registeredById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  progressRecords    ProgressRecord[]
-  attendanceRecords  AttendanceRecord[]
+  group             Group?             @relation(fields: [groupId], references: [id], onUpdate: NoAction)
+  registeredBy      User               @relation("RegisteredBy", fields: [registeredById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  progressRecords   ProgressRecord[]
+  attendanceRecords AttendanceRecord[]
+  convertAlerts     ConvertAlert[]
+  userBadges        UserBadge[]
 
   @@index([groupName], map: "idx_new_converts_group")
   @@index([groupId])
   @@index([registeredById])
+  @@index([riskScore], map: "idx_new_converts_risk_score")
   @@index([deletedAt])
   @@map("new_converts")
 }
@@ -132,17 +149,17 @@ model NewConvert {
 // ProgressRecords: Track milestone completion for each convert
 // ============================================================================
 model ProgressRecord {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  personId     String    @map("person_id") @db.Uuid
-  stageNumber  Int       @map("stage_number")
-  stageName    String    @map("stage_name")
-  isCompleted  Boolean?  @default(false) @map("is_completed")
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId      String    @map("person_id") @db.Uuid
+  stageNumber   Int       @map("stage_number")
+  stageName     String    @map("stage_name")
+  isCompleted   Boolean?  @default(false) @map("is_completed")
   dateCompleted DateTime? @map("date_completed") @db.Date
-  updatedById  String    @map("updated_by") @db.Uuid
+  updatedById   String    @map("updated_by") @db.Uuid
 
   // Relations
-  person       NewConvert @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  updatedBy    User       @relation("ProgressUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  person    NewConvert @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  updatedBy User       @relation("ProgressUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([personId, stageNumber])
   @@index([personId], map: "idx_progress_person_id")
@@ -155,15 +172,15 @@ model ProgressRecord {
 // AttendanceRecords: Track church attendance
 // ============================================================================
 model AttendanceRecord {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  personId      String    @map("person_id") @db.Uuid
-  attendanceDate DateTime @map("date_attended") @db.Date
-  markedById    String    @map("recorded_by") @db.Uuid
-  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId       String    @map("person_id") @db.Uuid
+  attendanceDate DateTime  @map("date_attended") @db.Date
+  markedById     String    @map("recorded_by") @db.Uuid
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // Relations
-  person        NewConvert @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  markedBy      User       @relation("MarkedBy", fields: [markedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  person   NewConvert @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  markedBy User       @relation("MarkedBy", fields: [markedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([personId], map: "idx_attendance_person_id")
   @@index([attendanceDate], map: "idx_attendance_date")
@@ -182,8 +199,8 @@ model UserGroup {
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // Relations
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([userId, groupId], map: "user_groups_unique")
   @@index([userId], map: "idx_user_groups_user_id")
@@ -196,19 +213,19 @@ model UserGroup {
 // ActivityLogs: Audit trail for all important actions
 // ============================================================================
 model ActivityLog {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String?   @map("user_id") @db.Uuid
-  action      String    @db.VarChar(100)
-  entityType  String?   @map("entity_type") @db.VarChar(50)
-  entityId    String?   @map("entity_id") @db.Uuid
-  oldValues   Json?     @map("old_values")
-  newValues   Json?     @map("new_values")
-  ipAddress   String?   @map("ip_address") @db.VarChar(45)
-  userAgent   String?   @map("user_agent")
-  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?   @map("user_id") @db.Uuid
+  action     String    @db.VarChar(100)
+  entityType String?   @map("entity_type") @db.VarChar(50)
+  entityId   String?   @map("entity_id") @db.Uuid
+  oldValues  Json?     @map("old_values")
+  newValues  Json?     @map("new_values")
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // Relations
-  user        User?     @relation(fields: [userId], references: [id], onUpdate: NoAction)
+  user User? @relation(fields: [userId], references: [id], onUpdate: NoAction)
 
   @@index([userId], map: "idx_activity_logs_user_id")
   @@index([action], map: "idx_activity_logs_action")
@@ -221,19 +238,19 @@ model ActivityLog {
 // Notifications: User notifications
 // ============================================================================
 model Notification {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String?   @map("user_id") @db.Uuid
-  type        String    @db.VarChar(50)
-  title       String    @db.VarChar(255)
-  message     String?
-  entityType  String?   @map("entity_type") @db.VarChar(50)
-  entityId    String?   @map("entity_id") @db.Uuid
-  isRead      Boolean?  @default(false) @map("is_read")
-  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  readAt      DateTime? @map("read_at") @db.Timestamptz(6)
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?   @map("user_id") @db.Uuid
+  type       String    @db.VarChar(50)
+  title      String    @db.VarChar(255)
+  message    String?
+  entityType String?   @map("entity_type") @db.VarChar(50)
+  entityId   String?   @map("entity_id") @db.Uuid
+  isRead     Boolean?  @default(false) @map("is_read")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt     DateTime? @map("read_at") @db.Timestamptz(6)
 
   // Relations
-  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([userId], map: "idx_notifications_user_id")
   @@index([createdAt], map: "idx_notifications_created_at")
@@ -244,15 +261,15 @@ model Notification {
 // PasswordResetTokens: For password recovery
 // ============================================================================
 model PasswordResetToken {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId     String    @map("user_id") @db.Uuid
-  token      String    @unique @db.VarChar(255)
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
-  usedAt     DateTime? @map("used_at") @db.Timestamptz(6)
-  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // Relations
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([userId], map: "idx_password_reset_tokens_user_id")
   @@index([token], map: "idx_password_reset_tokens_token")
@@ -263,14 +280,167 @@ model PasswordResetToken {
 // RateLimitRecords: Rate limiting for API protection
 // ============================================================================
 model RateLimitRecord {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  identifier    String    @db.VarChar(255)
-  endpoint      String    @db.VarChar(255)
-  requestCount  Int?      @default(1) @map("request_count")
-  windowStart   DateTime? @default(now()) @map("window_start") @db.Timestamptz(6)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identifier   String    @db.VarChar(255)
+  endpoint     String    @db.VarChar(255)
+  requestCount Int?      @default(1) @map("request_count")
+  windowStart  DateTime? @default(now()) @map("window_start") @db.Timestamptz(6)
 
   @@unique([identifier, endpoint, windowStart], map: "rate_limit_unique")
   @@index([identifier, endpoint], map: "idx_rate_limit_identifier")
   @@index([windowStart], map: "idx_rate_limit_window")
   @@map("rate_limit_records")
+}
+
+// ============================================================================
+// AchievementBadges: Define badge criteria and metadata
+// ============================================================================
+model AchievementBadge {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String    @db.VarChar(100)
+  description String?
+  criteria    Json // {type: 'attendance', threshold: 26}
+  icon        String?   @db.VarChar(50)
+  color       String?   @db.VarChar(20)
+  isActive    Boolean?  @default(true) @map("is_active")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  userBadges UserBadge[]
+  milestones Milestone[]
+
+  @@index([isActive], map: "idx_achievement_badges_is_active")
+  @@map("achievement_badges")
+}
+
+// ============================================================================
+// UserBadges: Track earned badges for users and converts
+// ============================================================================
+model UserBadge {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?   @map("user_id") @db.Uuid
+  convertId String?   @map("convert_id") @db.Uuid
+  badgeId   String    @map("badge_id") @db.Uuid
+  earnedAt  DateTime? @default(now()) @map("earned_at") @db.Timestamptz(6)
+  metadata  Json? // Additional context about earning
+
+  // Relations
+  user    User?            @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  convert NewConvert?      @relation(fields: [convertId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  badge   AchievementBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_user_badges_user_id")
+  @@index([convertId], map: "idx_user_badges_convert_id")
+  @@index([badgeId], map: "idx_user_badges_badge_id")
+  @@index([earnedAt], map: "idx_user_badges_earned_at")
+  @@map("user_badges")
+}
+
+// ============================================================================
+// SavedSearches: Saved filters for quick access
+// ============================================================================
+model SavedSearch {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  name        String    @db.VarChar(100)
+  description String?
+  filters     Json // Filter configuration
+  isSmart     Boolean?  @default(false) @map("is_smart")
+  isPublic    Boolean?  @default(false) @map("is_public")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_saved_searches_user_id")
+  @@index([isPublic], map: "idx_saved_searches_is_public")
+  @@map("saved_searches")
+}
+
+// ============================================================================
+// AlertRules: Define alert criteria and configuration
+// ============================================================================
+model AlertRule {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String    @db.VarChar(100)
+  type                 String    @db.VarChar(50) // 'attendance_drop', 'milestone_stall', 'missing'
+  criteria             Json // Alert conditions
+  notificationChannels Json?     @map("notification_channels") // ['in_app', 'email', 'sms']
+  isActive             Boolean?  @default(true) @map("is_active")
+  createdAt            DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  convertAlerts ConvertAlert[]
+
+  @@index([type], map: "idx_alert_rules_type")
+  @@index([isActive], map: "idx_alert_rules_is_active")
+  @@map("alert_rules")
+}
+
+// ============================================================================
+// ConvertAlerts: Active alerts for specific converts
+// ============================================================================
+model ConvertAlert {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  convertId      String    @map("convert_id") @db.Uuid
+  alertRuleId    String    @map("alert_rule_id") @db.Uuid
+  severity       String    @db.VarChar(20) // 'low', 'medium', 'high', 'critical'
+  status         String    @default("active") @db.VarChar(20) // 'active', 'acknowledged', 'resolved'
+  acknowledgedBy String?   @map("acknowledged_by") @db.Uuid
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  convert            NewConvert @relation(fields: [convertId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  alertRule          AlertRule  @relation(fields: [alertRuleId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  acknowledgedByUser User?      @relation("AcknowledgedBy", fields: [acknowledgedBy], references: [id], onUpdate: NoAction)
+
+  @@index([convertId], map: "idx_convert_alerts_convert_id")
+  @@index([alertRuleId], map: "idx_convert_alerts_rule_id")
+  @@index([status], map: "idx_convert_alerts_status")
+  @@index([severity], map: "idx_convert_alerts_severity")
+  @@index([createdAt], map: "idx_convert_alerts_created_at")
+  @@map("convert_alerts")
+}
+
+// ============================================================================
+// ReportTemplates: Customizable report configurations
+// ============================================================================
+model ReportTemplate {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String    @db.VarChar(100)
+  description    String?
+  templateConfig Json      @map("template_config") // Sections, metrics, filters
+  scheduleConfig Json?     @map("schedule_config") // For scheduled reports
+  createdBy      String    @map("created_by") @db.Uuid
+  isPublic       Boolean?  @default(false) @map("is_public")
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([createdBy], map: "idx_report_templates_created_by")
+  @@index([isPublic], map: "idx_report_templates_is_public")
+  @@map("report_templates")
+}
+
+// ============================================================================
+// AnalyticsSnapshots: Historical data for trend analysis
+// ============================================================================
+model AnalyticsSnapshot {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  snapshotDate DateTime  @map("snapshot_date") @db.Date
+  groupId      String?   @map("group_id") @db.Uuid
+  metrics      Json // {totalConverts: 50, attendance: 45, etc}
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  group Group? @relation(fields: [groupId], references: [id], onUpdate: NoAction)
+
+  @@index([snapshotDate], map: "idx_analytics_snapshots_date")
+  @@index([groupId], map: "idx_analytics_snapshots_group_id")
+  @@index([snapshotDate, groupId], map: "idx_analytics_snapshots_date_group")
+  @@map("analytics_snapshots")
 }
