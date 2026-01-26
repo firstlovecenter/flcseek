@@ -291,6 +291,7 @@ function SheepSeekerDashboardContent() {
     try {
       const response = await api.people.create({
         ...values,
+        group_id: groupId,
         group_name: user?.group_name,
       });
 
@@ -301,9 +302,14 @@ function SheepSeekerDashboardContent() {
       message.success('Person registered successfully!');
       form.resetFields();
       setRegisterModalVisible(false);
-      fetchAllPeople();
+      fetchAllPeople(selectedYear || undefined);
     } catch (error: any) {
-      message.error(error.message || 'Registration failed');
+      const errorMsg = error.message || 'Registration failed';
+      if (errorMsg.includes('phone number') && errorMsg.includes('already')) {
+        message.error('This phone number is already registered. Each person must have a unique phone number.');
+      } else {
+        message.error(errorMsg);
+      }
     }
   };
 
@@ -584,22 +590,66 @@ function SheepSeekerDashboardContent() {
         okText="Register"
         onOk={() => form.submit()}
         destroyOnClose
+        width={500}
       >
         <Form form={form} layout="vertical" onFinish={handleRegister}>
           <Form.Item name="first_name" label="First Name" rules={[{ required: true, message: 'First name is required' }]}> 
-            <Input />
+            <Input placeholder="John" />
           </Form.Item>
           <Form.Item name="last_name" label="Last Name" rules={[{ required: true, message: 'Last name is required' }]}>
-            <Input />
+            <Input placeholder="Doe" />
           </Form.Item>
-          <Form.Item name="phone_number" label="Phone Number" rules={[{ required: true, message: 'Phone is required' }]}>
-            <Input />
+          <Form.Item 
+            name="phone_number" 
+            label="Phone Number" 
+            rules={[
+              { required: true, message: 'Phone number is required' },
+              { pattern: /^[0-9+\-\s()]+$/, message: 'Invalid phone number' },
+            ]}
+          >
+            <Input placeholder="+233 123 456 789" />
           </Form.Item>
-          <Form.Item name="gender" label="Gender" rules={[{ required: true }]}> 
+          <Form.Item 
+            name="date_of_birth" 
+            label="Date of Birth (without year)" 
+            rules={[
+              { required: true, message: 'Date of birth is required' },
+              { pattern: /^\d{2}-\d{2}$/, message: 'Format must be DD-MM (e.g., 15-03)' },
+            ]}
+            extra="Format: DD-MM (e.g., 15-03 for March 15)"
+          >
+            <Input placeholder="15-03" maxLength={5} />
+          </Form.Item>
+          <Form.Item name="gender" label="Gender" rules={[{ required: true, message: 'Gender is required' }]}> 
             <Select
+              placeholder="Select gender"
               options={[
                 { label: 'Male', value: 'Male' },
                 { label: 'Female', value: 'Female' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item 
+            name="residential_location" 
+            label="Residential Location" 
+            rules={[{ required: true, message: 'Residential location is required' }]}
+          >
+            <Input placeholder="e.g., Accra, Ghana" />
+          </Form.Item>
+          <Form.Item name="school_residential_location" label="School Residential Location (if applicable)">
+            <Input placeholder="e.g., KNUST Campus" />
+          </Form.Item>
+          <Form.Item 
+            name="occupation_type" 
+            label="Worker or Student" 
+            rules={[{ required: true, message: 'Please select worker or student' }]}
+          >
+            <Select
+              placeholder="Select worker or student"
+              options={[
+                { label: 'Worker', value: 'Worker' },
+                { label: 'Student', value: 'Student' },
+                { label: 'Unemployed', value: 'Unemployed' },
               ]}
             />
           </Form.Item>
