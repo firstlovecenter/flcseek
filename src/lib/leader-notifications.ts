@@ -12,6 +12,7 @@ export enum NotificationType {
   CONVERT_AT_RISK = 'convert_at_risk',
   MILESTONE_REMINDER = 'milestone_reminder',
   BULK_ACTION = 'bulk_action',
+  HIGH_RISK = 'high_risk',
 }
 
 export interface NotificationPayload {
@@ -110,6 +111,7 @@ function generateNotificationTitle(type: NotificationType, payload: Notification
       return `${payload.convertName} reached ${payload.metadata?.attendanceCount || 0} weeks of attendance`
 
     case NotificationType.CONVERT_AT_RISK:
+    case NotificationType.HIGH_RISK:
       return `⚠️ ${payload.convertName} is at risk`
 
     case NotificationType.MILESTONE_REMINDER:
