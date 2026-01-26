@@ -1,6 +1,12 @@
 const { neon } = require('@neondatabase/serverless');
 
-const sql = neon(process.env.NEON_DATABASE_URL || 'postgresql://neondb_owner:npg_xRuCd9bPYU5p@ep-fragrant-haze-adwnlt5e-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require');
+if (!process.env.NEON_DATABASE_URL) {
+  console.error('❌ Error: NEON_DATABASE_URL environment variable is not set');
+  console.error('Please set NEON_DATABASE_URL in your .env file');
+  process.exit(1);
+}
+
+const sql = neon(process.env.NEON_DATABASE_URL);
 
 async function listAllUsers() {
   try {

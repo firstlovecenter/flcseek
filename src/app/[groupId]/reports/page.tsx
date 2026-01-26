@@ -32,6 +32,12 @@ import {
   FileTextOutlined,
   FilePdfOutlined,
 } from '@ant-design/icons';
+import { PredictiveAnalyticsDashboard } from '@/components/PredictiveAnalyticsDashboard';
+import { CohortAnalysisDashboard } from '@/components/CohortAnalysisDashboard';
+import { GrowthForecastDashboard } from '@/components/GrowthForecastDashboard';
+import { BulkActionsUI } from '@/components/BulkActionsUI';
+import { ReportTemplateBuilder } from '@/components/ReportTemplateBuilder';
+import { AchievementBadgesDashboard } from '@/components/AchievementBadgesDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -976,6 +982,88 @@ export default function ReportsPage() {
                     })}
                     rowKey="id"
                     pagination={{ pageSize: 20 }}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: 'predictive',
+              label: 'Predictive Analytics',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <PredictiveAnalyticsDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
+                </div>
+              ),
+            },
+            {
+              key: 'cohorts',
+              label: 'Cohort Analysis',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <CohortAnalysisDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
+                </div>
+              ),
+            },
+            {
+              key: 'forecast',
+              label: 'Growth Forecasting',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <GrowthForecastDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
+                </div>
+              ),
+            },
+            {
+              key: 'bulk-actions',
+              label: 'Bulk Actions',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <Card>
+                    <div style={{ marginBottom: 16 }}>
+                      <Title level={4}>Perform Actions on Multiple Records</Title>
+                      <Text type="secondary">
+                        Update status, assign milestones, or delete multiple converts at once.
+                      </Text>
+                    </div>
+                    <BulkActionsUI
+                      groupId={groupId}
+                      userId={user?.id || 'system'}
+                      token={token || undefined}
+                    />
+                  </Card>
+                </div>
+              ),
+            },
+            {
+              key: 'report-templates',
+              label: 'Report Templates',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <Card>
+                    <div style={{ marginBottom: 16 }}>
+                      <Title level={4}>Create and Manage Report Templates</Title>
+                      <Text type="secondary">
+                        Build reusable report templates with custom sections and metrics.
+                      </Text>
+                    </div>
+                    <ReportTemplateBuilder
+                      groupId={groupId}
+                      userId={user?.id || 'system'}
+                      token={token || undefined}
+                    />
+                  </Card>
+                </div>
+              ),
+            },
+            {
+              key: 'badges',
+              label: 'Achievement Badges',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <AchievementBadgesDashboard
+                    groupId={groupId}
+                    userId={user?.id || 'system'}
+                    token={token || undefined}
                   />
                 </div>
               ),
