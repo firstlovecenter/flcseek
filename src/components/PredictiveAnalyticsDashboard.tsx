@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import {
   Card,
   Row,
@@ -45,6 +46,8 @@ interface GroupOutcomes {
 }
 
 export function PredictiveAnalyticsDashboard({ groupId, userId, token }: PredictiveAnalyticsDashboardProps) {
+  const router = useRouter();
+  const params = useParams();
   const [outcomes, setOutcomes] = useState<GroupOutcomes | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'overview' | 'byCategory'>('overview');
@@ -87,6 +90,10 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
   if (!outcomes) {
     return <Empty description="Unable to load predictions" />;
   }
+
+  const handleViewDetails = (convertId: string) => {
+    router.push(`/${groupId}/person/${convertId}`);
+  };
 
   const getPredictionColor = (probability: number) => {
     if (probability > 75) return 'green';
@@ -176,7 +183,11 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
       key: 'action',
       width: 100,
       render: (_: any, record: Prediction) => (
-        <Button type="link" size="small">
+        <Button 
+          type="link" 
+          size="small"
+          onClick={() => handleViewDetails(record.convertId)}
+        >
           View Details
         </Button>
       ),
