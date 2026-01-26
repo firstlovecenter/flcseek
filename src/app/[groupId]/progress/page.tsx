@@ -302,6 +302,14 @@ export default function ProgressPage() {
                   Bulk Register
                 </Button>
               )}
+              {(user?.role === 'superadmin' || user?.role === 'leadpastor' || user?.role === 'overseer') && (
+                <Button
+                  icon={<BarChartOutlined />}
+                  onClick={() => router.push(`/${groupId}/reports`)}
+                >
+                  Reports
+                </Button>
+              )}
             </Space>
           </div>
           <Text type="secondary">
