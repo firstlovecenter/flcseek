@@ -37,6 +37,7 @@ import { CohortAnalysisDashboard } from '@/components/CohortAnalysisDashboard';
 import { GrowthForecastDashboard } from '@/components/GrowthForecastDashboard';
 import { BulkActionsUI } from '@/components/BulkActionsUI';
 import { ReportTemplateBuilder } from '@/components/ReportTemplateBuilder';
+import { AchievementBadgesDashboard } from '@/components/AchievementBadgesDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -1051,6 +1052,19 @@ export default function ReportsPage() {
                       token={token || undefined}
                     />
                   </Card>
+                </div>
+              ),
+            },
+            {
+              key: 'badges',
+              label: 'Achievement Badges',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <AchievementBadgesDashboard
+                    groupId={groupId}
+                    userId={user?.id || 'system'}
+                    token={token || undefined}
+                  />
                 </div>
               ),
             },
