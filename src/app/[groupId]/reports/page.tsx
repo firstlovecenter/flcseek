@@ -32,6 +32,9 @@ import {
   FileTextOutlined,
   FilePdfOutlined,
 } from '@ant-design/icons';
+import { PredictiveAnalyticsDashboard } from '@/components/PredictiveAnalyticsDashboard';
+import { CohortAnalysisDashboard } from '@/components/CohortAnalysisDashboard';
+import { GrowthForecastDashboard } from '@/components/GrowthForecastDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
@@ -977,6 +980,33 @@ export default function ReportsPage() {
                     rowKey="id"
                     pagination={{ pageSize: 20 }}
                   />
+                </div>
+              ),
+            },
+            {
+              key: 'predictive',
+              label: 'Predictive Analytics',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <PredictiveAnalyticsDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
+                </div>
+              ),
+            },
+            {
+              key: 'cohorts',
+              label: 'Cohort Analysis',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <CohortAnalysisDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
+                </div>
+              ),
+            },
+            {
+              key: 'forecast',
+              label: 'Growth Forecasting',
+              children: (
+                <div style={{ marginTop: 16 }}>
+                  <GrowthForecastDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
                 </div>
               ),
             },
