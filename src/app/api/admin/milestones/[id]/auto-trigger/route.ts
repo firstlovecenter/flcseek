@@ -33,12 +33,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (authError) return authError;
     const userId = user!.id;
 
-    // Verify user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (!user || !['superadmin', 'leadpastor', 'overseer', 'admin'].includes(user.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer', 'admin'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -83,12 +78,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     if (authError) return authError;
     const userId = user!.id;
 
-    // Verify user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (!user || !['superadmin', 'leadpastor', 'overseer', 'admin'].includes(user.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer', 'admin'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
