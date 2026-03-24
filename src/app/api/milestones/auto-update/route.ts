@@ -30,11 +30,7 @@ export async function POST(request: NextRequest) {
     const { convertId, groupId, forceAll } = body
 
     // Validate that user is admin/leader
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (!user || !['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -105,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     // All converts (superadmin only)
     else if (forceAll) {
-      if (user.role !== 'superadmin') {
+      if (user!.role !== 'superadmin') {
         return NextResponse.json({ error: 'Only superadmin can force all updates' }, { status: 403 })
       }
 

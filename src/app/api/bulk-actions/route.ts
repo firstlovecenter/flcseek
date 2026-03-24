@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BulkActionsService } from '@/lib/bulk-actions';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/api/middleware';
 
 export async function POST(request: NextRequest) {
@@ -12,11 +11,7 @@ export async function POST(request: NextRequest) {
     const userId = user!.id;
 
     // Verify user is authorized
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 

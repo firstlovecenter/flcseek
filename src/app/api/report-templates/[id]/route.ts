@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ReportTemplatesService } from '@/lib/report-templates';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/api/middleware';
 
 export async function GET(
@@ -41,11 +40,7 @@ export async function PUT(
     const userId = user!.id;
 
     // Verify user is authorized
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
@@ -83,11 +78,7 @@ export async function DELETE(
     const userId = user!.id;
 
     // Verify user is authorized
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 

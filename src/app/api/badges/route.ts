@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AchievementBadgesService } from '@/lib/achievement-badges';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/api/middleware';
 
 export async function GET(request: NextRequest) {
@@ -37,11 +36,7 @@ export async function POST(request: NextRequest) {
     if (authError) return authError;
     const userId = user!.id;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !['superadmin', 'leadpastor', 'overseer'].includes(user.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
