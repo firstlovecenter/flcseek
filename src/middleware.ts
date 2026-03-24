@@ -1,63 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 
 /**
- * Routes that don't require authentication
- */
-const PUBLIC_ROUTES = [
-  '/api/auth/login',
-  '/api/auth/register',
-  '/api/auth/reset-password',
-  '/api/auth/logout',
-  '/api/auth/me',
-];
-
-/**
- * Central auth middleware — protects all /api/* routes.
- * Reads JWT from httpOnly cookie first, then falls back to Authorization header.
+ * Next.js middleware runs in the Edge Runtime where Node.js-only packages
+ * (jsonwebtoken, bcryptjs) are unavailable. Full JWT verification is handled
+ * per-route via requireAuth() in the Node.js route handler runtime.
+ *
+ * This middleware handles only what is safe in Edge Runtime:
+ * - Early 401 for requests with no token at all (fast rejection)
+ * - CORS / security header passthrough
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect API routes
+  // Only apply to API routes
   if (!pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
-  // Allow public routes
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+  // Public routes — no token required
+  const PUBLIC_PREFIXES = [
+    '/api/auth/login',
+    '/api/auth/register',
+    '/api/auth/reset-password',
+    '/api/auth/logout',
+    '/api/auth/me',
+    '/api/health',
+    '/api/_next',
+  ];
+  if (PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix))) {
     return NextResponse.next();
   }
 
-  // Allow static/metadata endpoints
-  if (pathname.startsWith('/api/_next') || pathname === '/api/health') {
-    return NextResponse.next();
-  }
+  // Fast rejection: if neither a cookie nor a Bearer token is present,
+  // there is no point forwarding the request to a route handler.
+  // Signature verification happens inside requireAuth() in each route handler.
+  const hasCookie = !!request.cookies.get('auth_token')?.value;
+  const authHeader = request.headers.get('Authorization') ?? '';
+  const hasBearer = authHeader.startsWith('Bearer ') && authHeader.length > 8;
 
-  // Try cookie first (httpOnly, safe from XSS)
-  const cookieToken = request.cookies.get('auth_token')?.value;
-
-  // Fall back to Authorization header (for API clients / backward compat)
-  const authHeader = request.headers.get('Authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-  const token = cookieToken || bearerToken;
-
-  if (!token) {
+  if (!hasCookie && !hasBearer) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const user = verifyToken(token);
-  if (!user) {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-  }
-
-  // Forward user info to the route handler via a custom header
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-verified-user-id', user.id);
-  requestHeaders.set('x-verified-user-role', user.role);
-
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  return NextResponse.next();
 }
 
 export const config = {
