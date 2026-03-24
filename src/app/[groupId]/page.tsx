@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, memo, useMemo, Suspense } from 'react';
-import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb } from 'antd';
+import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb, DatePicker, Card, Progress, Empty } from 'antd';
 import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useAuth } from '@/contexts/AuthContext';
@@ -142,6 +142,14 @@ function SheepSeekerDashboardContent() {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const isRegisterRestricted = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Fetch available years for the user's group (month)
   useEffect(() => {
@@ -195,7 +203,7 @@ function SheepSeekerDashboardContent() {
       if (!response.success) throw new Error('Failed to fetch milestones');
       
       const milestoneData = response.data?.milestones || [];
-      console.log('Fetched milestones from API:', milestoneData);
+      if (process.env.NODE_ENV !== 'production') console.log('Fetched milestones from API:', milestoneData);
       const formattedMilestones = milestoneData.map((milestone: any) => {
         // Format short_name: split multi-word names across two lines, keep single words intact
         let formattedShortName = milestone.short_name || milestone.stage_name.substring(0, 10);
@@ -219,7 +227,7 @@ function SheepSeekerDashboardContent() {
           isAutoCalculated: milestone.is_auto_calculated || false,
         };
       });
-      console.log('Formatted milestones:', formattedMilestones);
+      if (process.env.NODE_ENV !== 'production') console.log('Formatted milestones:', formattedMilestones);
       
       setMilestones(formattedMilestones);
     } catch (error: any) {
@@ -245,7 +253,7 @@ function SheepSeekerDashboardContent() {
     }
 
     if (user && token) {
-      console.log('[SHEEP-SEEKER] Authorized user:', user.role, 'accessing group:', groupId);
+      if (process.env.NODE_ENV !== 'production') console.log('[SHEEP-SEEKER] Authorized user:', user.role, 'accessing group:', groupId);
       fetchMilestones();
     }
   }, [user, token, authLoading, router, fetchMilestones, groupId]);

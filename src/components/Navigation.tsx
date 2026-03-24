@@ -197,11 +197,6 @@ export default function Navigation({ children }: NavigationProps) {
       icon: <TeamOutlined />,
       label: <Link href="/superadmin/converts">New Converts</Link>,
     },
-    {
-      key: 'database',
-      icon: <DatabaseOutlined />,
-      label: <Link href="/superadmin/database">Database</Link>,
-    },
   ];
 
   // Mobile Bottom Navigation items for Super Admin
@@ -225,11 +220,6 @@ export default function Navigation({ children }: NavigationProps) {
       key: '/superadmin/groups',
       icon: <UsergroupAddOutlined />,
       label: <Link href="/superadmin/groups">Groups</Link>,
-    },
-    {
-      key: '/superadmin/database',
-      icon: <DatabaseOutlined />,
-      label: <Link href="/superadmin/database">Database</Link>,
     },
   ];
 
@@ -326,6 +316,7 @@ export default function Navigation({ children }: NavigationProps) {
               padding: '0 12px',
             }}
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           />
           <Button
             type="primary"
@@ -349,6 +340,7 @@ export default function Navigation({ children }: NavigationProps) {
             onClick={toggleTheme}
             style={{ color: '#fff' }}
             title="Toggle theme"
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           />
           <Button
             type="text"
@@ -356,6 +348,7 @@ export default function Navigation({ children }: NavigationProps) {
             onClick={handleRefresh}
             style={{ color: '#fff' }}
             title="Refresh"
+            aria-label="Refresh page"
           />
           <Button
             type="text"
@@ -363,6 +356,7 @@ export default function Navigation({ children }: NavigationProps) {
             onClick={handleLogout}
             style={{ color: '#fff' }}
             title="Logout"
+            aria-label="Log out"
           />
         </Space>
       </Header>

@@ -16,11 +16,18 @@ export interface AuthenticatedRequest extends NextRequest {
  * Extract and verify the JWT token from request headers
  */
 export function getAuthUser(request: NextRequest): UserPayload | null {
+  // Try httpOnly cookie first (safe from XSS)
+  const cookieToken = request.cookies.get('auth_token')?.value;
+  if (cookieToken) {
+    const user = verifyToken(cookieToken);
+    if (user) return user;
+  }
+
+  // Fall back to Authorization header (backward compat / API clients)
   const authHeader = request.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
   }
-  
   const token = authHeader.substring(7);
   return verifyToken(token);
 }
