@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SavedSearchesService } from '@/lib/saved-searches';
 import { logger } from '@/lib/logger';
 import { SavedSearchFilters } from '@/lib/types/advanced-features';
+import { requireAuth } from '@/lib/api/middleware';
 
 type Params = Promise<{ id: string }>;
 
@@ -52,16 +53,9 @@ export async function GET(request: NextRequest, context: { params: Params }) {
  */
 export async function PUT(request: NextRequest, context: { params: Params }) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 }
-      );
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const params = await context.params;
     const { id } = params;
@@ -122,16 +116,9 @@ export async function PUT(request: NextRequest, context: { params: Params }) {
  */
 export async function DELETE(request: NextRequest, context: { params: Params }) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 }
-      );
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const params = await context.params;
     const { id } = params;

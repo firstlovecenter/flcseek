@@ -15,6 +15,7 @@ import {
 } from '@/lib/alert-management'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/api/middleware';
 
 /**
  * GET /api/alerts
@@ -22,10 +23,9 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const searchParams = request.nextUrl.searchParams
     const groupId = searchParams.get('groupId')

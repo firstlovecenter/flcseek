@@ -29,3 +29,10 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Scheduled function for analytics cron job
+[functions."scheduled-analytics"]
+  schedule = "0 2 * * *"
+
+[functions."scheduled-cleanup"]
+  schedule = "0 3 * * 0"

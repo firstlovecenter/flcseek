@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       month,
     };
     
-    console.log('[API /v1/people] Request:', {
+    if (process.env.NODE_ENV !== 'production') console.log('[API /v1/people] Request:', {
       userRole: user?.role,
       userGroupId: user?.group_id,
       paramsGroupId: params.groupId,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       const totalMilestones = await Milestones.countActive();
       const people = await People.findManyWithProgress(filters, totalMilestones);
       
-      console.log('[API /v1/people] Progress results:', {
+      if (process.env.NODE_ENV !== 'production') console.log('[API /v1/people] Progress results:', {
         filterGroupId: filters.groupId,
         returnedCount: people.length,
         firstPersonGroupId: people[0]?.group_id,

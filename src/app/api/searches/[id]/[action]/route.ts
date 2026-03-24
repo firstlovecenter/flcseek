@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SavedSearchesService } from '@/lib/saved-searches';
 import { logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/api/middleware';
 
 type Params = Promise<{ id: string; action: string }>;
 
@@ -11,16 +12,9 @@ type Params = Promise<{ id: string; action: string }>;
  */
 export async function POST(request: NextRequest, context: { params: Params }) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 }
-      );
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const params = await context.params;
     const { id, action } = params;

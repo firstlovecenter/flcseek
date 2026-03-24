@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CohortAnalysisService } from '@/lib/cohort-analysis';
 import { logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/api/middleware';
 
 /**
  * GET /api/cohorts
@@ -8,10 +9,9 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'User ID required' }, { status: 401 });
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const searchParams = request.nextUrl.searchParams;
     const months = parseInt(searchParams.get('months') || '6', 10);

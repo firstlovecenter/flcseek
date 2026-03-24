@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FilterBuilder } from '@/lib/filter-builder';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/api/middleware';
 
 /**
  * GET /api/filters
@@ -66,16 +67,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 }
-      );
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const body = await request.json();
     const { filters, groupId, sort, dateRange, limit = 50, skip = 0 } = body;

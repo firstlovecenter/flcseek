@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AchievementBadgesService } from '@/lib/achievement-badges';
 import { logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/api/middleware';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const { id } = await params;
     const action = request.nextUrl.searchParams.get('action');

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PredictiveAnalyticsService } from '@/lib/predictive-analytics';
 import { logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/api/middleware';
 
 /**
  * GET /api/predictions
@@ -9,16 +10,9 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 }
-      );
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const searchParams = request.nextUrl.searchParams;
     const convertId = searchParams.get('convertId');

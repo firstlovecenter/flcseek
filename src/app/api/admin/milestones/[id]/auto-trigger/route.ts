@@ -14,6 +14,7 @@ import {
 } from '@/lib/milestone-auto-calc'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/api/middleware';
 
 interface RouteContext {
   params: Promise<{
@@ -28,10 +29,9 @@ interface RouteContext {
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   try {
-    const userId = request.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     // Verify user is admin
     const user = await prisma.user.findUnique({
@@ -79,10 +79,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   try {
-    const userId = request.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     // Verify user is admin
     const user = await prisma.user.findUnique({
