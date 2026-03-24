@@ -22,7 +22,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loading: boolean;
 }
 
@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password }),
     });
 
@@ -91,7 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, 100);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Clear server-side httpOnly cookie
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');

@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       userAgent,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       token,
       user: {
         id: user.id,
@@ -119,6 +119,17 @@ export async function POST(request: NextRequest) {
         phone_number: user.groupName,
       },
     });
+
+    // Set httpOnly cookie — not accessible to JS (guards against XSS token theft)
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+
+    return response;
   } catch (error: unknown) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Login error:', error);

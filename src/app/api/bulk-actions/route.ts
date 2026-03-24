@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BulkActionsService } from '@/lib/bulk-actions';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/api/middleware';
 
 export async function POST(request: NextRequest) {
   try {
     // Get user from header
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     // Verify user is authorized
     const user = await prisma.user.findUnique({
@@ -64,10 +64,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Get user from header
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const groupId = request.nextUrl.searchParams.get('groupId');
     if (!groupId) {

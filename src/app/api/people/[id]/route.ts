@@ -93,7 +93,7 @@ export async function PATCH(
     }
     
     // Logs for debugging
-    console.log(`[PATCH /api/v1/people/[id]] User role: ${user!.role}, Person group_id: ${existing.group_id}, User group_id: ${user!.group_id}`);
+    if (process.env.NODE_ENV !== 'production') console.log(`[PATCH /api/v1/people/[id]] User role: ${user!.role}, Person group_id: ${existing.group_id}, User group_id: ${user!.group_id}`);
     
     // Only admin and superadmin can edit people
     if (user!.role !== ROLES.SUPERADMIN && user!.role !== ROLES.ADMIN) {

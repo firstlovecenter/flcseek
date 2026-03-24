@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SavedSearchesService } from '@/lib/saved-searches';
 import { logger } from '@/lib/logger';
 import { SavedSearchFilters } from '@/lib/types/advanced-features';
+import { requireAuth } from '@/lib/api/middleware';
 
 /**
  * GET /api/searches
@@ -10,16 +11,9 @@ import { SavedSearchFilters } from '@/lib/types/advanced-features';
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 }
-      );
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') || 'user';
@@ -73,16 +67,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 }
-      );
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const body = await request.json();
     const { name, filters, description, isSmart = false, isPublic = false } = body;

@@ -46,4 +46,10 @@ next-env.d.ts
 test-*.js
 test-*.ts
 
+# Sensitive credential files — should NEVER be committed
+LOGINS.md
+LOGINS.txt
+*-logins.*
+*passwords*
+
 /src/generated/prisma

@@ -11,6 +11,7 @@ import { evaluateMilestoneCompletion } from '@/lib/milestone-auto-calc'
 import { notifyMilestoneCompletion } from '@/lib/leader-notifications'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/api/middleware';
 
 interface AutoUpdateRequest {
   convertId?: string
@@ -21,10 +22,9 @@ interface AutoUpdateRequest {
 export async function POST(request: NextRequest) {
   try {
     // Get user from session/token
-    const userId = request.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const body: AutoUpdateRequest = await request.json()
     const { convertId, groupId, forceAll } = body
@@ -154,10 +154,9 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     // Get count of milestones with auto-trigger enabled
     const autoTriggeredCount = await prisma.milestone.count({

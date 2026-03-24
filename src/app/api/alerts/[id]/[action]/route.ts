@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { acknowledgeAlert, resolveAlert } from '@/lib/alert-management'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/api/middleware';
 
 interface RouteContext {
   params: Promise<{
@@ -24,10 +25,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { id, action } = params
 
   try {
-    const userId = request.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const body = (await request.json().catch(() => ({}))) as { reason?: string }
 

@@ -208,7 +208,7 @@ export async function PATCH(request: NextRequest) {
 
     // If reactivating a milestone, backfill missing progress records for all converts
     if (is_active === true) {
-      console.log(`Reactivating milestone ${milestone.stageNumber}, checking for missing progress records...`);
+      if (process.env.NODE_ENV !== 'production') console.log(`Reactivating milestone ${milestone.stageNumber}, checking for missing progress records...`);
       
       // Get the total number of active milestones to check for completion
       const totalActiveMilestones = await prisma.milestone.count({
@@ -246,7 +246,7 @@ export async function PATCH(request: NextRequest) {
       });
 
       if (missingConverts.length > 0) {
-        console.log(`Found ${missingConverts.length} active converts missing this milestone, backfilling...`);
+        if (process.env.NODE_ENV !== 'production') console.log(`Found ${missingConverts.length} active converts missing this milestone, backfilling...`);
         
         // Backfill progress records for all missing converts
         await prisma.progressRecord.createMany({

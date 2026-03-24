@@ -67,6 +67,7 @@ class APIClient {
       const response = await fetch(url, {
         ...fetchOptions,
         headers: this.getHeaders(),
+        credentials: 'include', // send httpOnly cookies automatically
       });
 
       const data = await response.json();

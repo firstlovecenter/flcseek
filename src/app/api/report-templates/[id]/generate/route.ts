@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ReportTemplatesService } from '@/lib/report-templates';
 import { logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/api/middleware';
 
 export async function POST(
   request: NextRequest,
@@ -8,10 +9,9 @@ export async function POST(
 ) {
   try {
     // Get user from header
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const { id } = await params;
     const { groupId, format = 'json' } = await request.json();

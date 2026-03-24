@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AchievementBadgesService } from '@/lib/achievement-badges';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/api/middleware';
 
 export async function GET(request: NextRequest) {
   try {
     // Get user from header
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const convertId = request.nextUrl.searchParams.get('convertId');
     const groupId = request.nextUrl.searchParams.get('groupId');
@@ -33,10 +33,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, error: authError } = requireAuth(request);
+    if (authError) return authError;
+    const userId = user!.id;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
