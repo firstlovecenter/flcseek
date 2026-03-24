@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { Form, Input, Select, Button, Card, Typography, message, Space, Spin } from 'antd';
+import { Form, Input, Select, Button, Card, Typography, message, Space, Spin, DatePicker } from 'antd';
 import { UserAddOutlined, HomeOutlined, BarChartOutlined, TeamOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -164,14 +164,17 @@ function RegisterPersonContent() {
 
             <Form.Item
               name="date_of_birth"
-              label="Date of Birth (without year)"
-              rules={[
-                { required: true, message: 'Please enter date of birth' },
-                { pattern: /^\d{2}-\d{2}$/, message: 'Format must be DD-MM (e.g., 15-03)' },
-              ]}
-              extra="Format: DD-MM (e.g., 15-03 for March 15)"
+              label="Date of Birth (day and month)"
+              rules={[{ required: true, message: 'Date of birth is required' }]}
+              getValueFromEvent={(date) => date ? date.format('DD-MM') : ''}
+              extra="Pick the day and month (year is not stored)"
             >
-              <Input placeholder="15-03" size="large" maxLength={5} />
+              <DatePicker
+                format="DD-MM"
+                placeholder="Select day and month"
+                style={{ width: '100%' }}
+                size="large"
+              />
             </Form.Item>
 
             <Form.Item
