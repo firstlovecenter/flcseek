@@ -129,7 +129,7 @@ export async function PATCH(
 
 /**
  * DELETE /api/v1/people/[id]
- * Delete a person and their related records
+ * Soft delete a person while preserving related records
  */
 export async function DELETE(
   request: NextRequest,
@@ -138,11 +138,10 @@ export async function DELETE(
   try {
     const { user, error } = requireAuth(request);
     if (error) return error;
-    
-    // Only admin and above can delete
-    if (user!.role === ROLES.LEADER) {
-      return errors.forbidden('Insufficient permissions to delete');
-    }
+
+    // Leaders and admins can delete only within their own group.
+    // Higher roles (overseer/leadpastor/superadmin) can delete any group.
+    const restrictedRoles: string[] = [ROLES.LEADER, ROLES.ADMIN];
 
     const { id } = await params;
     const idValidation = validateUUID(id);
@@ -153,6 +152,15 @@ export async function DELETE(
     const existing = await People.findById(id);
     if (!existing) {
       return errors.notFound('Person');
+    }
+
+    if (restrictedRoles.includes(user!.role)) {
+      if (!user!.group_id) {
+        return errors.forbidden('You must be assigned to a group to delete people');
+      }
+      if (existing.group_id !== user!.group_id) {
+        return errors.forbidden('You can only delete people in your group');
+      }
     }
     
     await People.remove(id);

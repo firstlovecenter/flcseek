@@ -119,7 +119,7 @@ function transformPerson(p: {
  * Get all people with optional filters
  */
 export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
-  const where: Record<string, any> = {};
+  const where: Record<string, any> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -184,8 +184,11 @@ export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
  * Get a single person by ID
  */
 export async function findById(id: string): Promise<Person | null> {
-  const person = await prisma.newConvert.findUnique({
-    where: { id },
+  const person = await prisma.newConvert.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+    },
     select: {
       id: true,
       firstName: true,
@@ -215,7 +218,7 @@ export async function findManyWithProgress(
   filters: PersonFilters = {},
   totalMilestones: number = 18
 ): Promise<PersonWithProgress[]> {
-  const where: Record<string, any> = {};
+  const where: Record<string, any> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -300,7 +303,7 @@ export async function findManyWithStats(
   filters: PersonFilters = {},
   totalMilestones: number = 18
 ): Promise<{ people: PersonWithStats[]; total: number }> {
-  const where: Record<string, any> = {};
+  const where: Record<string, any> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -474,17 +477,23 @@ export async function update(
 }
 
 /**
- * Delete a person
+ * Soft delete a person
  */
 export async function remove(id: string): Promise<boolean> {
   try {
-    // Prisma will cascade delete related records due to onDelete: Cascade
-    await prisma.newConvert.delete({ where: { id } });
-    return true;
+    const result = await prisma.newConvert.updateMany({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    return result.count > 0;
   } catch (error) {
-    if ((error as any)?.code === 'P2025') {
-      return false;
-    }
     throw error;
   }
 }
@@ -558,7 +567,7 @@ export async function createMany(
  * Count people with filters
  */
 export async function count(filters: PersonFilters = {}): Promise<number> {
-  const where: Record<string, any> = {};
+  const where: Record<string, any> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
