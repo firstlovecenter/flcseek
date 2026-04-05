@@ -577,12 +577,11 @@ function SheepSeekerDashboardContent() {
             </Button>
           )}
 
-          {canDeleteConverts && (
+          {canDeleteConverts && selectedIds.length > 0 && (
             <Button
               danger
               icon={<DeleteOutlined />}
               onClick={handleBulkDelete}
-              disabled={selectedIds.length === 0}
               loading={deleting}
             >
               Delete Selected ({selectedIds.length})
