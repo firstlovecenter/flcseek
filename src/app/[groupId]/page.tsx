@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback, memo, useMemo, Suspense } from 'react';
 import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb, DatePicker, Card, Progress, Empty } from 'antd';
-import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, HomeOutlined } from '@ant-design/icons';
+import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, HomeOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import type { Key } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -143,6 +144,8 @@ function SheepSeekerDashboardContent() {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const isRegisterRestricted = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
   const [isMobile, setIsMobile] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Key[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -386,6 +389,7 @@ function SheepSeekerDashboardContent() {
 
   // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
   const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
+  const canDeleteConverts = user?.role === 'leader' || user?.role === 'admin' || user?.role === 'overseer' || user?.role === 'leadpastor' || user?.role === 'superadmin';
 
   const filteredPeople = useMemo(() => {
     if (!searchText) return people;
@@ -395,6 +399,44 @@ function SheepSeekerDashboardContent() {
       p.phone_number?.toLowerCase().includes(term)
     );
   }, [people, searchText]);
+
+  const handleBulkDelete = useCallback(() => {
+    if (!selectedIds.length) {
+      message.warning('Select at least one convert to delete');
+      return;
+    }
+
+    Modal.confirm({
+      title: 'Delete selected converts?',
+      content: `This will soft delete ${selectedIds.length} selected convert(s). Their records will be preserved but hidden from active views.`,
+      okText: 'Delete Selected',
+      okButtonProps: { danger: true },
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          setDeleting(true);
+          const response = await api.post('/bulk-actions', {
+            action: 'delete',
+            convertIds: selectedIds,
+            groupId,
+          });
+
+          if (!response.success) {
+            throw new Error(response.error?.message || 'Failed to delete selected converts');
+          }
+
+          const result = response.data as any;
+          message.success(`Deleted ${result?.successCount ?? 0} convert(s)`);
+          setSelectedIds([]);
+          fetchAllPeople(selectedYear || undefined);
+        } catch (error: any) {
+          message.error(error.message || 'Failed to delete selected converts');
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  }, [selectedIds, groupId, selectedYear, fetchAllPeople]);
 
   const columns: ColumnsType<PersonWithProgress> = useMemo(() => {
     const baseColumns: ColumnsType<PersonWithProgress> = [
@@ -534,6 +576,18 @@ function SheepSeekerDashboardContent() {
               Bulk Register
             </Button>
           )}
+
+          {canDeleteConverts && (
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={handleBulkDelete}
+              disabled={selectedIds.length === 0}
+              loading={deleting}
+            >
+              Delete Selected ({selectedIds.length})
+            </Button>
+          )}
         </div>
       </div>
 
@@ -573,6 +627,10 @@ function SheepSeekerDashboardContent() {
         <Table
           columns={columns}
           dataSource={filteredPeople}
+          rowSelection={canDeleteConverts ? {
+            selectedRowKeys: selectedIds,
+            onChange: (keys) => setSelectedIds(keys),
+          } : undefined}
           rowKey="id"
           size="small"
           className="compact-milestone-table"

@@ -8,6 +8,7 @@ import {
   Card,
   Button,
   Space,
+  Modal,
   theme,
 } from 'antd';
 import {
@@ -20,6 +21,7 @@ import {
   IdcardOutlined,
   BarChartOutlined,
   UserAddOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -39,9 +41,11 @@ export default function PersonDetailPage() {
   const [person, setPerson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { isDark } = useTheme();
   const { token: antdToken } = useToken();
   const isRegisterRestricted = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
+  const canDeleteConvert = user?.role === 'leader' || user?.role === 'admin' || user?.role === 'overseer' || user?.role === 'leadpastor' || user?.role === 'superadmin';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -112,6 +116,40 @@ export default function PersonDetailPage() {
   // Check if user is a leader (read-only access)
   const isLeader = user?.role === 'leader';
 
+  const handleDelete = () => {
+    if (!canDeleteConvert || !personId) return;
+
+    Modal.confirm({
+      title: 'Delete this convert?',
+      content: 'This will soft delete the convert. Their records are preserved but hidden from active views.',
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          setDeleting(true);
+          const response = await fetch(`/api/people/${personId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData?.error?.message || errorData?.message || 'Failed to delete convert';
+            throw new Error(errorMessage);
+          }
+
+          message.success('Convert deleted successfully');
+          router.push(`/${groupId}`);
+        } catch (err: any) {
+          message.error(err.message || 'Failed to delete convert');
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  };
+
   return (
     <>
       <AppBreadcrumb />
@@ -158,6 +196,16 @@ export default function PersonDetailPage() {
                   onClick={() => router.push(`/${groupId}/people/register`)}
                 >
                   Register
+                </Button>
+              )}
+              {canDeleteConvert && (
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  loading={deleting}
+                  onClick={handleDelete}
+                >
+                  Delete
                 </Button>
               )}
             </Space>
