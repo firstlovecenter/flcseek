@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       convertsThisMonth,
     };
 
-    const recentActivity = recentUsers.map((u: any) => {
+    const recentActivity = recentUsers.map((u) => {
       const displayName = (u.firstName && u.lastName)
         ? `${u.firstName} ${u.lastName}`
         : (u.firstName || u.username);

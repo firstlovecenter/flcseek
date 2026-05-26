@@ -49,11 +49,11 @@ export default function DatabaseManagementPage() {
   const [loading, setLoading] = useState(true);
   const [schema, setSchema] = useState<Record<string, TableSchema[]>>({});
   const [selectedTable, setSelectedTable] = useState<string>('');
-  const [tableData, setTableData] = useState<any[]>([]);
+  const [tableData, setTableData] = useState<Record<string, unknown>[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
   const [form] = Form.useForm();
   const [pagination, setPagination] = useState({ current: 1, pageSize: 50, total: 0 });
 
@@ -140,9 +140,8 @@ export default function DatabaseManagementPage() {
       
       setTableData(data.data || []);
       setPagination(prev => ({ ...prev, total: data.total, current: page }));
-    } catch (error: any) {
-      console.error('Error fetching table data:', error);
-      message.error(error.message || 'Failed to fetch table data');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Failed to fetch table data');
     } finally {
       setTableLoading(false);
     }
@@ -163,18 +162,18 @@ export default function DatabaseManagementPage() {
     }
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: Record<string, unknown>) => {
     setEditingRecord(record);
     form.setFieldsValue(record);
     setEditModalVisible(true);
   };
 
-  const handleView = (record: any) => {
+  const handleView = (record: Record<string, unknown>) => {
     setEditingRecord(record);
     setViewModalVisible(true);
   };
 
-  const handleUpdate = async (values: any) => {
+  const handleUpdate = async (values: Record<string, unknown>) => {
     try {
       const idField = selectedTable === 'milestones' ? 'stage_number' : 'id';
       const response = await fetch('/api/superadmin/database/edit', {
@@ -186,7 +185,7 @@ export default function DatabaseManagementPage() {
         },
         body: JSON.stringify({
           tableName: selectedTable,
-          id: editingRecord[idField],
+          id: editingRecord?.[idField],
           updates: values,
         }),
       });
@@ -199,12 +198,12 @@ export default function DatabaseManagementPage() {
       message.success('Record updated successfully');
       setEditModalVisible(false);
       fetchTableData(selectedTable, pagination.current);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to update record');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Failed to update record');
     }
   };
 
-  const handleDelete = async (record: any) => {
+  const handleDelete = async (record: Record<string, unknown>) => {
     try {
       const idField = selectedTable === 'milestones' ? 'stage_number' : 'id';
       const response = await fetch(`/api/superadmin/database/edit?table=${selectedTable}&id=${record[idField]}`, {
@@ -222,8 +221,8 @@ export default function DatabaseManagementPage() {
 
       message.success('Record deleted successfully');
       fetchTableData(selectedTable, pagination.current);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to delete record');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Failed to delete record');
     }
   };
 
@@ -234,13 +233,13 @@ export default function DatabaseManagementPage() {
     // Show all columns for attendance_records, limit others to prevent overwhelming display
     const columnLimit = tableName === 'attendance_records' ? columns.length : 8;
     
-    const tableColumns: any[] = columns.slice(0, columnLimit).map(col => ({
+    const tableColumns: import('antd/es/table').ColumnType<Record<string, unknown>>[] = columns.slice(0, columnLimit).map(col => ({
       title: col.name,
       dataIndex: col.name,
       key: col.name,
       ellipsis: true,
       width: col.name === 'id' || col.name === 'person_id' ? 120 : undefined, // Ensure ID columns are visible
-      render: (text: any) => {
+      render: (text: unknown) => {
         if (text === null || text === undefined) return <Text type="secondary">NULL</Text>;
         if (typeof text === 'boolean') return text ? <Tag color="green">true</Tag> : <Tag color="red">false</Tag>;
         if (typeof text === 'object') return JSON.stringify(text).substring(0, 50) + '...';
@@ -253,7 +252,7 @@ export default function DatabaseManagementPage() {
       key: 'actions',
       fixed: 'right' as const,
       width: 150,
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: Record<string, unknown>) => (
         <div style={{ display: 'flex', gap: 8 }}>
           <Button
             size="small"
@@ -372,7 +371,7 @@ export default function DatabaseManagementPage() {
                 }}
                 rowKey={(record) => {
                   const idField = table === 'milestones' ? 'stage_number' : 'id';
-                  return record[idField];
+                  return String(record[idField] ?? '');
                 }}
                 scroll={{ x: 'max-content' }}
                 size="small"

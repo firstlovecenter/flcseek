@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { PersonApiData, ProgressEntry, AttendanceRecord } from '@/lib/types/api-responses';
 
 interface CacheEntry<T> {
   data: T;
@@ -6,7 +7,7 @@ interface CacheEntry<T> {
 }
 
 // Simple in-memory cache
-const cache = new Map<string, CacheEntry<any>>();
+const cache = new Map<string, CacheEntry<unknown>>();
 const CACHE_TTL = 30000; // 30 seconds
 
 interface UseFetchOptions {
@@ -40,7 +41,7 @@ export function useFetch<T>(
     if (!forceRefresh) {
       const cached = cache.get(url);
       if (cached && Date.now() - cached.timestamp < cacheTime) {
-        setData(cached.data);
+        setData(cached.data as T);
         setLoading(false);
         setError(null);
         return;
@@ -62,7 +63,7 @@ export function useFetch<T>(
       const response = await fetch(url, {
         // Auth via httpOnly cookie; include legacy Bearer if still in memory
         credentials: 'include',
-        headers: token && token !== 'null' ? { Authorization: `Bearer ${token}` } : {},
+        headers: token && token !== 'null' ? { Authorization: `Bearer ${token}` } : ({} as HeadersInit),
         signal: controller.signal,
         cache: 'no-store',
       });
@@ -77,12 +78,12 @@ export function useFetch<T>(
       cache.set(url, { data: result, timestamp: Date.now() });
       
       setData(result);
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'AbortError') {
         // Request was aborted, ignore
         return;
       }
-      setError(err);
+      setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,7 @@ export function usePeopleWithStats(
 
   const url = `/api/people/with-stats${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
 
-  return useFetch<{ people: any[]; total: number; has_more: boolean }>(url, token, {
+  return useFetch<{ people: PersonApiData[]; total: number; has_more: boolean }>(url, token, {
     cacheTime: 0, // disable in-memory cache for year-dependent list
   });
 }
@@ -148,9 +149,9 @@ export function usePersonDetails(token: string | null, personId: string | null) 
   const url = personId ? `/api/people/${personId}` : null;
   
   return useFetch<{
-    person: any;
-    progress: any[];
-    attendance: any[];
+    person: PersonApiData;
+    progress: ProgressEntry[];
+    attendance: AttendanceRecord[];
     attendanceCount: number;
   }>(url, token, {
     cacheTime: 10000, // 10 seconds cache

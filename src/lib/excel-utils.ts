@@ -140,7 +140,7 @@ export async function parseExcelFile(
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { raw: false });
 
         // Map to expected format
-        const members = jsonData.map((row: any) => {
+        const members = (jsonData as Record<string, unknown>[]).map((row) => {
           let dateOfBirth = '';
           
           // Handle date_of_birth - could be a Date object, string with year, or DD-MM string

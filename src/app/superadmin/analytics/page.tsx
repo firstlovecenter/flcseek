@@ -17,23 +17,41 @@ import dynamic from 'next/dynamic';
 import DashboardCharts from '@/components/DashboardCharts';
 import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
 import { api } from '@/lib/api';
+import type { MilestoneData, PersonApiData, GroupApiData } from '@/lib/types/api-responses';
 
-// Dynamically import chart components to avoid SSR issues
-// Using 'any' type to avoid TypeScript infinite type instantiation issue
-const Column = dynamic(() => import('@ant-design/charts').then(mod => mod.Column) as any, { ssr: false }) as any;
-const Pie = dynamic(() => import('@ant-design/charts').then(mod => mod.Pie) as any, { ssr: false }) as any;
-const Line = dynamic(() => import('@ant-design/charts').then(mod => mod.Line) as any, { ssr: false }) as any;
+// Dynamically import chart components to avoid SSR issues.
+// Cast to unknown then React.ComponentType to avoid TypeScript infinite type instantiation.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Column = dynamic(() => import('@ant-design/charts').then(mod => mod.Column) as any, { ssr: false }) as React.ComponentType<Record<string, unknown>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Pie = dynamic(() => import('@ant-design/charts').then(mod => mod.Pie) as any, { ssr: false }) as React.ComponentType<Record<string, unknown>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Line = dynamic(() => import('@ant-design/charts').then(mod => mod.Line) as any, { ssr: false }) as React.ComponentType<Record<string, unknown>>;
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+
+interface MilestoneCompletion {
+  milestone: string;
+  fullName?: string;
+  completed: number;
+  total: number;
+  percentage: number;
+}
+
+interface TopPerformer {
+  name: string;
+  completed: number;
+  total: number;
+}
 
 interface AnalyticsData {
   totalConverts: number;
   convertsByMonth: { month: string; count: number }[];
   convertsByGroup: { group: string; count: number }[];
-  milestoneCompletion: { milestone: string; completed: number; total: number; percentage: number }[];
+  milestoneCompletion: MilestoneCompletion[];
   attendanceByWeek: { week: string; count: number }[];
-  topPerformers: { name: string; completed: number; total: number }[];
+  topPerformers: TopPerformer[];
   genderDistribution: { gender: string; count: number }[];
   completionRate: number;
 }
@@ -43,9 +61,9 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [data, setData] = useState<AnalyticsData | null>(null);
-  const [milestones, setMilestones] = useState<any[]>([]);
-  const [people, setPeople] = useState<any[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<MilestoneData[]>([]);
+  const [people, setPeople] = useState<PersonApiData[]>([]);
+  const [groups, setGroups] = useState<GroupApiData[]>([]);
 
   useEffect(() => {
     if (token) {
@@ -58,7 +76,7 @@ export default function AnalyticsPage() {
     try {
       // Step 1: Fetch groups for the selected year using new API
       const groupsRes = await api.groups.list({ year });
-      const yearGroups = groupsRes.success ? (groupsRes.data || []) : [];
+      const yearGroups: GroupApiData[] = groupsRes.success ? ((groupsRes.data?.groups ?? groupsRes.data) as GroupApiData[] || []) : [];
       setGroups(yearGroups);
 
       // Step 2: If we have groups, fetch their converts with year filtering
@@ -78,11 +96,11 @@ export default function AnalyticsPage() {
       const statsData = await statsRes.json();
 
       // Use people data directly - already filtered by year on backend
-      const filteredPeople = peopleRes.success ? (peopleRes.data || []) : [];
-      const milestonesData = milestonesRes.success ? (milestonesRes.data || []) : [];
+      const filteredPeople: PersonApiData[] = peopleRes.success ? (peopleRes.data?.people ?? []) : [];
+      const milestonesData: MilestoneData[] = milestonesRes.success ? (milestonesRes.data?.milestones ?? []) : [];
 
       setPeople(filteredPeople);
-      setMilestones(milestonesData.filter((m: any) => m.is_active) || []);
+      setMilestones(milestonesData.filter((m) => m.is_active));
 
       // Process analytics with filtered data
       processAnalytics(
@@ -98,8 +116,8 @@ export default function AnalyticsPage() {
     }
   };
 
-  const processAnalytics = (people: any[], milestones: any[], groups: any[], stats: any) => {
-    const activeMilestones = milestones.filter((m: any) => m.is_active);
+  const processAnalytics = (people: PersonApiData[], milestones: MilestoneData[], groups: GroupApiData[], stats: Record<string, unknown>) => {
+    const activeMilestones = milestones.filter((m) => m.is_active);
     const totalMilestones = activeMilestones.length;
 
     // Converts by month
@@ -121,9 +139,9 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.count - a.count);
 
     // Milestone completion
-    const milestoneCompletion = activeMilestones.map((m: any) => {
+    const milestoneCompletion = activeMilestones.map((m) => {
       const completed = people.filter((p) =>
-        p.progress?.some((pr: any) => pr.stage_number === m.stage_number && pr.is_completed)
+        p.progress?.some((pr) => pr.stage_number === m.stage_number && pr.is_completed)
       ).length;
       return {
         milestone: `M${m.stage_number.toString().padStart(2, '0')}`,
@@ -146,7 +164,7 @@ export default function AnalyticsPage() {
     const topPerformers = people
       .map((p) => ({
         name: `${p.first_name} ${p.last_name}`,
-        completed: p.progress?.filter((pr: any) => pr.is_completed).length || 0,
+        completed: p.progress?.filter((pr) => pr.is_completed).length || 0,
         total: totalMilestones,
       }))
       .sort((a, b) => b.completed - a.completed)
@@ -154,7 +172,7 @@ export default function AnalyticsPage() {
 
     // Overall completion rate
     const totalCompleted = people.reduce(
-      (sum, p) => sum + (p.progress?.filter((pr: any) => pr.is_completed).length || 0),
+      (sum, p) => sum + (p.progress?.filter((pr) => pr.is_completed).length || 0),
       0
     );
     const totalPossible = people.length * totalMilestones;
@@ -236,7 +254,7 @@ export default function AnalyticsPage() {
           <Card>
             <Statistic
               title="Active Groups"
-              value={groups.filter((g: any) => g.year === year).length}
+              value={groups.filter((g) => g.year === year).length}
               prefix={<TeamOutlined />}
             />
           </Card>
@@ -270,16 +288,16 @@ export default function AnalyticsPage() {
                 data={data.milestoneCompletion}
                 xField="milestone"
                 yField="percentage"
-                color={(datum: any) =>
+                color={(datum: MilestoneCompletion) =>
                   datum.percentage >= 70 ? '#52c41a' : datum.percentage >= 40 ? '#faad14' : '#ff4d4f'
                 }
                 label={{
-                  position: 'top' as any,
-                  formatter: (datum: any) => `${datum.percentage}%`,
+                  position: 'top',
+                  formatter: (datum: MilestoneCompletion) => `${datum.percentage}%`,
                 }}
                 height={300}
                 tooltip={{
-                  formatter: (datum: any) => ({
+                  formatter: (datum: MilestoneCompletion) => ({
                     name: datum.fullName || datum.milestone,
                     value: `${datum.completed}/${datum.total} (${datum.percentage}%)`,
                   }),
@@ -372,7 +390,7 @@ export default function AnalyticsPage() {
                   title: 'Rank',
                   key: 'rank',
                   width: 60,
-                  render: (_: any, __: any, index: number) => (
+                  render: (_: unknown, __: TopPerformer, index: number) => (
                     <Tag color={index < 3 ? 'gold' : 'default'}>{index + 1}</Tag>
                   ),
                 },
@@ -384,7 +402,7 @@ export default function AnalyticsPage() {
                 {
                   title: 'Progress',
                   key: 'progress',
-                  render: (_: any, record: any) => (
+                  render: (_: unknown, record: TopPerformer) => (
                     <Progress
                       percent={Math.round((record.completed / record.total) * 100)}
                       size="small"
@@ -418,7 +436,7 @@ export default function AnalyticsPage() {
                 {
                   title: 'Completion',
                   key: 'completion',
-                  render: (_: any, record: any) => (
+                  render: (_: unknown, record: MilestoneCompletion) => (
                     <Progress
                       percent={record.percentage}
                       size="small"

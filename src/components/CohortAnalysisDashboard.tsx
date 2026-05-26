@@ -15,6 +15,17 @@ interface CohortRow {
   avgMilestones: number;
 }
 
+interface CohortApiRow {
+  cohortKey: string;
+  label: string;
+  size: number;
+  retention30: number;
+  retention60: number;
+  retention90: number;
+  completionRate: number;
+  avgMilestones: number;
+}
+
 interface CohortAnalysisDashboardProps {
   groupId?: string;
   months?: number;
@@ -42,7 +53,7 @@ export function CohortAnalysisDashboard({ groupId, months = 6, userId, token }: 
         if (res.ok) {
           const data = await res.json();
           setRows(
-            (data.cohorts || []).map((c: any) => ({
+            (data.cohorts as CohortApiRow[] || []).map((c) => ({
               key: c.cohortKey,
               label: c.label,
               size: c.size,

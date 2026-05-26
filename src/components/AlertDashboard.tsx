@@ -143,7 +143,7 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
       title: 'Convert',
       dataIndex: ['convert', 'firstName'],
       key: 'convert',
-      render: (_: any, record: ConvertAlert) => (
+      render: (_: unknown, record: ConvertAlert) => (
         <div>
           <div className="font-semibold">
             {record.convert?.firstName} {record.convert?.lastName}
@@ -170,7 +170,7 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
       title: 'Alert Type',
       dataIndex: ['alertRule', 'name'],
       key: 'type',
-      render: (_: any, record: ConvertAlert) => (
+      render: (_: unknown, record: ConvertAlert) => (
         <div>
           <div>{record.alertRule?.name}</div>
           <div className="text-xs text-gray-500">{record.alertRule?.type}</div>
@@ -219,7 +219,7 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: ConvertAlert) => (
+      render: (_: unknown, record: ConvertAlert) => (
         <Space size="small">
           {record.status === 'active' && (
             <Button

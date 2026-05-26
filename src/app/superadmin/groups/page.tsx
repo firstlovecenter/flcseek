@@ -183,7 +183,7 @@ export default function GroupsManagementPage() {
     });
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
     try {
       const url = editingGroup
         ? `/api/superadmin/groups/${editingGroup.id}`
@@ -274,7 +274,7 @@ export default function GroupsManagementPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: Group) => (
+      render: (_: unknown, record: Group) => (
         <Space>
           <Button
             type="link"

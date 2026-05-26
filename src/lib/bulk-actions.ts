@@ -26,7 +26,7 @@ export class BulkActionsService {
 
     try {
       // Build where clause from filters
-      const where: any = {};
+      const where: Record<string, unknown> = {};
       if (groupId) where.groupId = groupId;
       where.deletedAt = null; // Only non-deleted records
 
@@ -88,7 +88,7 @@ export class BulkActionsService {
     let successCount = 0;
 
     try {
-      const where: any = {};
+      const where: Record<string, unknown> = {};
       if (groupId) where.groupId = groupId;
 
       filters.forEach((f) => {
@@ -151,7 +151,7 @@ export class BulkActionsService {
     const errors: string[] = [];
 
     try {
-      const where: any = {
+      const where: Record<string, unknown> = {
         id: { in: convertIds },
       };
       if (groupId) where.groupId = groupId;

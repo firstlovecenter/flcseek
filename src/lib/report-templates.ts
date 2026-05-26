@@ -80,7 +80,7 @@ export class ReportTemplatesService {
    */
   static async listTemplates(userId?: string, includePublic: boolean = true) {
     try {
-      const where: any = {};
+      const where: Record<string, unknown> = {};
       if (userId) {
         where.OR = [
           { createdBy: userId },
@@ -196,7 +196,7 @@ export class ReportTemplatesService {
           // Display table
           autoTable(doc, {
             head: [Object.keys(data[section.id][0] || {})],
-            body: data[section.id].map((row: any) => Object.values(row)),
+            body: (data[section.id] as unknown[]).map((row) => Object.values(row as Record<string, unknown>)) as string[][],
             startY: yPosition,
             margin: { left: 10, right: 10 },
           });
@@ -270,19 +270,19 @@ export class ReportTemplatesService {
   /**
    * Helper: Map database template to ReportTemplate type
    */
-  private static mapTemplate(template: any): ReportTemplate {
+  private static mapTemplate(template: Record<string, unknown>): ReportTemplate {
     const config = typeof template.templateConfig === 'string' 
       ? JSON.parse(template.templateConfig) 
       : template.templateConfig;
 
     return {
-      id: template.id,
-      name: template.name,
-      description: template.description,
+      id: template.id as string,
+      name: template.name as string,
+      description: template.description as string | undefined,
       sections: config?.sections || [],
-      isPublic: template.isPublic,
-      createdById: template.createdBy,
-      createdAt: template.createdAt,
+      isPublic: template.isPublic as boolean,
+      createdById: template.createdBy as string,
+      createdAt: template.createdAt as Date,
       scheduleFrequency: config?.scheduleFrequency,
       nextScheduledDate: config?.nextScheduledDate,
       recipients: config?.recipients,

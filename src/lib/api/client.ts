@@ -11,13 +11,13 @@ type FetchOptions = Omit<RequestInit, 'headers'> & {
   params?: Record<string, string | number | boolean | undefined>;
 };
 
-interface APIResponse<T = any> {
+interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   meta?: {
     total?: number;
@@ -92,7 +92,7 @@ class APIClient {
     return this.request<T>(path, { method: 'GET', params });
   }
 
-  async post<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
+  async post<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
     return this.request<T>(path, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -100,7 +100,7 @@ class APIClient {
     });
   }
 
-  async put<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
+  async put<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
     return this.request<T>(path, {
       method: 'PUT',
       body: JSON.stringify(body),
@@ -108,7 +108,7 @@ class APIClient {
     });
   }
 
-  async patch<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
+  async patch<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
     return this.request<T>(path, {
       method: 'PATCH',
       body: JSON.stringify(body),
@@ -165,7 +165,7 @@ class APIClient {
 
     delete: (id: string) => this.delete(`/people/${id}`),
 
-    bulkCreate: (people: any[], skipDuplicates = true) =>
+    bulkCreate: (people: Record<string, unknown>[], skipDuplicates = true) =>
       this.post('/people/bulk', { people, skipDuplicates }),
   };
 

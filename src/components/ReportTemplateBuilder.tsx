@@ -200,7 +200,7 @@ export function ReportTemplateBuilder({
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: ReportSection) => (
+      render: (_: unknown, record: ReportSection) => (
         <Space size="small">
           <Button
             icon={<EditOutlined />}

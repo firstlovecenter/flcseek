@@ -53,7 +53,7 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
         const response = await api.groups.list();
         if (response.success && response.data) {
           // Find the user's group
-          const userGroup = response.data?.find((g: any) => 
+          const userGroup = (response.data as { name: string; year: number }[] | undefined)?.find((g) =>
             g.name === user.group_name
           );
           if (userGroup) {

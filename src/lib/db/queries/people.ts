@@ -119,7 +119,7 @@ function transformPerson(p: {
  * Get all people with optional filters
  */
 export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
-  const where: Record<string, any> = { deletedAt: null };
+  const where: Record<string, unknown> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
@@ -131,16 +131,16 @@ export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
 
   // Month filter is an alias for groupName (groups are named after months)
   if (filters.month) {
-    where.group = { 
-      ...((where.group as Record<string, any>) || {}),
-      name: { equals: filters.month, mode: 'insensitive' } 
+    where.group = {
+      ...((where.group as Record<string, unknown>) || {}),
+      name: { equals: filters.month, mode: 'insensitive' }
     };
   }
 
   // Year filter
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Record<string, any>) || {}),
+      ...((where.group as Record<string, unknown>) || {}),
       year: filters.year,
     };
   }
@@ -218,29 +218,29 @@ export async function findManyWithProgress(
   filters: PersonFilters = {},
   totalMilestones: number = 18
 ): Promise<PersonWithProgress[]> {
-  const where: Record<string, any> = { deletedAt: null };
+  const where: Record<string, unknown> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
   }
 
   if (filters.groupName) {
-    where.group = { 
-      ...((where.group as Record<string, any>) || {}),
-      name: filters.groupName 
+    where.group = {
+      ...((where.group as Record<string, unknown>) || {}),
+      name: filters.groupName
     };
   }
 
   if (filters.month) {
-    where.group = { 
-      ...((where.group as Record<string, any>) || {}),
-      name: { equals: filters.month, mode: 'insensitive' } 
+    where.group = {
+      ...((where.group as Record<string, unknown>) || {}),
+      name: { equals: filters.month, mode: 'insensitive' }
     };
   }
 
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Record<string, any>) || {}),
+      ...((where.group as Record<string, unknown>) || {}),
       year: filters.year,
     };
   }
@@ -303,22 +303,22 @@ export async function findManyWithStats(
   filters: PersonFilters = {},
   totalMilestones: number = 18
 ): Promise<{ people: PersonWithStats[]; total: number }> {
-  const where: Record<string, any> = { deletedAt: null };
+  const where: Record<string, unknown> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
   }
 
   if (filters.groupName) {
-    where.group = { 
-      ...((where.group as Record<string, any>) || {}),
-      name: filters.groupName 
+    where.group = {
+      ...((where.group as Record<string, unknown>) || {}),
+      name: filters.groupName
     };
   }
 
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Record<string, any>) || {}),
+      ...((where.group as Record<string, unknown>) || {}),
       year: filters.year,
     };
   }
@@ -426,7 +426,7 @@ export async function update(
   id: string,
   updates: Partial<CreatePersonInput>
 ): Promise<Person | null> {
-  const data: Record<string, any> = {};
+  const data: Record<string, unknown> = {};
 
   if (updates.first_name !== undefined) {
     data.firstName = updates.first_name;
@@ -469,7 +469,7 @@ export async function update(
 
     return transformPerson(person);
   } catch (error) {
-    if ((error as any)?.code === 'P2025') {
+    if ((error as { code?: string })?.code === 'P2025') {
       return null;
     }
     throw error;
@@ -548,7 +548,7 @@ export async function createMany(
       created.push(transformPerson(person));
     } catch (error) {
       if (
-        (error as any)?.code === 'P2002' &&
+        (error as { code?: string })?.code === 'P2002' &&
         options.skipDuplicates
       ) {
         skipped++;
@@ -567,22 +567,22 @@ export async function createMany(
  * Count people with filters
  */
 export async function count(filters: PersonFilters = {}): Promise<number> {
-  const where: Record<string, any> = { deletedAt: null };
+  const where: Record<string, unknown> = { deletedAt: null };
 
   if (filters.groupId) {
     where.groupId = filters.groupId;
   }
 
   if (filters.groupName) {
-    where.group = { 
-      ...((where.group as Record<string, any>) || {}),
-      name: filters.groupName 
+    where.group = {
+      ...((where.group as Record<string, unknown>) || {}),
+      name: filters.groupName
     };
   }
 
   if (filters.year !== undefined) {
     where.group = {
-      ...((where.group as Record<string, any>) || {}),
+      ...((where.group as Record<string, unknown>) || {}),
       year: filters.year,
     };
   }

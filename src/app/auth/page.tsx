@@ -40,8 +40,8 @@ export default function LoginPage() {
     try {
       await login(values.username, values.password);
       message.success('Login successful!');
-    } catch (error: any) {
-      message.error(error.message || 'Login failed');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Login failed');
     }
   };
 

@@ -42,7 +42,7 @@ export default function MilestonesPage() {
       }
 
       setMilestones(response.data?.milestones || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching milestones:', error);
       message.error('Failed to load milestones');
     } finally {
@@ -79,9 +79,9 @@ export default function MilestonesPage() {
 
       message.success('Milestone deleted successfully');
       fetchMilestones();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting milestone:', error);
-      message.error(error.message || 'Failed to delete milestone');
+      message.error(error instanceof Error ? error.message : 'Failed to delete milestone');
     }
   };
 
@@ -96,20 +96,28 @@ export default function MilestonesPage() {
       const data = response.data;
       
       // Show detailed message if records were backfilled
-      if ((data as any)?.backfilled && (data as any).backfilled > 0) {
-        message.success(`Milestone activated! ${data.backfilled} progress record(s) automatically created for existing converts.`, 5);
+      const backfilledData = data as { backfilled?: number };
+      if (backfilledData?.backfilled && backfilledData.backfilled > 0) {
+        message.success(`Milestone activated! ${backfilledData.backfilled} progress record(s) automatically created for existing converts.`, 5);
       } else {
         message.success(`Milestone ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
       }
       
       fetchMilestones();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error toggling milestone status:', error);
-      message.error(error.message || 'Failed to update milestone status');
+      message.error(error instanceof Error ? error.message : 'Failed to update milestone status');
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  interface MilestoneFormValues {
+    stage_number: number;
+    stage_name: string;
+    short_name: string;
+    description: string;
+  }
+
+  const handleSubmit = async (values: MilestoneFormValues) => {
     try {
       if (isCreating) {
         // Create new milestone
@@ -146,9 +154,9 @@ export default function MilestonesPage() {
       form.resetFields();
       setEditingMilestone(null);
       fetchMilestones();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving milestone:', error);
-      message.error(error.message || 'Failed to save milestone');
+      message.error(error instanceof Error ? error.message : 'Failed to save milestone');
     }
   };
 
@@ -206,7 +214,7 @@ export default function MilestonesPage() {
         { text: 'Active', value: true },
         { text: 'Inactive', value: false },
       ],
-      onFilter: (value: any, record: Milestone) => record.is_active === value,
+      onFilter: (value: unknown, record: Milestone) => record.is_active === value,
     },
     {
       title: 'Created',
@@ -235,7 +243,7 @@ export default function MilestonesPage() {
       key: 'actions',
       width: 150,
       fixed: 'right' as const,
-      render: (_: any, record: Milestone) => (
+      render: (_: unknown, record: Milestone) => (
         <Space size="small">
           <Button
             type="link"

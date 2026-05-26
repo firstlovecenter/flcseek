@@ -70,17 +70,17 @@ export default function RootPage() {
         throw new Error('Failed to fetch groups');
       }
 
-      let fetchedGroups = response.data?.groups || [];
+      let fetchedGroups: Group[] = (response.data?.groups as Group[]) || [];
 
       // For admin/leader with assigned group name, filter by that group
       if ((user?.role === 'admin' || user?.role === 'leader') && user?.group_name) {
-        fetchedGroups = fetchedGroups.filter((g: any) => 
-          g.name.toLowerCase() === user.group_name.toLowerCase()
+        fetchedGroups = fetchedGroups.filter((g) =>
+          g.name.toLowerCase() === user.group_name!.toLowerCase()
         );
       }
 
       // Sort by year descending, then by name
-      fetchedGroups.sort((a: any, b: any) => {
+      fetchedGroups.sort((a, b) => {
         if (b.year !== a.year) return b.year - a.year;
         return a.name.localeCompare(b.name);
       });
@@ -88,13 +88,13 @@ export default function RootPage() {
       setAllGroups(fetchedGroups);
 
       // Extract unique years
-      const years = Array.from(new Set<number>(fetchedGroups.map((g: any) => Number(g.year)))).sort((a: number, b: number) => b - a);
+      const years = Array.from(new Set<number>(fetchedGroups.map((g) => Number(g.year)))).sort((a, b) => b - a);
       setAvailableYears(years);
       setActiveKeys([CURRENT_YEAR.toString()]);
 
       // Filter by selected year
       filterGroupsByYear(fetchedGroups, selectedYear);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch groups:', error);
       message.error('Failed to load groups');
     } finally {
@@ -103,7 +103,7 @@ export default function RootPage() {
   };
 
   const filterGroupsByYear = useCallback((groupsToFilter: Group[], year: number) => {
-    const filtered = groupsToFilter.filter((g: any) => g.year === year);
+    const filtered = groupsToFilter.filter((g) => g.year === year);
     setGroups(filtered);
   }, []);
 
@@ -136,7 +136,7 @@ export default function RootPage() {
   };
 
   // Organize groups by year for leadpastor/overseer view
-  const groupsByYear: GroupsByYear = allGroups.reduce((acc: GroupsByYear, group: any) => {
+  const groupsByYear: GroupsByYear = allGroups.reduce((acc: GroupsByYear, group: Group) => {
     if (!acc[group.year]) {
       acc[group.year] = [];
     }
