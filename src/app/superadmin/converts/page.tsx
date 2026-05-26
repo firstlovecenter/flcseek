@@ -66,6 +66,7 @@ export default function NewConvertsManagementPage() {
   const fetchConverts = async () => {
     try {
       const response = await fetch('/api/superadmin/converts', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -111,6 +112,7 @@ export default function NewConvertsManagementPage() {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/superadmin/converts/stats', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -154,6 +156,7 @@ export default function NewConvertsManagementPage() {
       params.append('format', format);
       
       const response = await fetch(`/api/export?${params}`, {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       

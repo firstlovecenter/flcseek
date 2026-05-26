@@ -17,20 +17,21 @@ interface UseFetchOptions {
 
 export function useFetch<T>(
   url: string | null,
+  /** @deprecated Pass null — auth is now handled by the httpOnly cookie. */
   token: string | null,
   options: UseFetchOptions = {}
 ) {
   const { enabled = true, cacheTime = CACHE_TTL, refetchInterval } = options;
-  
+
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
-  
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchData = useCallback(async (forceRefresh = false) => {
-    if (!url || !token || !enabled) {
+    if (!url || !enabled) {
       setLoading(false);
       return;
     }
@@ -59,7 +60,9 @@ export function useFetch<T>(
       setError(null);
 
       const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
+        // Auth via httpOnly cookie; include legacy Bearer if still in memory
+        credentials: 'include',
+        headers: token && token !== 'null' ? { Authorization: `Bearer ${token}` } : {},
         signal: controller.signal,
         cache: 'no-store',
       });
@@ -133,7 +136,7 @@ export function usePeopleWithStats(
   if (filters?.limit) queryParams.set('limit', filters.limit.toString());
   if (filters?.offset) queryParams.set('offset', filters.offset.toString());
 
-  const url = token ? `/api/people/with-stats${queryParams.toString() ? '?' + queryParams.toString() : ''}` : null;
+  const url = `/api/people/with-stats${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
 
   return useFetch<{ people: any[]; total: number; has_more: boolean }>(url, token, {
     cacheTime: 0, // disable in-memory cache for year-dependent list
@@ -142,7 +145,7 @@ export function usePeopleWithStats(
 
 // Hook for fetching person details
 export function usePersonDetails(token: string | null, personId: string | null) {
-  const url = token && personId ? `/api/people/${personId}` : null;
+  const url = personId ? `/api/people/${personId}` : null;
   
   return useFetch<{
     person: any;

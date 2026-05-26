@@ -50,6 +50,7 @@ export default function UserGroupsModal({ visible, onClose, userId, username }: 
       const [groupsRes, assignedRes] = await Promise.all([
         api.groups.list(),
         fetch(`/api/superadmin/users/${userId}/groups`, {
+          credentials: 'include',
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -75,6 +76,7 @@ export default function UserGroupsModal({ visible, onClose, userId, username }: 
     try {
       const response = await fetch(`/api/superadmin/users/${userId}/groups`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',

@@ -105,6 +105,7 @@ export default function DatabaseManagementPage() {
   const fetchSchema = async () => {
     try {
       const response = await fetch('/api/superadmin/database/schema', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -119,6 +120,7 @@ export default function DatabaseManagementPage() {
     try {
       const response = await fetch('/api/superadmin/database/table-data', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -149,6 +151,7 @@ export default function DatabaseManagementPage() {
   const fetchDatabaseInfo = async () => {
     try {
       const response = await fetch('/api/superadmin/database/info', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -176,6 +179,7 @@ export default function DatabaseManagementPage() {
       const idField = selectedTable === 'milestones' ? 'stage_number' : 'id';
       const response = await fetch('/api/superadmin/database/edit', {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -205,6 +209,7 @@ export default function DatabaseManagementPage() {
       const idField = selectedTable === 'milestones' ? 'stage_number' : 'id';
       const response = await fetch(`/api/superadmin/database/edit?table=${selectedTable}&id=${record[idField]}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`,
         },

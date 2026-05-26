@@ -36,6 +36,7 @@ export function GrowthForecastDashboard({ groupId, userId, token }: GrowthForeca
       setLoading(true);
       try {
         const res = await fetch(`/api/forecast${groupId ? `?groupId=${groupId}` : ''}`, {
+          credentials: 'include',
           headers: {
             'x-user-id': userId,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

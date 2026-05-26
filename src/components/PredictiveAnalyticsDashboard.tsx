@@ -58,6 +58,7 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
       try {
         setLoading(true);
         const response = await fetch(`/api/predictions?groupId=${groupId}`, {
+          credentials: 'include',
           headers: {
             'x-user-id': userId,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

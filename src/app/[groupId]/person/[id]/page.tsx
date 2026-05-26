@@ -69,6 +69,7 @@ export default function PersonDetailPage() {
     try {
       setError(null);
       const response = await fetch(`/api/people/${personId}`, {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -130,6 +131,7 @@ export default function PersonDetailPage() {
           setDeleting(true);
           const response = await fetch(`/api/people/${personId}`, {
             method: 'DELETE',
+            credentials: 'include',
             headers: { Authorization: `Bearer ${token}` },
           });
 
