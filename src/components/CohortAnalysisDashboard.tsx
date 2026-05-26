@@ -33,6 +33,7 @@ export function CohortAnalysisDashboard({ groupId, months = 6, userId, token }: 
       setLoading(true);
       try {
         const res = await fetch(`/api/cohorts/compare?months=${months}${groupId ? `&groupId=${groupId}` : ''}`, {
+          credentials: 'include',
           headers: {
             'x-user-id': userId,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

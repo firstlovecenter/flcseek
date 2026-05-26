@@ -91,6 +91,7 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
     try {
       const response = await fetch(`/api/alerts/${alertId}/acknowledge`, {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: 'Acknowledged by leader' }),
       })
@@ -118,6 +119,7 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
         try {
           const response = await fetch(`/api/alerts/${alertId}/resolve`, {
             method: 'PUT',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reason: 'Resolved by leader' }),
           })

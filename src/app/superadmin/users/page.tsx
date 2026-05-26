@@ -155,6 +155,7 @@ export default function UsersManagementPage() {
         try {
           await fetch(`/api/superadmin/users/${userId}`, {
             method: 'DELETE',
+            credentials: 'include',
             headers: { Authorization: `Bearer ${token}` },
           });
           message.success('User deleted successfully');
@@ -176,6 +177,7 @@ export default function UsersManagementPage() {
 
       const response = await fetch(url, {
         method,
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,

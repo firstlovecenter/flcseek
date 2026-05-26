@@ -75,6 +75,7 @@ export default function NotificationBell() {
     try {
       setLoading(true);
       const response = await fetch('/api/notifications', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -108,6 +109,7 @@ export default function NotificationBell() {
       setMarkingAll(true);
       const response = await fetch('/api/notifications', {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'

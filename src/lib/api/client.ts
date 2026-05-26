@@ -1,13 +1,11 @@
 /**
  * API Client for v1 endpoints
  * Provides typed, consistent access to all API endpoints
+ *
+ * Authentication is handled exclusively via the httpOnly `auth_token` cookie
+ * sent automatically on every request through `credentials: 'include'`.
+ * The JWT is no longer read from localStorage.
  */
-
-// Get auth token from localStorage (client-side only)
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
-}
 
 type FetchOptions = Omit<RequestInit, 'headers'> & {
   params?: Record<string, string | number | boolean | undefined>;
@@ -33,16 +31,7 @@ class APIClient {
   private baseUrl = '/api';
 
   private getHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
+    return { 'Content-Type': 'application/json' };
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {

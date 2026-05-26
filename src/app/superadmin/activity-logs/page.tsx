@@ -105,6 +105,7 @@ export default function ActivityLogsPage() {
       if (actionFilter) params.append('action', actionFilter);
 
       const response = await fetch(`/api/superadmin/activity-logs?${params}`, {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -124,6 +125,7 @@ export default function ActivityLogsPage() {
     try {
       setSummaryLoading(true);
       const response = await fetch('/api/superadmin/activity-logs?type=summary&days=7', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
 

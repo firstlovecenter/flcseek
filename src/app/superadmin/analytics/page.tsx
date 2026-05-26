@@ -69,6 +69,7 @@ export default function AnalyticsPage() {
         api.people.list({ year, include: 'progress' }),
         api.milestones.list(),
         fetch(`/api/superadmin/converts/stats?year=${year}`, {
+          credentials: 'include',
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         }),
