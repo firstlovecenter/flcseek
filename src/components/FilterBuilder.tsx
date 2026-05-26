@@ -84,16 +84,23 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
   React.useEffect(() => {
     const loadPresetsAndTemplates = async () => {
       try {
-        const presetsRes = await fetch('/api/filters?type=presets');
-        const templatesRes = await fetch('/api/filters?type=templates');
+        const [presetsRes, templatesRes] = await Promise.all([
+          fetch('/api/filters?type=presets', { credentials: 'include' }),
+          fetch('/api/filters?type=templates', { credentials: 'include' }),
+        ]);
 
-        const presetsData = await presetsRes.json();
-        const templatesData = await templatesRes.json();
+        if (presetsRes.ok) {
+          const presetsData = await presetsRes.json();
+          setPresets(presetsData.presets || {});
+        }
 
-        setPresets(presetsData.presets || {});
-        setTemplates(templatesData.templates || []);
+        if (templatesRes.ok) {
+          const templatesData = await templatesRes.json();
+          setTemplates(templatesData.templates || []);
+        }
       } catch (error) {
         console.error('Failed to load presets:', error);
+        // Non-fatal: filters still work without server presets
       }
     };
 

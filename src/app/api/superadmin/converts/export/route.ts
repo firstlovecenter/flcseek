@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySuperAdmin } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // GET - Export all converts to CSV
 export async function GET(request: NextRequest) {
+  const rateLimitResponse = await checkRateLimit(request, '/api/superadmin/converts/export');
+  if (rateLimitResponse) return rateLimitResponse;
+
   const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

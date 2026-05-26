@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySuperAdmin } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // DELETE - Bulk delete new converts and all related data
 export async function DELETE(request: NextRequest) {
+  const rateLimitResponse = await checkRateLimit(request, '/api/superadmin/converts/bulk-delete');
+  if (rateLimitResponse) return rateLimitResponse;
+
   const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized - Only skaduteye and sysadmin can perform bulk delete' }, { status: 401 });
