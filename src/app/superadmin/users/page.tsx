@@ -167,7 +167,7 @@ export default function UsersManagementPage() {
     });
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, string>) => {
     try {
       const url = editingUser
         ? `/api/superadmin/users/${editingUser.id}`
@@ -196,9 +196,9 @@ export default function UsersManagementPage() {
       } else {
         message.error(data.error || 'Failed to save user');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving user:', error);
-      message.error(error.message || 'An error occurred');
+      message.error(error instanceof Error ? error.message : 'An error occurred');
     }
   };
 
@@ -243,7 +243,7 @@ export default function UsersManagementPage() {
     {
       title: 'Name',
       key: 'name',
-      render: (_: any, record: User) => {
+      render: (_: unknown, record: User) => {
         const fullName = [record.first_name, record.last_name].filter(Boolean).join(' ');
         return fullName || '-';
       },
@@ -270,7 +270,7 @@ export default function UsersManagementPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: User) => (
+      render: (_: unknown, record: User) => (
         <Space>
           <Button
             type="link"

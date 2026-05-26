@@ -36,6 +36,7 @@ import {
   validateMemberData,
 } from '@/lib/excel-utils';
 import { api } from '@/lib/api';
+import type { GroupApiData } from '@/lib/types/api-responses';
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -59,6 +60,13 @@ interface ValidationError {
   message: string;
 }
 
+interface BulkUploadResult {
+  inserted?: number;
+  created?: number;
+  skipped?: number;
+  duplicates?: number;
+}
+
 function BulkRegisterContent() {
   const { token, user } = useAuth();
   const router = useRouter();
@@ -69,8 +77,8 @@ function BulkRegisterContent() {
   const [members, setMembers] = useState<MemberData[]>([]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<any>(null);
-  const [groups, setGroups] = useState<any[]>([]);
+  const [uploadResult, setUploadResult] = useState<BulkUploadResult | null>(null);
+  const [groups, setGroups] = useState<GroupApiData[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId);
 
   useEffect(() => {
@@ -147,8 +155,8 @@ function BulkRegisterContent() {
 
       setMembers(parsedMembers);
       return false; // Prevent default upload
-    } catch (error: any) {
-      const errorMsg = error.message || 'Unknown error';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       if (errorMsg.includes('format') || errorMsg.includes('extension')) {
         message.error(`Invalid file format: ${errorMsg}. Please upload an Excel file (.xlsx or .xls)`);
       } else if (errorMsg.includes('column') || errorMsg.includes('header')) {
@@ -213,8 +221,8 @@ function BulkRegisterContent() {
           `Successfully registered ${insertedCount} member(s)!`
         );
       }
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to upload members';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to upload members';
       if (errorMsg.includes('duplicate') || errorMsg.includes('phone number')) {
         message.error(`Duplicate phone numbers detected: ${errorMsg}`);
       } else if (errorMsg.includes('group') || errorMsg.includes('Invalid group')) {
@@ -243,7 +251,7 @@ function BulkRegisterContent() {
     {
       title: 'Row',
       key: 'row',
-      render: (_: any, __: any, index: number) => index + 2,
+      render: (_: unknown, __: unknown, index: number) => index + 2,
       width: 60,
     },
     {
@@ -285,7 +293,7 @@ function BulkRegisterContent() {
       title: 'Status',
       key: 'status',
       width: 100,
-      render: (_: any, __: any, index: number) => {
+      render: (_: unknown, __: unknown, index: number) => {
         const rowErrors = errors.filter((e) => e.row === index + 2);
         if (rowErrors.length > 0) {
           return (

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       ]
     });
 
-    const transformedConverts = converts.map((c: any) => ({
+    const transformedConverts = converts.map((c) => ({
       id: c.id,
       full_name: `${c.firstName} ${c.lastName}`.trim(),
       phone_number: c.phoneNumber,

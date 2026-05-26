@@ -41,7 +41,7 @@ interface ActivityLog {
   action: string;
   entity_type: string;
   entity_id?: string;
-  details?: any;
+  details?: unknown;
   created_at: string;
   ip_address?: string;
 }
@@ -209,9 +209,9 @@ export default function ActivityLogsPage() {
       title: 'Details',
       dataIndex: 'details',
       key: 'details',
-      render: (details: any) => {
+      render: (details: unknown) => {
         if (!details) return <Text type="secondary">-</Text>;
-        
+
         const detailStr = typeof details === 'string' ? details : JSON.stringify(details);
         return (
           <Text 

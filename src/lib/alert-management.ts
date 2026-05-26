@@ -9,6 +9,25 @@ import { calculateConvertRiskScore } from './risk-scoring'
 import { notifyLeaders, NotificationType } from './leader-notifications'
 import dayjs from 'dayjs'
 
+/** Minimal convert shape needed by the alert evaluation engine */
+interface ConvertForAlert {
+  id?: string
+  createdAt?: Date | null
+  lastAttendanceDate?: Date | string | null
+  lastMilestoneDate?: Date | string | null
+  riskScore?: number | null
+}
+
+/** Minimal alert rule shape */
+interface AlertRuleForEval {
+  id?: string
+  type: string
+  criteria: {
+    threshold?: number
+    [key: string]: unknown
+  }
+}
+
 export type AlertStatus = 'active' | 'acknowledged' | 'resolved'
 export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical'
 
@@ -34,7 +53,7 @@ export async function evaluateAlertsForConvert(convertId: string): Promise<strin
     const triggeredAlerts: string[] = []
 
     for (const rule of alertRules) {
-      const shouldTrigger = await evaluateAlertRule(convert, rule)
+      const shouldTrigger = await evaluateAlertRule(convert, rule as AlertRuleForEval)
 
       if (shouldTrigger) {
         // Check if alert already exists and is active
@@ -90,9 +109,9 @@ export async function evaluateAlertsForConvert(convertId: string): Promise<strin
 /**
  * Evaluate if an alert rule should trigger for a convert
  */
-async function evaluateAlertRule(convert: any, rule: any): Promise<boolean> {
+async function evaluateAlertRule(convert: ConvertForAlert, rule: AlertRuleForEval): Promise<boolean> {
   try {
-    const criteria = rule.criteria as any
+    const criteria = rule.criteria
 
     switch (rule.type) {
       case 'attendance_drop': {

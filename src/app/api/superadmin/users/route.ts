@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform to snake_case for API compatibility
-    const formattedUsers = users.map((u: any) => ({
+    const formattedUsers = users.map((u) => ({
       id: u.id,
       username: u.username,
       role: u.role,

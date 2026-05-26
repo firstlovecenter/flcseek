@@ -100,16 +100,17 @@ export async function POST(request: NextRequest) {
     logger.info(`[CREATE_GROUP] User ${user!.username} created group ${group.name}`);
     
     return created({ group });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error('[POST /api/v1/groups] Group creation failed:', err);
-    
+    const e = err as { message?: string; code?: string };
+
     // Handle duplicate group name
-    if (err.message?.includes('duplicate') || err.code === '23505') {
+    if (e.message?.includes('duplicate') || e.code === '23505') {
       return errors.validation(`A group with this name already exists. Please choose a different name.`);
     }
-    
+
     // Handle invalid leader reference
-    if (err.message?.includes('foreign key') || err.code === '23503') {
+    if (e.message?.includes('foreign key') || e.code === '23503') {
       return errors.validation(`Invalid leader_id. The specified leader does not exist.`);
     }
     

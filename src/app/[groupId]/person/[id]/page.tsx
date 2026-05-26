@@ -97,8 +97,8 @@ export default function PersonDetailPage() {
 
       const data = await response.json();
       setPerson(data.data?.person || data.person);
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to load person details';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load person details';
       setError(errorMsg);
       console.error('Error fetching person details:', error);
     } finally {
@@ -143,8 +143,8 @@ export default function PersonDetailPage() {
 
           message.success('Convert deleted successfully');
           router.push(`/${groupId}`);
-        } catch (err: any) {
-          message.error(err.message || 'Failed to delete convert');
+        } catch (err: unknown) {
+          message.error(err instanceof Error ? err.message : 'Failed to delete convert');
         } finally {
           setDeleting(false);
         }

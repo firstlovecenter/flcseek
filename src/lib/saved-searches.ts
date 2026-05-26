@@ -270,7 +270,7 @@ export class SavedSearchesService {
           userId,
           name: newName,
           description: original.description,
-          filters: original.filters,
+          filters: original.filters as never,
           isSmart: original.isSmart,
           isPublic: false,
         },

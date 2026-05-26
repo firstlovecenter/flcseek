@@ -17,7 +17,7 @@ function RegisterPersonContent() {
   const groupId = params.groupId as string;
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [groups, setGroups] = useState<any[]>([]);
+  const [groups, setGroups] = useState<{ id: string; name: string; year: number }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ function RegisterPersonContent() {
     }
   };
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: Parameters<typeof api.people.create>[0]) => {
     setLoading(true);
     try {
       const response = await api.people.create(values);
@@ -65,8 +65,8 @@ function RegisterPersonContent() {
       form.resetFields();
       // Navigate back with groupId in path
       router.push(`/${groupId}`);
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to register person';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to register person';
       if (errorMsg.includes('phone number') && errorMsg.includes('already')) {
         message.error(`This phone number is already registered. Each person must have a unique phone number.`);
       } else if (errorMsg.includes('group_id') || errorMsg.includes('Invalid group')) {

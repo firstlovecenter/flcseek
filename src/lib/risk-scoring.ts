@@ -7,6 +7,16 @@ import { prisma } from './prisma'
 import { logger } from './logger'
 import dayjs from 'dayjs'
 
+/** Minimal shape of a convert with relations needed by the risk engine */
+interface ConvertForRisk {
+  id?: string
+  createdAt?: Date | null
+  lastAttendanceDate?: string | Date | null
+  lastMilestoneDate?: string | Date | null
+  attendanceRecords: Array<{ attendanceDate: Date | string }>
+  progressRecords?: Array<{ stageNumber: number; isCompleted: boolean; dateCompleted?: Date | null }>
+}
+
 export interface RiskFactors {
   attendanceScore: number // 0-100 (lower is better)
   milestoneScore: number // 0-100 (lower is better)
@@ -43,10 +53,10 @@ export async function calculateConvertRiskScore(convertId: string): Promise<Risk
       return null
     }
 
-    const factors = await calculateRiskFactors(convert)
+    const factors = await calculateRiskFactors(convert as ConvertForRisk)
     const overallScore = calculateOverallScore(factors)
     const level = determineRiskLevel(overallScore)
-    const recommendations = generateRecommendations(convert, factors, level)
+    const recommendations = generateRecommendations(convert as ConvertForRisk, factors, level)
 
     const assessment: RiskAssessment = {
       convertId,
@@ -74,7 +84,7 @@ export async function calculateConvertRiskScore(convertId: string): Promise<Risk
 /**
  * Calculate individual risk factors
  */
-async function calculateRiskFactors(convert: any): Promise<RiskFactors> {
+async function calculateRiskFactors(convert: ConvertForRisk): Promise<RiskFactors> {
   const today = dayjs()
 
   // 1. ATTENDANCE SCORE (0-100, lower is better)
@@ -200,7 +210,7 @@ function determineRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critica
  * Generate recommendations based on risk factors
  */
 function generateRecommendations(
-  convert: any,
+  convert: ConvertForRisk,
   factors: RiskFactors,
   level: string
 ): string[] {
@@ -277,9 +287,9 @@ export async function getConvertsByRiskLevel(
 ): Promise<
   Array<{
     id: string
-    firstName?: string
-    lastName?: string
-    riskScore: number
+    firstName?: string | null
+    lastName?: string | null
+    riskScore: number | null
   }>
 > {
   try {

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
 
-    let data: any = {};
+    let data: Record<string, unknown> = {};
 
     if (type === 'summary' || type === 'all') {
       data.summary = await getNotificationSummary(userPayload.id);
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching notifications:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
     await markNotificationsRead(notificationIds);
 
     return NextResponse.json({ message: 'Notifications marked as read' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error marking notifications:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -58,7 +58,7 @@ export class AchievementBadgesService {
         userId: ub.convertId || '',
         badgeId: ub.badgeId,
         earnedAt: ub.earnedAt || new Date(),
-        unlockedAt: ub.earnedAt,
+        unlockedAt: ub.earnedAt ?? undefined,
       }));
     } catch (error) {
       logger.error('Failed to get user badges', { userId });
@@ -350,22 +350,22 @@ export class AchievementBadgesService {
   /**
    * Helper: Map database badge to Badge interface
    */
-  private static mapBadge(badge: any): Badge {
+  private static mapBadge(badge: Record<string, unknown>): Badge {
     const criteria = typeof badge.criteria === 'string' ? JSON.parse(badge.criteria) : badge.criteria;
 
     return {
-      id: badge.id,
-      name: badge.name,
-      description: badge.description,
-      icon: badge.icon,
+      id: badge.id as string,
+      name: badge.name as string,
+      description: badge.description as string,
+      icon: badge.icon as string,
       criteria: {
-        type: criteria.type,
-        value: criteria.value,
-        description: criteria.description,
+        type: criteria.type as Badge['criteria']['type'],
+        value: criteria.value as number,
+        description: criteria.description as string,
       },
-      rarity: badge.rarity,
-      points: badge.points || 0,
-      createdAt: badge.createdAt,
+      rarity: badge.rarity as Badge['rarity'],
+      points: (badge.points as number) || 0,
+      createdAt: badge.createdAt as Date,
     };
   }
 }

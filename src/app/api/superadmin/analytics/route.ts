@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Calculate user stats
-    const roleMap = usersByRole.reduce((acc: Record<string, number>, r: any) => {
+    const roleMap = usersByRole.reduce((acc: Record<string, number>, r: { role: string | null; _count: { role: number } }) => {
       if (r.role) {
         acc[r.role] = r._count.role;
       }
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     // Calculate group stats
     const totalGroups = groups.length;
     const avgMembersPerGroup = totalGroups > 0
-      ? groups.reduce((sum: number, g: any) => sum + g._count.newConverts, 0) / totalGroups
+      ? groups.reduce((sum: number, g: { _count: { newConverts: number } }) => sum + g._count.newConverts, 0) / totalGroups
       : 0;
 
     const groupStats = {
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Calculate convert stats with average completion
-    const completionRates = convertsWithProgress.map((c: any) => {
+    const completionRates = convertsWithProgress.map((c: { progressRecords: { id: string }[] }) => {
       if (totalActiveMilestones === 0) return 0;
       return (c.progressRecords.length / totalActiveMilestones) * 100;
     });
@@ -128,8 +128,8 @@ export async function GET(request: NextRequest) {
     }
 
     const topGroups = Array.from(groupProgress.values())
-      .filter((g: any) => g.members > 0)
-      .map((g: any) => ({
+      .filter((g) => g.members > 0)
+      .map((g) => ({
         name: g.name,
         year: g.year,
         members: g.members,
@@ -140,9 +140,9 @@ export async function GET(request: NextRequest) {
 
     // Format top seekers
     const formattedTopSeekers = topSeekers
-      .filter((s: any) => s._count.registeredConverts > 0)
-      .map((s: any) => ({
-        name: (s.firstName && s.lastName) 
+      .filter((s) => s._count.registeredConverts > 0)
+      .map((s) => ({
+        name: (s.firstName && s.lastName)
           ? `${s.firstName} ${s.lastName}`.trim()
           : s.username,
         converts: s._count.registeredConverts,

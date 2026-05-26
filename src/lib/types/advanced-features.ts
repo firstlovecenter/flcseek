@@ -19,7 +19,7 @@ export interface BadgeCriteria {
   threshold: number;
   period?: '6_months' | 'year' | 'all_time';
   metric?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AchievementBadge {
@@ -63,7 +63,7 @@ export interface AlertCriteria {
   threshold: number;
   period?: string;
   comparison?: 'above' | 'below' | 'equals';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AlertRule {
@@ -101,7 +101,7 @@ export interface ConvertAlert {
 export interface SearchFilter {
   field: string;
   operator: 'equals' | 'contains' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'between';
-  value: any;
+  value: string | number | Date | string[] | Date[] | boolean | undefined;
 }
 
 export interface SavedSearchFilters {
@@ -114,7 +114,7 @@ export interface SavedSearchFilters {
     start: Date;
     end: Date;
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface SavedSearch {
@@ -160,7 +160,7 @@ export interface ReportTemplateConfig {
     charts: string[];
     layout: 'grid' | 'list';
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ScheduleConfig {
@@ -203,7 +203,7 @@ export interface AnalyticsMetrics {
     milestones: number;    // % change
     completion: number;    // % change
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AnalyticsSnapshot {
@@ -257,7 +257,7 @@ export interface AutoTriggerConfig {
   conditions: AutoTriggerCondition[];
   logic?: 'AND' | 'OR';  // How to combine multiple conditions
   notifyLeaders?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // ============================================================================

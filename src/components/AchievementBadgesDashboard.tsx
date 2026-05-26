@@ -137,7 +137,7 @@ export function AchievementBadgesDashboard({
       title: 'Badge',
       dataIndex: 'badge',
       key: 'badge',
-      render: (_: any, record: BadgeProgress) => (
+      render: (_: unknown, record: BadgeProgress) => (
         <Tooltip title={record.badge.description}>
           <span>
             <span style={{ fontSize: 24, marginRight: 8 }}>{record.badge.icon}</span>

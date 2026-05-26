@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    let alerts
+    let alerts: Awaited<ReturnType<typeof getConvertAlerts>> = []
 
     if (convertId) {
       alerts = await getConvertAlerts(convertId, status || undefined)

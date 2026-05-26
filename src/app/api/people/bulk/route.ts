@@ -121,11 +121,12 @@ export async function POST(request: NextRequest) {
         errors: validationErrors.slice(0, 10), // Limit error details
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error('[POST /api/v1/people/bulk] Bulk registration failed:', err);
-    
+    const e = err as { message?: string; code?: string };
+
     // Provide specific error context
-    if (err.message?.includes('foreign key') || err.code === '23503') {
+    if (e.message?.includes('foreign key') || e.code === '23503') {
       return errors.internal(`Database constraint error: Invalid group reference. Please verify the group exists.`);
     }
     

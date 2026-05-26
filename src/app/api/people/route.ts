@@ -168,16 +168,17 @@ export async function POST(request: NextRequest) {
     logger.info(`[CREATE_CONVERT] User ${user!.username} registered ${person.full_name} (${person.phone_number}) in group ${person.group_name}`);
     
     return created({ person });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error('[POST /api/v1/people] Error:', err);
-    
+    const e = err as { message?: string; code?: string };
+
     // Handle duplicate phone number
-    if (err.message?.includes('duplicate') || err.code === '23505') {
+    if (e.message?.includes('duplicate') || e.code === '23505') {
       return errors.validation(`This phone number is already registered. Each person must have a unique phone number.`);
     }
-    
+
     // Handle invalid group reference
-    if (err.message?.includes('foreign key') || err.code === '23503') {
+    if (e.message?.includes('foreign key') || e.code === '23503') {
       return errors.validation(`Invalid group_id. The specified group does not exist in the database.`);
     }
     

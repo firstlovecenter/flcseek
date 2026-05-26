@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ milestone: transformMilestone(milestone) });
   } catch (error) {
     console.error('Error updating milestone:', error);
-    if ((error as any)?.code === 'P2025') {
+    if ((error as { code?: string })?.code === 'P2025') {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -217,20 +217,20 @@ export async function PATCH(request: NextRequest) {
       });
 
       // Filter to find converts missing this milestone and not graduated
-      const missingConverts = convertsWithProgress.filter((convert: any) => {
+      const missingConverts = convertsWithProgress.filter((convert) => {
         const hasThisMilestone = convert.progressRecords.some(
-          (pr: any) => pr.stageNumber === milestone.stageNumber
+          (pr) => pr.stageNumber === milestone.stageNumber
         );
-        const completedCount = convert.progressRecords.filter((pr: any) => pr.isCompleted).length;
+        const completedCount = convert.progressRecords.filter((pr) => pr.isCompleted).length;
         return !hasThisMilestone && completedCount < totalActiveMilestones;
       });
 
       if (missingConverts.length > 0) {
         if (process.env.NODE_ENV !== 'production') console.log(`Found ${missingConverts.length} active converts missing this milestone, backfilling...`);
-        
+
         // Backfill progress records for all missing converts
         await prisma.progressRecord.createMany({
-          data: missingConverts.map((convert: any) => ({
+          data: missingConverts.map((convert) => ({
             personId: convert.id,
             stageNumber: milestone.stageNumber,
             stageName: milestone.stageName || `Stage ${milestone.stageNumber}`,
@@ -250,7 +250,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ milestone: transformMilestone(milestone) });
   } catch (error) {
     console.error('Error toggling milestone status:', error);
-    if ((error as any)?.code === 'P2025') {
+    if ((error as { code?: string })?.code === 'P2025') {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
