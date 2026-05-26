@@ -37,6 +37,7 @@ import { CohortAnalysisDashboard } from '@/components/CohortAnalysisDashboard';
 import { GrowthForecastDashboard } from '@/components/GrowthForecastDashboard';
 import { BulkActionsUI } from '@/components/BulkActionsUI';
 import { ReportTemplateBuilder } from '@/components/ReportTemplateBuilder';
+import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
 import { AchievementBadgesDashboard } from '@/components/AchievementBadgesDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -1046,11 +1047,13 @@ export default function ReportsPage() {
                         Build reusable report templates with custom sections and metrics.
                       </Text>
                     </div>
-                    <ReportTemplateBuilder
-                      groupId={groupId}
-                      userId={user?.id || 'system'}
-                      token={token || undefined}
-                    />
+                    <WidgetErrorBoundary>
+                      <ReportTemplateBuilder
+                        groupId={groupId}
+                        userId={user?.id || 'system'}
+                        token={token || undefined}
+                      />
+                    </WidgetErrorBoundary>
                   </Card>
                 </div>
               ),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, Button, Typography, Spin, message, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox, Divider } from 'antd';
 import { CheckCircleOutlined, TeamOutlined, CalendarOutlined, DownOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,16 +102,16 @@ export default function RootPage() {
     }
   };
 
-  const filterGroupsByYear = (groupsToFilter: Group[], year: number) => {
+  const filterGroupsByYear = useCallback((groupsToFilter: Group[], year: number) => {
     const filtered = groupsToFilter.filter((g: any) => g.year === year);
     setGroups(filtered);
-  };
+  }, []);
 
   useEffect(() => {
     if (allGroups.length > 0) {
       filterGroupsByYear(allGroups, selectedYear);
     }
-  }, [selectedYear, allGroups]);
+  }, [selectedYear, allGroups, filterGroupsByYear]);
 
   const handleSelectGroup = (groupId: string) => {
     setSelectedGroupId(groupId);

@@ -5,8 +5,8 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Card, Table, Tag, Button, Space, Empty, Alert, Badge, Modal, Spin } from 'antd'
+import { useState, useEffect, useCallback } from 'react'
+import { Card, Table, Tag, Button, Space, Empty, Alert, Badge, Modal, Spin, message } from 'antd'
 import {
   CheckOutlined,
   CloseOutlined,
@@ -62,26 +62,30 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
   const [loading, setLoading] = useState(false)
   const [activeOnly, setActiveOnly] = useState(true)
 
-  useEffect(() => {
-    loadAlerts()
-  }, [groupId, activeOnly])
-
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(
-        `/api/alerts?groupId=${groupId}&status=${activeOnly ? 'active' : ''}`
+        `/api/alerts?groupId=${groupId}&status=${activeOnly ? 'active' : ''}`,
+        { credentials: 'include' }
       )
       if (response.ok) {
         const data = await response.json()
         setAlerts(data.alerts || [])
+      } else {
+        message.error('Failed to load alerts. Please try again.')
       }
     } catch (error) {
       console.error('Error loading alerts:', error)
+      message.error('Network error loading alerts.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [groupId, activeOnly])
+
+  useEffect(() => {
+    loadAlerts()
+  }, [loadAlerts])
 
   const handleAcknowledge = async (alertId: string) => {
     try {
@@ -94,9 +98,12 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
       if (response.ok) {
         loadAlerts()
         onRefresh?.()
+      } else {
+        message.error('Failed to acknowledge alert.')
       }
     } catch (error) {
       console.error('Error acknowledging alert:', error)
+      message.error('Network error. Please try again.')
     }
   }
 
@@ -118,9 +125,12 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
           if (response.ok) {
             loadAlerts()
             onRefresh?.()
+          } else {
+            message.error('Failed to resolve alert.')
           }
         } catch (error) {
           console.error('Error resolving alert:', error)
+          message.error('Network error. Please try again.')
         }
       },
     })

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getAuthUser } from '@/lib/api/middleware';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/export
  * Export data to JSON (can be converted to Excel/CSV on client)
- * 
+ *
  * Query params:
  * - type: 'converts' | 'progress' | 'attendance' | 'all'
  * - group_id: Filter by group
@@ -17,8 +18,12 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    // Rate limit before any DB work
+    const rateLimitResponse = await checkRateLimit(request, '/api/export');
+    if (rateLimitResponse) return rateLimitResponse;
+
+    // Use cookie-aware auth helper (checks cookie first, then Bearer header)
+    const userPayload = getAuthUser(request);
 
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

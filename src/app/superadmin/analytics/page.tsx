@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import dynamic from 'next/dynamic';
 import DashboardCharts from '@/components/DashboardCharts';
+import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
 import { api } from '@/lib/api';
 
 // Dynamically import chart components to avoid SSR issues
@@ -251,11 +252,13 @@ export default function AnalyticsPage() {
       </Row>
 
       {/* Milestone Progress Overview */}
-      <DashboardCharts 
-        people={people} 
-        milestones={milestones}
-        compact={false}
-      />
+      <WidgetErrorBoundary>
+        <DashboardCharts
+          people={people}
+          milestones={milestones}
+          compact={false}
+        />
+      </WidgetErrorBoundary>
 
       {/* Charts Row 1 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
