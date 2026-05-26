@@ -35,14 +35,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    // Validate the session against the server (reads the httpOnly cookie).
+    // This clears stale localStorage tokens whose cookie counterpart has expired.
+    const validateSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          // Server says cookie is valid — restore from localStorage if present
+          const storedToken = localStorage.getItem('token');
+          const storedUser = localStorage.getItem('user');
+          if (storedToken && storedUser) {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+          }
+        } else {
+          // Cookie is invalid/expired — purge stale localStorage state
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      } catch {
+        // Network error: fall back to localStorage so the UI doesn't flash
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    validateSession();
   }, []);
 
   const login = async (username: string, password: string) => {
