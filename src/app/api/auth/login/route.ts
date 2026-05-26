@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         group_name: groupName,
         group_year: groupYear,
         group_id: groupId,
-        phone_number: user.groupName,
+        phone_number: user.phoneNumber,
       },
     });
 
