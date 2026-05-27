@@ -1,7 +1,7 @@
 'use client';
 
-import { Form, Input, Button, Card, Typography, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Typography, message } from 'antd';
+import { UserOutlined, LockOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -49,7 +49,7 @@ export default function LoginPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #e6f0ff 0%, #ffffff 50%, #e6f0ff 100%)',
+          background: 'linear-gradient(160deg, #eef3fb 0%, #ffffff 60%)',
         }}
       >
         <div
@@ -68,79 +68,86 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '2rem 1rem',
-        background: 'linear-gradient(135deg, #e6f0ff 0%, #f0f5ff 25%, #ffffff 50%, #f0f5ff 75%, #e6f0ff 100%)',
+        background: 'linear-gradient(160deg, #eef3fb 0%, #ffffff 55%, #eef3fb 100%)',
         backgroundAttachment: 'fixed',
-        position: 'relative',
       }}
     >
-      <Card
+      <div
         style={{
           width: '100%',
-          maxWidth: '500px',
-          borderRadius: 12,
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(0, 51, 102, 0.2)',
-          boxShadow: '0 8px 32px rgba(0, 51, 102, 0.15)',
+          maxWidth: 420,
+          background: '#ffffff',
+          borderRadius: 16,
+          border: '1px solid #eef0f2',
+          boxShadow: '0 1px 2px rgba(16,24,40,0.04), 0 12px 32px rgba(0,51,102,0.10)',
+          padding: '40px 32px',
         }}
-        styles={{ body: { padding: '40px 32px' } }}
       >
-        <div className="text-center mb-6 sm:mb-8" style={{ textAlign: 'center' }}>
+        {/* Brand mark + heading */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              background: 'linear-gradient(135deg, #003366 0%, #004a93 100%)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 18,
+              boxShadow: '0 6px 16px rgba(0,51,102,0.25)',
+            }}
+          >
+            <HomeOutlined style={{ color: '#fff', fontSize: 26 }} />
+          </div>
           <Title
             level={2}
             style={{
               color: '#003366',
-              marginBottom: 16,
-              fontSize: 'clamp(1.5rem, 5vw, 2rem)',
-              textShadow: '0 2px 8px rgba(0, 51, 102, 0.15)',
+              margin: 0,
+              marginBottom: 6,
+              fontSize: 'clamp(1.5rem, 5vw, 1.9rem)',
               fontWeight: 700,
-              textAlign: 'center',
+              letterSpacing: '-0.01em',
             }}
           >
             FLC Sheep Seeking
           </Title>
-          <Text
-            style={{
-              fontSize: 'clamp(0.875rem, 3vw, 1rem)',
-              color: 'rgba(0, 0, 0, 0.65)',
-              textAlign: 'center',
-              display: 'block',
-            }}
-          >
-            Church Milestone Tracking System
+          <Text style={{ fontSize: 14, color: 'rgba(0,0,0,0.5)' }}>
+            Sign in to your dashboard
           </Text>
         </div>
 
-        <Form form={form} onFinish={onFinish} layout="vertical" size="large">
+        <Form form={form} onFinish={onFinish} layout="vertical" size="large" requiredMark={false}>
           <Form.Item
             name="username"
-            rules={[
-              { required: true, message: 'Please enter your username' }
-            ]}
-            style={{ textAlign: 'center' }}
+            label={<span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>Username</span>}
+            rules={[{ required: true, message: 'Please enter your username' }]}
+            style={{ marginBottom: 18 }}
           >
             <Input
-              prefix={<UserOutlined style={{ color: 'rgba(0,0,0,0.45)' }} />}
-              placeholder="Username"
+              prefix={<UserOutlined style={{ color: 'rgba(0,0,0,0.35)' }} />}
+              placeholder="Enter your username"
               autoComplete="username"
-              style={{ height: 44, textAlign: 'left' }}
+              style={{ height: 46 }}
             />
           </Form.Item>
 
           <Form.Item
             name="password"
+            label={<span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>Password</span>}
             rules={[{ required: true, message: 'Please enter your password' }]}
-            style={{ textAlign: 'center' }}
+            style={{ marginBottom: 26 }}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: 'rgba(0,0,0,0.45)' }} />}
-              placeholder="Password"
+              prefix={<LockOutlined style={{ color: 'rgba(0,0,0,0.35)' }} />}
+              placeholder="Enter your password"
               autoComplete="current-password"
-              style={{ height: 44, textAlign: 'left' }}
+              style={{ height: 46 }}
             />
           </Form.Item>
 
-          <Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
             <Button
               type="primary"
               htmlType="submit"
@@ -151,9 +158,9 @@ export default function LoginPage() {
                 fontWeight: 600,
                 minHeight: 44,
                 touchAction: 'manipulation',
-                background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
+                background: 'linear-gradient(135deg, #003366 0%, #004a93 100%)',
                 border: 'none',
-                boxShadow: '0 4px 12px rgba(0, 51, 102, 0.25)',
+                boxShadow: '0 4px 12px rgba(0,51,102,0.22)',
               }}
             >
               Sign In
@@ -161,19 +168,12 @@ export default function LoginPage() {
           </Form.Item>
         </Form>
 
-        <div className="text-center mt-4 sm:mt-6" style={{ textAlign: 'center' }}>
-          <Text
-            style={{
-              fontSize: 'clamp(0.75rem, 2.5vw, 0.875rem)',
-              color: 'rgba(0, 0, 0, 0.45)',
-              textAlign: 'center',
-              display: 'block',
-            }}
-          >
+        <div style={{ textAlign: 'center', marginTop: 24 }}>
+          <Text style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.4)' }}>
             Only authorized users can log in
           </Text>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

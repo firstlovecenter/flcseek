@@ -775,36 +775,53 @@ function SheepSeekerDashboardContent() {
       </div>
 
       <div style={{ padding: '0 16px' }}>
-        {/* Compact Summary Stats */}
-        <div style={{
-          display: 'flex',
-          gap: 12,
-          marginTop: 16,
-          marginBottom: 16,
-        }}>
-          <div className="stats-card-primary">
-            <Text className="stats-card-label">Total</Text>
-            <div className="stats-card-value">
-              {filteredPeople.length}
+        {/* Summary band */}
+        {(() => {
+          const totalPeople = filteredPeople.length;
+          const incomplete = filteredPeople.filter(
+            (p) => p.progress.filter((pr) => pr.is_completed).length < milestones.length
+          ).length;
+          const totalCells = totalPeople * milestones.length;
+          const completedCells = filteredPeople.reduce(
+            (sum: number, p) => sum + p.progress.filter((pr) => pr.is_completed).length,
+            0
+          );
+          const pct = totalCells > 0 ? Math.round((completedCells / totalCells) * 100) : 0;
+
+          const stat = (dot: string, label: string, value: string | number) => (
+            <div style={{ minWidth: 110 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+                <Text style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{label}</Text>
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: 'rgba(0,0,0,0.88)', lineHeight: 1.1, marginTop: 6 }}>
+                {value}
+              </div>
             </div>
-          </div>
-          <div className="stats-card-warning">
-            <Text className="stats-card-label">Incomplete</Text>
-            <div className="stats-card-value">
-              {filteredPeople.filter(p => p.progress.filter(pr => pr.is_completed).length < milestones.length).length}
-            </div>
-          </div>
-          <div className="stats-card-success">
-            <Text className="stats-card-label">Progress</Text>
-            <div className="stats-card-value">
-              {(() => {
-                const total = filteredPeople.length * milestones.length;
-                const completed = filteredPeople.reduce((sum: number, p) => sum + p.progress.filter((pr) => pr.is_completed).length, 0);
-                return total > 0 ? Math.round((completed / total) * 100) : 0;
-              })()}%
-            </div>
-          </div>
-        </div>
+          );
+
+          return (
+            <Card
+              style={{
+                borderRadius: 14,
+                border: '1px solid #e8e8e8',
+                boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
+                marginTop: 16,
+                marginBottom: 16,
+              }}
+              styles={{ body: { padding: '16px 20px' } }}
+            >
+              <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                {stat('#003366', 'Total converts', totalPeople)}
+                {stat('#faad14', 'Incomplete', incomplete)}
+                {stat('#52c41a', 'Overall progress', `${pct}%`)}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <Progress percent={pct} showInfo={false} strokeColor="#003366" trailColor="#eef0f2" strokeWidth={8} />
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Mobile: per-person progress cards. Desktop: milestone matrix table. */}
         {isMobile ? (
