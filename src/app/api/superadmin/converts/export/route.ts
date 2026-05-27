@@ -1,26 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-function verifyAdmin(request: NextRequest) {
-  try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    if (!token) return null;
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { role: string };
-    if (decoded.role !== 'superadmin') return null;
-
-    return decoded;
-  } catch {
-    return null;
-  }
-}
+import { verifySuperAdmin } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // GET - Export all converts to CSV
 export async function GET(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const rateLimitResponse = await checkRateLimit(request, '/api/superadmin/converts/export');
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

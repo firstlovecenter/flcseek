@@ -6,6 +6,7 @@ import { CalendarOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { CURRENT_YEAR, MIN_YEAR } from '@/lib/constants';
 import { api } from '@/lib/api';
+import type { GroupApiData } from '@/lib/types/api-responses';
 
 const { Text } = Typography;
 
@@ -40,15 +41,15 @@ export default function YearSelector({
         const response = await api.groups.list({ active: true });
 
         if (response.success && response.data) {
-          const groups = response.data || [];
+          const groups: GroupApiData[] = (response.data?.groups as GroupApiData[]) || [];
 
           // Filter by month name if provided
           const filteredGroups = groupName
-            ? groups.filter((g: any) => g.name.toLowerCase() === groupName.toLowerCase())
+            ? groups.filter((g) => g.name.toLowerCase() === groupName.toLowerCase())
             : groups;
 
           // Extract unique years
-          const years = Array.from(new Set(filteredGroups.map((g: any) => g.year))) as number[];
+          const years = Array.from(new Set(filteredGroups.map((g) => g.year))).sort((a, b) => b - a);
           years.sort((a, b) => b - a); // Descending order
 
           setAvailableYears(years);

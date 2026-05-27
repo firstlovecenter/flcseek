@@ -1,31 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
+import { verifySuperAdmin } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-function verifyAdmin(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-
-  try {
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as { role?: string; username?: string };
-    if (decoded.role !== 'superadmin') {
-      return null;
-    }
-    return decoded;
-  } catch {
-    return null;
-  }
-}
 
 // GET - List all users
 export async function GET(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -65,7 +45,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform to snake_case for API compatibility
-    const formattedUsers = users.map((u: any) => ({
+    const formattedUsers = users.map((u) => ({
       id: u.id,
       username: u.username,
       role: u.role,
@@ -87,7 +67,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new user
 export async function POST(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

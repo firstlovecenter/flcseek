@@ -6,8 +6,8 @@
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20.19.0"
-  NPM_VERSION = "10.9.0"
+  NODE_VERSION = "22.16.0"
+  NPM_VERSION = "10.9.2"
   NPM_FLAGS = "--legacy-peer-deps"
 
 # Next.js specific settings
@@ -29,6 +29,11 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    # Enforce HTTPS for 1 year; include subdomains
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    # CSP: allow same-origin + trusted CDNs; tighten as needed per feature
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.neon.tech; frame-ancestors 'none';"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
 # Scheduled function for analytics cron job
 [functions."scheduled-analytics"]

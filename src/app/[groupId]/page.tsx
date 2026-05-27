@@ -12,6 +12,8 @@ import { ATTENDANCE_GOAL, CURRENT_YEAR } from '@/lib/constants';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { useThemeStyles } from '@/lib/theme-utils';
 import { api } from '@/lib/api';
+import type { MilestoneData, GroupApiData } from '@/lib/types/api-responses';
+import { getErrorMessage } from '@/lib/utils/errors';
 
 const { Title, Text } = Typography;
 
@@ -163,21 +165,21 @@ function SheepSeekerDashboardContent() {
         const response = await api.groups.list({ active: true });
         
         if (response.success && response.data) {
-          const groups = response.data.groups || [];
+          const groups: GroupApiData[] = response.data.groups || [];
 
           // Filter by the groupId from URL
-          const selectedGroup = groups.find((g: any) => g.id === groupId);
-          
+          const selectedGroup = groups.find((g) => g.id === groupId);
+
           if (!selectedGroup) {
             throw new Error('Group not found');
           }
 
           // Filter by the group's month name to find all instances across years
           const userMonthName = selectedGroup.name;
-          const matchingGroups = groups.filter((g: any) => g.name.toLowerCase() === userMonthName.toLowerCase());
+          const matchingGroups = groups.filter((g) => g.name.toLowerCase() === userMonthName.toLowerCase());
 
           // Extract unique years
-          const years = Array.from(new Set(matchingGroups.map((g: any) => g.year))) as number[];
+          const years = Array.from(new Set(matchingGroups.map((g) => g.year))) as number[];
           years.sort((a, b) => b - a); // Descending order (newest first)
 
           setAvailableYears(years);
@@ -189,9 +191,9 @@ function SheepSeekerDashboardContent() {
             setSelectedYear(years[0]);
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to fetch available years:', error);
-        message.error(`Failed to load group information: ${error.message || 'Unknown error'}. Redirecting to home...`);
+        message.error(`Failed to load group information: ${getErrorMessage(error)}. Redirecting to home...`);
         router.push('/'); // Redirect on group not found
       }
     };
@@ -207,7 +209,7 @@ function SheepSeekerDashboardContent() {
       
       const milestoneData = response.data?.milestones || [];
       if (process.env.NODE_ENV !== 'production') console.log('Fetched milestones from API:', milestoneData);
-      const formattedMilestones = milestoneData.map((milestone: any) => {
+      const formattedMilestones = milestoneData.map((milestone: MilestoneData) => {
         // Format short_name: split multi-word names across two lines, keep single words intact
         let formattedShortName = milestone.short_name || milestone.stage_name.substring(0, 10);
         if (milestone.short_name && !formattedShortName.includes('\n')) {
@@ -233,9 +235,9 @@ function SheepSeekerDashboardContent() {
       if (process.env.NODE_ENV !== 'production') console.log('Formatted milestones:', formattedMilestones);
       
       setMilestones(formattedMilestones);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch milestones:', error);
-      message.error(`Failed to load milestones: ${error.message || 'Database error'}. Some features may not work correctly.`);
+      message.error(`Failed to load milestones: ${getErrorMessage(error) || 'Database error'}. Some features may not work correctly.`);
       setMilestones([]);
     }
   }, []);
@@ -290,18 +292,25 @@ function SheepSeekerDashboardContent() {
 
       // Data is already formatted with progress included
       setPeople(response.data?.people || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[SHEEP-SEEKER] Error:', error);
-      message.error(error.message || 'Failed to load people');
+      message.error(getErrorMessage(error) || 'Failed to load people');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegister = async (values: any) => {
+  const handleRegister = async (values: Record<string, string>) => {
     try {
       const response = await api.people.create({
-        ...values,
+        first_name: values.first_name || '',
+        last_name: values.last_name || '',
+        phone_number: values.phone_number || '',
+        gender: (values.gender as 'Male' | 'Female') || undefined,
+        date_of_birth: values.date_of_birth,
+        residential_location: values.residential_location,
+        school_residential_location: values.school_residential_location,
+        occupation_type: values.occupation_type,
         group_id: groupId,
         group_name: user?.group_name,
       });
@@ -314,8 +323,8 @@ function SheepSeekerDashboardContent() {
       form.resetFields();
       setRegisterModalVisible(false);
       fetchAllPeople(selectedYear || undefined);
-    } catch (error: any) {
-      const errorMsg = error.message || 'Registration failed';
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error) || 'Registration failed';
       if (errorMsg.includes('phone number') && errorMsg.includes('already')) {
         message.error('This phone number is already registered. Each person must have a unique phone number.');
       } else {
@@ -375,8 +384,8 @@ function SheepSeekerDashboardContent() {
       );
 
       message.success('Milestone updated!');
-    } catch (error: any) {
-      message.error(error.message || 'Failed to update milestone');
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error) || 'Failed to update milestone');
     } finally {
       setUpdating(null);
     }
@@ -425,12 +434,12 @@ function SheepSeekerDashboardContent() {
             throw new Error(response.error?.message || 'Failed to delete selected converts');
           }
 
-          const result = response.data as any;
+          const result = response.data as { successCount?: number };
           message.success(`Deleted ${result?.successCount ?? 0} convert(s)`);
           setSelectedIds([]);
           fetchAllPeople(selectedYear || undefined);
-        } catch (error: any) {
-          message.error(error.message || 'Failed to delete selected converts');
+        } catch (error: unknown) {
+          message.error(getErrorMessage(error) || 'Failed to delete selected converts');
         } finally {
           setDeleting(false);
         }
@@ -477,7 +486,7 @@ function SheepSeekerDashboardContent() {
       key: `milestone_${milestone.number}`,
       width: 60,
       align: 'center' as const,
-      render: (_: any, record: PersonWithProgress) =>
+      render: (_: unknown, record: PersonWithProgress) =>
         isReadOnly ? (
           <ReadOnlyMilestoneCell
             isCompleted={getMilestoneStatus(record, milestone.number)}
@@ -526,7 +535,7 @@ function SheepSeekerDashboardContent() {
           {(
             user?.role === 'leadpastor' ||
             user?.role === 'overseer' ||
-            ((user?.role === 'admin' || user?.role === 'leader') && (!user?.group_id || (user as any)?.groups_assigned?.length > 1))
+            ((user?.role === 'admin' || user?.role === 'leader') && (!user?.group_id || ((user as { groups_assigned?: unknown[] })?.groups_assigned?.length ?? 0) > 1))
           ) && (
             <Button
               icon={<HomeOutlined />}
@@ -615,7 +624,7 @@ function SheepSeekerDashboardContent() {
             <div className="stats-card-value">
               {(() => {
                 const total = filteredPeople.length * milestones.length;
-                const completed = filteredPeople.reduce((sum: number, p: any) => sum + p.progress.filter((pr: any) => pr.is_completed).length, 0);
+                const completed = filteredPeople.reduce((sum: number, p) => sum + p.progress.filter((pr) => pr.is_completed).length, 0);
                 return total > 0 ? Math.round((completed / total) * 100) : 0;
               })()}%
             </div>

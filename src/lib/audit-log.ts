@@ -60,8 +60,8 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
         action: entry.action,
         entityType: entry.entityType || null,
         entityId: entry.entityId || null,
-        oldValues: entry.oldValues ? JSON.stringify(entry.oldValues) : null,
-        newValues: entry.newValues ? JSON.stringify(entry.newValues) : null,
+        oldValues: (entry.oldValues ?? null) as never,
+        newValues: (entry.newValues ?? null) as never,
         ipAddress: entry.ipAddress || null,
         userAgent: entry.userAgent || null,
       }

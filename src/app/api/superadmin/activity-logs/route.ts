@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         hasMore: logs.length === limit,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching activity logs:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

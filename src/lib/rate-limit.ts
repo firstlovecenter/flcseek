@@ -20,6 +20,23 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     maxRequests: 5,
     message: 'Too many login attempts. Please try again in 15 minutes.',
   },
+  // Data exports: 10 per hour per IP (prevents bulk data exfiltration)
+  '/api/export': {
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Export rate limit exceeded. Please wait before exporting again.',
+  },
+  '/api/superadmin/converts/export': {
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Export rate limit exceeded. Please wait before exporting again.',
+  },
+  // Bulk destructive operations: 5 per hour per IP
+  '/api/superadmin/converts/bulk-delete': {
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 5,
+    message: 'Bulk delete rate limit exceeded. Please wait before retrying.',
+  },
   // API default: 100 requests per minute
   'default': {
     windowMs: 60 * 1000,

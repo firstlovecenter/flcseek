@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { type NextRequest } from 'next/server';
 
 // Security: Throw error if JWT_SECRET is not configured
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -58,4 +59,31 @@ export function verifyToken(token: string): UserPayload | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Extract and verify a superadmin JWT from an incoming NextRequest.
+ * Checks the httpOnly cookie first, then falls back to the Authorization
+ * Bearer header — matching the behaviour of getAuthUser() in the API middleware.
+ * Returns the full UserPayload on success, null on any failure.
+ */
+export function verifySuperAdmin(request: NextRequest): UserPayload | null {
+  // Prefer the httpOnly cookie (XSS-safe)
+  const cookieToken = request.cookies.get('auth_token')?.value;
+  if (cookieToken) {
+    const payload = verifyToken(cookieToken);
+    if (payload?.role === 'superadmin') return payload;
+  }
+
+  // Fall back to Authorization Bearer header (API clients / backward-compat)
+  const authHeader =
+    request.headers.get('authorization') ||
+    request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const bearerToken = authHeader.substring(7);
+  // Guard against the literal string "null" sent when state is uninitialised
+  if (!bearerToken || bearerToken === 'null') return null;
+  const payload = verifyToken(bearerToken);
+  if (!payload || payload.role !== 'superadmin') return null;
+  return payload;
 }

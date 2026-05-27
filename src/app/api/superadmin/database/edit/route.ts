@@ -45,8 +45,32 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });
     }
 
-    // Build UPDATE query dynamically
+    // Allowed columns per table — prevents attackers from updating arbitrary fields
+    // (e.g. escalating privileges by writing to `role` or `password`).
+    const allowedColumns: Record<string, string[]> = {
+      users: ['first_name', 'last_name', 'email', 'phone_number', 'group_name', 'group_id', 'is_active'],
+      groups: ['name', 'year', 'description', 'is_active', 'leader_id'],
+      new_converts: [
+        'first_name', 'last_name', 'phone_number', 'email', 'gender',
+        'address', 'date_of_birth', 'occupation', 'group_name', 'group_id',
+        'notes', 'is_active',
+      ],
+      progress_records: ['stage_number', 'completed', 'completed_at', 'notes'],
+      attendance_records: ['attended', 'attended_at', 'notes'],
+      milestones: ['stage_name', 'short_name', 'description', 'is_active', 'order_index'],
+      departments: ['name', 'description', 'is_active'],
+    };
+
+    const permittedColumns = allowedColumns[tableName] ?? [];
     const columns = Object.keys(updates);
+    const illegalColumns = columns.filter(col => !permittedColumns.includes(col));
+    if (illegalColumns.length > 0) {
+      return NextResponse.json(
+        { error: `Column(s) not permitted for update: ${illegalColumns.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     const values = Object.values(updates);
 
     // Create SET clause

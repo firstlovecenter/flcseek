@@ -1,26 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-function verifyAdmin(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-
-  try {
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string; username?: string };
-    if (decoded.role !== 'superadmin') {
-      return null;
-    }
-    return decoded;
-  } catch {
-    return null;
-  }
-}
+import { verifySuperAdmin } from '@/lib/auth';
 
 // Helper to transform milestone to snake_case response
 function transformMilestone(m: {
@@ -49,7 +29,7 @@ function transformMilestone(m: {
 
 // GET - List all milestones
 export async function GET(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -68,7 +48,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new milestone
 export async function POST(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -108,7 +88,7 @@ export async function POST(request: NextRequest) {
 
 // PUT - Update a milestone
 export async function PUT(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -133,7 +113,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ milestone: transformMilestone(milestone) });
   } catch (error) {
     console.error('Error updating milestone:', error);
-    if ((error as any)?.code === 'P2025') {
+    if ((error as { code?: string })?.code === 'P2025') {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -142,7 +122,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Delete a milestone
 export async function DELETE(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -188,7 +168,7 @@ export async function DELETE(request: NextRequest) {
 
 // PATCH - Toggle milestone active status
 export async function PATCH(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -237,20 +217,20 @@ export async function PATCH(request: NextRequest) {
       });
 
       // Filter to find converts missing this milestone and not graduated
-      const missingConverts = convertsWithProgress.filter((convert: any) => {
+      const missingConverts = convertsWithProgress.filter((convert) => {
         const hasThisMilestone = convert.progressRecords.some(
-          (pr: any) => pr.stageNumber === milestone.stageNumber
+          (pr) => pr.stageNumber === milestone.stageNumber
         );
-        const completedCount = convert.progressRecords.filter((pr: any) => pr.isCompleted).length;
+        const completedCount = convert.progressRecords.filter((pr) => pr.isCompleted).length;
         return !hasThisMilestone && completedCount < totalActiveMilestones;
       });
 
       if (missingConverts.length > 0) {
         if (process.env.NODE_ENV !== 'production') console.log(`Found ${missingConverts.length} active converts missing this milestone, backfilling...`);
-        
+
         // Backfill progress records for all missing converts
         await prisma.progressRecord.createMany({
-          data: missingConverts.map((convert: any) => ({
+          data: missingConverts.map((convert) => ({
             personId: convert.id,
             stageNumber: milestone.stageNumber,
             stageName: milestone.stageName || `Stage ${milestone.stageNumber}`,
@@ -270,7 +250,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ milestone: transformMilestone(milestone) });
   } catch (error) {
     console.error('Error toggling milestone status:', error);
-    if ((error as any)?.code === 'P2025') {
+    if ((error as { code?: string })?.code === 'P2025') {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

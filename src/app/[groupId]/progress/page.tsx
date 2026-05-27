@@ -8,6 +8,7 @@ import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { useThemeStyles } from '@/lib/theme-utils';
 import { api } from '@/lib/api';
+import type { ProgressEntry, PersonApiData } from '@/lib/types/api-responses';
 
 const { Title, Text } = Typography;
 
@@ -37,8 +38,8 @@ export default function ProgressPage() {
   const [totalMilestones, setTotalMilestones] = useState<number>(18);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedPerson, setSelectedPerson] = useState<any>(null);
-  const [progressStages, setProgressStages] = useState<any[]>([]);
+  const [selectedPerson, setSelectedPerson] = useState<PersonProgress | null>(null);
+  const [progressStages, setProgressStages] = useState<ProgressEntry[]>([]);
   const [updating, setUpdating] = useState(false);
   
   // Check if user is a leader (read-only access) or superadmin (full edit access)
@@ -88,13 +89,13 @@ export default function ProgressPage() {
 
       // Map the data to progress format - use dynamic milestone count
       const milestoneCount = totalMilestones || 18;
-      const peopleWithProgress = (response.data?.people || []).map((person: any) => {
-        const completedStages = person.progress?.filter((p: any) => p.is_completed).length || 0;
+      const peopleWithProgress = ((response.data as { people?: PersonApiData[] })?.people || []).map((person) => {
+        const completedStages = (person.progress as ProgressEntry[] | undefined)?.filter((p) => p.is_completed).length || 0;
 
         return {
           id: person.id,
-          full_name: person.full_name,
-          group_name: person.group_name,
+          full_name: person.full_name ?? '',
+          group_name: person.group_name ?? '',
           phone_number: person.phone_number,
           completedStages,
           percentage: Math.round((completedStages / milestoneCount) * 100),
@@ -102,8 +103,8 @@ export default function ProgressPage() {
       });
 
       setPeople(peopleWithProgress);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to load people');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Failed to load people');
     } finally {
       setLoading(false);
     }
@@ -117,12 +118,14 @@ export default function ProgressPage() {
       setSelectedPerson(person);
       setProgressStages(response.data?.progress || []);
       setModalVisible(true);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to load progress details');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Failed to load progress details');
     }
   };
 
   const toggleStage = async (stageNumber: number, isCompleted: boolean) => {
+    if (!selectedPerson) return;
+
     // Read-only users cannot toggle stages
     if (isReadOnly) {
       message.warning('You do not have permission to edit progress');
@@ -166,8 +169,8 @@ export default function ProgressPage() {
       
       // Refresh people list
       fetchPeople();
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to update progress';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update progress';
       if (errorMsg.includes('Milestone 18')) {
         message.error(errorMsg);  // Already specific
       } else if (errorMsg.includes('permission') || errorMsg.includes('superadmin')) {
@@ -209,14 +212,14 @@ export default function ProgressPage() {
       title: 'Completed Stages',
       key: 'completed',
       width: isLeader ? 100 : undefined,
-      render: (_: any, record: PersonProgress) => (
+      render: (_: unknown, record: PersonProgress) => (
         <Tag color="blue">{record.completedStages}/18</Tag>
       ),
     },
     {
       title: 'Progress',
       key: 'progress',
-      render: (_: any, record: PersonProgress) => (
+      render: (_: unknown, record: PersonProgress) => (
         <div style={{ width: isLeader ? undefined : 150 }}>
           <Progress
             percent={record.percentage}
@@ -230,7 +233,7 @@ export default function ProgressPage() {
     ...(!isReadOnly ? [{
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: PersonProgress) => (
+      render: (_: unknown, record: PersonProgress) => (
         <div style={{ display: 'flex', gap: 8 }}>
           <Button
             size="small"
@@ -338,7 +341,7 @@ export default function ProgressPage() {
           width={600}
         >
           <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {progressStages.map((stage: any) => (
+            {progressStages.map((stage) => (
               <div
                 key={stage.stage_number}
                 style={{

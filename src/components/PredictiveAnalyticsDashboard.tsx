@@ -58,6 +58,7 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
       try {
         setLoading(true);
         const response = await fetch(`/api/predictions?groupId=${groupId}`, {
+          credentials: 'include',
           headers: {
             'x-user-id': userId,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -112,7 +113,7 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
       title: 'Convert',
       key: 'convert',
       width: 150,
-      render: (_: any, record: Prediction) => (
+      render: (_: unknown, record: Prediction) => (
         <div>
           <div className="font-medium">{record.convertName || record.convertId}</div>
           <div className="text-xs text-gray-500">{record.recommendation.substring(0, 30)}...</div>
@@ -182,7 +183,7 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
       title: 'Action',
       key: 'action',
       width: 100,
-      render: (_: any, record: Prediction) => (
+      render: (_: unknown, record: Prediction) => (
         <Button 
           type="link" 
           size="small"

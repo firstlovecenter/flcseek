@@ -35,14 +35,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    // Validate the session against the server (reads the httpOnly cookie).
+    // This clears stale localStorage tokens whose cookie counterpart has expired.
+    const validateSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          // Cookie is valid — restore user display data from localStorage
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            setUser(JSON.parse(storedUser));
+          } else {
+            // Fallback: use the decoded payload from /api/auth/me
+            const { user: payload } = await res.json();
+            if (payload) setUser(payload as User);
+          }
+          // token is NOT restored — it's memory-only; API calls use the cookie
+        } else {
+          // Cookie is invalid/expired — purge stale state
+          localStorage.removeItem('user');
+        }
+      } catch {
+        // Network error: fall back to localStorage so the UI doesn't flash
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    validateSession();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -59,12 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
-    
-    // Store in localStorage first before setting state
-    localStorage.setItem('token', data.token);
+
+    // Keep user display data in localStorage (non-sensitive) for page-refresh hydration.
+    // The JWT token is intentionally NOT stored in localStorage to reduce XSS exposure —
+    // auth is handled by the httpOnly cookie set by the server on this login response.
     localStorage.setItem('user', JSON.stringify(data.user));
-    
-    // Then update state
+
+    // Token is kept in memory only (lost on page refresh — cookie handles subsequent auth).
     setToken(data.token);
     setUser(data.user);
 
@@ -97,8 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     setUser(null);
     setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('user'); // token was never stored here
     // Clear all cached data on logout
     clearCache();
     router.push('/auth');

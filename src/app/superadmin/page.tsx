@@ -71,6 +71,7 @@ export default function SuperAdminDashboard() {
       
       // Fallback to old API for activity data (can be migrated later)
       const response = await fetch('/api/superadmin/dashboard', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

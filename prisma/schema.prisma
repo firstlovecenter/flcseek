@@ -111,7 +111,10 @@ model NewConvert {
   id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firstName                 String?   @map("first_name") @db.VarChar(255)
   lastName                  String?   @map("last_name") @db.VarChar(255)
-  phoneNumber               String    @unique(map: "unique_phone_number") @map("phone_number")
+  // NOTE: uniqueness is enforced by a partial index (WHERE deleted_at IS NULL)
+  // via migration 015 so soft-deleted numbers can be re-registered.
+  // The @unique here is intentionally removed; do not add it back.
+  phoneNumber               String    @map("phone_number")
   dateOfBirth               String?   @map("date_of_birth") @db.VarChar(10)
   gender                    String?
   residentialLocation       String?   @map("residential_location")
@@ -142,6 +145,10 @@ model NewConvert {
   @@index([registeredById])
   @@index([riskScore], map: "idx_new_converts_risk_score")
   @@index([deletedAt])
+  // Composite indexes for common query patterns
+  @@index([groupId, deletedAt], map: "idx_new_converts_group_active")
+  @@index([registeredById, groupId], map: "idx_new_converts_registered_group")
+  @@index([firstName, lastName], map: "idx_new_converts_name")
   @@map("new_converts")
 }
 

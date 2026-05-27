@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Add recorded_by to each record
-      const records = body.records.map((r: any) => ({
+      const records = (body.records as { person_id: string; date_attended: string; service_type?: string; notes?: string }[]).map((r) => ({
         ...r,
         recorded_by: user!.id,
       }));
@@ -160,16 +160,17 @@ export async function POST(request: NextRequest) {
     logger.info(`[MARK_ATTENDANCE] User ${user!.username} marked attendance for ${person.full_name} on ${body.date_attended}`);
     
     return created({ attendance: record });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error('[POST /api/v1/attendance] Attendance marking failed:', err);
-    
+    const e = err as { message?: string; code?: string };
+
     // Handle duplicate attendance
-    if (err.message?.includes('duplicate') || err.code === '23505') {
+    if (e.message?.includes('duplicate') || e.code === '23505') {
       return errors.validation(`Attendance already marked for this person on this date.`);
     }
-    
+
     // Handle invalid person reference
-    if (err.message?.includes('foreign key') || err.code === '23503') {
+    if (e.message?.includes('foreign key') || e.code === '23503') {
       return errors.validation(`Invalid person_id. The specified person does not exist.`);
     }
     

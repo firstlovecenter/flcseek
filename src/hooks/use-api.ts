@@ -11,27 +11,27 @@ interface UseApiResult<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
-  execute: (...args: any[]) => Promise<APIResponse<T>>;
+  execute: (...args: unknown[]) => Promise<APIResponse<T>>;
   reset: () => void;
 }
 
 /**
  * Hook for making API calls with loading and error state management
- * 
+ *
  * @example
  * const { data, loading, error, execute } = useApi(
  *   () => api.people.list({ include: 'progress' }),
  *   { immediate: true }
  * );
- * 
+ *
  * @example
  * const { execute: createPerson } = useApi(
  *   (person) => api.people.create(person),
  *   { onSuccess: () => refetch() }
  * );
  */
-export function useApi<T = any>(
-  apiCall: (...args: any[]) => Promise<APIResponse<T>>,
+export function useApi<T = unknown>(
+  apiCall: (...args: unknown[]) => Promise<APIResponse<T>>,
   options: UseApiOptions<T> = {}
 ): UseApiResult<T> {
   const [data, setData] = useState<T | null>(null);
@@ -39,7 +39,7 @@ export function useApi<T = any>(
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  const execute = useCallback(async (...args: any[]) => {
+  const execute = useCallback(async (...args: unknown[]) => {
     setLoading(true);
     setError(null);
 
@@ -83,7 +83,7 @@ export function useApi<T = any>(
 
   useEffect(() => {
     mountedRef.current = true;
-    
+
     if (options.immediate) {
       execute();
     }
@@ -99,11 +99,11 @@ export function useApi<T = any>(
 /**
  * Hook for list queries with pagination and filtering support
  */
-export function useApiList<T = any>(
-  listFn: (params: any) => Promise<APIResponse<{ [key: string]: T[] }>>,
+export function useApiList<T = unknown>(
+  listFn: (params: Record<string, unknown>) => Promise<APIResponse<{ [key: string]: T[] }>>,
   options: UseApiOptions<T[]> & {
     dataKey?: string;
-    defaultParams?: Record<string, any>;
+    defaultParams?: Record<string, unknown>;
   } = {}
 ) {
   const { dataKey = 'items', defaultParams = {}, ...apiOptions } = options;
@@ -112,7 +112,7 @@ export function useApiList<T = any>(
   const [meta, setMeta] = useState<{ total?: number; hasMore?: boolean }>({});
 
   const { loading, error, execute, reset } = useApi(
-    (queryParams) => listFn({ ...params, ...queryParams }),
+    (queryParams) => listFn({ ...params, ...(queryParams as Record<string, unknown>) }),
     {
       ...apiOptions,
       onSuccess: (data) => {
@@ -123,7 +123,7 @@ export function useApiList<T = any>(
     }
   );
 
-  const fetch = useCallback((queryParams?: Record<string, any>) => {
+  const fetch = useCallback((queryParams?: Record<string, unknown>) => {
     if (queryParams) {
       setParams((prev) => ({ ...prev, ...queryParams }));
     }
@@ -148,7 +148,7 @@ export function useApiList<T = any>(
 /**
  * Hook for mutation operations (create, update, delete)
  */
-export function useApiMutation<TInput = any, TOutput = any>(
+export function useApiMutation<TInput = unknown, TOutput = unknown>(
   mutationFn: (input: TInput) => Promise<APIResponse<TOutput>>,
   options: UseApiOptions<TOutput> = {}
 ) {
@@ -209,8 +209,8 @@ export const useApiHooks = {
   usePerson: (id: string) =>
     useApi(() => api.people.get(id), { immediate: !!id }),
 
-  useCreatePerson: (options?: UseApiOptions<any>) =>
-    useApiMutation((data) => api.people.create(data), options),
+  useCreatePerson: (options?: UseApiOptions<unknown>) =>
+    useApiMutation((data) => api.people.create(data as Parameters<typeof api.people.create>[0]), options),
 
   // Groups
   useGroups: (params?: Parameters<typeof api.groups.list>[0]) =>

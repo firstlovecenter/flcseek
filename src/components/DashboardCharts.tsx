@@ -4,26 +4,12 @@ import { useMemo } from 'react';
 import { Card, Typography, Row, Col, Progress } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, TeamOutlined } from '@ant-design/icons';
 import { useThemeStyles } from '@/lib/theme-utils';
+import type { PersonApiData, MilestoneData } from '@/lib/types/api-responses';
 
 const { Text, Title } = Typography;
 
-interface PersonWithProgress {
-  id: string;
-  full_name: string;
-  progress: Array<{
-    stage_number: number;
-    is_completed: boolean;
-  }>;
-}
-
-interface MilestoneData {
-  number: number;
-  name: string;
-  shortName: string;
-}
-
 interface DashboardChartsProps {
-  people: PersonWithProgress[];
+  people: PersonApiData[];
   milestones: MilestoneData[];
   compact?: boolean;
 }
@@ -41,15 +27,15 @@ export default function DashboardCharts({ people, milestones, compact = true }: 
 
     return milestones.map((milestone) => {
       const completedCount = people.filter((person) =>
-        person.progress.some(
-          (p) => p.stage_number === milestone.number && p.is_completed
+        (person.progress ?? []).some(
+          (p) => p.stage_number === milestone.stage_number && p.is_completed
         )
       ).length;
 
       return {
-        milestone: milestone.number,
-        name: milestone.shortName || milestone.name,
-        fullName: milestone.name,
+        milestone: milestone.stage_number,
+        name: milestone.short_name || milestone.stage_name,
+        fullName: milestone.stage_name,
         completed: completedCount,
         incomplete: people.length - completedCount,
         percentage: Math.round((completedCount / people.length) * 100),
@@ -74,7 +60,7 @@ export default function DashboardCharts({ people, milestones, compact = true }: 
     let noCompletion = 0;
 
     people.forEach((person) => {
-      const completedCount = person.progress.filter((p) => p.is_completed).length;
+      const completedCount = (person.progress ?? []).filter((p) => p.is_completed).length;
       if (completedCount === totalMilestones) {
         fullCompletion++;
       } else if (completedCount > 0) {
