@@ -7,6 +7,14 @@ import { prisma } from './prisma'
 import { logger } from './logger'
 import dayjs from 'dayjs'
 
+/** Minimal shape of a convert with relations needed by the auto-calc engine */
+interface ConvertForAutoCalc {
+  id?: string
+  createdAt?: Date | null
+  attendanceRecords: Array<{ attendanceDate: Date | string }>
+  progressRecords?: Array<{ stageNumber: number; isCompleted: boolean }>
+}
+
 export interface MilestoneAutoTriggerConfig {
   enabled: boolean
   conditions: AutoTriggerCondition[]
@@ -90,7 +98,7 @@ export async function evaluateMilestoneCompletion(
 
       // Evaluate conditions
       const conditionsMet = await evaluateConditions(
-        convert,
+        convert as ConvertForAutoCalc,
         milestone.stageNumber,
         config.conditions,
         config.logic || 'AND'
@@ -152,7 +160,7 @@ export async function evaluateMilestoneCompletion(
  * Evaluate if conditions are met for milestone completion
  */
 async function evaluateConditions(
-  convert: any,
+  convert: ConvertForAutoCalc,
   stageNumber: number,
   conditions: AutoTriggerCondition[],
   logic: 'AND' | 'OR'
@@ -168,7 +176,7 @@ async function evaluateConditions(
  * Evaluate a single condition
  */
 async function evaluateSingleCondition(
-  convert: any,
+  convert: ConvertForAutoCalc,
   stageNumber: number,
   condition: AutoTriggerCondition
 ): Promise<boolean> {
@@ -215,7 +223,7 @@ async function evaluateSingleCondition(
         const previousMilestoneNum = stageNumber - 1
         if (previousMilestoneNum < 1) return true // First milestone always passes
 
-        const previousProgress = convert.progressRecords.find(
+        const previousProgress = (convert.progressRecords ?? []).find(
           (p) => p.stageNumber === previousMilestoneNum
         )
         return previousProgress?.isCompleted || false

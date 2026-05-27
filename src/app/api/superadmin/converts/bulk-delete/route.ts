@@ -1,31 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-function verifyAdmin(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-
-  try {
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as { role: string; username: string };
-    // Only allow skaduteye and sysadmin superadmins
-    if (decoded.role !== 'superadmin' || !['skaduteye', 'sysadmin'].includes(decoded.username)) {
-      return null;
-    }
-    return decoded;
-  } catch {
-    return null;
-  }
-}
+import { verifySuperAdmin } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // DELETE - Bulk delete new converts and all related data
 export async function DELETE(request: NextRequest) {
-  const user = verifyAdmin(request);
+  const rateLimitResponse = await checkRateLimit(request, '/api/superadmin/converts/bulk-delete');
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const user = verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized - Only skaduteye and sysadmin can perform bulk delete' }, { status: 401 });
   }

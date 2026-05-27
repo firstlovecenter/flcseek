@@ -1,6 +1,7 @@
 'use client';
 
 import { Layout, Menu, Avatar, Dropdown, Button, Space, Drawer } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   UserOutlined,
   LogoutOutlined,
@@ -27,6 +28,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/AppConfigProvider';
 import { api } from '@/lib/api';
+import type { GroupApiData } from '@/lib/types/api-responses';
 
 const { Header, Content, Footer } = Layout;
 
@@ -57,8 +59,8 @@ export default function Navigation({ children }: NavigationProps) {
           try {
             const response = await api.groups.list({ active: true });
             if (response.success && response.data) {
-              const groups = response.data.groups || [];
-              const currentGroup = groups.find((g: any) => g.id === groupId);
+              const groups: GroupApiData[] = response.data.groups || [];
+              const currentGroup = groups.find((g) => g.id === groupId);
               if (currentGroup) {
                 setGroupInfo({ name: currentGroup.name, year: currentGroup.year });
                 return;
@@ -84,7 +86,8 @@ export default function Navigation({ children }: NavigationProps) {
         const response = await api.groups.list();
         if (response.success && response.data) {
           // Find the user's group
-          const userGroup = response.data?.find((g: any) => 
+          const allGroups: GroupApiData[] = Array.isArray(response.data) ? response.data : (response.data as { groups?: GroupApiData[] })?.groups ?? [];
+          const userGroup = allGroups.find((g) =>
             g.name === user.group_name
           );
           if (userGroup) {
@@ -224,22 +227,22 @@ export default function Navigation({ children }: NavigationProps) {
   ];
 
   // Top Navigation items for Sheep Seeker (Empty - navigation on pages)
-  const sheepSeekerTopMenuItems: any[] = [];
+  const sheepSeekerTopMenuItems: { key?: unknown }[] = [];
 
   // Mobile Bottom Navigation for Sheep Seeker (Empty - navigation on pages)
-  const sheepSeekerBottomMenuItems: any[] = [];
+  const sheepSeekerBottomMenuItems: { key?: unknown }[] = [];
 
   // Top Navigation items for Lead Pastor (Empty - navigation on pages)
-  const leadPastorTopMenuItems: any[] = [];
+  const leadPastorTopMenuItems: { key?: unknown }[] = [];
 
   // Mobile Bottom Navigation for Lead Pastor (Empty - navigation on pages)
-  const leadPastorBottomMenuItems: any[] = [];
+  const leadPastorBottomMenuItems: { key?: unknown }[] = [];
 
   // Top Navigation items for Leader (Empty - navigation on pages)
-  const leaderTopMenuItems: any[] = [];
+  const leaderTopMenuItems: { key?: unknown }[] = [];
 
   // Mobile Bottom Navigation for Leader (Empty - navigation on pages)
-  const leaderBottomMenuItems: any[] = [];
+  const leaderBottomMenuItems: { key?: unknown }[] = [];
 
   const getMenuItemsByRole = () => {
     switch (user?.role) {
@@ -273,13 +276,13 @@ export default function Navigation({ children }: NavigationProps) {
 
   const augmentedTopMenuItems = (() => {
     if (!reportsNavItem || !canViewReports) return topMenuItems;
-    const hasItem = (topMenuItems || []).some((item: any) => item.key === reportsNavItem.key);
+    const hasItem = (topMenuItems || []).some((item) => item.key === reportsNavItem.key);
     return hasItem ? topMenuItems : [...(topMenuItems || []), reportsNavItem];
   })();
 
   const augmentedBottomMenuItems = (() => {
     if (!reportsNavItem || !canViewReports) return bottomMenuItems;
-    const hasItem = (bottomMenuItems || []).some((item: any) => item.key === reportsNavItem.key);
+    const hasItem = (bottomMenuItems || []).some((item) => item.key === reportsNavItem.key);
     return hasItem ? bottomMenuItems : [...(bottomMenuItems || []), reportsNavItem];
   })();
 
@@ -319,7 +322,7 @@ export default function Navigation({ children }: NavigationProps) {
             theme="dark"
             mode="horizontal"
             selectedKeys={[pathname]}
-            items={topMenuItems}
+            items={topMenuItems as MenuProps['items']}
             className="desktop-menu"
             style={{
               flex: 1,
@@ -418,7 +421,7 @@ export default function Navigation({ children }: NavigationProps) {
           theme="dark"
           mode="horizontal"
           selectedKeys={[pathname]}
-          items={bottomMenuItems}
+          items={bottomMenuItems as MenuProps['items']}
           style={{
             borderBottom: 'none',
             display: 'flex',
@@ -438,7 +441,7 @@ export default function Navigation({ children }: NavigationProps) {
         <Menu
           mode="inline"
           selectedKeys={[pathname]}
-          items={topMenuItems}
+          items={topMenuItems as MenuProps['items']}
           onClick={() => setDrawerOpen(false)}
         />
       </Drawer>

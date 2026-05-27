@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getAuthUser } from '@/lib/api/middleware';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/export
  * Export data to JSON (can be converted to Excel/CSV on client)
- * 
+ *
  * Query params:
  * - type: 'converts' | 'progress' | 'attendance' | 'all'
  * - group_id: Filter by group
@@ -17,8 +18,12 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    // Rate limit before any DB work
+    const rateLimitResponse = await checkRateLimit(request, '/api/export');
+    if (rateLimitResponse) return rateLimitResponse;
+
+    // Use cookie-aware auth helper (checks cookie first, then Bearer header)
+    const userPayload = getAuthUser(request);
 
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -58,7 +63,7 @@ export async function GET(request: NextRequest) {
         ]
       });
 
-      data.converts = converts.map((nc: any) => ({
+      data.converts = converts.map((nc) => ({
         id: nc.id,
         first_name: nc.firstName,
         last_name: nc.lastName,
@@ -98,7 +103,7 @@ export async function GET(request: NextRequest) {
       const progressData: unknown[] = [];
       for (const nc of converts) {
         for (const m of milestones) {
-          const pr = nc.progressRecords.find((p: any) => p.stageNumber === m.stageNumber);
+          const pr = nc.progressRecords.find((p) => p.stageNumber === m.stageNumber);
           progressData.push({
             first_name: nc.firstName,
             last_name: nc.lastName,
@@ -133,7 +138,7 @@ export async function GET(request: NextRequest) {
         ]
       });
 
-      data.attendance = attendanceRecords.map((ar: any) => ({
+      data.attendance = attendanceRecords.map((ar) => ({
         first_name: ar.person.firstName,
         last_name: ar.person.lastName,
         phone_number: ar.person.phoneNumber,
@@ -163,15 +168,15 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' }
       });
 
-      data.summary = groups.map((g: any) => ({
+      data.summary = groups.map((g) => ({
         group_name: g.name,
         group_year: g.year,
         total_converts: g._count.newConverts,
         completed_milestones: g.newConverts.reduce(
-          (sum: number, nc: any) => sum + nc.progressRecords.length, 0
+          (sum, nc) => sum + nc.progressRecords.length, 0
         ),
         total_attendance_records: g.newConverts.reduce(
-          (sum: number, nc: any) => sum + nc.attendanceRecords.length, 0
+          (sum, nc) => sum + nc.attendanceRecords.length, 0
         ),
       }));
     }

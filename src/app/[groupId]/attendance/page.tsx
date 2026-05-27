@@ -10,6 +10,7 @@ import AppBreadcrumb from '@/components/AppBreadcrumb';
 import dayjs from 'dayjs';
 import { useThemeStyles } from '@/lib/theme-utils';
 import { api } from '@/lib/api';
+import type { GroupApiData, PersonApiData } from '@/lib/types/api-responses';
 
 const { Title, Text } = Typography;
 
@@ -62,20 +63,20 @@ function AttendancePageContent() {
         const response = await api.groups.list({ active: true });
         
         if (response.success && response.data) {
-          const groups = response.data.groups || [];
+          const groups: GroupApiData[] = response.data.groups || [];
 
           // Find the selected group
-          const selectedGroup = groups.find((g: any) => g.id === groupId);
+          const selectedGroup = groups.find((g) => g.id === groupId);
           if (!selectedGroup) {
             throw new Error('Group not found');
           }
 
           // Filter by the group's month name to find all instances across years
           const monthName = selectedGroup.name;
-          const matchingGroups = groups.filter((g: any) => g.name.toLowerCase() === monthName.toLowerCase());
+          const matchingGroups = groups.filter((g) => g.name.toLowerCase() === monthName.toLowerCase());
 
           // Extract unique years
-          const years = Array.from(new Set(matchingGroups.map((g: any) => g.year))) as number[];
+          const years = Array.from(new Set(matchingGroups.map((g) => g.year))) as number[];
           years.sort((a, b) => b - a); // Descending order (newest first)
 
           setAvailableYears(years);
@@ -129,18 +130,18 @@ function AttendancePageContent() {
       if (!response.success) throw new Error('Failed to fetch people');
 
       // Map the optimized response to attendance format
-      const peopleWithAttendance = (response.data?.people || []).map((person: any) => ({
+      const peopleWithAttendance = ((response.data as { people?: PersonApiData[] })?.people || []).map((person) => ({
         id: person.id,
-        full_name: person.full_name,
-        group_name: person.group_name,
+        full_name: person.full_name ?? '',
+        group_name: person.group_name ?? '',
         phone_number: person.phone_number,
         attendanceCount: person.attendance_count || 0,
         percentage: Math.min(Math.round(((person.attendance_count || 0) / ATTENDANCE_GOAL) * 100), 100),
       }));
 
       setPeople(peopleWithAttendance);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to load people');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Failed to load people');
     } finally {
       setLoading(false);
     }
@@ -164,8 +165,8 @@ function AttendancePageContent() {
 
       message.success('Attendance marked successfully!');
       fetchPeople();
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to mark attendance';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to mark attendance';
       if (errorMsg.includes('duplicate') || errorMsg.includes('already')) {
         message.warning('Attendance already marked for this date');
       } else if (errorMsg.includes('not found')) {
@@ -212,8 +213,8 @@ function AttendancePageContent() {
 
       setSelectedRowKeys([]);
       fetchPeople();
-    } catch (error: any) {
-      message.error(error.message || 'Failed to mark attendance');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : 'Failed to mark attendance');
     } finally {
       setBulkMarking(false);
     }
@@ -259,7 +260,7 @@ function AttendancePageContent() {
       key: 'actions',
       width: 150,
       fixed: 'left' as const,
-      render: (_: any, record: PersonAttendance) => (
+      render: (_: unknown, record: PersonAttendance) => (
         <Button
           size="small"
           type="primary"
@@ -273,7 +274,7 @@ function AttendancePageContent() {
     {
       title: 'Attendance Progress',
       key: 'attendance',
-      render: (_: any, record: PersonAttendance) => (
+      render: (_: unknown, record: PersonAttendance) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <Progress

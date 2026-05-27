@@ -84,16 +84,23 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
   React.useEffect(() => {
     const loadPresetsAndTemplates = async () => {
       try {
-        const presetsRes = await fetch('/api/filters?type=presets');
-        const templatesRes = await fetch('/api/filters?type=templates');
+        const [presetsRes, templatesRes] = await Promise.all([
+          fetch('/api/filters?type=presets', { credentials: 'include' }),
+          fetch('/api/filters?type=templates', { credentials: 'include' }),
+        ]);
 
-        const presetsData = await presetsRes.json();
-        const templatesData = await templatesRes.json();
+        if (presetsRes.ok) {
+          const presetsData = await presetsRes.json();
+          setPresets(presetsData.presets || {});
+        }
 
-        setPresets(presetsData.presets || {});
-        setTemplates(templatesData.templates || []);
+        if (templatesRes.ok) {
+          const templatesData = await templatesRes.json();
+          setTemplates(templatesData.templates || []);
+        }
       } catch (error) {
         console.error('Failed to load presets:', error);
+        // Non-fatal: filters still work without server presets
       }
     };
 
@@ -111,7 +118,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
   }, [filters]);
 
   // Update filter
-  const handleUpdateFilter = (index: number, field: keyof SearchFilter, value: any) => {
+  const handleUpdateFilter = (index: number, field: keyof SearchFilter, value: SearchFilter[keyof SearchFilter]) => {
     const updated = [...filters];
     updated[index] = {
       ...updated[index],
@@ -202,7 +209,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
       dataIndex: 'field',
       key: 'field',
       width: 150,
-      render: (_: any, record: SearchFilter, index: number) => (
+      render: (_: unknown, record: SearchFilter, index: number) => (
         <Select
           style={{ width: '100%' }}
           placeholder="Select field"
@@ -217,7 +224,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
       dataIndex: 'operator',
       key: 'operator',
       width: 140,
-      render: (_: any, record: SearchFilter, index: number) => (
+      render: (_: unknown, record: SearchFilter, index: number) => (
         <Select
           style={{ width: '100%' }}
           value={record.operator}
@@ -230,7 +237,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
       title: 'Value',
       dataIndex: 'value',
       key: 'value',
-      render: (_: any, record: SearchFilter, index: number) => {
+      render: (_: unknown, record: SearchFilter, index: number) => {
         const isDateField = ['createdAt', 'updatedAt'].includes(record.field);
         const isNumericField = ['riskScore', 'daysSinceLastAttendance', 'daysSinceLastMilestone'].includes(
           record.field
@@ -257,7 +264,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
           return (
             <DatePicker
               style={{ width: '100%' }}
-              value={record.value ? dayjs(record.value) : null}
+              value={record.value ? dayjs(record.value as string | number | Date) : null}
               onChange={(date) => handleUpdateFilter(index, 'value', date?.toDate())}
             />
           );
@@ -268,7 +275,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
             <Input
               type="number"
               placeholder="Enter value"
-              value={record.value}
+              value={record.value as string | number | undefined}
               onChange={(e) => handleUpdateFilter(index, 'value', parseInt(e.target.value) || 0)}
             />
           );
@@ -277,7 +284,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
         return (
           <Input
             placeholder="Enter value"
-            value={record.value}
+            value={record.value as string | number | undefined}
             onChange={(e) => handleUpdateFilter(index, 'value', e.target.value)}
           />
         );
@@ -287,7 +294,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
       title: 'Actions',
       key: 'actions',
       width: 100,
-      render: (_: any, __: SearchFilter, index: number) => (
+      render: (_: unknown, __: SearchFilter, index: number) => (
         <Space>
           <Tooltip title="Duplicate">
             <Button

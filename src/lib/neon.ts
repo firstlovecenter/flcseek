@@ -22,7 +22,7 @@ function measureQuery(label: string) {
   };
 }
 
-export async function query(text: string, params?: any[]) {
+export async function query(text: string, params?: unknown[]) {
   const endMeasure = measureQuery(text.substring(0, 50));
   const client = await pool.connect();
   try {

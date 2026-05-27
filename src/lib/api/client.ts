@@ -1,25 +1,23 @@
 /**
  * API Client for v1 endpoints
  * Provides typed, consistent access to all API endpoints
+ *
+ * Authentication is handled exclusively via the httpOnly `auth_token` cookie
+ * sent automatically on every request through `credentials: 'include'`.
+ * The JWT is no longer read from localStorage.
  */
-
-// Get auth token from localStorage (client-side only)
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
-}
 
 type FetchOptions = Omit<RequestInit, 'headers'> & {
   params?: Record<string, string | number | boolean | undefined>;
 };
 
-interface APIResponse<T = any> {
+interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   meta?: {
     total?: number;
@@ -33,16 +31,7 @@ class APIClient {
   private baseUrl = '/api';
 
   private getHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
+    return { 'Content-Type': 'application/json' };
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
@@ -103,7 +92,7 @@ class APIClient {
     return this.request<T>(path, { method: 'GET', params });
   }
 
-  async post<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
+  async post<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
     return this.request<T>(path, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -111,7 +100,7 @@ class APIClient {
     });
   }
 
-  async put<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
+  async put<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
     return this.request<T>(path, {
       method: 'PUT',
       body: JSON.stringify(body),
@@ -119,7 +108,7 @@ class APIClient {
     });
   }
 
-  async patch<T = any>(path: string, body?: any, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
+  async patch<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
     return this.request<T>(path, {
       method: 'PATCH',
       body: JSON.stringify(body),
@@ -176,7 +165,7 @@ class APIClient {
 
     delete: (id: string) => this.delete(`/people/${id}`),
 
-    bulkCreate: (people: any[], skipDuplicates = true) =>
+    bulkCreate: (people: Record<string, unknown>[], skipDuplicates = true) =>
       this.post('/people/bulk', { people, skipDuplicates }),
   };
 

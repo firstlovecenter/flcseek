@@ -142,6 +142,7 @@ export default function GroupsManagementPage() {
     try {
       const response = await fetch(`/api/superadmin/groups/${groupId}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -170,6 +171,7 @@ export default function GroupsManagementPage() {
         try {
           await fetch(`/api/superadmin/groups/${groupId}`, {
             method: 'DELETE',
+            credentials: 'include',
             headers: { Authorization: `Bearer ${token}` },
           });
           message.success('Group deleted successfully');
@@ -181,7 +183,7 @@ export default function GroupsManagementPage() {
     });
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
     try {
       const url = editingGroup
         ? `/api/superadmin/groups/${editingGroup.id}`
@@ -196,6 +198,7 @@ export default function GroupsManagementPage() {
 
       const response = await fetch(url, {
         method,
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -271,7 +274,7 @@ export default function GroupsManagementPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: Group) => (
+      render: (_: unknown, record: Group) => (
         <Space>
           <Button
             type="link"

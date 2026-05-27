@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     
     // Build base conditions
     const conditions: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | boolean)[] = [];
     let paramIndex = 1;
     
     if (filters.groupId) {

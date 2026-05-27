@@ -66,6 +66,7 @@ export default function NewConvertsManagementPage() {
   const fetchConverts = async () => {
     try {
       const response = await fetch('/api/superadmin/converts', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -83,11 +84,11 @@ export default function NewConvertsManagementPage() {
       // Extract unique years
       const uniqueYears = Array.from(
         new Set(
-          data.converts
-            .map((c: Convert) => c.group_year)
+          (data.converts as Convert[])
+            .map((c) => c.group_year)
             .filter((year): year is number => typeof year === 'number')
         )
-      ).sort((a: number, b: number) => b - a) as number[];
+      ).sort((a, b) => b - a) as number[];
       setYears(uniqueYears);
     } catch (error) {
       console.error('Failed to fetch converts');
@@ -100,7 +101,7 @@ export default function NewConvertsManagementPage() {
     try {
       const response = await api.milestones.list();
       if (response.success) {
-        const activeMilestones = response.data?.filter((m: any) => m.is_active) || [];
+        const activeMilestones = response.data?.filter((m: { is_active?: boolean }) => m.is_active) || [];
         setTotalMilestones(activeMilestones.length);
       }
     } catch (error) {
@@ -111,6 +112,7 @@ export default function NewConvertsManagementPage() {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/superadmin/converts/stats', {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -154,6 +156,7 @@ export default function NewConvertsManagementPage() {
       params.append('format', format);
       
       const response = await fetch(`/api/export?${params}`, {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -263,7 +266,7 @@ export default function NewConvertsManagementPage() {
     {
       title: 'Progress',
       key: 'progress',
-      render: (_: any, record: Convert) => (
+      render: (_: unknown, record: Convert) => (
         <div>
           <div>Stages: {record.completed_stages}/{totalMilestones}</div>
           <div>Attendance: {record.total_attendance}</div>

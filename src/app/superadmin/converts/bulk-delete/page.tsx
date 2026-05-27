@@ -215,7 +215,7 @@ export default function BulkDeleteConvertsPage() {
       ),
       key: 'select',
       width: 50,
-      render: (_: any, record: Convert) => (
+      render: (_: unknown, record: Convert) => (
         <Checkbox
           checked={selectedIds.has(record.id)}
           onChange={(e) => handleSelectChange(record.id, e.target.checked)}

@@ -40,7 +40,7 @@ export async function GET(
       ]
     });
 
-    const groups = userGroups.map((ug: any) => ({
+    const groups = userGroups.map((ug) => ({
       id: ug.id,
       group_id: ug.groupId,
       group_name: ug.group.name,

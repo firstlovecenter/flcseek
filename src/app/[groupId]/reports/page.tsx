@@ -37,6 +37,7 @@ import { CohortAnalysisDashboard } from '@/components/CohortAnalysisDashboard';
 import { GrowthForecastDashboard } from '@/components/GrowthForecastDashboard';
 import { BulkActionsUI } from '@/components/BulkActionsUI';
 import { ReportTemplateBuilder } from '@/components/ReportTemplateBuilder';
+import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
 import { AchievementBadgesDashboard } from '@/components/AchievementBadgesDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -47,6 +48,7 @@ import { ATTENDANCE_GOAL } from '@/lib/constants';
 import dayjs from 'dayjs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import type { MilestoneData, PersonApiData, GroupApiData, AttendanceRecord } from '@/lib/types/api-responses';
 
 const { Title, Text } = Typography;
 
@@ -85,8 +87,8 @@ export default function ReportsPage() {
 
   const [loading, setLoading] = useState(true);
   const [reportType, setReportType] = useState('summary');
-  const [people, setPeople] = useState<any[]>([]);
-  const [milestones, setMilestones] = useState<any[]>([]);
+  const [people, setPeople] = useState<PersonApiData[]>([]);
+  const [milestones, setMilestones] = useState<MilestoneData[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [milestoneSummaries, setMilestoneSummaries] = useState<MilestoneSummary[]>([]);
   const [convertDetails, setConvertDetails] = useState<ConvertDetail[]>([]);
@@ -116,15 +118,15 @@ export default function ReportsPage() {
     try {
       const response = await api.groups.list({ active: true });
       if (response.success && response.data) {
-        const groups = response.data.groups || [];
-        const selectedGroup = groups.find((g: any) => g.id === groupId);
+        const groups: GroupApiData[] = (response.data.groups as GroupApiData[]) || [];
+        const selectedGroup = groups.find((g) => g.id === groupId);
         if (!selectedGroup) {
           throw new Error('Group not found');
         }
 
         const monthName = selectedGroup.name;
-        const matchingGroups = groups.filter((g: any) => g.name.toLowerCase() === monthName.toLowerCase());
-        const years = Array.from(new Set(matchingGroups.map((g: any) => g.year))) as number[];
+        const matchingGroups = groups.filter((g) => g.name.toLowerCase() === monthName.toLowerCase());
+        const years = Array.from(new Set(matchingGroups.map((g) => g.year))) as number[];
         years.sort((a, b) => b - a);
 
         setGroupName(monthName);
@@ -160,13 +162,13 @@ export default function ReportsPage() {
 
       if (!peopleResponse.success) throw new Error('Failed to fetch people');
 
-      const peopleData = peopleResponse.data?.people || [];
-      const totalMilestones = peopleResponse.data?.totalMilestones || 18;
+      const peopleData: PersonApiData[] = (peopleResponse.data?.people as PersonApiData[]) || [];
+      const totalMilestones: number = (peopleResponse.data?.totalMilestones as number) || 18;
 
       // Fetch milestones
       const milestonesResponse = await api.milestones.list();
       if (milestonesResponse.success) {
-        setMilestones(milestonesResponse.data?.milestones || []);
+        setMilestones((milestonesResponse.data?.milestones as MilestoneData[]) || []);
       }
 
       // Fetch attendance records
@@ -175,9 +177,9 @@ export default function ReportsPage() {
       });
 
       // Process data
-      processPeopleData(peopleData, attendanceResponse.data?.attendance || [], totalMilestones, milestonesResponse.data?.milestones || []);
+      processPeopleData(peopleData, (attendanceResponse.data?.attendance as AttendanceRecord[]) || [], totalMilestones, (milestonesResponse.data?.milestones as MilestoneData[]) || []);
       setPeople(peopleData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch report data:', error);
       message.error('Failed to load report data');
     } finally {
@@ -185,10 +187,10 @@ export default function ReportsPage() {
     }
   };
 
-  const processPeopleData = (peopleData: any[], attendanceRecords: any[], totalMilestones: number, milestonesData: any[]) => {
+  const processPeopleData = (peopleData: PersonApiData[], attendanceRecords: AttendanceRecord[], totalMilestones: number, milestonesData: MilestoneData[]) => {
     // Attendance Summary
-    const withAttendance = peopleData.filter((p: any) => (p.attendance_count || 0) > 0).length;
-    const totalAttendance = peopleData.reduce((sum, p: any) => sum + (p.attendance_count || 0), 0);
+    const withAttendance = peopleData.filter((p) => (p.attendance_count || 0) > 0).length;
+    const totalAttendance = peopleData.reduce((sum, p) => sum + (p.attendance_count || 0), 0);
     const avgAttendance = peopleData.length > 0 ? totalAttendance / peopleData.length : 0;
 
     setAttendanceSummary({
@@ -201,19 +203,19 @@ export default function ReportsPage() {
     // Milestone Summaries
     const milestoneSums: Record<number, { completed: number; total: number }> = {};
     
-    milestonesData.forEach((m: any) => {
+    milestonesData.forEach((m) => {
       milestoneSums[m.stage_number] = { completed: 0, total: peopleData.length };
     });
 
-    peopleData.forEach((person: any) => {
-      (person.progress || []).forEach((p: any) => {
+    peopleData.forEach((person) => {
+      (person.progress || []).forEach((p) => {
         if (p.is_completed && milestoneSums[p.stage_number]) {
           milestoneSums[p.stage_number].completed++;
         }
       });
     });
 
-    const summaries = milestonesData.map((m: any) => ({
+    const summaries = milestonesData.map((m) => ({
       stageNumber: m.stage_number,
       stageName: m.stage_name,
       completed: milestoneSums[m.stage_number]?.completed || 0,
@@ -224,15 +226,15 @@ export default function ReportsPage() {
     setMilestoneSummaries(summaries);
 
     // Convert Details
-    const details = peopleData.map((person: any) => ({
+    const details = peopleData.map((person) => ({
       id: person.id,
-      full_name: person.full_name,
+      full_name: person.full_name ?? `${person.first_name} ${person.last_name}`,
       phone_number: person.phone_number,
       attendanceCount: person.attendance_count || 0,
       attendancePercentage: Math.min(Math.round(((person.attendance_count || 0) / ATTENDANCE_GOAL) * 100), 100),
-      milestonesCompleted: (person.progress || []).filter((p: any) => p.is_completed).length,
+      milestonesCompleted: (person.progress || []).filter((p) => p.is_completed).length,
       totalMilestones,
-      milestonePercentage: Math.round(((person.progress?.filter((p: any) => p.is_completed).length || 0) / totalMilestones) * 100),
+      milestonePercentage: Math.round(((person.progress?.filter((p) => p.is_completed).length || 0) / totalMilestones) * 100),
     }));
 
     setConvertDetails(details);
@@ -295,7 +297,7 @@ export default function ReportsPage() {
         margin: { left: 14, right: 14 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
     };
 
     const addMilestonesTable = () => {
@@ -331,7 +333,7 @@ export default function ReportsPage() {
         },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
     };
 
     const addAttendanceTable = () => {
@@ -369,7 +371,7 @@ export default function ReportsPage() {
         },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
     };
 
     const addPerformanceTable = () => {
@@ -414,7 +416,7 @@ export default function ReportsPage() {
         },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
     };
 
     // Generate content based on type
@@ -605,7 +607,7 @@ export default function ReportsPage() {
     {
       title: 'Progress',
       key: 'progress',
-      render: (_: any, record: ConvertDetail) => (
+      render: (_: unknown, record: ConvertDetail) => (
         <div style={{ width: 150 }}>
           <Progress
             percent={record.attendancePercentage}
@@ -639,7 +641,7 @@ export default function ReportsPage() {
     {
       title: 'Progress',
       key: 'progress',
-      render: (_: any, record: MilestoneSummary) => (
+      render: (_: unknown, record: MilestoneSummary) => (
         <div style={{ width: 200 }}>
           <Progress
             percent={record.percentage}
@@ -667,7 +669,7 @@ export default function ReportsPage() {
     {
       title: 'Attendance',
       key: 'attendance',
-      render: (_: any, record: ConvertDetail) => (
+      render: (_: unknown, record: ConvertDetail) => (
         <Tooltip title={`${record.attendanceCount}/${ATTENDANCE_GOAL} Sundays`}>
           <Progress
             type="circle"
@@ -681,7 +683,7 @@ export default function ReportsPage() {
     {
       title: 'Milestones',
       key: 'milestones',
-      render: (_: any, record: ConvertDetail) => (
+      render: (_: unknown, record: ConvertDetail) => (
         <Tooltip title={`${record.milestonesCompleted}/${record.totalMilestones} milestones`}>
           <Progress
             type="circle"
@@ -695,7 +697,7 @@ export default function ReportsPage() {
     {
       title: 'Overall Progress',
       key: 'overall',
-      render: (_: any, record: ConvertDetail) => {
+      render: (_: unknown, record: ConvertDetail) => {
         const overall = Math.round((record.attendancePercentage + record.milestonePercentage) / 2);
         return (
           <Tag
@@ -1046,11 +1048,13 @@ export default function ReportsPage() {
                         Build reusable report templates with custom sections and metrics.
                       </Text>
                     </div>
-                    <ReportTemplateBuilder
-                      groupId={groupId}
-                      userId={user?.id || 'system'}
-                      token={token || undefined}
-                    />
+                    <WidgetErrorBoundary>
+                      <ReportTemplateBuilder
+                        groupId={groupId}
+                        userId={user?.id || 'system'}
+                        token={token || undefined}
+                      />
+                    </WidgetErrorBoundary>
                   </Card>
                 </div>
               ),
