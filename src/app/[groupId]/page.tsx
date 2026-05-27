@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, memo, useMemo, Suspense } from 'react';
-import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb, DatePicker, Card, Progress, Empty } from 'antd';
+import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb, DatePicker, Card, Progress, Empty, Tag, Checkbox } from 'antd';
 import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, HomeOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Key } from 'react';
@@ -115,9 +115,183 @@ interface PersonWithProgress {
   }>;
 }
 
+type Milestone = {
+  number: number;
+  name: string;
+  shortName: string;
+  description: string;
+  isAutoCalculated: boolean;
+};
+
+// Mobile-only per-person progress card. Replaces the 18-column matrix table on
+// phones (<768px): a progress ring plus the next uncompleted milestones as
+// full-width 44px tap rows, expandable to the full list. Desktop keeps the table.
+const PersonProgressCard = memo(({
+  person,
+  milestones,
+  isReadOnly,
+  updating,
+  onToggle,
+  onOpenPerson,
+  selectable,
+  selected,
+  onSelectChange,
+}: {
+  person: PersonWithProgress;
+  milestones: Milestone[];
+  isReadOnly: boolean;
+  updating: string | null;
+  onToggle: (personId: string, stageNumber: number, currentStatus: boolean) => void;
+  onOpenPerson: (id: string) => void;
+  selectable: boolean;
+  selected: boolean;
+  onSelectChange: (id: string, checked: boolean) => void;
+}) => {
+  const themeStyles = useThemeStyles();
+  const [expanded, setExpanded] = useState(false);
+
+  const statusOf = (stageNumber: number) =>
+    person.progress.find((p) => p.stage_number === stageNumber)?.is_completed || false;
+
+  const sorted = [...milestones].sort((a, b) => a.number - b.number);
+  const completed = sorted.filter((m) => statusOf(m.number)).length;
+  const total = sorted.length;
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const upcoming = sorted.filter((m) => !statusOf(m.number));
+  const visible = expanded ? sorted : upcoming.slice(0, 3);
+
+  return (
+    <Card size="small" style={{ marginBottom: 12, borderRadius: 12 }} styles={{ body: { padding: 14 } }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {selectable && (
+          <Checkbox
+            checked={selected}
+            onChange={(e) => onSelectChange(person.id, e.target.checked)}
+          />
+        )}
+        <Progress
+          type="circle"
+          percent={pct}
+          size={46}
+          strokeColor={themeStyles.success}
+          format={(p) => <span style={{ fontSize: 12, fontWeight: 700 }}>{p}%</span>}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Button
+            type="link"
+            onClick={() => onOpenPerson(person.id)}
+            style={{ padding: 0, height: 'auto', maxWidth: '100%' }}
+          >
+            <Text strong style={{ fontSize: 15 }} ellipsis>{person.full_name}</Text>
+          </Button>
+          <div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {completed} of {total} milestones complete
+            </Text>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {upcoming.length === 0 && !expanded ? (
+          <div
+            style={{
+              minHeight: 44,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 8,
+              background: themeStyles.successBg,
+              border: `1px solid ${themeStyles.successBorder}`,
+              color: themeStyles.success,
+              fontWeight: 600,
+              fontSize: 13,
+            }}
+          >
+            All milestones complete
+          </div>
+        ) : (
+          visible.map((m) => {
+            const done = statusOf(m.number);
+            const isUpdating = updating === `${person.id}-${m.number}`;
+            const editable = !isReadOnly && !m.isAutoCalculated;
+            const row = (
+              <div
+                onClick={editable ? () => onToggle(person.id, m.number, done) : undefined}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 10,
+                  minHeight: 44,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  background: done ? themeStyles.successBg : themeStyles.errorBg,
+                  border: `1px solid ${done ? themeStyles.successBorder : themeStyles.errorBorder}`,
+                  cursor: editable ? 'pointer' : 'default',
+                  opacity: m.isAutoCalculated ? 0.7 : 1,
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <Tag color="blue" style={{ margin: 0, flexShrink: 0 }}>
+                    M{m.number.toString().padStart(2, '0')}
+                  </Tag>
+                  <Text style={{ fontSize: 13 }} ellipsis>{m.name}</Text>
+                </span>
+                {isUpdating ? (
+                  <Spin size="small" />
+                ) : (
+                  <span
+                    style={{
+                      width: 28,
+                      height: 28,
+                      flexShrink: 0,
+                      borderRadius: '50%',
+                      background: done ? themeStyles.success : themeStyles.error,
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {done ? '✓' : '✗'}
+                  </span>
+                )}
+              </div>
+            );
+            return (
+              <div key={m.number}>
+                {m.isAutoCalculated ? (
+                  <Tooltip title={`${m.name} (auto-calculated)`}>{row}</Tooltip>
+                ) : (
+                  row
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {total > 0 && (
+        <Button
+          type="link"
+          block
+          onClick={() => setExpanded((v) => !v)}
+          style={{ marginTop: 6 }}
+        >
+          {expanded ? 'Show fewer' : `Show all ${total} milestones`}
+        </Button>
+      )}
+    </Card>
+  );
+});
+PersonProgressCard.displayName = 'PersonProgressCard';
+
 export default function SheepSeekerDashboard() {
   return (
-    <Suspense fallback={<div style={{ padding: '50px', textAlign: 'center' }}><Spin size="large" tip="Loading..." /></div>}>
+    <Suspense fallback={<div style={{ padding: '50px', textAlign: 'center' }}><Spin size="large" /><div style={{ marginTop: 12, color: 'rgba(0,0,0,0.45)' }}>Loading...</div></div>}>
       <SheepSeekerDashboardContent />
     </Suspense>
   );
@@ -508,8 +682,9 @@ function SheepSeekerDashboardContent() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" tip="Loading dashboard..." />
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center' }}>
+        <Spin size="large" />
+        <Text type="secondary">Loading dashboard...</Text>
       </div>
     );
   }
@@ -631,30 +806,55 @@ function SheepSeekerDashboardContent() {
           </div>
         </div>
 
-        {/* Milestone Grid Table */}
-        <Table
-          columns={columns}
-          dataSource={filteredPeople}
-          rowSelection={canDeleteConverts ? {
-            selectedRowKeys: selectedIds,
-            onChange: (keys) => setSelectedIds(keys),
-          } : undefined}
-          rowKey="id"
-          size="small"
-          className="compact-milestone-table"
-          sticky={{ offsetHeader: 128 }}
-          scroll={{ x: 'max-content', y: 'calc(100vh - 128px)' }}
-          pagination={{
-            defaultPageSize: 50,
-            showSizeChanger: true,
-            pageSizeOptions: ['20', '50', '100'],
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} people`,
-          }}
-          style={{
-            background: 'white',
-            borderRadius: 8,
-          }}
-        />
+        {/* Mobile: per-person progress cards. Desktop: milestone matrix table. */}
+        {isMobile ? (
+          <div style={{ marginTop: 4 }}>
+            {filteredPeople.length === 0 ? (
+              <Empty description="No people found" style={{ marginTop: 48 }} />
+            ) : (
+              filteredPeople.map((person) => (
+                <PersonProgressCard
+                  key={person.id}
+                  person={person}
+                  milestones={milestones}
+                  isReadOnly={isReadOnly}
+                  updating={updating}
+                  onToggle={toggleMilestone}
+                  onOpenPerson={(id) => router.push(`/${groupId}/person/${id}`)}
+                  selectable={canDeleteConverts}
+                  selected={selectedIds.includes(person.id)}
+                  onSelectChange={(id, checked) =>
+                    setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((k) => k !== id)))
+                  }
+                />
+              ))
+            )}
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={filteredPeople}
+            rowSelection={canDeleteConverts ? {
+              selectedRowKeys: selectedIds,
+              onChange: (keys) => setSelectedIds(keys),
+            } : undefined}
+            rowKey="id"
+            size="small"
+            className="compact-milestone-table"
+            sticky={{ offsetHeader: 128 }}
+            scroll={{ x: 'max-content', y: 'calc(100vh - 128px)' }}
+            pagination={{
+              defaultPageSize: 50,
+              showSizeChanger: true,
+              pageSizeOptions: ['20', '50', '100'],
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} people`,
+            }}
+            style={{
+              background: 'white',
+              borderRadius: 8,
+            }}
+          />
+        )}
       </div>
 
       <Modal
@@ -663,7 +863,7 @@ function SheepSeekerDashboardContent() {
         onCancel={() => setRegisterModalVisible(false)}
         okText="Register"
         onOk={() => form.submit()}
-        destroyOnClose
+        destroyOnHidden
         width={500}
       >
         <Form form={form} layout="vertical" onFinish={handleRegister}>
