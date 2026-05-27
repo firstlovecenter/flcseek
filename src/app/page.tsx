@@ -6,7 +6,6 @@ import { CheckCircleOutlined, TeamOutlined, CalendarOutlined, DownOutlined, Home
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { useTheme } from '@/components/AppConfigProvider';
 import { CURRENT_YEAR } from '@/lib/constants';
 
 const { Title, Text } = Typography;
@@ -37,7 +36,6 @@ export default function RootPage() {
   const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [activeKeys, setActiveKeys] = useState<string[]>([CURRENT_YEAR.toString()]);
-  const { isDark } = useTheme();
   const { token: antdToken } = useToken();
 
   useEffect(() => {
@@ -159,8 +157,9 @@ export default function RootPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" tip="Loading..." />
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center' }}>
+        <Spin size="large" />
+        <Text type="secondary">Loading...</Text>
       </div>
     );
   }
@@ -172,11 +171,11 @@ export default function RootPage() {
   // Show leadpastor/overseer view with collapsible years
   if (user.role === 'leadpastor' || user.role === 'overseer') {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: isDark ? '#141414' : '#f5f5f5' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
         {/* Header Section */}
         <div style={{ 
-          backgroundColor: isDark ? '#1f1f1f' : '#ffffff',
-          borderBottom: `1px solid ${isDark ? '#434343' : '#e8e8e8'}`,
+          backgroundColor: '#ffffff',
+          borderBottom: `1px solid #e8e8e8`,
           padding: '16px 24px'
         }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -287,11 +286,11 @@ export default function RootPage() {
 
   // Show admin/leader view with year filter
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: isDark ? '#141414' : '#f5f5f5' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       {/* Header Section */}
       <div style={{ 
-        backgroundColor: isDark ? '#1f1f1f' : '#ffffff',
-        borderBottom: `1px solid ${isDark ? '#434343' : '#e8e8e8'}`,
+        backgroundColor: '#ffffff',
+        borderBottom: `1px solid #e8e8e8`,
         padding: '16px 24px'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -347,7 +346,7 @@ export default function RootPage() {
                   cursor: 'pointer',
                   borderRadius: 12,
                   border: selectedGroupId === group.id ? `2px solid ${antdToken.colorPrimary}` : undefined,
-                  background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#fff',
+                  background: '#fff',
                   transition: 'all 0.3s',
                 }}
                 onClick={() => handleSelectGroup(group.id)}
