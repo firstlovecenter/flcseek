@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Badge, Dropdown, Typography, Spin, Empty, Button, List, Avatar, message, Tooltip } from 'antd';
+import { Badge, Dropdown, Typography, Spin, Empty, Button, List, Avatar, Tooltip, App } from 'antd';
 import { 
   BellOutlined, 
   GiftOutlined, 
@@ -43,6 +43,7 @@ interface Notification {
  */
 export default function NotificationBell() {
   const { token, user } = useAuth();
+  const { message } = App.useApp();
   const themeStyles = useThemeStyles();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);

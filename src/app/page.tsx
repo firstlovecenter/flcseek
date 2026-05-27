@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Card, Button, Typography, Spin, message, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox, Divider } from 'antd';
-import { CheckCircleOutlined, TeamOutlined, CalendarOutlined, DownOutlined, HomeOutlined } from '@ant-design/icons';
+import { Card, Button, Typography, Spin, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox, Divider, App } from 'antd';
+import { TeamOutlined, CalendarOutlined, DownOutlined, HomeOutlined, RightOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -26,8 +26,97 @@ interface GroupsByYear {
   [year: number]: Group[];
 }
 
+// Unified, refined group card. One brand accent, consistent shape, quiet hover.
+function GroupCard({ group, selected, onSelect }: { group: Group; selected: boolean; onSelect: (id: string) => void }) {
+  return (
+    <Card
+      hoverable
+      onClick={() => onSelect(group.id)}
+      style={{
+        borderRadius: 14,
+        border: `1px solid ${selected ? '#003366' : '#e8e8e8'}`,
+        boxShadow: selected ? '0 0 0 3px rgba(0,51,102,0.08)' : '0 1px 2px rgba(16,24,40,0.05)',
+        transition: 'border-color .2s ease, box-shadow .2s ease',
+        cursor: 'pointer',
+      }}
+      styles={{ body: { padding: 18 } }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              background: 'rgba(0,51,102,0.08)',
+              color: '#003366',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <CalendarOutlined style={{ fontSize: 18 }} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(0,0,0,0.88)', lineHeight: 1.25 }}>
+              {group.name}
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>{group.year}</div>
+          </div>
+        </div>
+        <RightOutlined style={{ color: '#003366', fontSize: 12, flexShrink: 0 }} />
+      </div>
+
+      <div
+        style={{
+          marginTop: 16,
+          paddingTop: 14,
+          borderTop: '1px solid #f0f0f0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          fontSize: 12,
+          color: 'rgba(0,0,0,0.55)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <TeamOutlined />
+          {group.member_count ?? 0} {group.member_count === 1 ? 'member' : 'members'}
+        </span>
+        {group.leader_name && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <span
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: 'rgba(0,51,102,0.1)',
+                color: '#003366',
+                fontSize: 10,
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              {group.leader_name.charAt(0).toUpperCase()}
+            </span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {group.leader_name}
+            </span>
+          </span>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export default function RootPage() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -116,15 +205,6 @@ export default function RootPage() {
     setTimeout(() => {
       router.push(`/${groupId}`);
     }, 300);
-  };
-
-  const getGroupColor = (index: number) => {
-    const colors = [
-      '#1890ff', '#52c41a', '#faad14', '#13c2c2',
-      '#eb2f96', '#722ed1', '#fa8c16', '#2f54eb',
-      '#fa541c', '#1890ff', '#722ed1', '#52c41a',
-    ];
-    return colors[index % colors.length];
   };
 
   const monthOrder: { [key: string]: number } = {
@@ -226,52 +306,14 @@ export default function RootPage() {
                   background: '#fff',
                 }}
               >
-                <Row gutter={[32, 24]} style={{ paddingTop: 8 }}>
-                  {groupsByYear[year].map((group, index) => (
+                <Row gutter={[24, 24]} style={{ paddingTop: 8 }}>
+                  {groupsByYear[year].map((group) => (
                     <Col xs={24} sm={12} md={6} lg={6} key={group.id}>
-                      <Card
-                        hoverable
-                        onClick={() => handleSelectGroup(group.id)}
-                        style={{
-                          borderRadius: 12,
-                          border: `2px solid ${getGroupColor(index)}`,
-                          transition: 'all 0.3s',
-                          cursor: 'pointer',
-                        }}
-                        bodyStyle={{
-                          padding: '20px 16px',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <CalendarOutlined
-                          style={{
-                            fontSize: 36,
-                            color: getGroupColor(index),
-                            marginBottom: 12,
-                          }}
-                        />
-                        <Title level={3} style={{ margin: '0 0 8px 0', color: getGroupColor(index), fontWeight: 700 }}>
-                          {group.name}
-                        </Title>
-                        <Space direction="vertical" size={2} style={{ width: '100%', marginTop: 6 }}>
-                          {group.leader_name && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              Leader: {group.leader_name}
-                            </Text>
-                          )}
-                          <Space size={4}>
-                            <TeamOutlined style={{ fontSize: 11 }} />
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {group.member_count} {group.member_count === 1 ? 'member' : 'members'}
-                            </Text>
-                          </Space>
-                        </Space>
-                        <div style={{ marginTop: 10 }}>
-                          <Text strong style={{ fontSize: 13, color: getGroupColor(index) }}>
-                            View Dashboard →
-                          </Text>
-                        </div>
-                      </Card>
+                      <GroupCard
+                        group={group}
+                        selected={selectedGroupId === group.id}
+                        onSelect={handleSelectGroup}
+                      />
                     </Col>
                   ))}
                 </Row>
@@ -340,54 +382,11 @@ export default function RootPage() {
           ) : (
             groups.map((group) => (
             <Col key={group.id} xs={24} sm={12} md={8}>
-              <Card
-                hoverable
-                style={{
-                  cursor: 'pointer',
-                  borderRadius: 12,
-                  border: selectedGroupId === group.id ? `2px solid ${antdToken.colorPrimary}` : undefined,
-                  background: '#fff',
-                  transition: 'all 0.3s',
-                }}
-                onClick={() => handleSelectGroup(group.id)}
-              >
-                <div style={{ textAlign: 'center' }}>
-                  <div
-                    style={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: '50%',
-                      background: antdToken.colorPrimary,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 16px',
-                      color: 'white',
-                      fontSize: 24,
-                    }}
-                  >
-                    <TeamOutlined />
-                  </div>
-                  <Title level={4} style={{ marginBottom: 8 }}>
-                    {group.name}
-                  </Title>
-                  <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-                    Year: {group.year}
-                  </Text>
-                  {selectedGroupId === group.id && (
-                    <div style={{ color: antdToken.colorSuccess, marginBottom: 12 }}>
-                      <CheckCircleOutlined /> Selected
-                    </div>
-                  )}
-                  <Button
-                    type={selectedGroupId === group.id ? 'primary' : 'default'}
-                    block
-                    onClick={() => handleSelectGroup(group.id)}
-                  >
-                    Enter Group
-                  </Button>
-                </div>
-              </Card>
+              <GroupCard
+                group={group}
+                selected={selectedGroupId === group.id}
+                onSelect={handleSelectGroup}
+              />
             </Col>
           )))}
         </Row>

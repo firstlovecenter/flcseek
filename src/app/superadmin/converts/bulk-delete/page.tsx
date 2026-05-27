@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Modal, Space, Card, Typography, Tag, Checkbox, message, Divider, Select } from 'antd';
+import { Table, Button, Input, Modal, Space, Card, Typography, Tag, Checkbox, Divider, Select, App } from 'antd';
 import { DeleteOutlined, WarningOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeStyles } from '@/lib/theme-utils';
@@ -24,6 +24,7 @@ interface Convert {
 
 export default function BulkDeleteConvertsPage() {
   const { token } = useAuth();
+  const { message, modal } = App.useApp();
   const [converts, setConverts] = useState<Convert[]>([]);
   const [filteredConverts, setFilteredConverts] = useState<Convert[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -167,7 +168,7 @@ export default function BulkDeleteConvertsPage() {
       return;
     }
 
-    Modal.confirm({
+    modal.confirm({
       title: '⚠️ Confirm Bulk Delete',
       icon: <WarningOutlined />,
       content: (

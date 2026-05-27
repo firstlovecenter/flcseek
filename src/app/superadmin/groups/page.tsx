@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Space, Modal, Form, message, Typography, Card, Select, Tag, Segmented } from 'antd';
+import { Table, Button, Input, Space, Modal, Form, Typography, Card, Select, Tag, Segmented, App } from 'antd';
 import { TeamOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, UserOutlined, InboxOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { GROUP_FILTERS, GroupFilter } from '@/lib/constants';
@@ -45,6 +45,7 @@ interface User {
 
 export default function GroupsManagementPage() {
   const { token } = useAuth();
+  const { message, modal } = App.useApp();
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -162,7 +163,7 @@ export default function GroupsManagementPage() {
   };
 
   const handleDelete = (groupId: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Group',
       content: 'Are you sure you want to delete this group? This action cannot be undone.',
       okText: 'Delete',

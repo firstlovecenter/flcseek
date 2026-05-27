@@ -313,48 +313,6 @@ body {
   font-size: 12px !important;
 }
 
-/* Stats Card Styling */
-.stats-card-primary,
-.stats-card-warning,
-.stats-card-success {
-  flex: 1 1 240px;
-  padding: 10px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-}
-
-.stats-card-primary {
-  background: linear-gradient(135deg, #0050b3 0%, #1890ff 100%);
-  border: 1px solid #1890ff;
-}
-
-.stats-card-warning {
-  background: linear-gradient(135deg, #d48806 0%, #faad14 100%);
-  border: 1px solid #faad14;
-}
-
-.stats-card-success {
-  background: linear-gradient(135deg, #389e0d 0%, #52c41a 100%);
-  border: 1px solid #52c41a;
-}
-
-/* Stats card text */
-.stats-card-label {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.95);
-  font-weight: 600;
-}
-
-.stats-card-value {
-  font-size: 36px;
-  font-weight: bold;
-  color: #fff;
-}
-
 /* Sticky controls bar */
 .sticky-controls-bar {
   position: sticky;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Modal, Select, Button, Space, message, Typography, Tag, Spin } from 'antd';
+import { Modal, Select, Button, Space, Typography, Tag, Spin, App } from 'antd';
 import { TeamOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
@@ -32,6 +32,7 @@ interface UserGroup {
 
 export default function UserGroupsModal({ visible, onClose, userId, username }: UserGroupsModalProps) {
   const { token } = useAuth();
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [allGroups, setAllGroups] = useState<Group[]>([]);

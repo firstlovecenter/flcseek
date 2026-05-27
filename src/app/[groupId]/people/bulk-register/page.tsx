@@ -8,7 +8,7 @@ import {
   Typography,
   Steps,
   Table,
-  message,
+  App,
   Alert,
   Space,
   Tag,
@@ -69,6 +69,7 @@ interface BulkUploadResult {
 
 function BulkRegisterContent() {
   const { token, user } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;

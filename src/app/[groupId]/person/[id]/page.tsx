@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography,
   Spin,
-  message,
+  App,
   Card,
   Button,
   Space,
@@ -32,6 +32,7 @@ const { useToken } = theme;
 
 export default function PersonDetailPage() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message, modal } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;
@@ -118,7 +119,7 @@ export default function PersonDetailPage() {
   const handleDelete = () => {
     if (!canDeleteConvert || !personId) return;
 
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete this convert?',
       content: 'This will soft delete the convert. Their records are preserved but hidden from active views.',
       okText: 'Delete',
@@ -222,10 +223,10 @@ export default function PersonDetailPage() {
             }}
           >
             {/* Header Section */}
-            <div 
-              style={{ 
+            <div
+              style={{
                 background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
-                padding: '32px',
+                padding: '28px 32px',
                 marginBottom: 24,
                 borderRadius: '12px 12px 0 0',
                 marginTop: -24,
@@ -233,31 +234,46 @@ export default function PersonDetailPage() {
                 marginRight: -24,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div 
-                  style={{ 
-                    width: 80,
-                    height: 80,
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    width: 76,
+                    height: 76,
                     borderRadius: '50%',
-                    background: antdToken.colorBgContainer,
+                    background: 'rgba(255,255,255,0.96)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 36,
-                    fontWeight: 'bold',
+                    fontSize: 30,
+                    fontWeight: 700,
                     color: '#003366',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                    flexShrink: 0,
                   }}
                 >
                   {person?.first_name?.charAt(0)}{person?.last_name?.charAt(0)}
                 </div>
-                <div>
-                  <Title level={2} style={{ margin: 0, color: 'white', marginBottom: 4 }}>
+                <div style={{ minWidth: 0 }}>
+                  <Title level={2} style={{ margin: 0, color: '#fff', marginBottom: 10 }}>
                     {person?.first_name} {person?.last_name}
                   </Title>
-                  <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 16 }}>
-                    <TeamOutlined /> {person?.group_name}
-                  </Text>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {person?.group_name && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 13, fontWeight: 500 }}>
+                        <CalendarOutlined /> {person.group_name}
+                      </span>
+                    )}
+                    {person?.occupation_type && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 13, fontWeight: 500 }}>
+                        <IdcardOutlined /> {person.occupation_type}
+                      </span>
+                    )}
+                    {person?.gender && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 13, fontWeight: 500 }}>
+                        <UserOutlined /> {person.gender}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
