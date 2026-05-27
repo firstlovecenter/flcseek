@@ -26,7 +26,6 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
-import { useTheme } from '@/components/AppConfigProvider';
 
 const { Title, Text } = Typography;
 const { useToken } = theme;
@@ -42,7 +41,6 @@ export default function PersonDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const { isDark } = useTheme();
   const { token: antdToken } = useToken();
   const isRegisterRestricted = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
   const canDeleteConvert = user?.role === 'leader' || user?.role === 'admin' || user?.role === 'overseer' || user?.role === 'leadpastor' || user?.role === 'superadmin';
@@ -218,7 +216,7 @@ export default function PersonDetailPage() {
           <Card 
             style={{ 
               borderRadius: 12,
-              boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.08)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
               overflow: 'hidden',
               background: antdToken.colorBgContainer,
             }}
@@ -226,9 +224,7 @@ export default function PersonDetailPage() {
             {/* Header Section */}
             <div 
               style={{ 
-                background: isDark 
-                  ? 'linear-gradient(135deg, #1677ff 0%, #1890ff 100%)'
-                  : 'linear-gradient(135deg, #003366 0%, #004080 100%)',
+                background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
                 padding: '32px',
                 marginBottom: 24,
                 borderRadius: '12px 12px 0 0',
@@ -249,7 +245,7 @@ export default function PersonDetailPage() {
                     justifyContent: 'center',
                     fontSize: 36,
                     fontWeight: 'bold',
-                    color: isDark ? antdToken.colorPrimary : '#003366',
+                    color: '#003366',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                   }}
                 >

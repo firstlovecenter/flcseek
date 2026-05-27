@@ -15,8 +15,6 @@ import {
   HomeOutlined,
   LineChartOutlined,
   ReloadOutlined,
-  BulbOutlined,
-  BulbFilled,
   OrderedListOutlined,
   AppstoreOutlined,
   EyeOutlined,
@@ -26,7 +24,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useTheme } from '@/components/AppConfigProvider';
 import { api } from '@/lib/api';
 import type { GroupApiData } from '@/lib/types/api-responses';
 
@@ -41,7 +38,6 @@ export default function Navigation({ children }: NavigationProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { isDark, toggleTheme } = useTheme();
   const [groupInfo, setGroupInfo] = useState<{ name: string; year: number } | null>(null);
 
   useEffect(() => {
@@ -334,19 +330,6 @@ export default function Navigation({ children }: NavigationProps) {
         </div>
         <Space className="desktop-user-section" size="middle">
           <Button
-            type="text"
-            icon={isDark ? <BulbOutlined /> : <BulbFilled />}
-            onClick={toggleTheme}
-            style={{ 
-              color: '#fff',
-              fontSize: '18px',
-              height: '40px',
-              padding: '0 12px',
-            }}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          />
-          <Button
             type="primary"
             danger
             icon={<LogoutOutlined />}
@@ -362,14 +345,6 @@ export default function Navigation({ children }: NavigationProps) {
         
         {/* Mobile Action Buttons */}
         <Space className="mobile-action-buttons" size="small">
-          <Button
-            type="text"
-            icon={isDark ? <BulbOutlined /> : <BulbFilled />}
-            onClick={toggleTheme}
-            style={{ color: '#fff' }}
-            title="Toggle theme"
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          />
           <Button
             type="text"
             icon={<ReloadOutlined />}
