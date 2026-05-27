@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag, Modal, Checkbox, Space } from 'antd';
+import { Table, Button, Typography, Spin, Progress, Tag, Modal, Checkbox, Space, App } from 'antd';
 import { CheckCircleOutlined, EyeOutlined, HomeOutlined, TeamOutlined, CheckOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -29,6 +29,7 @@ interface PersonProgress {
 
 export default function ProgressPage() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;

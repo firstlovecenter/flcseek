@@ -1,6 +1,6 @@
 'use client';
 
-import { Form, Input, Button, Typography, message } from 'antd';
+import { Form, Input, Button, Typography, App } from 'antd';
 import { UserOutlined, LockOutlined, HomeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
   const [form] = Form.useForm();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (!loading && user) {

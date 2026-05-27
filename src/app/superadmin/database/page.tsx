@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, Alert, Button, message, Tabs, Table, Modal, Form, Input, Select, Popconfirm, Tag } from 'antd';
+import { Card, Row, Col, Statistic, Typography, Alert, Button, Tabs, Table, Modal, Form, Input, Select, Popconfirm, Tag, App } from 'antd';
 import { DatabaseOutlined, TableOutlined, UserOutlined, TeamOutlined, HeartOutlined, CheckCircleOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -45,6 +45,7 @@ interface TableSchema {
 
 export default function DatabaseManagementPage() {
   const { token, user } = useAuth();
+  const { message } = App.useApp();
   const [dbInfo, setDbInfo] = useState<DatabaseInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [schema, setSchema] = useState<Record<string, TableSchema[]>>({});
