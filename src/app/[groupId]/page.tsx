@@ -863,7 +863,7 @@ function SheepSeekerDashboardContent() {
         onCancel={() => setRegisterModalVisible(false)}
         okText="Register"
         onOk={() => form.submit()}
-        destroyOnClose
+        destroyOnHidden
         width={500}
       >
         <Form form={form} layout="vertical" onFinish={handleRegister}>
