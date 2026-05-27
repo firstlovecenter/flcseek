@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { Form, Input, Select, Button, Card, Typography, message, Space, Spin, DatePicker } from 'antd';
+import { Form, Input, Select, Button, Card, Typography, Space, Spin, DatePicker, App } from 'antd';
 import { UserAddOutlined, HomeOutlined, BarChartOutlined, TeamOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -12,6 +12,7 @@ const { Title, Text } = Typography;
 
 function RegisterPersonContent() {
   const { token, user } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;

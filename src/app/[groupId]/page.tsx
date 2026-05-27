@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, memo, useMemo, Suspense } from 'react';
-import { Table, Button, Typography, Spin, message, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb, DatePicker, Card, Progress, Empty, Tag, Checkbox } from 'antd';
+import { Table, Button, Typography, Spin, Tooltip, Switch, Modal, Form, Input, Select, Breadcrumb, DatePicker, Card, Progress, Empty, Tag, Checkbox, App } from 'antd';
 import { UserAddOutlined, FileExcelOutlined, SearchOutlined, TeamOutlined, BarChartOutlined, HomeOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Key } from 'react';
@@ -299,6 +299,7 @@ export default function SheepSeekerDashboard() {
 
 function SheepSeekerDashboardContent() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message, modal } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;
@@ -589,7 +590,7 @@ function SheepSeekerDashboardContent() {
       return;
     }
 
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete selected converts?',
       content: `This will soft delete ${selectedIds.length} selected convert(s). Their records will be preserved but hidden from active views.`,
       okText: 'Delete Selected',

@@ -6,7 +6,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Table, Tag, Button, Space, Empty, Alert, Badge, Modal, Spin, message } from 'antd'
+import { Card, Table, Tag, Button, Space, Empty, Alert, Badge, Modal, Spin, App } from 'antd'
 import {
   CheckOutlined,
   CloseOutlined,
@@ -58,6 +58,7 @@ const statusColors: Record<string, string> = {
 }
 
 export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
+  const { message, modal } = App.useApp()
   const [alerts, setAlerts] = useState<ConvertAlert[]>([])
   const [loading, setLoading] = useState(false)
   const [activeOnly, setActiveOnly] = useState(true)
@@ -109,7 +110,7 @@ export function AlertDashboard({ groupId, onRefresh }: AlertDashboardProps) {
   }
 
   const handleResolve = async (alertId: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Resolve Alert',
       icon: <ExclamationCircleOutlined />,
       content: 'Are you sure you want to mark this alert as resolved?',

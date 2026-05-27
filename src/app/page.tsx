@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Card, Button, Typography, Spin, message, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox, Divider } from 'antd';
+import { Card, Button, Typography, Spin, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox, Divider, App } from 'antd';
 import { TeamOutlined, CalendarOutlined, DownOutlined, HomeOutlined, RightOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -116,6 +116,7 @@ function GroupCard({ group, selected, onSelect }: { group: Group; selected: bool
 
 export default function RootPage() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<Group[]>([]);

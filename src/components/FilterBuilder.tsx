@@ -15,7 +15,7 @@ import {
   Table,
   Empty,
   Spin,
-  message,
+  App,
   Tooltip,
 } from 'antd';
 import {
@@ -71,6 +71,7 @@ const FILTER_PRESETS = {
 };
 
 export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [], groupId }: FilterBuilderProps) {
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const [filters, setFilters] = useState<SearchFilter[]>(initialFilters);
   const [loading, setLoading] = useState(false);

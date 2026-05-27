@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { Table, Button, Typography, Spin, message, Progress, Tag, DatePicker, Space, Select, Checkbox } from 'antd';
+import { Table, Button, Typography, Spin, Progress, Tag, DatePicker, Space, Select, Checkbox, App } from 'antd';
 import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined, CalendarOutlined, CheckSquareOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
@@ -25,6 +25,7 @@ interface PersonAttendance {
 
 function AttendancePageContent() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;

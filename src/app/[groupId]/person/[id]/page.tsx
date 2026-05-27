@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography,
   Spin,
-  message,
+  App,
   Card,
   Button,
   Space,
@@ -32,6 +32,7 @@ const { useToken } = theme;
 
 export default function PersonDetailPage() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message, modal } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;
@@ -118,7 +119,7 @@ export default function PersonDetailPage() {
   const handleDelete = () => {
     if (!canDeleteConvert || !personId) return;
 
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete this convert?',
       content: 'This will soft delete the convert. Their records are preserved but hidden from active views.',
       okText: 'Delete',
