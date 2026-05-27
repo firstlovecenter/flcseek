@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, Spin, Table, Tag, message } from 'antd';
+import { Card, Row, Col, Statistic, Typography, Spin, Table, Tag, App } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
@@ -35,6 +35,7 @@ interface RecentActivity {
 
 export default function SuperAdminDashboard() {
   const { token } = useAuth();
+  const { message } = App.useApp();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     activeUsers: 0,

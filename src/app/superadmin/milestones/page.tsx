@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Typography, Table, Tag, Button, Space, Modal, Form, Input, message, Spin, Popconfirm, InputNumber, Switch } from 'antd';
+import { Card, Typography, Table, Tag, Button, Space, Modal, Form, Input, Spin, Popconfirm, InputNumber, Switch, App } from 'antd';
 import { TrophyOutlined, CheckCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { api } from '@/lib/api';
 import dayjs from 'dayjs';
@@ -21,6 +21,7 @@ interface Milestone {
 }
 
 export default function MilestonesPage() {
+  const { message } = App.useApp();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { Form, Input, Button, Card, Typography, message, Divider, Select, Space, Tag } from 'antd';
+import { Form, Input, Button, Card, Typography, Divider, Select, Space, Tag, App } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -29,6 +29,7 @@ interface Convert {
 export default function EditConvertPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { token } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);

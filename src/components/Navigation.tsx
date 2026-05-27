@@ -15,6 +15,7 @@ import {
   HomeOutlined,
   LineChartOutlined,
   ReloadOutlined,
+  DownOutlined,
   OrderedListOutlined,
   AppstoreOutlined,
   EyeOutlined,
@@ -98,43 +99,32 @@ export default function Navigation({ children }: NavigationProps) {
     fetchGroupInfo();
   }, [user, token, pathname]);
 
-  const getHeaderTitle = () => {
-    if (user?.role === 'superadmin') {
-      return 'FLC Sheep Seeking';
-    }
+  // Contextual label shown as a chip beside the wordmark (group/role), brand excluded.
+  const getContextLabel = () => {
+    if (user?.role === 'superadmin') return '';
 
     if (user?.role === 'leadpastor') {
-      // If viewing a specific group, show group info
-      if (groupInfo) {
-        return `${groupInfo.name} ${groupInfo.year} | Lead Pastor`;
-      }
-      // Check if we're on a specific month page (legacy path)
+      if (groupInfo) return `${groupInfo.name} ${groupInfo.year} · Lead Pastor`;
       const monthMatch = pathname.match(/\/leadpastor\/([^\/]+)/);
       if (monthMatch && monthMatch[1]) {
         const month = monthMatch[1];
         const monthName = month.charAt(0).toUpperCase() + month.slice(1);
-        // Use current year as default (lead pastor can see all years)
         const currentYear = new Date().getFullYear();
-        return `${monthName} ${currentYear} | Lead Pastor`;
+        return `${monthName} ${currentYear} · Lead Pastor`;
       }
-      return 'FLC Sheep Seeking | Lead Pastor';
+      return 'Lead Pastor';
     }
 
     if (user?.role === 'overseer') {
-      // If viewing a specific group, show group info
-      if (groupInfo) {
-        return `${groupInfo.name} ${groupInfo.year} | Overseer`;
-      }
-      return 'FLC Sheep Seeking | Overseer';
+      if (groupInfo) return `${groupInfo.name} ${groupInfo.year} · Overseer`;
+      return 'Overseer';
     }
 
-    if (!groupInfo) {
-      return 'Loading...';
-    }
+    if (!groupInfo) return '';
 
     const isAdmin = user?.role === 'admin';
     const roleText = isAdmin ? 'Admin' : 'New Converts Tracker';
-    return `${groupInfo.name} ${groupInfo.year} | ${roleText}`;
+    return `${groupInfo.name} ${groupInfo.year} · ${roleText}`;
   };
 
   const handleRefresh = () => {
@@ -146,16 +136,14 @@ export default function Navigation({ children }: NavigationProps) {
     router.push('/');
   };
 
+  const displayName =
+    [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.email || 'Account';
+
   const userMenuItems = [
     {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: 'Profile',
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
+      key: 'whoami',
+      label: displayName,
+      disabled: true,
     },
     {
       type: 'divider' as const,
@@ -303,17 +291,49 @@ export default function Navigation({ children }: NavigationProps) {
           boxShadow: '0 2px 8px rgba(0,0,0,.15)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flex: 1 }}>
-          <div
-            style={{
-              color: '#fff',
-              fontSize: 24,
-              fontWeight: 'bold',
-              whiteSpace: 'nowrap',
-            }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
+          <Link
+            href={user?.role === 'superadmin' ? '/superadmin' : '/'}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}
           >
-            {getHeaderTitle()}
-          </div>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: 'rgba(255,255,255,0.14)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <HomeOutlined style={{ color: '#fff', fontSize: 16 }} />
+            </div>
+            <span style={{ color: '#fff', fontSize: 17, fontWeight: 600, letterSpacing: 0.2, whiteSpace: 'nowrap' }}>
+              FLC Sheep Seeking
+            </span>
+          </Link>
+          {getContextLabel() && (
+            <span
+              className="nav-context-chip"
+              style={{
+                display: 'inline-block',
+                maxWidth: 280,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                padding: '3px 12px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.12)',
+                color: 'rgba(255,255,255,0.9)',
+                fontSize: 12.5,
+                fontWeight: 500,
+                flexShrink: 0,
+              }}
+            >
+              {getContextLabel()}
+            </span>
+          )}
           <Menu
             theme="dark"
             mode="horizontal"
@@ -329,20 +349,28 @@ export default function Navigation({ children }: NavigationProps) {
           />
         </div>
         <Space className="desktop-user-section" size="middle">
-          <Button
-            type="primary"
-            danger
-            icon={<LogoutOutlined />}
-            onClick={handleLogout}
-            style={{
-              fontSize: '14px',
-              fontWeight: 'bold',
-            }}
-          >
-            Logout
-          </Button>
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+            <span
+              className="nav-user-trigger"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: 8,
+                transition: 'background .15s ease',
+              }}
+            >
+              <Avatar size={30} style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }} icon={<UserOutlined />} />
+              <span style={{ color: '#fff', fontSize: 14, fontWeight: 500, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {displayName}
+              </span>
+              <DownOutlined style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10 }} />
+            </span>
+          </Dropdown>
         </Space>
-        
+
         {/* Mobile Action Buttons */}
         <Space className="mobile-action-buttons" size="small">
           <Button
@@ -353,14 +381,13 @@ export default function Navigation({ children }: NavigationProps) {
             title="Refresh"
             aria-label="Refresh page"
           />
-          <Button
-            type="text"
-            icon={<LogoutOutlined />}
-            onClick={handleLogout}
-            style={{ color: '#fff' }}
-            title="Logout"
-            aria-label="Log out"
-          />
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+            <Avatar
+              size={30}
+              style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', cursor: 'pointer' }}
+              icon={<UserOutlined />}
+            />
+          </Dropdown>
         </Space>
       </Header>
 
@@ -473,7 +500,19 @@ export default function Navigation({ children }: NavigationProps) {
         .ant-menu-horizontal {
           line-height: 56px !important;
         }
-        
+
+        /* Hide the contextual chip on small screens (bottom nav handles wayfinding) */
+        @media (max-width: 767px) {
+          .nav-context-chip {
+            display: none !important;
+          }
+        }
+
+        /* User dropdown trigger hover */
+        .nav-user-trigger:hover {
+          background-color: rgba(255, 255, 255, 0.12) !important;
+        }
+
         /* Theme toggle button hover effect */
         .desktop-user-section .ant-btn-text:hover,
         .mobile-action-buttons .ant-btn-text:hover {

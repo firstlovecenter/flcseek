@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Select, Space, Card, Typography, Tag, Statistic, Row, Col, Dropdown, message } from 'antd';
+import { Table, Button, Input, Select, Space, Card, Typography, Tag, Statistic, Row, Col, Dropdown, App } from 'antd';
 import { HeartOutlined, SearchOutlined, UserOutlined, CalendarOutlined, TeamOutlined, DownloadOutlined, DeleteOutlined, FileExcelOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
@@ -32,6 +32,7 @@ interface Stats {
 
 export default function NewConvertsManagementPage() {
   const { token } = useAuth();
+  const { message } = App.useApp();
   const [converts, setConverts] = useState<Convert[]>([]);
   const [filteredConverts, setFilteredConverts] = useState<Convert[]>([]);
   const [stats, setStats] = useState<Stats>({

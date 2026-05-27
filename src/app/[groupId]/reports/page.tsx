@@ -6,7 +6,7 @@ import {
   Tabs,
   Typography,
   Spin,
-  message,
+  App,
   Statistic,
   Row,
   Col,
@@ -80,6 +80,7 @@ interface ConvertDetail {
 
 export default function ReportsPage() {
   const { user, token, loading: authLoading } = useAuth();
+  const { message } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;
