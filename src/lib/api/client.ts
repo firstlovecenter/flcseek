@@ -37,7 +37,14 @@ class APIClient {
   // so the user's own changes are always reflected on the next read.
   private getCache = new Map<string, { ts: number; data: APIResponse }>();
   private inflight = new Map<string, Promise<APIResponse>>();
-  private cacheTTL = 30_000; // 30s
+
+  /** Per-path cache TTL (ms). Hot paths get longer TTLs to make navigation instant. */
+  private cacheTTLFor(path: string): number {
+    if (path.startsWith('/milestones')) return 300_000; // 5 min — rarely changes
+    if (path.startsWith('/groups')) return 120_000; // 2 min
+    if (path.includes('/bundle')) return 20_000; // 20s — grid data
+    return 30_000;
+  }
 
   /** Clear all cached GET responses (call on login/logout or after external changes). */
   clearCache(): void {
@@ -107,8 +114,9 @@ class APIClient {
     const key = this.buildUrl(path, params);
     const now = Date.now();
 
+    const ttl = this.cacheTTLFor(path);
     const cached = this.getCache.get(key);
-    if (cached && now - cached.ts < this.cacheTTL) {
+    if (cached && now - cached.ts < ttl) {
       return cached.data as APIResponse<T>;
     }
 
@@ -177,7 +185,7 @@ class APIClient {
       search?: string;
       limit?: number;
       offset?: number;
-      include?: string; // 'progress' | 'stats'
+      include?: string; // 'grid' | 'progress' | 'stats'
     }) => this.get('/people', params),
 
     get: (id: string) => this.get(`/people/${id}`),
@@ -227,6 +235,10 @@ class APIClient {
     }) => this.get('/groups', params),
 
     get: (id: string) => this.get(`/groups/${id}`),
+
+    /** Milestones + compact people in one request (group dashboard). */
+    bundle: (id: string, params?: { year?: number }) =>
+      this.get(`/groups/${id}/bundle`, params),
 
     create: (data: {
       name: string;

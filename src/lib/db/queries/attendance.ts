@@ -24,6 +24,7 @@ export interface CreateAttendanceInput {
 export interface AttendanceFilters {
   personId?: string;
   groupId?: string;
+  groupName?: string;
   startDate?: string;
   endDate?: string;
   limit?: number;
@@ -59,8 +60,13 @@ export async function findMany(filters: AttendanceFilters = {}): Promise<Attenda
     where.personId = filters.personId;
   }
 
-  if (filters.groupId) {
-    where.person = { groupId: filters.groupId };
+  // Scope by the convert's group. groupId targets a single group instance;
+  // groupName targets a month name across all years (role-based scoping).
+  if (filters.groupId || filters.groupName) {
+    const personFilter: Record<string, unknown> = {};
+    if (filters.groupId) personFilter.groupId = filters.groupId;
+    if (filters.groupName) personFilter.group = { name: filters.groupName };
+    where.person = personFilter;
   }
 
   if (filters.startDate) {
@@ -119,7 +125,13 @@ export async function create(input: CreateAttendanceInput): Promise<AttendanceRe
 }
 
 /**
- * Bulk record attendance for multiple people
+ * Bulk record attendance for multiple people.
+ *
+ * Previously this ran 3+ queries per record (findFirst + create + a count-based
+ * milestone update). It now batches the work:
+ *  1. one query to detect existing (duplicate) person/date pairs
+ *  2. one `createManyAndReturn` insert for all new records
+ *  3. one grouped count + targeted milestone upserts for affected converts
  */
 export async function createMany(
   records: CreateAttendanceInput[]
@@ -127,61 +139,95 @@ export async function createMany(
   const created: AttendanceRecord[] = [];
   const errors: string[] = [];
 
-  for (const record of records) {
-    try {
-      // Check for duplicate (same person, same date)
-      const existing = await prisma.attendanceRecord.findFirst({
-        where: {
-          personId: record.person_id,
-          attendanceDate: new Date(record.date_attended),
-        },
-      });
-
-      if (existing) {
-        errors.push(
-          `Attendance already recorded for ${record.person_id} on ${record.date_attended}`
-        );
-        continue;
-      }
-
-      const newRecord = await prisma.attendanceRecord.create({
-        data: {
-          personId: record.person_id,
-          attendanceDate: new Date(record.date_attended),
-          markedById: record.recorded_by,
-        },
-      });
-
-      created.push(transformAttendanceRecord(newRecord));
-
-      // Check if this completes the attendance milestone
-      await updateAttendanceMilestone(record.person_id, record.recorded_by);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      errors.push(`Failed to record for ${record.person_id}: ${message}`);
-    }
+  if (records.length === 0) {
+    return { created, errors };
   }
+
+  const personIds = Array.from(new Set(records.map((r) => r.person_id)));
+  const dates = Array.from(new Set(records.map((r) => r.date_attended)));
+
+  // 1. Single query to find already-recorded (person, date) pairs.
+  const existing = await prisma.attendanceRecord.findMany({
+    where: {
+      personId: { in: personIds },
+      attendanceDate: { in: dates.map((d) => new Date(d)) },
+    },
+    select: { personId: true, attendanceDate: true },
+  });
+
+  const keyOf = (personId: string, date: string) => `${personId}|${date}`;
+  const existingKeys = new Set(
+    existing.map((e) => keyOf(e.personId, e.attendanceDate.toISOString().split('T')[0]))
+  );
+
+  // Partition into inserts vs. duplicate errors (also dedupe within the batch).
+  const seen = new Set<string>();
+  const toCreate: CreateAttendanceInput[] = [];
+  for (const record of records) {
+    const key = keyOf(record.person_id, record.date_attended);
+    if (existingKeys.has(key) || seen.has(key)) {
+      errors.push(
+        `Attendance already recorded for ${record.person_id} on ${record.date_attended}`
+      );
+      continue;
+    }
+    seen.add(key);
+    toCreate.push(record);
+  }
+
+  if (toCreate.length === 0) {
+    return { created, errors };
+  }
+
+  // 2. Single batched insert that returns the created rows.
+  try {
+    const newRecords = await prisma.attendanceRecord.createManyAndReturn({
+      data: toCreate.map((r) => ({
+        personId: r.person_id,
+        attendanceDate: new Date(r.date_attended),
+        markedById: r.recorded_by,
+      })),
+    });
+    for (const row of newRecords) {
+      created.push(transformAttendanceRecord(row));
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    errors.push(`Failed to record attendance batch: ${message}`);
+    return { created, errors };
+  }
+
+  // 3. Recompute the attendance milestone (stage 18) for affected converts in one pass.
+  await updateAttendanceMilestones(toCreate);
 
   return { created, errors };
 }
 
 /**
- * Update attendance milestone (milestone 18) when threshold is reached
+ * Mark the attendance milestone (stage 18) complete for any of the given converts
+ * whose total attendance has reached ATTENDANCE_GOAL. Uses a single grouped count
+ * instead of one count per convert.
  */
-async function updateAttendanceMilestone(personId: string, updatedById: string): Promise<void> {
-  // Get current attendance count
-  const attendanceCount = await prisma.attendanceRecord.count({
-    where: { personId },
+async function updateAttendanceMilestones(records: CreateAttendanceInput[]): Promise<void> {
+  const personIds = Array.from(new Set(records.map((r) => r.person_id)));
+  if (personIds.length === 0) return;
+
+  const counts = await prisma.attendanceRecord.groupBy({
+    by: ['personId'],
+    where: { personId: { in: personIds } },
+    _count: { _all: true },
   });
 
-  // Check if milestone 18 should be marked complete
-  if (attendanceCount >= ATTENDANCE_GOAL) {
+  const updatedByFor = new Map(records.map((r) => [r.person_id, r.recorded_by]));
+
+  const reached = counts.filter((c) => c._count._all >= ATTENDANCE_GOAL);
+  for (const c of reached) {
+    const updatedById = updatedByFor.get(c.personId);
+    if (!updatedById) continue;
     await prisma.progressRecord.upsert({
-      where: {
-        personId_stageNumber: { personId, stageNumber: 18 },
-      },
+      where: { personId_stageNumber: { personId: c.personId, stageNumber: 18 } },
       create: {
-        personId,
+        personId: c.personId,
         stageNumber: 18,
         stageName: 'Attendance',
         isCompleted: true,
@@ -194,20 +240,6 @@ async function updateAttendanceMilestone(personId: string, updatedById: string):
         updatedById,
       },
     });
-    // Audit log milestone auto-completion
-    try {
-      const { logAuditEvent } = await import('@/lib/audit-log');
-      await logAuditEvent({
-        userId: updatedById,
-        action: 'UPDATE_PROGRESS',
-        entityType: 'progress_record',
-        entityId: personId,
-        oldValues: { stage_number: 18 },
-        newValues: { stage_number: 18, is_completed: true, attendanceCount },
-      });
-    } catch (_) {
-      // ignore logging errors
-    }
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getAuthUser } from '@/lib/api/middleware';
 import { logAuditEvent } from '@/lib/audit-log';
 
 /**
@@ -18,12 +18,7 @@ import { logAuditEvent } from '@/lib/audit-log';
  */
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userPayload = verifyToken(token);
+    const userPayload = getAuthUser(request);
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -57,18 +52,17 @@ export async function POST(request: NextRequest) {
     const clonedGroups = [];
     let skippedCount = 0;
 
+    // Single query for all current-year group names (avoids one findFirst per group).
+    const existingCurrent = await prisma.group.findMany({
+      where: { year: currentYear },
+      select: { name: true },
+    });
+    const existingNames = new Set(existingCurrent.map((g) => g.name));
+
     // Clone each group to current year
     for (const group of previousYearGroups) {
       try {
-        // Check if group already exists in current year
-        const existing = await prisma.group.findFirst({
-          where: {
-            name: group.name,
-            year: currentYear,
-          },
-        });
-
-        if (existing) {
+        if (existingNames.has(group.name)) {
           skippedCount++;
           continue;
         }

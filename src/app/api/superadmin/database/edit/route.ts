@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getAuthUser } from '@/lib/api/middleware';
 
 export async function PATCH(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    const userPayload = getAuthUser(request);
 
     // Only skaduteye and sysadmin can edit database
     if (
@@ -39,7 +38,6 @@ export async function PATCH(request: NextRequest) {
       'progress_records',
       'attendance_records',
       'milestones',
-      'departments',
     ];
     if (!allowedTables.includes(tableName)) {
       return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });
@@ -47,18 +45,18 @@ export async function PATCH(request: NextRequest) {
 
     // Allowed columns per table — prevents attackers from updating arbitrary fields
     // (e.g. escalating privileges by writing to `role` or `password`).
+    // These MUST match actual column names in prisma/schema.prisma.
     const allowedColumns: Record<string, string[]> = {
-      users: ['first_name', 'last_name', 'email', 'phone_number', 'group_name', 'group_id', 'is_active'],
-      groups: ['name', 'year', 'description', 'is_active', 'leader_id'],
+      users: ['first_name', 'last_name', 'email', 'phone_number', 'group_name', 'group_id'],
+      groups: ['name', 'year', 'description', 'archived', 'leader_id'],
       new_converts: [
-        'first_name', 'last_name', 'phone_number', 'email', 'gender',
-        'address', 'date_of_birth', 'occupation', 'group_name', 'group_id',
-        'notes', 'is_active',
+        'first_name', 'last_name', 'phone_number', 'gender', 'date_of_birth',
+        'residential_location', 'school_residential_location', 'occupation_type',
+        'home_location', 'work_location', 'group_name', 'group_id', 'risk_score',
       ],
-      progress_records: ['stage_number', 'completed', 'completed_at', 'notes'],
-      attendance_records: ['attended', 'attended_at', 'notes'],
-      milestones: ['stage_name', 'short_name', 'description', 'is_active', 'order_index'],
-      departments: ['name', 'description', 'is_active'],
+      progress_records: ['stage_name', 'is_completed', 'date_completed'],
+      attendance_records: ['date_attended'],
+      milestones: ['stage_name', 'short_name', 'description', 'is_active', 'is_auto_calculated'],
     };
 
     const permittedColumns = allowedColumns[tableName] ?? [];
@@ -123,8 +121,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    const userPayload = getAuthUser(request);
 
     // Only skaduteye and sysadmin can delete database records
     if (
@@ -160,7 +157,6 @@ export async function DELETE(request: NextRequest) {
       'progress_records',
       'attendance_records',
       'milestones',
-      'departments',
     ];
     if (!allowedTables.includes(tableName)) {
       return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });

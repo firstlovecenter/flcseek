@@ -27,9 +27,19 @@ export {
   requireSuperAdmin,
   hasMinRole,
   getQueryParams,
+  resolveGroupScope,
   getEffectiveGroupFilter,
   type AuthenticatedRequest,
+  type GroupScope,
 } from './middleware';
+
+// Centralized route handler wrapper
+export {
+  withApiHandler,
+  type HandlerContext,
+  type HandlerOptions,
+  type AuthRequirement,
+} from './handler';
 
 // Validation utilities
 export {
