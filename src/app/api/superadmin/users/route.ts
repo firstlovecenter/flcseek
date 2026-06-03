@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySuperAdmin } from '@/lib/auth';
-import bcrypt from 'bcryptjs';
+import * as Users from '@/lib/db/queries/users';
+import type { UserRole } from '@/lib/constants';
 
 // GET - List all users
 export async function GET(request: NextRequest) {
@@ -76,29 +77,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { username, password, role, phone_number, group_name, first_name, last_name, email } = body;
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (!username || !password || !role) {
+      return NextResponse.json(
+        { error: 'username, password and role are required' },
+        { status: 400 }
+      );
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      );
+    }
 
-    const newUser = await prisma.user.create({
-      data: {
-        username,
-        password: hashedPassword,
-        role,
-        groupName: group_name || null,
-        firstName: first_name || null,
-        lastName: last_name || null,
-        email: email || null,
-      },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        groupName: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        createdAt: true,
-      }
+    // Centralized creation (hashes password + maps fields) via the query module
+    const newUser = await Users.create({
+      username,
+      password,
+      role: role as UserRole,
+      email: email || undefined,
+      first_name: first_name || undefined,
+      last_name: last_name || undefined,
+      group_name: group_name || undefined,
     });
 
     return NextResponse.json({
@@ -107,11 +107,11 @@ export async function POST(request: NextRequest) {
         username: newUser.username,
         role: newUser.role,
         phone_number: phone_number,
-        group_name: newUser.groupName,
-        first_name: newUser.firstName,
-        last_name: newUser.lastName,
+        group_name: newUser.group_name,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
         email: newUser.email,
-        created_at: newUser.createdAt,
+        created_at: newUser.created_at,
       }
     }, { status: 201 });
   } catch (error: unknown) {

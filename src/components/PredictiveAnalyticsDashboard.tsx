@@ -23,7 +23,6 @@ import {
 import { EmptyState } from '@/components/base/EmptyState';
 import { cn } from '@/lib/utils';
 import type { Prediction } from '@/lib/predictive-analytics';
-import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import dayjs from 'dayjs';
 
 interface PredictiveAnalyticsDashboardProps {
@@ -42,30 +41,20 @@ interface GroupOutcomes {
   predictions: Prediction[];
 }
 
+// Lightweight CSS ring (conic-gradient) instead of a per-row Recharts PieChart.
+// Rendering one SVG chart per table row was a significant DOM/render cost; this
+// is a single styled div with no chart runtime.
 function CircleGauge({ value, color }: { value: number; color: string }) {
-  const data = [
-    { name: 'value', value: Math.round(value) },
-    { name: 'rest', value: 100 - Math.round(value) },
-  ];
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
   return (
-    <ResponsiveContainer width={40} height={40}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          cx="50%"
-          cy="50%"
-          innerRadius={12}
-          outerRadius={18}
-          startAngle={90}
-          endAngle={-270}
-          stroke="none"
-        >
-          <Cell fill={color} />
-          <Cell fill="hsl(var(--muted))" />
-        </Pie>
-      </PieChart>
-    </ResponsiveContainer>
+    <div
+      className="relative size-10 rounded-full"
+      role="img"
+      aria-label={`${pct}%`}
+      style={{ background: `conic-gradient(${color} ${pct * 3.6}deg, hsl(var(--muted)) 0deg)` }}
+    >
+      <div className="absolute inset-[3px] rounded-full bg-background" />
+    </div>
   );
 }
 

@@ -135,7 +135,7 @@ function AttendancePageContent() {
       const response = await api.people.list({
         group_id: groupId,
         year: selectedYear || undefined,
-        include: 'progress',
+        include: 'stats',
       })
       if (!response.success) throw new Error('Failed to fetch people')
       const peopleWithAttendance = (

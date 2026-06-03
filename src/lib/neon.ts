@@ -1,3 +1,9 @@
+/**
+ * @deprecated LEGACY raw-SQL pool. The application runtime uses Prisma exclusively
+ * (`@/lib/prisma` + the repositories in `@/lib/db/queries/*`). This module is kept
+ * ONLY for one-off migration/maintenance scripts in `scripts/`. Do NOT import it
+ * from anything under `src/app` or `src/lib` service/repository code.
+ */
 import { Pool } from '@neondatabase/serverless';
 
 const neonConnectionString = process.env.NEON_DATABASE_URL!;

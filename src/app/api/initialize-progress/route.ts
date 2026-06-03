@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getAuthUser } from '@/lib/api/middleware';
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    const userPayload = getAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Unauthorized - Superadmin only' }, { status: 401 });

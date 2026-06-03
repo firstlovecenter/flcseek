@@ -5,7 +5,7 @@ import {
   errors,
   requireAuth,
   getQueryParams,
-  getEffectiveGroupFilter,
+  resolveGroupScope,
 } from '@/lib/api';
 import * as Attendance from '@/lib/db/queries/attendance';
 import * as People from '@/lib/db/queries/people';
@@ -32,11 +32,12 @@ export async function GET(request: NextRequest) {
     if (error) return error;
     
     const params = getQueryParams(request);
-    const effectiveFilters = getEffectiveGroupFilter(user!, params);
+    const scope = resolveGroupScope(user!, params);
     
     const filters: Attendance.AttendanceFilters = {
       personId: params.raw.get('person_id') || undefined,
-      groupId: effectiveFilters.groupId,
+      groupId: scope.groupId,
+      groupName: scope.groupName,
       startDate: params.raw.get('start_date') || undefined,
       endDate: params.raw.get('end_date') || undefined,
       limit: params.limit,

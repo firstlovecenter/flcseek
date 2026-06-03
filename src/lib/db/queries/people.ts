@@ -47,6 +47,23 @@ export interface PersonWithStats extends Person {
   attendance_percentage: number;
 }
 
+/** Compact row for milestone grids — only completed stage numbers, not 18 full objects. */
+export interface PersonGridRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  phone_number: string;
+  group_id?: string;
+  group_name?: string;
+  group_year?: number;
+  /** Stage numbers with is_completed=true (sparse; expand client-side). */
+  completed_stages: number[];
+  attendance_count: number;
+  progress_percentage: number;
+  attendance_percentage: number;
+}
+
 export interface CreatePersonInput {
   first_name: string;
   last_name: string;
@@ -211,13 +228,8 @@ export async function findById(id: string): Promise<Person | null> {
   return person ? transformPerson(person) : null;
 }
 
-/**
- * Get people with full progress data (optimized query)
- */
-export async function findManyWithProgress(
-  filters: PersonFilters = {},
-  totalMilestones: number = 18
-): Promise<PersonWithProgress[]> {
+/** Shared where-clause builder for person list queries. */
+function buildPersonWhere(filters: PersonFilters): Record<string, unknown> {
   const where: Record<string, unknown> = { deletedAt: null };
 
   if (filters.groupId) {
@@ -227,14 +239,14 @@ export async function findManyWithProgress(
   if (filters.groupName) {
     where.group = {
       ...((where.group as Record<string, unknown>) || {}),
-      name: filters.groupName
+      name: filters.groupName,
     };
   }
 
   if (filters.month) {
     where.group = {
       ...((where.group as Record<string, unknown>) || {}),
-      name: { equals: filters.month, mode: 'insensitive' }
+      name: { equals: filters.month, mode: 'insensitive' },
     };
   }
 
@@ -245,18 +257,114 @@ export async function findManyWithProgress(
     };
   }
 
+  if (filters.search) {
+    where.OR = [
+      { firstName: { contains: filters.search, mode: 'insensitive' } },
+      { lastName: { contains: filters.search, mode: 'insensitive' } },
+      { phoneNumber: { contains: filters.search } },
+    ];
+  }
+
+  return where;
+}
+
+const MAX_GRID_ROWS = 1000;
+
+/**
+ * Fast path for milestone grids: only loads completed stage numbers + attendance count.
+ * Payload is ~10× smaller than include=progress (no stage_name/date per row).
+ */
+export async function findManyForGrid(
+  filters: PersonFilters = {},
+  totalMilestones: number = 18
+): Promise<PersonGridRow[]> {
+  const where = buildPersonWhere(filters);
+
   const people = await prisma.newConvert.findMany({
     where,
-    include: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phoneNumber: true,
+      groupId: true,
+      groupName: true,
+      group: { select: { name: true, year: true } },
+      progressRecords: {
+        where: { isCompleted: true },
+        select: { stageNumber: true },
+      },
+      _count: { select: { attendanceRecords: true } },
+    },
+    orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    take: MAX_GRID_ROWS,
+    skip: filters.offset ?? 0,
+  });
+
+  return people.map((p) => {
+    const completedStages = p.progressRecords.map((pr) => pr.stageNumber);
+    const attendanceCount = p._count.attendanceRecords;
+    const firstName = p.firstName || '';
+    const lastName = p.lastName || '';
+
+    return {
+      id: p.id,
+      first_name: firstName,
+      last_name: lastName,
+      full_name: `${firstName} ${lastName}`.trim(),
+      phone_number: p.phoneNumber,
+      group_id: p.groupId || undefined,
+      group_name: p.group?.name || p.groupName || undefined,
+      group_year: p.group?.year,
+      completed_stages: completedStages,
+      attendance_count: attendanceCount,
+      progress_percentage: Math.round((completedStages.length / totalMilestones) * 100),
+      attendance_percentage: Math.min(
+        Math.round((attendanceCount / ATTENDANCE_GOAL) * 100),
+        100
+      ),
+    };
+  });
+}
+
+/**
+ * Get people with full progress data (optimized query)
+ */
+export async function findManyWithProgress(
+  filters: PersonFilters = {},
+  totalMilestones: number = 18
+): Promise<PersonWithProgress[]> {
+  const where = buildPersonWhere(filters);
+
+  const people = await prisma.newConvert.findMany({
+    where,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phoneNumber: true,
+      gender: true,
+      residentialLocation: true,
+      groupId: true,
+      groupName: true,
+      registeredById: true,
+      createdAt: true,
+      updatedAt: true,
       group: { select: { name: true, year: true } },
       progressRecords: {
         orderBy: { stageNumber: 'asc' },
+        select: {
+          stageNumber: true,
+          stageName: true,
+          isCompleted: true,
+          dateCompleted: true,
+        },
       },
-      _count: {
-        select: { attendanceRecords: true },
-      },
+      _count: { select: { attendanceRecords: true } },
     },
     orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    take: MAX_GRID_ROWS,
+    skip: filters.offset ?? 0,
   });
 
   return people.map((p) => {
@@ -505,59 +613,71 @@ export async function remove(id: string): Promise<boolean> {
  */
 export async function createMany(
   people: CreatePersonInput[],
-  options: { skipDuplicates?: boolean } = {}
+  _options: { skipDuplicates?: boolean } = {}
 ): Promise<{ created: Person[]; skipped: number }> {
   const created: Person[] = [];
   let skipped = 0;
 
+  // 1. Drop rows missing required linkage fields (same rules as before).
+  const valid: CreatePersonInput[] = [];
   for (const input of people) {
-    // Skip if required fields are missing
-    if (!input.group_name || !input.registered_by) {
-      console.warn('[createMany] Skipping record: missing group_name or registered_by');
+    if (!input.group_name || !input.registered_by || !input.group_id) {
       skipped++;
       continue;
     }
-    
-    // Skip if group_id is missing - this ensures records are properly linked to a group
-    // and will appear in filtered queries
-    if (!input.group_id) {
-      console.warn('[createMany] Skipping record: missing group_id - records without group_id will not appear in filtered views');
+    valid.push(input);
+  }
+
+  if (valid.length === 0) {
+    return { created, skipped };
+  }
+
+  // 2. Detect duplicates in a single query. The phone uniqueness constraint is a
+  // partial unique index (WHERE deleted_at IS NULL), so we match that semantics.
+  const phones = Array.from(new Set(valid.map((v) => v.phone_number)));
+  const existing = await prisma.newConvert.findMany({
+    where: { phoneNumber: { in: phones }, deletedAt: null },
+    select: { phoneNumber: true },
+  });
+  const existingPhones = new Set(existing.map((e) => e.phoneNumber));
+
+  const seen = new Set<string>();
+  const toCreate: CreatePersonInput[] = [];
+  for (const input of valid) {
+    if (existingPhones.has(input.phone_number) || seen.has(input.phone_number)) {
       skipped++;
       continue;
     }
-    
-    try {
-      const person = await prisma.newConvert.create({
-        data: {
-          firstName: input.first_name,
-          lastName: input.last_name,
-          phoneNumber: input.phone_number,
-          gender: input.gender || null,
-          dateOfBirth: input.date_of_birth || null,
-          residentialLocation: input.residential_location || input.address || null,
-          schoolResidentialLocation: input.school_residential_location || null,
-          occupationType: input.occupation_type || null,
-          groupId: input.group_id,  // Required - must be a valid UUID
-          groupName: input.group_name,
-          registeredById: input.registered_by,
-        },
-        include: {
-          group: { select: { name: true, year: true } },
-        },
-      });
-      created.push(transformPerson(person));
-    } catch (error) {
-      if (
-        (error as { code?: string })?.code === 'P2002' &&
-        options.skipDuplicates
-      ) {
-        skipped++;
-      } else if (options.skipDuplicates) {
-        skipped++;
-      } else {
-        throw error;
-      }
-    }
+    seen.add(input.phone_number);
+    toCreate.push(input);
+  }
+
+  if (toCreate.length === 0) {
+    return { created, skipped };
+  }
+
+  // 3. Single batched insert that returns the created rows.
+  const rows = await prisma.newConvert.createManyAndReturn({
+    data: toCreate.map((input) => ({
+      firstName: input.first_name,
+      lastName: input.last_name,
+      phoneNumber: input.phone_number,
+      gender: input.gender || null,
+      dateOfBirth: input.date_of_birth || null,
+      residentialLocation: input.residential_location || input.address || null,
+      schoolResidentialLocation: input.school_residential_location || null,
+      occupationType: input.occupation_type || null,
+      groupId: input.group_id!,
+      groupName: input.group_name!,
+      registeredById: input.registered_by!,
+    })),
+    include: {
+      group: { select: { name: true, year: true } },
+    },
+  });
+
+  for (const row of rows) {
+    created.push(transformPerson(row));
   }
 
   return { created, skipped };

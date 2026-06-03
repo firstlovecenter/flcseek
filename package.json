@@ -12,9 +12,6 @@
     "postinstall": "prisma generate",
     "db:setup": "node scripts/setup-initial-db.js",
     "setup-db": "tsx scripts/setup-database.ts",
-    "migrate-neon": "tsx scripts/migrate-neon.ts",
-    "populate-members": "tsx scripts/populate-members.ts",
-    "migrate-milestones": "node scripts/migrate-to-milestones.js",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio"
   },
@@ -41,7 +38,6 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/postcss": "^4.3.0",
-    "@tanstack/react-table": "^8.21.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.10.0",

@@ -53,10 +53,11 @@ function transformMilestone(m: {
 }
 
 /**
- * Get all active milestones
+ * Get all active milestones (isActive = true)
  */
 export async function findActive(): Promise<Milestone[]> {
   const milestones = await prisma.milestone.findMany({
+    where: { isActive: true },
     orderBy: { stageNumber: 'asc' },
   });
 
@@ -135,6 +136,9 @@ export async function update(
   if (updates.description !== undefined) {
     data.description = updates.description;
   }
+  if (updates.is_active !== undefined) {
+    data.isActive = updates.is_active;
+  }
 
   if (Object.keys(data).length === 0) {
     return findById(id);
@@ -157,16 +161,23 @@ export async function update(
 }
 
 /**
- * Toggle milestone active status (no-op in current schema, kept for API compatibility)
+ * Toggle milestone active status (flips isActive).
  */
 export async function toggleActive(id: string): Promise<Milestone | null> {
-  // Current schema doesn't have is_active, just return the milestone
-  return findById(id);
+  const existing = await prisma.milestone.findUnique({ where: { id } });
+  if (!existing) return null;
+
+  const milestone = await prisma.milestone.update({
+    where: { id },
+    data: { isActive: !(existing.isActive ?? true) },
+  });
+
+  return transformMilestone(milestone);
 }
 
 /**
- * Get active milestone count
+ * Get active milestone count (isActive = true)
  */
 export async function countActive(): Promise<number> {
-  return prisma.milestone.count();
+  return prisma.milestone.count({ where: { isActive: true } });
 }

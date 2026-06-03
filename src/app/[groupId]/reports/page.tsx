@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   BarChart3,
   CheckCircle,
@@ -47,20 +48,41 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PredictiveAnalyticsDashboard } from '@/components/PredictiveAnalyticsDashboard';
-import { CohortAnalysisDashboard } from '@/components/CohortAnalysisDashboard';
-import { GrowthForecastDashboard } from '@/components/GrowthForecastDashboard';
 import { BulkActionsUI } from '@/components/BulkActionsUI';
 import { ReportTemplateBuilder } from '@/components/ReportTemplateBuilder';
 import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
-import { AchievementBadgesDashboard } from '@/components/AchievementBadgesDashboard';
+
+// The analytics dashboards each pull in Recharts and fetch their own data on
+// mount. Code-split them so their JS only loads when their tab is first opened,
+// keeping the reports route's initial bundle small.
+const dashboardLoading = () => (
+  <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+);
+const PredictiveAnalyticsDashboard = dynamic(
+  () => import('@/components/PredictiveAnalyticsDashboard').then((m) => m.PredictiveAnalyticsDashboard),
+  { loading: dashboardLoading }
+);
+const CohortAnalysisDashboard = dynamic(
+  () => import('@/components/CohortAnalysisDashboard').then((m) => m.CohortAnalysisDashboard),
+  { loading: dashboardLoading }
+);
+const GrowthForecastDashboard = dynamic(
+  () => import('@/components/GrowthForecastDashboard').then((m) => m.GrowthForecastDashboard),
+  { loading: dashboardLoading }
+);
+const AchievementBadgesDashboard = dynamic(
+  () => import('@/components/AchievementBadgesDashboard').then((m) => m.AchievementBadgesDashboard),
+  { loading: dashboardLoading }
+);
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { api } from '@/lib/api';
+import { useGroupYears } from '@/hooks/use-group-years';
+import { expandCompletedStages } from '@/lib/progress-utils';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import dayjs from 'dayjs';
-import type { MilestoneData, PersonApiData, GroupApiData, AttendanceRecord } from '@/lib/types/api-responses';
+import type { MilestoneData, PersonApiData, AttendanceRecord } from '@/lib/types/api-responses';
 
 interface AttendanceSummary {
   totalConverts: number;
@@ -102,8 +124,12 @@ export default function ReportsPage() {
   const [milestoneSummaries, setMilestoneSummaries] = useState<MilestoneSummary[]>([]);
   const [convertDetails, setConvertDetails] = useState<ConvertDetail[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
-  const [groupName, setGroupName] = useState<string>('');
+
+  // Shared hook resolves the month name + available years for this group.
+  const { groupName, availableYears, defaultYear, error: yearsError } = useGroupYears(
+    groupId,
+    !!(user && token)
+  );
 
   // Check auth
   useEffect(() => {
@@ -117,40 +143,18 @@ export default function ReportsPage() {
       router.push('/');
       return;
     }
-
-    if (user && token) {
-      fetchAvailableYears();
-    }
   }, [user, token, authLoading, router, groupId]);
 
-  const fetchAvailableYears = async () => {
-    try {
-      const response = await api.groups.list({ active: true });
-      if (response.success && response.data) {
-        const groups: GroupApiData[] = (response.data.groups as GroupApiData[]) || [];
-        const selectedGroup = groups.find((g) => g.id === groupId);
-        if (!selectedGroup) {
-          throw new Error('Group not found');
-        }
-
-        const monthName = selectedGroup.name;
-        const matchingGroups = groups.filter((g) => g.name.toLowerCase() === monthName.toLowerCase());
-        const years = Array.from(new Set(matchingGroups.map((g) => g.year))) as number[];
-        years.sort((a, b) => b - a);
-
-        setGroupName(monthName);
-        setAvailableYears(years);
-        if (selectedGroup.year) {
-          setSelectedYear(selectedGroup.year);
-        } else if (years.length > 0) {
-          setSelectedYear(years[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch years:', error);
-      message.error('Failed to load group data');
+  // Default the selected year once the group's year resolves.
+  useEffect(() => {
+    if (defaultYear != null) {
+      setSelectedYear((prev) => prev ?? defaultYear);
     }
-  };
+  }, [defaultYear]);
+
+  useEffect(() => {
+    if (yearsError) message.error('Failed to load group data');
+  }, [yearsError]);
 
   useEffect(() => {
     if (selectedYear && token) {
@@ -161,32 +165,56 @@ export default function ReportsPage() {
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch people with progress
-      const peopleResponse = await api.people.list({
-        group_id: groupId,
-        year: selectedYear || undefined,
-        include: 'progress',
-      });
+
+      const [peopleResponse, milestonesResponse, attendanceResponse] =
+        await Promise.all([
+          api.people.list({
+            group_id: groupId,
+            year: selectedYear || undefined,
+            include: 'grid',
+          }),
+          api.milestones.list(),
+          api.attendance.list({ group_id: groupId }),
+        ]);
 
       if (!peopleResponse.success) throw new Error('Failed to fetch people');
 
-      const peopleData: PersonApiData[] = (peopleResponse.data?.people as PersonApiData[]) || [];
-      const totalMilestones: number = (peopleResponse.data?.totalMilestones as number) || 18;
+      const milestonesData: MilestoneData[] =
+        milestonesResponse.success
+          ? (milestonesResponse.data?.milestones as MilestoneData[]) || []
+          : [];
+      setMilestones(milestonesData);
 
-      // Fetch milestones
-      const milestonesResponse = await api.milestones.list();
-      if (milestonesResponse.success) {
-        setMilestones((milestonesResponse.data?.milestones as MilestoneData[]) || []);
-      }
+      const totalMilestones: number =
+        (peopleResponse.data?.totalMilestones as number) ||
+        milestonesData.length ||
+        18;
+      const stageNumbers = milestonesData.map((m) => m.stage_number);
 
-      // Fetch attendance records
-      const attendanceResponse = await api.attendance.list({
-        group_id: groupId,
-      });
+      const peopleRaw =
+        (peopleResponse.data?.people as Array<
+          PersonApiData & { completed_stages?: number[] }
+        >) || [];
+      const stageNameByNumber = new Map(
+        milestonesData.map((m) => [m.stage_number, m.stage_name])
+      );
+      const peopleData: PersonApiData[] = peopleRaw.map((p) => ({
+        ...p,
+        progress: expandCompletedStages(p.completed_stages ?? [], stageNumbers).map(
+          (cell) => ({
+            ...cell,
+            stage_name: stageNameByNumber.get(cell.stage_number) ?? '',
+          })
+        ),
+        attendance_count: p.attendance_count,
+      }));
 
-      // Process data
-      processPeopleData(peopleData, (attendanceResponse.data?.attendance as AttendanceRecord[]) || [], totalMilestones, (milestonesResponse.data?.milestones as MilestoneData[]) || []);
+      processPeopleData(
+        peopleData,
+        (attendanceResponse.data?.attendance as AttendanceRecord[]) || [],
+        totalMilestones,
+        milestonesData
+      );
       setPeople(peopleData);
     } catch (error: unknown) {
       console.error('Failed to fetch report data:', error);
@@ -599,17 +627,23 @@ export default function ReportsPage() {
     message.success('Report downloaded successfully');
   };
 
-  const sortedAttendance = [...convertDetails].sort(
-    (a, b) => b.attendanceCount - a.attendanceCount
+  const sortedAttendance = useMemo(
+    () => [...convertDetails].sort((a, b) => b.attendanceCount - a.attendanceCount),
+    [convertDetails]
   )
-  const sortedMilestones = [...milestoneSummaries].sort(
-    (a, b) => a.stageNumber - b.stageNumber
+  const sortedMilestones = useMemo(
+    () => [...milestoneSummaries].sort((a, b) => a.stageNumber - b.stageNumber),
+    [milestoneSummaries]
   )
-  const sortedPerformance = [...convertDetails].sort((a, b) => {
-    const overallA = (a.attendancePercentage + a.milestonePercentage) / 2
-    const overallB = (b.attendancePercentage + b.milestonePercentage) / 2
-    return overallB - overallA
-  })
+  const sortedPerformance = useMemo(
+    () =>
+      [...convertDetails].sort((a, b) => {
+        const overallA = (a.attendancePercentage + a.milestonePercentage) / 2
+        const overallB = (b.attendancePercentage + b.milestonePercentage) / 2
+        return overallB - overallA
+      }),
+    [convertDetails]
+  )
 
   if (authLoading || loading) {
     return <LoadingScreen label="Loading reports…" />
@@ -954,27 +988,33 @@ export default function ReportsPage() {
             </TabsContent>
 
             <TabsContent value="predictive">
-              <PredictiveAnalyticsDashboard
-                groupId={groupId}
-                userId={user?.id || 'system'}
-                token={token || undefined}
-              />
+              {reportType === 'predictive' && (
+                <PredictiveAnalyticsDashboard
+                  groupId={groupId}
+                  userId={user?.id || 'system'}
+                  token={token || undefined}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="cohorts">
-              <CohortAnalysisDashboard
-                groupId={groupId}
-                userId={user?.id || 'system'}
-                token={token || undefined}
-              />
+              {reportType === 'cohorts' && (
+                <CohortAnalysisDashboard
+                  groupId={groupId}
+                  userId={user?.id || 'system'}
+                  token={token || undefined}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="forecast">
-              <GrowthForecastDashboard
-                groupId={groupId}
-                userId={user?.id || 'system'}
-                token={token || undefined}
-              />
+              {reportType === 'forecast' && (
+                <GrowthForecastDashboard
+                  groupId={groupId}
+                  userId={user?.id || 'system'}
+                  token={token || undefined}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="bulk-actions">
@@ -989,11 +1029,13 @@ export default function ReportsPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <BulkActionsUI
-                    groupId={groupId}
-                    userId={user?.id || 'system'}
-                    token={token || undefined}
-                  />
+                  {reportType === 'bulk-actions' && (
+                    <BulkActionsUI
+                      groupId={groupId}
+                      userId={user?.id || 'system'}
+                      token={token || undefined}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1010,23 +1052,27 @@ export default function ReportsPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <WidgetErrorBoundary>
-                    <ReportTemplateBuilder
-                      groupId={groupId}
-                      userId={user?.id || 'system'}
-                      token={token || undefined}
-                    />
-                  </WidgetErrorBoundary>
+                  {reportType === 'report-templates' && (
+                    <WidgetErrorBoundary>
+                      <ReportTemplateBuilder
+                        groupId={groupId}
+                        userId={user?.id || 'system'}
+                        token={token || undefined}
+                      />
+                    </WidgetErrorBoundary>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="badges">
-              <AchievementBadgesDashboard
-                groupId={groupId}
-                userId={user?.id || 'system'}
-                token={token || undefined}
-              />
+              {reportType === 'badges' && (
+                <AchievementBadgesDashboard
+                  groupId={groupId}
+                  userId={user?.id || 'system'}
+                  token={token || undefined}
+                />
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

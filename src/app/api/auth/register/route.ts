@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, verifyToken } from '@/lib/auth';
+import { getAuthUser } from '@/lib/api/middleware';
+import * as Users from '@/lib/db/queries/users';
+import type { UserRole } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    const userPayload = getAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(
@@ -51,8 +52,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hashedPassword = hashPassword(password);
-
     // Check if email already exists (email is used as username)
     const existingUser = await prisma.user.findUnique({
       where: { username: email }
@@ -65,26 +64,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user using Prisma
-    const newUser = await prisma.user.create({
-      data: {
-        username: email, // Use email as username
-        password: hashedPassword,
-        firstName: first_name,
-        lastName: last_name,
-        email,
-        groupName: group_name || null,
-        role: userRole,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        groupName: true,
-        createdAt: true,
-      }
+    // Centralized creation (hashes password + maps fields) via the query module
+    const newUser = await Users.create({
+      username: email, // Use email as username
+      password,
+      email,
+      role: (userRole || 'leader') as UserRole,
+      first_name,
+      last_name,
+      group_name: group_name || undefined,
     });
 
     // If user is a leader with group assignment, update the group's leader_id
@@ -104,12 +92,12 @@ export async function POST(request: NextRequest) {
       message: 'User created successfully',
       user: {
         id: newUser.id,
-        username: newUser.email,
-        first_name: newUser.firstName,
-        last_name: newUser.lastName,
+        username: newUser.username,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
         email: newUser.email,
         role: newUser.role,
-        group_name: newUser.groupName,
+        group_name: newUser.group_name,
       },
     });
   } catch (error: unknown) {

@@ -4,11 +4,11 @@ import {
   created,
   errors,
   requireAuth,
-  requireAdmin,
   getQueryParams,
-  getEffectiveGroupFilter,
-  validatePersonData,
+  resolveGroupScope,
+  withApiHandler,
 } from '@/lib/api';
+import { personCreateSchema } from '@/lib/schemas/api';
 import * as People from '@/lib/db/queries/people';
 import * as Milestones from '@/lib/db/queries/milestones';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (error) return error;
     
     const params = getQueryParams(request);
-    const effectiveFilters = getEffectiveGroupFilter(user!, params);
+    const effectiveFilters = resolveGroupScope(user!, params);
     const include = params.raw.get('include')?.split(',') || [];
     const month = params.raw.get('month') || undefined;
     
@@ -59,41 +59,53 @@ export async function GET(request: NextRequest) {
     });
     
     // Determine which query to use based on includes
-    if (include.includes('progress')) {
-      // Get people with full progress data
-      const totalMilestones = await Milestones.countActive();
-      const people = await People.findManyWithProgress(filters, totalMilestones);
-      
-      if (process.env.NODE_ENV !== 'production') console.log('[API /v1/people] Progress results:', {
-        filterGroupId: filters.groupId,
-        returnedCount: people.length,
-        firstPersonGroupId: people[0]?.group_id,
-      });
-      
-      return success({ 
-        people,
-        totalMilestones,
-      }, {
-        total: people.length,
-        limit: params.limit,
-        offset: params.offset,
-      });
+    const activeMilestonesPromise = Milestones.findActive();
+
+    if (include.includes('grid')) {
+      const [milestones, people] = await Promise.all([
+        activeMilestonesPromise,
+        activeMilestonesPromise.then((m) =>
+          People.findManyForGrid(filters, m.length || 18)
+        ),
+      ]);
+
+      return success(
+        { people, milestones, totalMilestones: milestones.length },
+        { total: people.length, limit: params.limit, offset: params.offset }
+      );
     }
-    
+
+    if (include.includes('progress')) {
+      const [milestones, people] = await Promise.all([
+        activeMilestonesPromise,
+        activeMilestonesPromise.then((m) =>
+          People.findManyWithProgress(filters, m.length || 18)
+        ),
+      ]);
+
+      return success(
+        { people, totalMilestones: milestones.length },
+        { total: people.length, limit: params.limit, offset: params.offset }
+      );
+    }
+
     if (include.includes('stats')) {
-      // Get people with stats (lighter query)
-      const totalMilestones = await Milestones.countActive();
-      const { people, total } = await People.findManyWithStats(filters, totalMilestones);
-      
-      return success({ 
-        people,
-        totalMilestones,
-      }, {
-        total,
-        limit: params.limit,
-        offset: params.offset,
-        hasMore: params.offset + params.limit < total,
-      });
+      const [milestones, { people, total }] = await Promise.all([
+        activeMilestonesPromise,
+        activeMilestonesPromise.then((m) =>
+          People.findManyWithStats(filters, m.length || 18)
+        ),
+      ]);
+
+      return success(
+        { people, totalMilestones: milestones.length },
+        {
+          total,
+          limit: params.limit,
+          offset: params.offset,
+          hasMore: params.offset + params.limit < total,
+        }
+      );
     }
     
     // Default: simple list
@@ -113,75 +125,83 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/v1/people
- * Create a new person
+ * Create a new person.
+ *
+ * Uses the centralized handler wrapper: authentication and Zod body validation
+ * are applied before this function runs; the standard error contract is emitted
+ * automatically for auth/validation/uncaught failures.
  */
-export async function POST(request: NextRequest) {
-  try {
-    const { user, error } = requireAuth(request);
-    if (error) return error;
-    
-    const body = await request.json();
-    
-    // Validate input
-    const validation = validatePersonData(body);
-    if (!validation.valid) {
-      return errors.validation('Invalid input', validation.errors);
-    }
-    
-    // Determine target group_id
-    const targetGroupId = body.group_id || user!.group_id;
-    
-    if (!targetGroupId) {
-      return errors.validation('group_id is required. Either provide it in the request or ensure your user account has a group assigned.');
-    }
-    
-    // Set group info from user if not provided
-    const input: People.CreatePersonInput = {
-      first_name: body.first_name,
-      last_name: body.last_name,
-      phone_number: body.phone_number,
-      gender: body.gender,
-      date_of_birth: body.date_of_birth,
-      residential_location: body.residential_location,
-      school_residential_location: body.school_residential_location,
-      occupation_type: body.occupation_type,
-      address: body.address,  // Legacy field support
-      group_id: targetGroupId,
-      group_name: body.group_name || user!.group_name,
-      registered_by: user!.id,
-    };
-    
-    const person = await People.create(input);
-    
-    // Audit log person creation
-    const reqInfo = extractRequestInfo(request.headers);
-    await logAuditEvent({
-      userId: user!.id,
-      action: 'CREATE_CONVERT',
-      entityType: 'new_convert',
-      entityId: person.id,
-      newValues: { full_name: person.full_name, group_id: person.group_id, phone_number: person.phone_number },
-      ipAddress: reqInfo.ipAddress,
-      userAgent: reqInfo.userAgent,
-    });
-    
-    logger.info(`[CREATE_CONVERT] User ${user!.username} registered ${person.full_name} (${person.phone_number}) in group ${person.group_name}`);
-    
-    return created({ person });
-  } catch (err: unknown) {
-    logger.error('[POST /api/v1/people] Error:', err);
-    const e = err as { message?: string; code?: string };
+const handleCreatePerson = withApiHandler(
+  { auth: true, schema: personCreateSchema },
+  async ({ request, user, body }) => {
+    try {
+      // Determine target group_id
+      const targetGroupId = body.group_id || user.group_id;
 
-    // Handle duplicate phone number
-    if (e.message?.includes('duplicate') || e.code === '23505') {
-      return errors.validation(`This phone number is already registered. Each person must have a unique phone number.`);
-    }
+      if (!targetGroupId) {
+        return errors.validation(
+          'group_id is required. Either provide it in the request or ensure your user account has a group assigned.'
+        );
+      }
 
-    // Handle invalid group reference
-    if (e.message?.includes('foreign key') || e.code === '23503') {
-      return errors.validation(`Invalid group_id. The specified group does not exist in the database.`);
+      const input: People.CreatePersonInput = {
+        first_name: body.first_name,
+        last_name: body.last_name,
+        phone_number: body.phone_number,
+        gender: body.gender,
+        date_of_birth: body.date_of_birth,
+        residential_location: body.residential_location,
+        school_residential_location: body.school_residential_location,
+        occupation_type: body.occupation_type,
+        address: body.address, // Legacy field support
+        group_id: targetGroupId,
+        group_name: body.group_name || user.group_name,
+        registered_by: user.id,
+      };
+
+      const person = await People.create(input);
+
+      const reqInfo = extractRequestInfo(request.headers);
+      await logAuditEvent({
+        userId: user.id,
+        action: 'CREATE_CONVERT',
+        entityType: 'new_convert',
+        entityId: person.id,
+        newValues: {
+          full_name: person.full_name,
+          group_id: person.group_id,
+          phone_number: person.phone_number,
+        },
+        ipAddress: reqInfo.ipAddress,
+        userAgent: reqInfo.userAgent,
+      });
+
+      logger.info(
+        `[CREATE_CONVERT] User ${user.username} registered ${person.full_name} (${person.phone_number}) in group ${person.group_name}`
+      );
+
+      return created({ person });
+    } catch (err: unknown) {
+      logger.error('[POST /api/v1/people] Error:', err);
+      const e = err as { message?: string; code?: string };
+
+      if (e.message?.includes('duplicate') || e.code === '23505') {
+        return errors.validation(
+          `This phone number is already registered. Each person must have a unique phone number.`
+        );
+      }
+
+      if (e.message?.includes('foreign key') || e.code === '23503') {
+        return errors.validation(
+          `Invalid group_id. The specified group does not exist in the database.`
+        );
+      }
+
+      return errors.internal('Failed to register person. Please check your data and try again.');
     }
-    
-    return errors.internal('Failed to register person. Please check your data and try again.');
   }
+);
+
+export async function POST(request: NextRequest) {
+  return handleCreatePerson(request);
 }

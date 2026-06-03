@@ -149,33 +149,44 @@ export function getQueryParams(request: NextRequest) {
 }
 
 /**
- * Get the effective group filter based on user role
- * Leaders can see all instances of their month across years (like admins)
- * Admins can see their month across all groups with that month name
- * SuperAdmin/LeadPastor can see everything or filter by params
+ * Normalized group scope used to constrain queries by the requesting user's role.
+ * - `groupName` constrains to a month name across all years (leaders/admins).
+ * - `groupId` constrains to a single group instance (superadmin/leadpastor/overseer
+ *   filtering via query param). When neither is set, the caller may see all data.
+ */
+export interface GroupScope {
+  groupId?: string;
+  groupName?: string;
+}
+
+/**
+ * Resolve the canonical group scope for a user. This is the single source of truth
+ * for role-based data scoping and MUST be applied identically by every list/stats
+ * endpoint (people, attendance, stats, person detail) to avoid scope drift.
+ *
+ * - Leaders & Admins: locked to their month name across all years.
+ * - SuperAdmin / LeadPastor / Overseer: unrestricted, may filter by `group_id` param.
+ */
+export function resolveGroupScope(
+  user: UserPayload,
+  params: ReturnType<typeof getQueryParams>
+): GroupScope {
+  const { role, group_name } = user;
+
+  if (role === ROLES.LEADER || role === ROLES.ADMIN) {
+    return { groupName: group_name };
+  }
+
+  return { groupId: params.groupId };
+}
+
+/**
+ * @deprecated Use {@link resolveGroupScope}. Kept as a thin alias for backwards
+ * compatibility while routes are migrated.
  */
 export function getEffectiveGroupFilter(
   user: UserPayload,
   params: ReturnType<typeof getQueryParams>
-): { groupId?: string; groupName?: string } {
-  const { role, group_id, group_name } = user;
-  
-  // Leaders: locked to their month name across all years (same as admins)
-  if (role === ROLES.LEADER) {
-    return {
-      groupName: group_name, // locked to their month across all years
-    };
-  }
-  
-  // Admins: locked to their month name across all years
-  if (role === ROLES.ADMIN) {
-    return {
-      groupName: group_name, // locked to their month
-    };
-  }
-  
-  // SuperAdmin/LeadPastor: can filter by anything
-  return {
-    groupId: params.groupId,
-  };
+): GroupScope {
+  return resolveGroupScope(user, params);
 }

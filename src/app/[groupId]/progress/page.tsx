@@ -88,8 +88,7 @@ export default function ProgressPage() {
       return
     }
     if (user && token) {
-      fetchMilestones()
-      fetchPeople()
+      void Promise.all([fetchMilestones(), fetchPeople()])
     }
   }, [user, token, authLoading, router, groupId])
 
@@ -107,16 +106,18 @@ export default function ProgressPage() {
 
   const fetchPeople = async () => {
     try {
-      const response = await api.people.list({ include: 'progress' })
+      const response = await api.people.list({ include: 'stats' })
       if (!response.success) throw new Error('Failed to fetch people')
       const milestoneCount = totalMilestones || 18
       const peopleWithProgress = (
         (response.data as { people?: PersonApiData[] })?.people || []
       ).map((person) => {
         const completedStages =
-          (person.progress as ProgressEntry[] | undefined)?.filter(
-            (p) => p.is_completed
-          ).length || 0
+          typeof person.completed_stages === 'number'
+            ? person.completed_stages
+            : (person.progress as ProgressEntry[] | undefined)?.filter(
+                (p) => p.is_completed
+              ).length || 0
         return {
           id: person.id,
           full_name: person.full_name ?? '',

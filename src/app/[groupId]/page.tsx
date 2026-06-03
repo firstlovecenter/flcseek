@@ -20,7 +20,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useParams } from 'next/navigation'
 import { useThemeStyles } from '@/lib/theme-utils'
 import { api } from '@/lib/api'
-import type { MilestoneData, GroupApiData } from '@/lib/types/api-responses'
+import { useGroupYears } from '@/hooks/use-group-years'
+import { expandCompletedStages } from '@/lib/progress-utils'
+import { formatMilestonesForDisplay } from '@/lib/milestone-display'
+import type { MilestoneData } from '@/lib/types/api-responses'
 import { getErrorMessage } from '@/lib/utils/errors'
 import { message } from '@/lib/toast'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -70,7 +73,7 @@ type Milestone = {
   number: number
   name: string
   shortName: string
-  description: string
+  description?: string
   isAutoCalculated: boolean
 }
 
@@ -321,6 +324,10 @@ function SheepSeekerDashboardContent() {
   const [searchText, setSearchText] = useState('')
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const { defaultYear, error: yearsError } = useGroupYears(
+    groupId,
+    !!(user && token)
+  )
   const [isMobile, setIsMobile] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Key[]>([])
   const [deleting, setDeleting] = useState(false)
@@ -336,68 +343,19 @@ function SheepSeekerDashboardContent() {
   }, [])
 
   useEffect(() => {
-    const fetchAvailableYears = async () => {
-      if (!user || !token || !groupId) return
-      try {
-        const response = await api.groups.list({ active: true })
-        if (response.success && response.data) {
-          const groups: GroupApiData[] = response.data.groups || []
-          const selectedGroup = groups.find((g) => g.id === groupId)
-          if (!selectedGroup) throw new Error('Group not found')
-          const userMonthName = selectedGroup.name
-          const matchingGroups = groups.filter(
-            (g) => g.name.toLowerCase() === userMonthName.toLowerCase()
-          )
-          const years = Array.from(
-            new Set(matchingGroups.map((g) => g.year))
-          ) as number[]
-          years.sort((a, b) => b - a)
-          if (selectedGroup.year) setSelectedYear(selectedGroup.year)
-          else if (years.length > 0) setSelectedYear(years[0])
-        }
-      } catch (error: unknown) {
-        message.error(
-          `Failed to load group information: ${getErrorMessage(error)}. Redirecting to home...`
-        )
-        router.push('/')
-      }
+    if (defaultYear != null) {
+      setSelectedYear((prev) => prev ?? defaultYear)
     }
-    fetchAvailableYears()
-  }, [user, token, groupId, router])
+  }, [defaultYear])
 
-  const fetchMilestones = useCallback(async () => {
-    try {
-      const response = await api.milestones.list()
-      if (!response.success) throw new Error('Failed to fetch milestones')
-      const milestoneData = response.data?.milestones || []
-      const formattedMilestones = milestoneData.map((milestone: MilestoneData) => {
-        let formattedShortName =
-          milestone.short_name || milestone.stage_name.substring(0, 10)
-        if (milestone.short_name && !formattedShortName.includes('\n')) {
-          const words = milestone.short_name
-            .split(/[\s,\/]+/)
-            .filter((w: string) => w.length > 0)
-          if (words.length > 1) {
-            const midpoint = Math.ceil(words.length / 2)
-            formattedShortName = `${words.slice(0, midpoint).join(' ')}\n${words.slice(midpoint).join(' ')}`
-          }
-        }
-        return {
-          number: milestone.stage_number,
-          name: milestone.stage_name,
-          shortName: formattedShortName,
-          description: milestone.description,
-          isAutoCalculated: milestone.is_auto_calculated || false,
-        }
-      })
-      setMilestones(formattedMilestones)
-    } catch (error: unknown) {
+  useEffect(() => {
+    if (yearsError) {
       message.error(
-        `Failed to load milestones: ${getErrorMessage(error) || 'Database error'}. Some features may not work correctly.`
+        `Failed to load group information: ${yearsError}. Redirecting to home...`
       )
-      setMilestones([])
+      router.push('/')
     }
-  }, [])
+  }, [yearsError, router])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -414,24 +372,41 @@ function SheepSeekerDashboardContent() {
     ) {
       message.error('Unauthorized access to this group')
       router.push('/')
-      return
     }
-    if (user && token) fetchMilestones()
-  }, [user, token, authLoading, router, fetchMilestones, groupId])
+  }, [user, authLoading, router, groupId])
 
-  const fetchAllPeople = useCallback(
-    async (year?: number) => {
+  const loadBundle = useCallback(
+    async (year: number) => {
       try {
         setLoading(true)
-        const response = await api.people.list({
-          group_id: groupId,
-          year: year,
-          include: 'progress',
-        })
+        const response = await api.groups.bundle(groupId, { year })
         if (!response.success) {
-          throw new Error(response.error?.message || 'Failed to fetch people')
+          throw new Error(response.error?.message || 'Failed to load dashboard')
         }
-        setPeople(response.data?.people || [])
+        const milestoneData =
+          (response.data?.milestones as MilestoneData[]) || []
+        const formatted = formatMilestonesForDisplay(milestoneData)
+        setMilestones(formatted)
+        const stageNumbers = formatted.map((m) => m.number)
+        const rows =
+          (response.data?.people as Array<{
+            id: string
+            full_name: string
+            group_name?: string
+            group_year?: number
+            phone_number: string
+            completed_stages: number[]
+          }>) || []
+        setPeople(
+          rows.map((p) => ({
+            id: p.id,
+            full_name: p.full_name,
+            group_name: p.group_name ?? '',
+            group_year: p.group_year,
+            phone_number: p.phone_number,
+            progress: expandCompletedStages(p.completed_stages, stageNumbers),
+          }))
+        )
       } catch (error: unknown) {
         message.error(getErrorMessage(error) || 'Failed to load people')
       } finally {
@@ -443,20 +418,20 @@ function SheepSeekerDashboardContent() {
 
   useEffect(() => {
     if (user && token && selectedYear && groupId) {
-      fetchAllPeople(selectedYear)
+      loadBundle(selectedYear)
     }
-  }, [user, token, selectedYear, groupId, fetchAllPeople])
+  }, [user, token, selectedYear, groupId, loadBundle])
 
   useEffect(() => {
     const onRegistered = () => {
       if (user && token && selectedYear && groupId) {
-        fetchAllPeople(selectedYear)
+        loadBundle(selectedYear)
       }
     }
     window.addEventListener('flcseek:convert-registered', onRegistered)
     return () =>
       window.removeEventListener('flcseek:convert-registered', onRegistered)
-  }, [user, token, selectedYear, groupId, fetchAllPeople])
+  }, [user, token, selectedYear, groupId, loadBundle])
 
   const toggleMilestone = useCallback(
     async (
@@ -581,7 +556,7 @@ function SheepSeekerDashboardContent() {
       const result = response.data as { successCount?: number }
       message.success(`Deleted ${result?.successCount ?? 0} convert(s)`)
       setSelectedIds([])
-      fetchAllPeople(selectedYear || undefined)
+      if (selectedYear) loadBundle(selectedYear)
     } catch (error: unknown) {
       message.error(
         getErrorMessage(error) || 'Failed to delete selected converts'
@@ -589,7 +564,7 @@ function SheepSeekerDashboardContent() {
     } finally {
       setDeleting(false)
     }
-  }, [selectedIds, groupId, selectedYear, fetchAllPeople, confirm])
+  }, [selectedIds, groupId, selectedYear, loadBundle, confirm])
 
   const totalPeople = filteredPeople.length
   const incomplete = filteredPeople.filter(

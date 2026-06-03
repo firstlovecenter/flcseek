@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getAuthUser } from '@/lib/api/middleware';
 import { 
   getUnreadNotifications, 
   markNotificationsRead,
@@ -17,8 +17,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    const userPayload = getAuthUser(request);
 
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -65,8 +64,7 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const userPayload = token ? verifyToken(token) : null;
+    const userPayload = getAuthUser(request);
 
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

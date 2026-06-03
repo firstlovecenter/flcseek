@@ -196,7 +196,7 @@ export function validateYear(value: unknown, required = false): ValidationResult
  * Validate role
  */
 export function validateRole(value: unknown): ValidationResult {
-  const validRoles = ['superadmin', 'leadpastor', 'admin', 'leader'];
+  const validRoles = ['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'];
   
   if (!value) {
     return { valid: false, errors: ['Role is required'] };
