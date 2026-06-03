@@ -1,473 +1,510 @@
-'use client';
+'use client'
 
-import { useEffect, useState, Suspense } from 'react';
-import { Table, Button, Typography, Spin, Progress, Tag, DatePicker, Space, Select, Checkbox, App } from 'antd';
-import { PlusOutlined, HomeOutlined, TeamOutlined, BarChartOutlined, UserAddOutlined, FileExcelOutlined, CalendarOutlined, CheckSquareOutlined } from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useParams } from 'next/navigation';
-import { ATTENDANCE_GOAL, CURRENT_YEAR } from '@/lib/constants';
-import AppBreadcrumb from '@/components/AppBreadcrumb';
-import dayjs from 'dayjs';
-import { useThemeStyles } from '@/lib/theme-utils';
-import { api } from '@/lib/api';
-import type { GroupApiData, PersonApiData } from '@/lib/types/api-responses';
-
-const { Title, Text } = Typography;
+import { useEffect, useState, useMemo, Suspense } from 'react'
+import {
+  Calendar,
+  CheckSquare,
+  Plus,
+} from 'lucide-react'
+import { SynagoLoader } from '@/components/shell/SynagoLoader'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRouter, useParams } from 'next/navigation'
+import { ATTENDANCE_GOAL } from '@/lib/constants'
+import AppBreadcrumb from '@/components/AppBreadcrumb'
+import dayjs from 'dayjs'
+import { api } from '@/lib/api'
+import type { GroupApiData, PersonApiData } from '@/lib/types/api-responses'
+import { message } from '@/lib/toast'
+import { LoadingScreen } from '@/components/base/LoadingScreen'
+import { GroupNavActions } from '@/components/group/GroupNavActions'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
 interface PersonAttendance {
-  id: string;
-  full_name: string;
-  group_name: string;
-  phone_number: string;
-  attendanceCount: number;
-  percentage: number;
+  id: string
+  full_name: string
+  group_name: string
+  phone_number: string
+  attendanceCount: number
+  percentage: number
 }
 
 function AttendancePageContent() {
-  const { user, token, loading: authLoading } = useAuth();
-  const { message } = App.useApp();
-  const router = useRouter();
-  const params = useParams();
-  const groupId = params.groupId as string;
-  
-  const [people, setPeople] = useState<PersonAttendance[]>([]);
-  const [loading, setLoading] = useState(true);
-  const themeStyles = useThemeStyles();
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  
-  // Calculate the most recent Sunday as the default date
-  const getMostRecentSunday = () => {
-    const today = dayjs();
-    return today.day() === 0 ? today : today.subtract(today.day(), 'day');
-  };
-  
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(getMostRecentSunday());
-  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-  const [bulkMarking, setBulkMarking] = useState(false);
-  
-  // Check if user is a leader (read-only access) or superadmin/admin (full access)
-  const isLeader = user?.role === 'leader';
-  const isSuperAdmin = user?.role === 'superadmin';
-  const isAdmin = user?.role === 'admin';
-  const canSelectPastDates = isSuperAdmin || isAdmin;  // Both superadmin and admin can enter past records
-  // Read-only for leaders, overseers, and leadpastors; editable only for admin and superadmin
-  const isReadOnly = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
-  const isRegisterRestricted = isLeader || user?.role === 'overseer' || user?.role === 'leadpastor';
+  const { user, token, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const params = useParams()
+  const groupId = params.groupId as string
 
-  // Fetch available years for the group
+  const [people, setPeople] = useState<PersonAttendance[]>([])
+  const [loading, setLoading] = useState(true)
+  const [availableYears, setAvailableYears] = useState<number[]>([])
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+
+  const getMostRecentSunday = () => {
+    const today = dayjs()
+    return today.day() === 0 ? today : today.subtract(today.day(), 'day')
+  }
+
+  const [selectedDate, setSelectedDate] = useState(getMostRecentSunday())
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkMarking, setBulkMarking] = useState(false)
+
+  const isLeader = user?.role === 'leader'
+  const isSuperAdmin = user?.role === 'superadmin'
+  const isAdmin = user?.role === 'admin'
+  const canSelectPastDates = isSuperAdmin || isAdmin
+  const isReadOnly =
+    user?.role === 'leader' ||
+    user?.role === 'overseer' ||
+    user?.role === 'leadpastor'
+
   useEffect(() => {
     const fetchAvailableYears = async () => {
-      if (!user || !token || !groupId) return;
-
+      if (!user || !token || !groupId) return
       try {
-        const response = await api.groups.list({ active: true });
-        
+        const response = await api.groups.list({ active: true })
         if (response.success && response.data) {
-          const groups: GroupApiData[] = response.data.groups || [];
-
-          // Find the selected group
-          const selectedGroup = groups.find((g) => g.id === groupId);
-          if (!selectedGroup) {
-            throw new Error('Group not found');
-          }
-
-          // Filter by the group's month name to find all instances across years
-          const monthName = selectedGroup.name;
-          const matchingGroups = groups.filter((g) => g.name.toLowerCase() === monthName.toLowerCase());
-
-          // Extract unique years
-          const years = Array.from(new Set(matchingGroups.map((g) => g.year))) as number[];
-          years.sort((a, b) => b - a); // Descending order (newest first)
-
-          setAvailableYears(years);
-
-          // Set the default year from the current group's year
-          if (selectedGroup.year) {
-            setSelectedYear(selectedGroup.year);
-          } else if (years.length > 0) {
-            setSelectedYear(years[0]);
-          }
+          const groups: GroupApiData[] = response.data.groups || []
+          const selectedGroup = groups.find((g) => g.id === groupId)
+          if (!selectedGroup) throw new Error('Group not found')
+          const monthName = selectedGroup.name
+          const matchingGroups = groups.filter(
+            (g) => g.name.toLowerCase() === monthName.toLowerCase()
+          )
+          const years = Array.from(
+            new Set(matchingGroups.map((g) => g.year))
+          ) as number[]
+          years.sort((a, b) => b - a)
+          setAvailableYears(years)
+          if (selectedGroup.year) setSelectedYear(selectedGroup.year)
+          else if (years.length > 0) setSelectedYear(years[0])
         }
-      } catch (error) {
-        console.error('Failed to fetch available years:', error);
-        message.error('Failed to load group information. Please refresh the page or contact support.');
-        router.push(`/${groupId}`);
+      } catch {
+        message.error(
+          'Failed to load group information. Please refresh the page or contact support.'
+        )
+        router.push(`/${groupId}`)
       }
-    };
-
-    fetchAvailableYears();
-  }, [user, token, groupId, router]);
+    }
+    fetchAvailableYears()
+  }, [user, token, groupId, router])
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth');
-      return;
+      router.push('/auth')
+      return
     }
-
-    // Validate access
-    if (!authLoading && user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer' && user.group_id !== groupId) {
-      message.error('Unauthorized access to this group');
-      router.push('/');
-      return;
+    if (
+      !authLoading &&
+      user &&
+      user.role !== 'superadmin' &&
+      user.role !== 'leadpastor' &&
+      user.role !== 'overseer' &&
+      user.group_id !== groupId
+    ) {
+      message.error('Unauthorized access to this group')
+      router.push('/')
+      return
     }
-
-    // Only fetch when we have a selected year
-    if (user && token && selectedYear) {
-      fetchPeople();
-    }
-  }, [user, token, authLoading, router, groupId, selectedYear]);
+    if (user && token && selectedYear) fetchPeople()
+  }, [user, token, authLoading, router, groupId, selectedYear])
 
   const fetchPeople = async () => {
     try {
-      setLoading(true);
-      // Use the groupId from URL params
+      setLoading(true)
       const response = await api.people.list({
         group_id: groupId,
         year: selectedYear || undefined,
         include: 'progress',
-      });
-
-      if (!response.success) throw new Error('Failed to fetch people');
-
-      // Map the optimized response to attendance format
-      const peopleWithAttendance = ((response.data as { people?: PersonApiData[] })?.people || []).map((person) => ({
+      })
+      if (!response.success) throw new Error('Failed to fetch people')
+      const peopleWithAttendance = (
+        (response.data as { people?: PersonApiData[] })?.people || []
+      ).map((person) => ({
         id: person.id,
         full_name: person.full_name ?? '',
         group_name: person.group_name ?? '',
         phone_number: person.phone_number,
         attendanceCount: person.attendance_count || 0,
-        percentage: Math.min(Math.round(((person.attendance_count || 0) / ATTENDANCE_GOAL) * 100), 100),
-      }));
-
-      setPeople(peopleWithAttendance);
+        percentage: Math.min(
+          Math.round(
+            ((person.attendance_count || 0) / ATTENDANCE_GOAL) * 100
+          ),
+          100
+        ),
+      }))
+      setPeople(peopleWithAttendance)
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : 'Failed to load people');
+      message.error(
+        error instanceof Error ? error.message : 'Failed to load people'
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const markAttendance = async (personId: string) => {
-    // Read-only users cannot mark attendance
     if (isReadOnly) {
-      message.warning('You do not have permission to mark attendance');
-      return;
+      message.warning('You do not have permission to mark attendance')
+      return
     }
-
     try {
       const response = await api.attendance.mark(personId, {
         date_attended: selectedDate.format('YYYY-MM-DD'),
-      });
-
+      })
       if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to mark attendance');
+        throw new Error(response.error?.message || 'Failed to mark attendance')
       }
-
-      message.success('Attendance marked successfully!');
-      fetchPeople();
+      message.success('Attendance marked successfully!')
+      fetchPeople()
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to mark attendance';
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to mark attendance'
       if (errorMsg.includes('duplicate') || errorMsg.includes('already')) {
-        message.warning('Attendance already marked for this date');
+        message.warning('Attendance already marked for this date')
       } else if (errorMsg.includes('not found')) {
-        message.error('Person not found. They may have been removed.');
+        message.error('Person not found. They may have been removed.')
       } else {
-        message.error(errorMsg);
+        message.error(errorMsg)
       }
     }
-  };
+  }
 
-  // Bulk mark attendance for all selected people
   const bulkMarkAttendance = async () => {
     if (isReadOnly) {
-      message.warning('You do not have permission to mark attendance');
-      return;
+      message.warning('You do not have permission to mark attendance')
+      return
     }
-
-    if (selectedRowKeys.length === 0) {
-      message.warning('Please select at least one person');
-      return;
+    if (selectedIds.length === 0) {
+      message.warning('Please select at least one person')
+      return
     }
-
     try {
-      setBulkMarking(true);
-      const records = selectedRowKeys.map((personId) => ({
-        person_id: personId as string,
+      setBulkMarking(true)
+      const records = selectedIds.map((personId) => ({
+        person_id: personId,
         date_attended: selectedDate.format('YYYY-MM-DD'),
-      }));
-
-      const response = await api.attendance.bulkCreate(records);
-
+      }))
+      const response = await api.attendance.bulkCreate(records)
       if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to mark attendance');
+        throw new Error(response.error?.message || 'Failed to mark attendance')
       }
-
-      const created = response.data?.created || 0;
-      const errors = response.data?.errors || [];
-
+      const created = response.data?.created || 0
+      const errors = response.data?.errors || []
       if (errors.length > 0) {
-        message.warning(`Marked ${created} attendance(s). ${errors.length} already marked for this date.`);
+        message.warning(
+          `Marked ${created} attendance(s). ${errors.length} already marked for this date.`
+        )
       } else {
-        message.success(`Successfully marked attendance for ${created} person(s)!`);
+        message.success(
+          `Successfully marked attendance for ${created} person(s)!`
+        )
       }
-
-      setSelectedRowKeys([]);
-      fetchPeople();
+      setSelectedIds([])
+      fetchPeople()
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : 'Failed to mark attendance');
+      message.error(
+        error instanceof Error ? error.message : 'Failed to mark attendance'
+      )
     } finally {
-      setBulkMarking(false);
+      setBulkMarking(false)
     }
-  };
+  }
 
-  // Row selection configuration for bulk operations
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: (newSelectedRowKeys: React.Key[]) => {
-      setSelectedRowKeys(newSelectedRowKeys);
-    },
-  };
+  const dateInputValue = selectedDate.format('YYYY-MM-DD')
 
-  const columns = [
-    {
-      title: 'Name',
-      dataIndex: 'full_name',
-      key: 'full_name',
-      width: 200,
-      fixed: 'left' as const,
-      render: (text: string, record: PersonAttendance) => (
-        <div>
-          <Button
-            type="link"
-            onClick={() => router.push(`/${groupId}/person/${record.id}`)}
-            style={{ padding: 0, fontWeight: 500 }}
-          >
-            {text}
-          </Button>
-          {isLeader && (
-            <div style={{ fontSize: 12, color: '#888' }}>
-              <a href={`tel:${record.phone_number}`} style={{ color: '#888' }}>
-                📞 {record.phone_number}
-              </a>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    // Only show Actions column for admins/superadmin (not for leaders/overseers/leadpastors)
-    ...(!isReadOnly ? [{
-      title: 'Actions',
-      key: 'actions',
-      width: 150,
-      fixed: 'left' as const,
-      render: (_: unknown, record: PersonAttendance) => (
-        <Button
-          size="small"
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => markAttendance(record.id)}
-        >
-          Mark Present
-        </Button>
-      ),
-    }] : []),
-    {
-      title: 'Attendance Progress',
-      key: 'attendance',
-      render: (_: unknown, record: PersonAttendance) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <Progress
-              percent={record.percentage}
-              strokeColor={record.attendanceCount >= 10 ? '#52c41a' : '#ff4d4f'}
-              size="small"
-              format={(percent) => `${record.attendanceCount}/${ATTENDANCE_GOAL}`}
-            />
-          </div>
-          <Tag color={record.attendanceCount >= 10 ? 'success' : 'error'}>
-            {record.percentage}%
-          </Tag>
-        </div>
-      ),
-    },
-  ];
+  const handleDateChange = (value: string) => {
+    if (!value) return
+    const date = dayjs(value)
+    if (!date.isValid()) return
+    setSelectedDate(date)
+  }
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((k) => k !== id)
+    )
+  }
+
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? people.map((p) => p.id) : [])
+  }
+
+  const attendanceStats = useMemo(() => {
+    const total = people.length
+    const onTrack = people.filter((p) => p.percentage >= 50).length
+    const behindGoal = total - onTrack
+    const avgProgress =
+      total > 0
+        ? Math.round(
+            people.reduce((sum, p) => sum + p.percentage, 0) / total
+          )
+        : 0
+    return { total, onTrack, behindGoal, avgProgress }
+  }, [people])
+
+  const isAttendanceGreen = (percentage: number) => percentage >= 50
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spin size="large" />
-      </div>
-    );
+    return <LoadingScreen label="Loading attendance…" />
   }
 
   return (
     <>
       <AppBreadcrumb />
-      <div>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Title level={2} style={{ margin: 0 }}>
-              {isLeader ? 'Attendance Tracking' : 'Update Attendance Tracking'}
-            </Title>
-            <Space>
-              <Button
-                icon={<BarChartOutlined />}
-                onClick={() => router.push(`/${groupId}`)}
-              >
-                Milestones
-              </Button>
-              <Button
-                icon={<TeamOutlined />}
-                type="primary"
-              >
-                Attendance
-              </Button>
-              {!isRegisterRestricted && (
-                <Button
-                  icon={<UserAddOutlined />}
-                  onClick={() => router.push(`/${groupId}/people/register`)}
-                >
-                  Register
-                </Button>
-              )}
-              {!isRegisterRestricted && (
-                <Button
-                  icon={<FileExcelOutlined />}
-                  onClick={() => router.push(`/${groupId}/people/bulk-register`)}
-                >
-                  Bulk Register
-                </Button>
-              )}
-              {(user?.role === 'superadmin' || user?.role === 'leadpastor' || user?.role === 'overseer') && (
-                <Button
-                  icon={<BarChartOutlined />}
-                  onClick={() => router.push(`/${groupId}/reports`)}
-                >
-                  Reports
-                </Button>
-              )}
-            </Space>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {isLeader
+                ? 'Attendance Tracking'
+                : 'Update Attendance Tracking'}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isLeader
+                ? `View attendance records for all new converts (Goal: ${ATTENDANCE_GOAL} Sundays)`
+                : `Mark attendance for church services (Goal: ${ATTENDANCE_GOAL} Sundays)`}
+            </p>
           </div>
-          <Text type="secondary">
-            {isLeader 
-              ? `View attendance records for all new converts (Goal: ${ATTENDANCE_GOAL} Sundays)`
-              : `Mark attendance for church services (Goal: ${ATTENDANCE_GOAL} Sundays)`
-            }
-          </Text>
+          <GroupNavActions groupId={groupId} user={user} active="attendance" />
         </div>
 
-        {/* Year Selector - only show if multiple years available */}
         {availableYears.length > 1 && (
-          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Text><CalendarOutlined /> Year:</Text>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2 text-sm">
+              <Calendar className="size-4" />
+              Year:
+            </span>
             <Select
-              value={selectedYear}
-              onChange={(year) => setSelectedYear(year)}
-              style={{ width: 100 }}
-              options={availableYears.map((year) => ({
-                label: year.toString(),
-                value: year,
-              }))}
-              placeholder="Year"
-            />
+              value={selectedYear != null ? String(selectedYear) : undefined}
+              onValueChange={(v) => setSelectedYear(Number(v))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
-        {/* Only show date picker for admins (not for leaders) */}
         {!isLeader && (
-          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Text>Select Date:</Text>
-            <DatePicker
-              value={selectedDate}
-              onChange={(date) => setSelectedDate(date || dayjs())}
-              size="large"
-              format="MMMM DD, YYYY"
-              style={{ minWidth: '200px' }}
-              disabledDate={(current) => {
-                if (!current) return false;
-                
-                // Superadmin and Admin can select any Sunday in the past or present
-                if (canSelectPastDates) {
-                  const today = dayjs();
-                  // Disable if not a Sunday (day 0)
-                  if (current.day() !== 0) return true;
-                  // Disable if future date
-                  if (current.isAfter(today, 'day')) return true;
-                  return false;
-                }
-                
-                // Non-admin: only allow the most recent Sunday
-                const today = dayjs();
-                
-                // Disable if not a Sunday (day 0)
-                if (current.day() !== 0) return true;
-                
-                // Calculate the most recent Sunday (or today if today is Sunday)
-                const mostRecentSunday = today.day() === 0 
-                  ? today 
-                  : today.subtract(today.day(), 'day');
-                
-                // Only allow the most recent Sunday - disable all other dates
-                if (!current.isSame(mostRecentSunday, 'day')) return true;
-                
-                return false;
-              }}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm">Select Date:</span>
+            <Input
+              type="date"
+              className="w-[200px]"
+              value={dateInputValue}
+              onChange={(e) => handleDateChange(e.target.value)}
             />
             {canSelectPastDates && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <span className="text-xs text-muted-foreground">
                 (Can select any past Sunday)
-              </Text>
+              </span>
             )}
           </div>
         )}
 
-        {/* Bulk actions - only show for admins with selected items */}
+        <Card className="mb-4">
+          <CardContent className="p-5">
+            <div className="flex flex-wrap gap-8">
+              <div>
+                <p className="text-xs text-muted-foreground">Total converts</p>
+                <p className="text-3xl font-bold tabular-nums">
+                  {attendanceStats.total}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">On track (50%+)</p>
+                <p className="text-3xl font-bold tabular-nums text-success">
+                  {attendanceStats.onTrack}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Below 50%</p>
+                <p className="text-3xl font-bold tabular-nums text-destructive">
+                  {attendanceStats.behindGoal}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Average progress
+                </p>
+                <p className="text-3xl font-bold tabular-nums">
+                  {attendanceStats.avgProgress}%
+                </p>
+              </div>
+            </div>
+            <Progress
+              value={attendanceStats.avgProgress}
+              className="mt-4 h-2 [&>div]:bg-success"
+            />
+          </CardContent>
+        </Card>
+
         {!isReadOnly && (
-          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="flex flex-wrap items-center gap-3">
             <Button
-              type="primary"
-              icon={<CheckSquareOutlined />}
+              disabled={selectedIds.length === 0}
               onClick={bulkMarkAttendance}
-              disabled={selectedRowKeys.length === 0}
-              loading={bulkMarking}
+              className="bg-success text-success-foreground hover:bg-success/90"
             >
-              Mark Selected ({selectedRowKeys.length})
+              {bulkMarking ? (
+                <SynagoLoader size={16} inline />
+              ) : (
+                <CheckSquare className="size-4" />
+              )}
+              Mark Selected ({selectedIds.length})
             </Button>
-            {selectedRowKeys.length > 0 && (
-              <Button onClick={() => setSelectedRowKeys([])}>
+            {selectedIds.length > 0 && (
+              <Button variant="outline" onClick={() => setSelectedIds([])}>
                 Clear Selection
               </Button>
             )}
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Select converts and click "Mark Selected" to bulk mark attendance
-            </Text>
+            <span className="text-xs text-muted-foreground">
+              Select converts and click Mark Selected to bulk mark attendance
+            </span>
           </div>
         )}
 
-        <Table
-          columns={columns}
-          dataSource={people}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 800 }}
-          rowSelection={!isReadOnly ? rowSelection : undefined}
-          pagination={{ 
-            pageSize: 20, 
-            showSizeChanger: true,
-            showTotal: (total) => `Total ${total} new converts`
-          }}
-          style={{ background: themeStyles.containerBg, borderRadius: 8 }}
-        />
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {!isReadOnly && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        people.length > 0 &&
+                        selectedIds.length === people.length
+                      }
+                      onCheckedChange={(c) => toggleSelectAll(!!c)}
+                    />
+                  </TableHead>
+                )}
+                <TableHead>Name</TableHead>
+                {!isReadOnly && <TableHead>Actions</TableHead>}
+                <TableHead>Attendance Progress</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {people.map((record) => (
+                <TableRow key={record.id}>
+                  {!isReadOnly && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(record.id)}
+                        onCheckedChange={(c) =>
+                          toggleSelect(record.id, !!c)
+                        }
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <button
+                      type="button"
+                      className="text-left text-sm font-semibold text-foreground hover:underline"
+                      onClick={() =>
+                        router.push(`/${groupId}/person/${record.id}`)
+                      }
+                    >
+                      {record.full_name}
+                    </button>
+                    {isLeader && (
+                      <div className="text-xs text-muted-foreground">
+                        <a href={`tel:${record.phone_number}`}>
+                          {record.phone_number}
+                        </a>
+                      </div>
+                    )}
+                  </TableCell>
+                  {!isReadOnly && (
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-success/50 text-success hover:bg-success/10"
+                        onClick={() => markAttendance(record.id)}
+                      >
+                        <Plus className="size-4" />
+                        Mark Present
+                      </Button>
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <div className="flex min-w-[200px] items-center gap-3">
+                      <Progress
+                        value={record.percentage}
+                        className={cn(
+                          'h-2 flex-1',
+                          isAttendanceGreen(record.percentage)
+                            ? '[&>div]:bg-success'
+                            : '[&>div]:bg-destructive'
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          'text-xs font-medium tabular-nums',
+                          isAttendanceGreen(record.percentage)
+                            ? 'text-success'
+                            : 'text-destructive'
+                        )}
+                      >
+                        {record.attendanceCount}/{ATTENDANCE_GOAL}
+                      </span>
+                      <Badge
+                        variant={
+                          isAttendanceGreen(record.percentage)
+                            ? 'success'
+                            : 'destructive'
+                        }
+                      >
+                        {record.percentage}%
+                      </Badge>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Total {people.length} new converts
+        </p>
       </div>
     </>
-  );
+  )
 }
 
 export default function AttendancePage() {
   return (
-    <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>}>
+    <Suspense fallback={<LoadingScreen />}>
       <AttendancePageContent />
     </Suspense>
-  );
+  )
 }

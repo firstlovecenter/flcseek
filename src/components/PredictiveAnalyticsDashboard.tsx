@@ -1,32 +1,29 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { Users, ArrowUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { SynagoLoader } from '@/components/shell/SynagoLoader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Progress,
   Table,
-  Tag,
-  Space,
-  Button,
-  Spin,
-  Empty,
-  Tooltip,
-  Tabs,
-  Segmented,
-} from 'antd';
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
-  ArrowUpOutlined,
-  ArrowDownOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  LoadingOutlined,
-  TeamOutlined,
-} from '@ant-design/icons';
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { EmptyState } from '@/components/base/EmptyState';
+import { cn } from '@/lib/utils';
 import type { Prediction } from '@/lib/predictive-analytics';
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import dayjs from 'dayjs';
 
 interface PredictiveAnalyticsDashboardProps {
@@ -45,9 +42,195 @@ interface GroupOutcomes {
   predictions: Prediction[];
 }
 
+function CircleGauge({ value, color }: { value: number; color: string }) {
+  const data = [
+    { name: 'value', value: Math.round(value) },
+    { name: 'rest', value: 100 - Math.round(value) },
+  ];
+  return (
+    <ResponsiveContainer width={40} height={40}>
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="value"
+          cx="50%"
+          cy="50%"
+          innerRadius={12}
+          outerRadius={18}
+          startAngle={90}
+          endAngle={-270}
+          stroke="none"
+        >
+          <Cell fill={color} />
+          <Cell fill="hsl(var(--muted))" />
+        </Pie>
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+function getPredictionColor(probability: number) {
+  if (probability > 75) return 'hsl(var(--success))';
+  if (probability > 50) return 'hsl(var(--warning))';
+  return 'hsl(var(--destructive))';
+}
+
+function getRiskColor(risk: number) {
+  if (risk < 30) return 'hsl(var(--success))';
+  if (risk < 60) return 'hsl(var(--warning))';
+  return 'hsl(var(--destructive))';
+}
+
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+  block,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { label: React.ReactNode; value: T }[];
+  block?: boolean;
+}) {
+  return (
+    <div className={cn('inline-flex rounded-lg border p-1', block && 'flex w-full')}>
+      {options.map((opt) => (
+        <Button
+          key={opt.value}
+          variant={value === opt.value ? 'default' : 'ghost'}
+          size="sm"
+          className={block ? 'flex-1' : undefined}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function PaginatedTable({
+  data,
+  pageSize = 10,
+  children,
+}: {
+  data: Prediction[];
+  pageSize?: number;
+  children: (pageData: Prediction[]) => React.ReactNode;
+}) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const pageData = useMemo(
+    () => data.slice(page * pageSize, (page + 1) * pageSize),
+    [data, page, pageSize]
+  );
+
+  return (
+    <div>
+      {children(pageData)}
+      {data.length > pageSize && (
+        <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Page {page + 1} of {totalPages} ({data.length} total)
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PredictionsTable({
+  data,
+  onViewDetails,
+}: {
+  data: Prediction[];
+  onViewDetails: (id: string) => void;
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Convert</TableHead>
+          <TableHead>Completion</TableHead>
+          <TableHead>Dropout Risk</TableHead>
+          <TableHead>Confidence</TableHead>
+          <TableHead>Est. Completion</TableHead>
+          <TableHead>Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.map((record) => (
+          <TableRow key={record.convertId}>
+            <TableCell>
+              <div className="font-medium">{record.convertName || record.convertId}</div>
+              <div className="max-w-[140px] truncate text-xs text-muted-foreground">
+                {record.recommendation.substring(0, 30)}...
+              </div>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <CircleGauge value={record.completionProbability} color={getPredictionColor(record.completionProbability)} />
+                <span>{Math.round(record.completionProbability)}%</span>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <CircleGauge value={record.dropoutRisk} color={getRiskColor(100 - record.dropoutRisk)} />
+                <span>{Math.round(record.dropoutRisk)}%</span>
+              </div>
+            </TableCell>
+            <TableCell>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant={
+                      record.confidence > 80
+                        ? 'success'
+                        : record.confidence > 60
+                          ? 'warning'
+                          : 'destructive'
+                    }
+                  >
+                    {record.confidence}% confident
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>Confidence based on available data points</TooltipContent>
+              </Tooltip>
+            </TableCell>
+            <TableCell>
+              {record.estimatedCompletionDate ? (
+                dayjs(record.estimatedCompletionDate).format('MMM D, YYYY')
+              ) : (
+                <span className="text-muted-foreground">N/A</span>
+              )}
+            </TableCell>
+            <TableCell>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onViewDetails(record.convertId)}>
+                View Details
+              </Button>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 export function PredictiveAnalyticsDashboard({ groupId, userId, token }: PredictiveAnalyticsDashboardProps) {
   const router = useRouter();
-  const params = useParams();
   const [outcomes, setOutcomes] = useState<GroupOutcomes | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'overview' | 'byCategory'>('overview');
@@ -77,130 +260,37 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
     };
 
     fetchOutcomes();
-  }, [groupId]);
+  }, [groupId, userId, token]);
 
   if (loading) {
     return (
-      <Card className="text-center">
-        <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
-        <p className="mt-4">Generating predictions...</p>
+      <Card>
+        <CardContent className="flex flex-col items-center py-10">
+          <SynagoLoader size={48} label="Generating predictions…" />
+        </CardContent>
       </Card>
     );
   }
 
   if (!outcomes) {
-    return <Empty description="Unable to load predictions" />;
+    return <EmptyState title="Unable to load predictions" />;
   }
 
   const handleViewDetails = (convertId: string) => {
     router.push(`/${groupId}/person/${convertId}`);
   };
 
-  const getPredictionColor = (probability: number) => {
-    if (probability > 75) return 'green';
-    if (probability > 50) return 'orange';
-    return 'red';
-  };
-
-  const getRiskColor = (risk: number) => {
-    if (risk < 30) return 'green';
-    if (risk < 60) return 'orange';
-    return 'red';
-  };
-
-  const predictionsColumns = [
-    {
-      title: 'Convert',
-      key: 'convert',
-      width: 150,
-      render: (_: unknown, record: Prediction) => (
-        <div>
-          <div className="font-medium">{record.convertName || record.convertId}</div>
-          <div className="text-xs text-gray-500">{record.recommendation.substring(0, 30)}...</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Completion',
-      dataIndex: 'completionProbability',
-      key: 'completionProbability',
-      width: 140,
-      render: (value: number) => (
-        <div className="flex items-center gap-2">
-          <Progress
-            type="circle"
-            percent={Math.round(value)}
-            width={40}
-            strokeColor={getPredictionColor(value)}
-          />
-          <span>{Math.round(value)}%</span>
-        </div>
-      ),
-    },
-    {
-      title: 'Dropout Risk',
-      dataIndex: 'dropoutRisk',
-      key: 'dropoutRisk',
-      width: 140,
-      render: (value: number) => (
-        <div className="flex items-center gap-2">
-          <Progress
-            type="circle"
-            percent={Math.round(value)}
-            width={40}
-            strokeColor={getRiskColor(100 - value)}
-          />
-          <span>{Math.round(value)}%</span>
-        </div>
-      ),
-    },
-    {
-      title: 'Confidence',
-      dataIndex: 'confidence',
-      key: 'confidence',
-      width: 120,
-      render: (value: number) => (
-        <Tooltip title="Confidence based on available data points">
-          <Tag color={value > 80 ? 'green' : value > 60 ? 'orange' : 'red'}>
-            {value}% confident
-          </Tag>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Est. Completion',
-      dataIndex: 'estimatedCompletionDate',
-      key: 'estimatedCompletionDate',
-      width: 130,
-      render: (value?: Date) =>
-        value ? (
-          <span>{dayjs(value).format('MMM D, YYYY')}</span>
-        ) : (
-          <span className="text-gray-400">N/A</span>
-        ),
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      width: 100,
-      render: (_: unknown, record: Prediction) => (
-        <Button 
-          type="link" 
-          size="small"
-          onClick={() => handleViewDetails(record.convertId)}
-        >
-          View Details
-        </Button>
-      ),
-    },
-  ];
+  const filteredPredictions =
+    category === 'onTrack'
+      ? outcomes.predictions.filter((p) => p.completionProbability > 75)
+      : category === 'atRisk'
+        ? outcomes.predictions.filter(
+            (p) => p.completionProbability > 50 && p.completionProbability <= 75
+          )
+        : outcomes.predictions.filter((p) => p.completionProbability <= 50);
 
   const overallStats = [
-    {
-      title: 'Total Converts',
-      value: outcomes.totalConverts,
-      icon: <TeamOutlined />,
-    },
+    { title: 'Total Converts', value: outcomes.totalConverts, icon: Users },
     {
       title: 'With Predictions',
       value: outcomes.predictionsGenerated,
@@ -209,138 +299,118 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
     {
       title: 'Avg. Completion',
       value: `${Math.round(outcomes.averageCompletion)}%`,
-      color: getPredictionColor(outcomes.averageCompletion),
+      colorClass: outcomes.averageCompletion > 75 ? 'text-success' : outcomes.averageCompletion > 50 ? 'text-warning' : 'text-destructive',
     },
     {
       title: 'Avg. Dropout Risk',
       value: `${Math.round(outcomes.averageDropoutRisk)}%`,
-      color: getRiskColor(outcomes.averageDropoutRisk),
+      colorClass: outcomes.averageDropoutRisk < 30 ? 'text-success' : outcomes.averageDropoutRisk < 60 ? 'text-warning' : 'text-destructive',
     },
     {
       title: 'On Track',
       value: outcomes.onTrack,
-      color: 'green',
-      suffix: outcomes.onTrack > 0 ? <ArrowUpOutlined /> : undefined,
+      colorClass: 'text-success',
+      suffix: outcomes.onTrack > 0 ? ArrowUp : undefined,
     },
     {
       title: 'High Risk',
       value: outcomes.highRisk,
-      color: 'red',
-      suffix: outcomes.highRisk > 0 ? <ExclamationCircleOutlined /> : undefined,
+      colorClass: 'text-destructive',
+      suffix: outcomes.highRisk > 0 ? AlertCircle : undefined,
     },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Overview Stats */}
       <div>
         <h2 className="mb-4 text-lg font-semibold">Prediction Overview</h2>
-        <Row gutter={[16, 16]}>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {overallStats.map((stat, index) => (
-            <Col key={index} xs={24} sm={12} lg={4}>
-              <Card className="text-center">
-                {stat.icon && <div className="mb-2 text-2xl">{stat.icon}</div>}
-                <Statistic
-                  title={stat.title}
-                  value={stat.value}
-                  suffix={stat.suffix}
-                  valueStyle={{ color: stat.color }}
-                />
-                {stat.subtitle && <div className="text-sm text-gray-500">{stat.subtitle}</div>}
-              </Card>
-            </Col>
+            <Card key={index}>
+              <CardContent className="pt-6 text-center">
+                {stat.icon && <stat.icon className="mx-auto mb-2 size-6 text-muted-foreground" />}
+                <p className="text-sm text-muted-foreground">{stat.title}</p>
+                <p className={cn('flex items-center justify-center gap-1 text-2xl font-semibold tabular-nums', stat.colorClass)}>
+                  {stat.value}
+                  {stat.suffix && <stat.suffix className="size-4" />}
+                </p>
+                {stat.subtitle && <p className="text-sm text-muted-foreground">{stat.subtitle}</p>}
+              </CardContent>
+            </Card>
           ))}
-        </Row>
+        </div>
       </div>
 
-      {/* View Toggle */}
       <Card>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-semibold">Detailed Predictions</h3>
-          <Segmented
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Detailed Predictions</CardTitle>
+          <SegmentedControl
             value={view}
-            onChange={(value) => setView(value as typeof view)}
+            onChange={(v) => setView(v)}
             options={[
               { label: 'Overview', value: 'overview' },
               { label: 'By Category', value: 'byCategory' },
             ]}
           />
-        </div>
-
-        {view === 'overview' ? (
-          <Table
-            dataSource={outcomes.predictions}
-            columns={predictionsColumns}
-            rowKey={(record) => record.convertId}
-            pagination={{
-              pageSize: 10,
-              total: outcomes.predictions.length,
-            }}
-            size="small"
-          />
-        ) : (
-          <div>
-            <Segmented
-              block
-              value={category}
-              onChange={(value) => setCategory(value as typeof category)}
-              options={[
-                {
-                  label: (
-                    <>
-                      <CheckCircleOutlined className="mr-1" />
-                      On Track ({outcomes.onTrack})
-                    </>
-                  ),
-                  value: 'onTrack',
-                },
-                {
-                  label: (
-                    <>
-                      <ExclamationCircleOutlined className="mr-1" />
-                      At Risk ({outcomes.predictions.length - outcomes.onTrack - outcomes.highRisk})
-                    </>
-                  ),
-                  value: 'atRisk',
-                },
-                {
-                  label: (
-                    <>
-                      <ExclamationCircleOutlined className="mr-1" />
-                      High Risk ({outcomes.highRisk})
-                    </>
-                  ),
-                  value: 'highRisk',
-                },
-              ]}
-            />
-
-            <div className="mt-4">
-              <Table
-                dataSource={
-                  category === 'onTrack'
-                    ? outcomes.predictions.filter((p) => p.completionProbability > 75)
-                    : category === 'atRisk'
-                      ? outcomes.predictions.filter(
-                          (p) => p.completionProbability > 50 && p.completionProbability <= 75
-                        )
-                      : outcomes.predictions.filter((p) => p.completionProbability <= 50)
-                }
-                columns={predictionsColumns}
-                rowKey={(record) => record.convertId}
-                pagination={{
-                  pageSize: 10,
-                }}
-                size="small"
+        </CardHeader>
+        <CardContent>
+          {view === 'overview' ? (
+            <PaginatedTable data={outcomes.predictions}>
+              {(pageData) => (
+                <PredictionsTable data={pageData} onViewDetails={handleViewDetails} />
+              )}
+            </PaginatedTable>
+          ) : (
+            <div className="space-y-4">
+              <SegmentedControl
+                block
+                value={category}
+                onChange={(v) => setCategory(v)}
+                options={[
+                  {
+                    label: (
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="size-3.5" />
+                        On Track ({outcomes.onTrack})
+                      </span>
+                    ),
+                    value: 'onTrack',
+                  },
+                  {
+                    label: (
+                      <span className="flex items-center gap-1">
+                        <AlertCircle className="size-3.5" />
+                        At Risk ({outcomes.predictions.length - outcomes.onTrack - outcomes.highRisk})
+                      </span>
+                    ),
+                    value: 'atRisk',
+                  },
+                  {
+                    label: (
+                      <span className="flex items-center gap-1">
+                        <AlertCircle className="size-3.5" />
+                        High Risk ({outcomes.highRisk})
+                      </span>
+                    ),
+                    value: 'highRisk',
+                  },
+                ]}
               />
+              <PaginatedTable data={filteredPredictions}>
+                {(pageData) => (
+                  <PredictionsTable data={pageData} onViewDetails={handleViewDetails} />
+                )}
+              </PaginatedTable>
             </div>
-          </div>
-        )}
+          )}
+        </CardContent>
       </Card>
 
-      {/* Key Insights */}
-      <Card title="Key Insights" type="inner">
-        <div className="space-y-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Key Insights</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
           <p>
             <strong>Average Completion Probability:</strong> {Math.round(outcomes.averageCompletion)}%
             {outcomes.averageCompletion > 70
@@ -350,16 +420,15 @@ export function PredictiveAnalyticsDashboard({ groupId, userId, token }: Predict
                 : ' - Group requires intervention'}
           </p>
           <p>
-            <strong>High Risk Converts:</strong> {outcomes.highRisk} out of {outcomes.predictionsGenerated}
-            (
-            {((outcomes.highRisk / outcomes.predictionsGenerated) * 100).toFixed(1)}%) require
-            immediate follow-up
+            <strong>High Risk Converts:</strong> {outcomes.highRisk} out of {outcomes.predictionsGenerated} (
+            {((outcomes.highRisk / outcomes.predictionsGenerated) * 100).toFixed(1)}%) require immediate
+            follow-up
           </p>
           <p>
-            <strong>Strong Performers:</strong> {outcomes.onTrack} converts ({((outcomes.onTrack / outcomes.predictionsGenerated) * 100).toFixed(1)}%) are
-            progressing well
+            <strong>Strong Performers:</strong> {outcomes.onTrack} converts (
+            {((outcomes.onTrack / outcomes.predictionsGenerated) * 100).toFixed(1)}%) are progressing well
           </p>
-        </div>
+        </CardContent>
       </Card>
     </div>
   );

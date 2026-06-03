@@ -8,6 +8,15 @@ const nextConfig = {
   },
   compress: true, // Enable gzip/brotli compression (reduces payload by 70-80%)
   poweredByHeader: false, // Remove X-Powered-By header for security
+  experimental: {
+    // Tree-shake large libraries so pages only bundle the components/icons they use.
+    // Cuts first-load JS for icon/chart-heavy pages.
+    optimizePackageImports: [
+      'recharts',
+      'lucide-react',
+      'date-fns',
+    ],
+  },
 };
 
 const withPWA = require('next-pwa')({

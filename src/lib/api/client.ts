@@ -30,6 +30,21 @@ interface APIResponse<T = unknown> {
 class APIClient {
   private baseUrl = '/api';
 
+  // ---- Client-side GET cache + in-flight dedupe ----
+  // Navigating between pages re-runs the same GETs (groups, people, milestones).
+  // We cache successful GETs briefly and coalesce concurrent identical requests so
+  // navigation feels instant. Any mutation (POST/PUT/PATCH/DELETE) clears the cache,
+  // so the user's own changes are always reflected on the next read.
+  private getCache = new Map<string, { ts: number; data: APIResponse }>();
+  private inflight = new Map<string, Promise<APIResponse>>();
+  private cacheTTL = 30_000; // 30s
+
+  /** Clear all cached GET responses (call on login/logout or after external changes). */
+  clearCache(): void {
+    this.getCache.clear();
+    this.inflight.clear();
+  }
+
   private getHeaders(): HeadersInit {
     return { 'Content-Type': 'application/json' };
   }
@@ -89,35 +104,67 @@ class APIClient {
   }
 
   async get<T = any>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
-    return this.request<T>(path, { method: 'GET', params });
+    const key = this.buildUrl(path, params);
+    const now = Date.now();
+
+    const cached = this.getCache.get(key);
+    if (cached && now - cached.ts < this.cacheTTL) {
+      return cached.data as APIResponse<T>;
+    }
+
+    // Coalesce concurrent identical GETs into a single network request.
+    const existing = this.inflight.get(key);
+    if (existing) return existing as Promise<APIResponse<T>>;
+
+    const promise = this.request<T>(path, { method: 'GET', params })
+      .then((res) => {
+        if (res.success) this.getCache.set(key, { ts: Date.now(), data: res });
+        this.inflight.delete(key);
+        return res;
+      })
+      .catch((err) => {
+        this.inflight.delete(key);
+        throw err;
+      });
+
+    this.inflight.set(key, promise as Promise<APIResponse>);
+    return promise;
   }
 
   async post<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
-    return this.request<T>(path, {
+    const res = await this.request<T>(path, {
       method: 'POST',
       body: JSON.stringify(body),
       params,
     });
+    this.clearCache();
+    return res;
   }
 
   async put<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
-    return this.request<T>(path, {
+    const res = await this.request<T>(path, {
       method: 'PUT',
       body: JSON.stringify(body),
       params,
     });
+    this.clearCache();
+    return res;
   }
 
   async patch<T = any>(path: string, body?: unknown, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
-    return this.request<T>(path, {
+    const res = await this.request<T>(path, {
       method: 'PATCH',
       body: JSON.stringify(body),
       params,
     });
+    this.clearCache();
+    return res;
   }
 
   async delete<T = any>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<APIResponse<T>> {
-    return this.request<T>(path, { method: 'DELETE', params });
+    const res = await this.request<T>(path, { method: 'DELETE', params });
+    this.clearCache();
+    return res;
   }
 
   // ========== People ==========

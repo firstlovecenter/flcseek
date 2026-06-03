@@ -1,0 +1,104 @@
+/* Single source of truth — HSL channel triplets for Tailwind opacity modifiers */
+
+:root {
+  --brand: 349 100% 63%;
+  --brand-foreground: 0 0% 100%;
+
+  --background: 215 20% 95%;
+  --foreground: 220 14% 10%;
+
+  --card: 210 20% 99%;
+  --card-foreground: 220 14% 10%;
+
+  --popover: 210 20% 99%;
+  --popover-foreground: 220 14% 10%;
+
+  --primary: 349 100% 63%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 214 14% 94%;
+  --secondary-foreground: 220 14% 10%;
+
+  --muted: 214 14% 94%;
+  --muted-foreground: 215 12% 47%;
+
+  --accent: 214 14% 94%;
+  --accent-foreground: 220 14% 10%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 220 14% 10%;
+
+  --border: 214 14% 89%;
+  --input: 214 14% 89%;
+  --ring: 349 100% 63%;
+
+  --radius: 0.625rem;
+
+  /* Feature accents */
+  --members: 174 63% 40%;
+  --churches: 262 52% 50%;
+  --arrivals: 231 48% 50%;
+  --defaulters: 25 95% 48%;
+  --banking: 142 71% 38%;
+  --campaigns: 270 67% 50%;
+  --maps: 199 89% 42%;
+
+  /* Chart palette */
+  --chart-1: 349 100% 63%;
+  --chart-2: 174 63% 40%;
+  --chart-3: 262 52% 50%;
+  --chart-4: 142 71% 38%;
+  --chart-5: 25 95% 48%;
+
+  /* Sidebar */
+  --sidebar-background: 220 14% 10%;
+  --sidebar-foreground: 210 20% 96%;
+  --sidebar-primary: 349 100% 63%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 10% 16%;
+  --sidebar-accent-foreground: 210 20% 96%;
+  --sidebar-border: 217 10% 18%;
+  --sidebar-ring: 349 100% 63%;
+}
+
+[data-theme='dark'] {
+  --background: 222 14% 7%;
+  --foreground: 210 20% 96%;
+
+  --card: 220 13% 10%;
+  --card-foreground: 210 20% 96%;
+
+  --popover: 220 13% 10%;
+  --popover-foreground: 210 20% 96%;
+
+  --secondary: 217 10% 16%;
+  --secondary-foreground: 210 20% 96%;
+
+  --muted: 217 10% 16%;
+  --muted-foreground: 215 12% 55%;
+
+  --accent: 217 10% 16%;
+  --accent-foreground: 210 20% 96%;
+
+  --border: 217 10% 18%;
+  --input: 217 10% 18%;
+
+  --members: 174 63% 48%;
+  --churches: 262 52% 58%;
+  --arrivals: 231 48% 58%;
+  --defaulters: 25 95% 55%;
+  --banking: 142 71% 45%;
+  --campaigns: 270 67% 58%;
+  --maps: 199 89% 50%;
+
+  --sidebar-background: 222 14% 5%;
+  --sidebar-foreground: 210 20% 96%;
+  --sidebar-accent: 217 10% 12%;
+  --sidebar-border: 217 10% 14%;
+}

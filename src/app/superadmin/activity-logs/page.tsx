@@ -1,38 +1,40 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  Card, 
-  Table, 
-  Select, 
-  Input, 
-  DatePicker, 
-  Space, 
-  Tag, 
-  Typography, 
-  Row, 
-  Col, 
-  Statistic,
-  Button,
-  Empty
-} from 'antd';
-import { 
-  HistoryOutlined, 
-  UserOutlined, 
-  FileTextOutlined,
-  ReloadOutlined,
-  FilterOutlined
-} from '@ant-design/icons';
+import {
+  History,
+  User,
+  FileText,
+  RefreshCw,
+  Filter,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { StatCard } from '@/components/base/StatCard';
+import { EmptyState } from '@/components/base/EmptyState';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
-
-const { Title, Text } = Typography;
-const { Option } = Select;
-const { Search } = Input;
-const { RangePicker } = DatePicker;
 
 interface ActivityLog {
   id: string;
@@ -53,14 +55,14 @@ interface ActivitySummary {
   byEntityType: Record<string, number>;
 }
 
-const actionColors: Record<string, string> = {
-  CREATE: 'green',
-  UPDATE: 'blue',
-  DELETE: 'red',
-  LOGIN: 'purple',
-  LOGOUT: 'default',
-  EXPORT: 'orange',
-  VIEW: 'cyan',
+const actionBadgeClass: Record<string, string> = {
+  CREATE: 'bg-green-500/15 text-green-700 dark:text-green-300',
+  UPDATE: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  DELETE: 'bg-red-500/15 text-red-700 dark:text-red-300',
+  LOGIN: 'bg-purple-500/15 text-purple-700 dark:text-purple-300',
+  LOGOUT: 'bg-muted text-muted-foreground',
+  EXPORT: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
+  VIEW: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300',
 };
 
 const entityTypeLabels: Record<string, string> = {
@@ -79,10 +81,8 @@ export default function ActivityLogsPage() {
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(true);
-
-  // Filters
-  const [entityTypeFilter, setEntityTypeFilter] = useState<string>('');
-  const [actionFilter, setActionFilter] = useState<string>('');
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string>('__all__');
+  const [actionFilter, setActionFilter] = useState<string>('__all__');
   const [limit, setLimit] = useState(50);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -101,8 +101,8 @@ export default function ActivityLogsPage() {
       params.append('type', 'logs');
       params.append('limit', limit.toString());
       params.append('offset', offset.toString());
-      if (entityTypeFilter) params.append('entity_type', entityTypeFilter);
-      if (actionFilter) params.append('action', actionFilter);
+      if (entityTypeFilter !== '__all__') params.append('entity_type', entityTypeFilter);
+      if (actionFilter !== '__all__') params.append('action', actionFilter);
 
       const response = await fetch(`/api/superadmin/activity-logs?${params}`, {
         credentials: 'include',
@@ -147,226 +147,214 @@ export default function ActivityLogsPage() {
   };
 
   const handleLoadMore = () => {
-    setOffset(prev => prev + limit);
+    setOffset((prev) => prev + limit);
   };
 
-  const columns = [
-    {
-      title: 'Time',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 150,
-      render: (date: string) => (
-        <div>
-          <Text style={{ fontSize: 12 }}>{dayjs(date).format('MMM D, HH:mm')}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(date).fromNow()}</Text>
-        </div>
-      ),
-    },
-    {
-      title: 'User',
-      dataIndex: 'username',
-      key: 'username',
-      width: 120,
-      render: (username: string, record: ActivityLog) => (
-        <Space>
-          <UserOutlined />
-          <Text>{username || record.user_id?.substring(0, 8) || 'System'}</Text>
-        </Space>
-      ),
-    },
-    {
-      title: 'Action',
-      dataIndex: 'action',
-      key: 'action',
-      width: 100,
-      render: (action: string) => (
-        <Tag color={actionColors[action] || 'default'}>
-          {action}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Entity',
-      dataIndex: 'entity_type',
-      key: 'entity_type',
-      width: 120,
-      render: (entityType: string, record: ActivityLog) => (
-        <div>
-          <Tag icon={<FileTextOutlined />}>
-            {entityTypeLabels[entityType] || entityType}
-          </Tag>
-          {record.entity_id && (
-            <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>
-              {record.entity_id.substring(0, 8)}...
-            </Text>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Details',
-      dataIndex: 'details',
-      key: 'details',
-      render: (details: unknown) => {
-        if (!details) return <Text type="secondary">-</Text>;
-
-        const detailStr = typeof details === 'string' ? details : JSON.stringify(details);
-        return (
-          <Text 
-            ellipsis={{ tooltip: detailStr }}
-            style={{ maxWidth: 200, fontSize: 12 }}
-          >
-            {detailStr.substring(0, 50)}{detailStr.length > 50 ? '...' : ''}
-          </Text>
-        );
-      },
-    },
-    {
-      title: 'IP',
-      dataIndex: 'ip_address',
-      key: 'ip_address',
-      width: 100,
-      render: (ip: string) => (
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          {ip || '-'}
-        </Text>
-      ),
-    },
-  ];
-
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ marginBottom: 24 }}>
-        <Title level={3}>
-          <HistoryOutlined style={{ marginRight: 8 }} />
-          Activity Logs
-        </Title>
-        <Text type="secondary">
+    <div className="space-y-6 p-2 sm:p-0">
+      <div>
+        <div className="flex items-center gap-2">
+          <History className="size-6 text-muted-foreground" />
+          <h1 className="text-2xl font-semibold tracking-tight">Activity logs</h1>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
           View all system activity and user actions
-        </Text>
+        </p>
       </div>
 
-      {/* Summary Stats */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={12} md={6}>
-          <Card loading={summaryLoading}>
-            <Statistic 
-              title="Total Actions (7 days)" 
-              value={summary?.totalActions || 0}
-              prefix={<HistoryOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card loading={summaryLoading}>
-            <Statistic 
-              title="Active Users" 
-              value={summary?.uniqueUsers || 0}
-              prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card loading={summaryLoading}>
-            <Statistic 
-              title="Create Actions" 
-              value={summary?.byAction?.CREATE || 0}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card loading={summaryLoading}>
-            <Statistic 
-              title="Update Actions" 
-              value={summary?.byAction?.UPDATE || 0}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Total actions (7 days)"
+          value={summary?.totalActions || 0}
+          icon={History}
+          accent="primary"
+          loading={summaryLoading}
+        />
+        <StatCard
+          title="Active users"
+          value={summary?.uniqueUsers || 0}
+          icon={User}
+          accent="members"
+          loading={summaryLoading}
+        />
+        <StatCard
+          title="Create actions"
+          value={summary?.byAction?.CREATE || 0}
+          accent="campaigns"
+          loading={summaryLoading}
+          deltaPositive
+        />
+        <StatCard
+          title="Update actions"
+          value={summary?.byAction?.UPDATE || 0}
+          accent="maps"
+          loading={summaryLoading}
+        />
+      </div>
 
-      {/* Filters */}
-      <Card style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <FilterOutlined />
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-3 pt-6">
+          <Filter className="size-4 text-muted-foreground" />
           <Select
-            placeholder="Entity Type"
-            allowClear
-            style={{ width: 150 }}
-            value={entityTypeFilter || undefined}
-            onChange={(val) => { setEntityTypeFilter(val || ''); setOffset(0); }}
+            value={entityTypeFilter}
+            onValueChange={(v) => {
+              setEntityTypeFilter(v);
+              setOffset(0);
+            }}
           >
-            <Option value="convert">Converts</Option>
-            <Option value="progress">Progress</Option>
-            <Option value="attendance">Attendance</Option>
-            <Option value="user">Users</Option>
-            <Option value="group">Groups</Option>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Entity type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All entities</SelectItem>
+              <SelectItem value="convert">Converts</SelectItem>
+              <SelectItem value="progress">Progress</SelectItem>
+              <SelectItem value="attendance">Attendance</SelectItem>
+              <SelectItem value="user">Users</SelectItem>
+              <SelectItem value="group">Groups</SelectItem>
+            </SelectContent>
           </Select>
-
           <Select
-            placeholder="Action"
-            allowClear
-            style={{ width: 120 }}
-            value={actionFilter || undefined}
-            onChange={(val) => { setActionFilter(val || ''); setOffset(0); }}
+            value={actionFilter}
+            onValueChange={(v) => {
+              setActionFilter(v);
+              setOffset(0);
+            }}
           >
-            <Option value="CREATE">Create</Option>
-            <Option value="UPDATE">Update</Option>
-            <Option value="DELETE">Delete</Option>
-            <Option value="LOGIN">Login</Option>
-            <Option value="EXPORT">Export</Option>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Action" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All actions</SelectItem>
+              <SelectItem value="CREATE">Create</SelectItem>
+              <SelectItem value="UPDATE">Update</SelectItem>
+              <SelectItem value="DELETE">Delete</SelectItem>
+              <SelectItem value="LOGIN">Login</SelectItem>
+              <SelectItem value="EXPORT">Export</SelectItem>
+            </SelectContent>
           </Select>
-
-          <Select
-            value={limit}
-            style={{ width: 100 }}
-            onChange={setLimit}
-          >
-            <Option value={25}>25 rows</Option>
-            <Option value={50}>50 rows</Option>
-            <Option value={100}>100 rows</Option>
+          <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25">25 rows</SelectItem>
+              <SelectItem value="50">50 rows</SelectItem>
+              <SelectItem value="100">100 rows</SelectItem>
+            </SelectContent>
           </Select>
-
-          <Button 
-            icon={<ReloadOutlined />} 
-            onClick={handleRefresh}
-            loading={loading}
-          >
+          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
             Refresh
           </Button>
-        </Space>
+        </CardContent>
       </Card>
 
-      {/* Logs Table */}
       <Card>
-        <Table
-          dataSource={logs}
-          columns={columns}
-          rowKey="id"
-          loading={loading}
-          pagination={false}
-          scroll={{ x: 800 }}
-          locale={{
-            emptyText: (
-              <Empty 
-                description="No activity logs found"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            ),
-          }}
-        />
-        
-        {/* Load More */}
-        {hasMore && (
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <Button onClick={handleLoadMore} loading={loading}>
-              Load More
-            </Button>
+        <CardContent className="pt-6">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-36">Time</TableHead>
+                  <TableHead className="w-28">User</TableHead>
+                  <TableHead className="w-24">Action</TableHead>
+                  <TableHead className="w-32">Entity</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead className="w-24">IP</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading && logs.length === 0 ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 6 }).map((__, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : logs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <EmptyState
+                        title="No activity logs found"
+                        className="border-0 bg-transparent py-8"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  logs.map((record) => {
+                    const detailStr =
+                      typeof record.details === 'string'
+                        ? record.details
+                        : record.details
+                          ? JSON.stringify(record.details)
+                          : '';
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell>
+                          <div className="text-xs tabular-nums">
+                            {dayjs(record.created_at).format('MMM D, HH:mm')}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {dayjs(record.created_at).fromNow()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="flex items-center gap-1 text-sm">
+                            <User className="size-3.5 text-muted-foreground" />
+                            {record.username || record.user_id?.substring(0, 8) || 'System'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className={actionBadgeClass[record.action] || ''}
+                          >
+                            {record.action}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            <FileText className="mr-1 size-3" />
+                            {entityTypeLabels[record.entity_type] || record.entity_type}
+                          </Badge>
+                          {record.entity_id && (
+                            <div className="mt-0.5 text-[10px] text-muted-foreground">
+                              {record.entity_id.substring(0, 8)}…
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate text-xs">
+                          {detailStr ? (
+                            <span title={detailStr}>
+                              {detailStr.substring(0, 50)}
+                              {detailStr.length > 50 ? '…' : ''}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-[11px] text-muted-foreground">
+                          {record.ip_address || '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
-        )}
+          {hasMore && (
+            <div className="mt-4 text-center">
+              <Button variant="outline" onClick={handleLoadMore} disabled={loading}>
+                Load more
+              </Button>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

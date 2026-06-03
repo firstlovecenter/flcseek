@@ -1,57 +1,136 @@
-@import 'antd/dist/reset.css';
+@import 'tailwindcss';
+@import './design-tokens.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 245, 247, 250;
-  --background-end-rgb: 255, 255, 255;
-  --radius: 0.5rem;
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-members: hsl(var(--members));
+  --color-churches: hsl(var(--churches));
+  --color-arrivals: hsl(var(--arrivals));
+  --color-defaulters: hsl(var(--defaulters));
+  --color-banking: hsl(var(--banking));
+  --color-campaigns: hsl(var(--campaigns));
+  --color-maps: hsl(var(--maps));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/outfit-latin-300-normal.woff2') format('woff2');
 }
 
-body {
-  background: linear-gradient(180deg, rgb(var(--background-start-rgb)) 0%, rgb(var(--background-end-rgb)) 100%);
-  background-attachment: fixed;
-  min-height: 100vh;
-  color: rgb(var(--foreground-rgb));
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/outfit-latin-400-normal.woff2') format('woff2');
 }
 
-/* Mobile-specific enhancements */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/outfit-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/outfit-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/outfit-latin-700-normal.woff2') format('woff2');
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    min-height: 100dvh;
+  }
+}
+
 @layer utilities {
-  /* Touch-friendly tap targets (minimum 44x44px) */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
 
-  /* Disable tap highlight on mobile */
   .no-tap-highlight {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Smooth scrolling for mobile */
   .smooth-scroll {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
 
-  /* Prevent text selection during interactions */
-  .no-select {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Safe area padding for notched devices */
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -59,286 +138,39 @@ body {
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
-
-  .safe-area-left {
-    padding-left: env(safe-area-inset-left);
-  }
-
-  .safe-area-right {
-    padding-right: env(safe-area-inset-right);
-  }
-
-  /* Responsive text sizing */
-  .text-responsive-xs {
-    font-size: clamp(0.75rem, 2.5vw, 0.875rem);
-  }
-
-  .text-responsive-sm {
-    font-size: clamp(0.875rem, 3vw, 1rem);
-  }
-
-  .text-responsive-base {
-    font-size: clamp(1rem, 3.5vw, 1.125rem);
-  }
-
-  .text-responsive-lg {
-    font-size: clamp(1.125rem, 4vw, 1.25rem);
-  }
-
-  .text-responsive-xl {
-    font-size: clamp(1.25rem, 5vw, 1.5rem);
-  }
-
-  .text-responsive-2xl {
-    font-size: clamp(1.5rem, 6vw, 2rem);
-  }
-
-  /* Mobile-optimized spacing */
-  .mobile-container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  @media (min-width: 640px) {
-    .mobile-container {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .mobile-container {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
-  }
-
-  /* Card responsiveness */
-  .responsive-card {
-    padding: 1rem;
-  }
-
-  @media (min-width: 640px) {
-    .responsive-card {
-      padding: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .responsive-card {
-      padding: 2rem;
-    }
-  }
-
-  /* Grid responsive columns */
-  .grid-auto-fit {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-  }
-
-  .grid-auto-fill {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 1rem;
-  }
-
-  /* Hide on mobile */
-  @media (max-width: 639px) {
-    .hide-mobile {
-      display: none !important;
-    }
-  }
-
-  /* Show only on mobile */
-  @media (min-width: 640px) {
-    .show-mobile {
-      display: none !important;
-    }
-  }
-
-  /* Touch-friendly buttons */
-  .btn-touch {
-    padding: 0.75rem 1.5rem;
-    min-height: 44px;
-    font-size: 1rem;
-    touch-action: manipulation;
-  }
-
-  /* Disable zoom on input focus (iOS) */
-  input[type='text'],
-  input[type='password'],
-  input[type='email'],
-  input[type='tel'],
-  select,
-  textarea {
-    font-size: 16px; /* Prevents auto-zoom on iOS */
-  }
 }
 
-/* Override Ant Design styles for mobile */
-@media (max-width: 768px) {
-  /* Make Ant Design cards more compact on mobile */
-  .ant-card {
-    border-radius: 8px;
-  }
-
-  .ant-card-body {
-    padding: 16px;
-  }
-
-  /* Make tables horizontally scrollable */
-  .ant-table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Adjust modal width on mobile */
-  .ant-modal {
-    max-width: calc(100vw - 32px);
-    margin: 16px auto;
-  }
-
-  /* Make drawer full width on mobile */
-  .ant-drawer-content-wrapper {
-    width: 100% !important;
-    max-width: 100vw;
-  }
-
-  /* Adjust form item margins */
-  .ant-form-item {
-    margin-bottom: 16px;
-  }
-
-  /* Make buttons stack on mobile if needed */
-  .ant-space {
-    flex-wrap: wrap;
-  }
-}
-
-/* PWA-specific styles */
 @media (display-mode: standalone) {
-  /* Styles for when app is installed as PWA */
   body {
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
 
-  /* Hide browser chrome elements that aren't needed in PWA */
-  .hide-in-pwa {
-    display: none;
+@keyframes synago-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
-/* Loading states optimized for mobile */
-.mobile-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 50vh;
-  padding: 2rem;
-}
-
-/* Optimized transitions for mobile */
-@media (prefers-reduced-motion: no-preference) {
-  .smooth-transition {
-    transition: all 0.2s ease-in-out;
-  }
+.synago-loader-spin {
+  animation: synago-spin 1.1s linear infinite;
+  transform-origin: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
 
-/* Compact Milestone Table Styles */
-.compact-milestone-table .ant-table-thead > tr > th {
-  padding: 4px 6px !important;
-  font-size: 10px !important;
-  line-height: 1.2 !important;
-  position: sticky !important;
-  z-index: 10 !important;
-  font-weight: 700 !important;
-  border-bottom: 2px solid #d9d9d9 !important;
-  background: #f5f5f5 !important;
-  color: #000 !important;
-}
-
-.compact-milestone-table .ant-table-tbody > tr > td {
-  padding: 4px 6px !important;
-  font-size: 11px !important;
-  line-height: 1.3 !important;
-}
-
-.compact-milestone-table .ant-table-cell-fix-left,
-.compact-milestone-table .ant-table-cell-fix-right {
-  background: #fff !important;
-}
-
-/* Make sticky header work properly */
-.compact-milestone-table .ant-table-thead > tr > th.ant-table-cell-fix-left-last::after {
-  box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.15);
-}
-
-/* Ensure sticky header has proper shadow when scrolling */
-.compact-milestone-table .ant-table-thead > tr > th::after {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #f0f0f0;
-  content: '';
-}
-
-/* Fix for name column sticky on scroll */
-.compact-milestone-table .ant-table-cell-fix-left {
-  position: sticky !important;
-  left: 0 !important;
-  z-index: 9 !important;
-}
-
-/* Reduce pagination size */
-.compact-milestone-table .ant-pagination {
-  margin: 12px 0 !important;
-}
-
-.compact-milestone-table .ant-pagination-item {
-  min-width: 28px !important;
-  height: 28px !important;
-  line-height: 26px !important;
-  font-size: 12px !important;
-}
-
-/* Sticky controls bar */
-.sticky-controls-bar {
-  position: sticky;
-  top: 64px;
-  z-index: 100;
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  background-color: white;
-}
-
-/* Month cards - theme-independent styling */
-.month-card.ant-card,
-.month-card .ant-card-body,
-.month-card .ant-card-head {
-  background-color: #fff9e6 !important;
-  color: #000 !important;
-}
-
-.month-card .ant-typography {
-  color: #000 !important;
-}
-
-.month-card .anticon {
-  color: #000 !important;
+  .synago-loader-spin {
+    animation: none !important;
+  }
 }

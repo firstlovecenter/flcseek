@@ -1,72 +1,68 @@
-import '@ant-design/v5-patch-for-react-19';
-import './globals.css';
-import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
-import { AntdRegistry } from '@ant-design/nextjs-registry';
-import { App } from 'antd';
-import { AuthProvider } from '@/contexts/AuthContext';
-import AppConfigProvider from '@/components/AppConfigProvider';
-import Navigation from '@/components/Navigation';
-
-const inter = Inter({ subsets: ['latin'] });
+import './globals.css'
+import type { Metadata, Viewport } from 'next'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { ThemeProvider, themeInitScript } from '@/components/shell/ThemeProvider'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import AppShell from '@/components/shell/AppShell'
+import { DevSwCleanup } from '@/components/shell/DevSwCleanup'
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: '#003366',
-};
+  themeColor: '#eef1f5',
+}
 
 export const metadata: Metadata = {
-  title: 'FLC Sheep Seeking',
-  description: 'Church milestone tracking system for FLC',
+  title: 'Seek — Sheep Seeking',
+  description: 'Church milestone tracking for First Love Church',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'FLC Sheep Seeking',
+    title: 'Seek',
   },
-  formatDetection: {
-    telephone: false,
-  },
+  formatDetection: { telephone: false },
   icons: {
     icon: [
-      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
   },
-};
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#003366" />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <meta name="theme-color" content="#eef1f5" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="FLC Sheep Seeking" />
+        <meta name="apple-mobile-web-app-title" content="Seek" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body className={inter.className}>
-        <AntdRegistry>
-          <AppConfigProvider>
-            <App>
-              <AuthProvider>
-                <Navigation>{children}</Navigation>
-              </AuthProvider>
-            </App>
-          </AppConfigProvider>
-        </AntdRegistry>
+      <body>
+        <DevSwCleanup />
+        <ThemeProvider>
+          <TooltipProvider>
+            <AuthProvider>
+              <AppShell>{children}</AppShell>
+            </AuthProvider>
+            <Toaster richColors closeButton position="top-right" />
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
-  );
+  )
 }

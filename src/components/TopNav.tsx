@@ -1,21 +1,14 @@
 'use client';
 
-import { Layout, Space, Avatar, Dropdown, Button, Typography } from 'antd';
-import {
-  UserOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-  ArrowLeftOutlined,
-} from '@ant-design/icons';
+import { ArrowLeft, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import NotificationBell from './NotificationBell';
 import { api } from '@/lib/api';
-
-const { Header } = Layout;
-const { Text } = Typography;
+import { cn } from '@/lib/utils';
 
 interface TopNavProps {
   title?: string;
@@ -31,30 +24,23 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
   useEffect(() => {
     const fetchGroupInfo = async () => {
       if (!user || !token) return;
-      
-      // Superadmin doesn't need group info in header
+
       if (user.role === 'superadmin') return;
 
-      // For leadpastor and overseer roles, we'll need to get group info from context/props
-      // This component is typically used in specific contexts where group info is known
       if (user.role === 'leadpastor' || user.role === 'overseer') {
-        // Group info will be set via props or context when viewing a specific group
         return;
       }
 
-      // Use user's stored group info if available (for admin and leader)
       if (user.group_name && user.group_year) {
         setGroupInfo({ name: user.group_name, year: user.group_year });
         return;
       }
 
-      // Otherwise fetch from API
       try {
         const response = await api.groups.list();
         if (response.success && response.data) {
-          // Find the user's group
-          const userGroup = (response.data as { name: string; year: number }[] | undefined)?.find((g) =>
-            g.name === user.group_name
+          const userGroup = (response.data as { name: string; year: number }[] | undefined)?.find(
+            (g) => g.name === user.group_name
           );
           if (userGroup) {
             setGroupInfo({ name: userGroup.name, year: userGroup.year });
@@ -109,81 +95,33 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
     }
   };
 
-  const userMenuItems = [
-    {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: 'Profile',
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-    },
-    {
-      type: 'divider' as const,
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      danger: true,
-      onClick: handleLogout,
-    },
-  ];
-
   return (
-    <Header
-      style={{
-        padding: '0 24px',
-        background: '#fff',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 1000,
-      }}
+    <header
+      className={cn(
+        'sticky top-0 z-[1000] flex items-center justify-between',
+        'border-b border-border bg-card px-6 shadow-sm'
+      )}
     >
-      <Space size="large">
+      <div className="flex items-center gap-4">
         {showBack && (
-          <Button
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={handleBack}
-            style={{ fontSize: 16 }}
-          >
+          <Button variant="ghost" onClick={handleBack}>
+            <ArrowLeft className="size-4" />
             Back
           </Button>
         )}
-        {title && (
-          <Text strong style={{ fontSize: 18 }}>
-            {title}
-          </Text>
-        )}
-      </Space>
-      
-      <Space>
+        {title && <span className="text-lg font-semibold">{title}</span>}
+      </div>
+
+      <div className="flex items-center gap-4">
         <Link href={user?.role === 'superadmin' ? '/superadmin' : '/'}>
-          <Text style={{ marginRight: 16, cursor: 'pointer' }} strong>
-            {getHeaderTitle()}
-          </Text>
+          <span className="cursor-pointer font-semibold">{getHeaderTitle()}</span>
         </Link>
         <NotificationBell />
-        <Button
-          type="primary"
-          danger
-          icon={<LogoutOutlined />}
-          onClick={handleLogout}
-          style={{
-            fontSize: '14px',
-            fontWeight: 'bold',
-          }}
-        >
+        <Button variant="destructive" onClick={handleLogout}>
+          <LogOut className="size-4" />
           Logout
         </Button>
-      </Space>
-    </Header>
+      </div>
+    </header>
   );
 }
