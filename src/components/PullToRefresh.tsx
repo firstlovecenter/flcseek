@@ -1,8 +1,9 @@
 'use client';
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Spin } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import Image from 'next/image';
+import { SynagoLoader } from '@/components/shell/SynagoLoader';
+import { cn } from '@/lib/utils';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -15,7 +16,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
   const [touchStart, setTouchStart] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const threshold = 80; // Distance needed to trigger refresh
+  const threshold = 80;
 
   const handleTouchStart = (e: TouchEvent) => {
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
@@ -26,14 +27,13 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
 
   const handleTouchMove = (e: TouchEvent) => {
     if (isRefreshing) return;
-    
+
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
     if (scrollTop === 0 && touchStart > 0) {
       const currentTouch = e.touches[0].clientY;
       const distance = currentTouch - touchStart;
-      
+
       if (distance > 0) {
-        // Prevent default scrolling when pulling down
         e.preventDefault();
         setPullDistance(Math.min(distance, threshold * 1.5));
       }
@@ -44,7 +44,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
     if (pullDistance >= threshold && !isRefreshing) {
       setIsRefreshing(true);
       setPullDistance(threshold);
-      
+
       try {
         await onRefresh();
       } catch (error) {
@@ -78,42 +78,37 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
   const refreshRotation = (pullDistance / threshold) * 360;
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', minHeight: '100%' }}>
-      {/* Pull indicator */}
+    <div ref={containerRef} className="relative min-h-full">
       <div
+        className={cn(
+          'absolute inset-x-0 -top-10 flex h-10 items-center justify-center',
+          isRefreshing && 'transition-transform duration-200'
+        )}
         style={{
-          position: 'absolute',
-          top: -40,
-          left: 0,
-          right: 0,
-          height: 40,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           transform: `translateY(${pullDistance}px)`,
           opacity: refreshOpacity,
-          transition: isRefreshing ? 'transform 0.2s' : 'none',
         }}
       >
         {isRefreshing ? (
-          <Spin size="small" />
+          <SynagoLoader size={20} />
         ) : (
-          <ReloadOutlined
-            style={{
-              fontSize: 20,
-              color: '#1890ff',
-              transform: `rotate(${refreshRotation}deg)`,
-            }}
+          <Image
+            src="/synago-logo.svg"
+            alt=""
+            width={20}
+            height={20}
+            aria-hidden
+            className="shrink-0 object-contain"
+            style={{ transform: `rotate(${refreshRotation}deg)` }}
           />
         )}
       </div>
 
-      {/* Content */}
       <div
-        style={{
-          transform: `translateY(${pullDistance}px)`,
-          transition: isRefreshing || pullDistance === 0 ? 'transform 0.2s' : 'none',
-        }}
+        className={cn(
+          (isRefreshing || pullDistance === 0) && 'transition-transform duration-200'
+        )}
+        style={{ transform: `translateY(${pullDistance}px)` }}
       >
         {children}
       </div>

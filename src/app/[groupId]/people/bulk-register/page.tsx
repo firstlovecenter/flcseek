@@ -1,578 +1,461 @@
-'use client';
+'use client'
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react'
 import {
-  Card,
-  Button,
+  AlertCircle,
+  CheckCircle,
+  Download,
+  FileSpreadsheet,
   Upload,
-  Typography,
-  Steps,
-  Table,
-  App,
-  Alert,
-  Space,
-  Tag,
-  Modal,
-  Spin,
-  Select,
-} from 'antd';
-import {
-  UploadOutlined,
-  DownloadOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  FileExcelOutlined,
-  HomeOutlined,
-  BarChartOutlined,
-  TeamOutlined,
-  UserAddOutlined,
-} from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useParams } from 'next/navigation';
-import AppBreadcrumb from '@/components/AppBreadcrumb';
+} from 'lucide-react'
+import { SynagoLoader } from '@/components/shell/SynagoLoader'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRouter, useParams } from 'next/navigation'
+import AppBreadcrumb from '@/components/AppBreadcrumb'
 import {
   generateBulkRegistrationTemplate,
   parseExcelFile,
   validateMemberData,
-} from '@/lib/excel-utils';
-import { api } from '@/lib/api';
-import type { GroupApiData } from '@/lib/types/api-responses';
-
-const { Title, Text, Paragraph } = Typography;
-const { Dragger } = Upload;
+} from '@/lib/excel-utils'
+import { api } from '@/lib/api'
+import type { GroupApiData } from '@/lib/types/api-responses'
+import { message } from '@/lib/toast'
+import { LoadingScreen } from '@/components/base/LoadingScreen'
+import { GroupNavActions } from '@/components/group/GroupNavActions'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
 interface MemberData {
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-  date_of_birth: string;
-  gender: string;
-  residential_location: string;
-  school_residential_location?: string;
-  occupation_type: string;
-  group_id?: string;
-  group_name?: string;
+  first_name: string
+  last_name: string
+  phone_number: string
+  date_of_birth: string
+  gender: string
+  residential_location: string
+  school_residential_location?: string
+  occupation_type: string
+  group_id?: string
+  group_name?: string
 }
 
 interface ValidationError {
-  row: number;
-  field: string;
-  message: string;
+  row: number
+  field: string
+  message: string
 }
 
 interface BulkUploadResult {
-  inserted?: number;
-  created?: number;
-  skipped?: number;
-  duplicates?: number;
+  inserted?: number
+  created?: number
+  skipped?: number
+  duplicates?: number
 }
 
+const STEPS = ['Upload File', 'Review Data', 'Complete'] as const
+
 function BulkRegisterContent() {
-  const { token, user } = useAuth();
-  const { message } = App.useApp();
-  const router = useRouter();
-  const params = useParams();
-  const groupId = params.groupId as string;
-  const [currentStep, setCurrentStep] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
-  const [members, setMembers] = useState<MemberData[]>([]);
-  const [errors, setErrors] = useState<ValidationError[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<BulkUploadResult | null>(null);
-  const [groups, setGroups] = useState<GroupApiData[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId);
+  const { user } = useAuth()
+  const router = useRouter()
+  const params = useParams()
+  const groupId = params.groupId as string
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [currentStep, setCurrentStep] = useState(0)
+  const [file, setFile] = useState<File | null>(null)
+  const [members, setMembers] = useState<MemberData[]>([])
+  const [errors, setErrors] = useState<ValidationError[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<BulkUploadResult | null>(null)
+  const [groups, setGroups] = useState<GroupApiData[]>([])
 
   useEffect(() => {
-    // Check group access: superadmin/leadpastor can view any; admin/leader limited to their group
-    if (user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer' && user.group_id !== groupId) {
-      router.push('/');
-      return;
+    if (
+      user &&
+      user.role !== 'superadmin' &&
+      user.role !== 'leadpastor' &&
+      user.role !== 'overseer' &&
+      user.group_id !== groupId
+    ) {
+      router.push('/')
+      return
     }
-
-    fetchGroups();
-  }, [user, groupId, router]);
-
-  useEffect(() => {
-    // Set default group if provided in URL
-    if (groupId) {
-      setSelectedGroupId(groupId);
-    }
-  }, [groupId]);
+    fetchGroups()
+  }, [user, groupId, router])
 
   const fetchGroups = async () => {
     try {
-      const response = await api.groups.list();
-      if (response.success) {
-        setGroups(response.data?.groups || []);
-      }
+      const response = await api.groups.list()
+      if (response.success) setGroups(response.data?.groups || [])
     } catch (error) {
-      console.error('Failed to fetch groups:', error);
+      console.error('Failed to fetch groups:', error)
     }
-  };
+  }
 
-  const handleDownloadTemplate = () => {
-    const blob = generateBulkRegistrationTemplate(groups.map(g => g.name));
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'bulk_registration_template.xlsx';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    message.success('Template downloaded successfully!');
-  };
+  const handleDownloadTemplate = async () => {
+    const blob = await generateBulkRegistrationTemplate(groups.map((g) => g.name))
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'bulk_registration_template.xlsx'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    message.success('Template downloaded successfully!')
+  }
 
-  const handleFileUpload = async (file: File) => {
-    setFile(file);
-    setErrors([]);
-
+  const handleFileUpload = async (uploaded: File) => {
+    setFile(uploaded)
+    setErrors([])
     try {
-      const parsedMembers = await parseExcelFile(file);
-
+      const parsedMembers = await parseExcelFile(uploaded)
       if (parsedMembers.length === 0) {
-        message.error('No data found in the file');
-        return false;
+        message.error('No data found in the file')
+        return
       }
-
       if (parsedMembers.length > 500) {
-        message.error('Maximum 500 members allowed per upload');
-        return false;
+        message.error('Maximum 500 members allowed per upload')
+        return
       }
-
-      const validation = validateMemberData(parsedMembers, groups.map(g => g.name));
-
+      const validation = validateMemberData(
+        parsedMembers,
+        groups.map((g) => g.name)
+      )
       if (!validation.isValid) {
-        setErrors(validation.errors);
+        setErrors(validation.errors)
         message.warning(
           `Found ${validation.errors.length} validation error(s). Please review and fix.`
-        );
+        )
       } else {
         message.success(
           `File validated successfully! ${parsedMembers.length} members ready to upload.`
-        );
-        setCurrentStep(1);
+        )
+        setCurrentStep(1)
       }
-
-      setMembers(parsedMembers);
-      return false; // Prevent default upload
+      setMembers(parsedMembers)
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       if (errorMsg.includes('format') || errorMsg.includes('extension')) {
-        message.error(`Invalid file format: ${errorMsg}. Please upload an Excel file (.xlsx or .xls)`);
+        message.error(
+          `Invalid file format: ${errorMsg}. Please upload an Excel file (.xlsx or .xls)`
+        )
       } else if (errorMsg.includes('column') || errorMsg.includes('header')) {
-        message.error(`File structure error: ${errorMsg}. Please check the template and ensure all required columns are present.`);
+        message.error(
+          `File structure error: ${errorMsg}. Please check the template and ensure all required columns are present.`
+        )
       } else {
-        message.error(`Error parsing file: ${errorMsg}. Please check your file format and try again.`);
+        message.error(
+          `Error parsing file: ${errorMsg}. Please check your file format and try again.`
+        )
       }
-      return false;
     }
-  };
+  }
 
   const handleBulkUpload = async () => {
     if (errors.length > 0) {
-      message.error('Please fix all validation errors before uploading');
-      return;
+      message.error('Please fix all validation errors before uploading')
+      return
     }
-
-    // Use the groupId from the URL path
-    const targetGroupId = groupId;
-    
-    if (!targetGroupId && !user?.group_name) {
-      message.error('Please select a group or your account does not have a group assigned.');
-      return;
-    }
-
-    // Get the group name for the selected group
-    const selectedGroup = groups.find(g => g.id === targetGroupId);
-    const targetGroupName = selectedGroup?.name || user?.group_name;
-
+    const selectedGroup = groups.find((g) => g.id === groupId)
+    const targetGroupName = selectedGroup?.name || user?.group_name
     if (!targetGroupName) {
-      message.error('Unable to determine group name. Please select a valid group.');
-      return;
+      message.error('Unable to determine group name. Please select a valid group.')
+      return
     }
-
-    setUploading(true);
+    setUploading(true)
     try {
-      // Add the target group to all members
-      const membersWithGroup = members.map(member => ({
+      const membersWithGroup = members.map((member) => ({
         ...member,
-        group_id: targetGroupId || user?.group_id,
+        group_id: groupId || user?.group_id,
         group_name: targetGroupName,
-      }));
-
-      const response = await api.people.bulkCreate(membersWithGroup);
-
+      }))
+      const response = await api.people.bulkCreate(membersWithGroup)
       if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to upload members');
+        throw new Error(response.error?.message || 'Failed to upload members')
       }
-
-      setUploadResult(response.data);
-      setCurrentStep(2);
-      
-      const insertedCount = response.data?.inserted || response.data?.created || 0;
-      const skippedCount = response.data?.skipped || 0;
-      
+      setUploadResult(response.data)
+      setCurrentStep(2)
+      const insertedCount = response.data?.inserted || response.data?.created || 0
+      const skippedCount = response.data?.skipped || 0
       if (skippedCount > 0) {
         message.success(
           `Successfully registered ${insertedCount} member(s)! (${skippedCount} duplicate(s) skipped)`
-        );
+        )
       } else {
-        message.success(
-          `Successfully registered ${insertedCount} member(s)!`
-        );
+        message.success(`Successfully registered ${insertedCount} member(s)!`)
       }
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to upload members';
-      if (errorMsg.includes('duplicate') || errorMsg.includes('phone number')) {
-        message.error(`Duplicate phone numbers detected: ${errorMsg}`);
-      } else if (errorMsg.includes('group') || errorMsg.includes('Invalid group')) {
-        message.error(`Group error: ${errorMsg}. Please verify the group selection.`);
-      } else if (errorMsg.includes('validation')) {
-        message.error(`Validation failed: ${errorMsg}. Please check your data.`);
-      } else if (errorMsg.includes('500') || errorMsg.includes('Maximum')) {
-        message.error(`Too many records: You can upload a maximum of 500 members at once.`);
-      } else {
-        message.error(`Upload failed: ${errorMsg}`);
-      }
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to upload members'
+      message.error(`Upload failed: ${errorMsg}`)
     } finally {
-      setUploading(false);
+      setUploading(false)
     }
-  };
+  }
 
   const resetForm = () => {
-    setCurrentStep(0);
-    setFile(null);
-    setMembers([]);
-    setErrors([]);
-    setUploadResult(null);
-  };
+    setCurrentStep(0)
+    setFile(null)
+    setMembers([])
+    setErrors([])
+    setUploadResult(null)
+  }
 
-  const memberColumns = [
-    {
-      title: 'Row',
-      key: 'row',
-      render: (_: unknown, __: unknown, index: number) => index + 2,
-      width: 60,
-    },
-    {
-      title: 'Name',
-      key: 'name',
-      render: (record: MemberData) => `${record.first_name} ${record.last_name}`,
-    },
-    {
-      title: 'Phone',
-      dataIndex: 'phone_number',
-      key: 'phone_number',
-      width: 130,
-    },
-    {
-      title: 'DOB',
-      dataIndex: 'date_of_birth',
-      key: 'date_of_birth',
-      width: 80,
-    },
-    {
-      title: 'Gender',
-      dataIndex: 'gender',
-      key: 'gender',
-      width: 80,
-    },
-    {
-      title: 'Location',
-      dataIndex: 'residential_location',
-      key: 'residential_location',
-      ellipsis: true,
-    },
-    {
-      title: 'Worker/Student',
-      dataIndex: 'occupation_type',
-      key: 'occupation_type',
-      width: 100,
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      width: 100,
-      render: (_: unknown, __: unknown, index: number) => {
-        const rowErrors = errors.filter((e) => e.row === index + 2);
-        if (rowErrors.length > 0) {
-          return (
-            <Tag color="error" icon={<ExclamationCircleOutlined />}>
-              {rowErrors.length} Error(s)
-            </Tag>
-          );
-        }
-        return (
-          <Tag color="success" icon={<CheckCircleOutlined />}>
-            Valid
-          </Tag>
-        );
-      },
-    },
-  ];
-
-  const errorColumns = [
-    {
-      title: 'Row',
-      dataIndex: 'row',
-      key: 'row',
-      width: 80,
-    },
-    {
-      title: 'Field',
-      dataIndex: 'field',
-      key: 'field',
-      width: 150,
-    },
-    {
-      title: 'Error Message',
-      dataIndex: 'message',
-      key: 'message',
-    },
-  ];
-
-  const steps = [
-    {
-      title: 'Upload File',
-      icon: <UploadOutlined />,
-    },
-    {
-      title: 'Review Data',
-      icon: <CheckCircleOutlined />,
-    },
-    {
-      title: 'Complete',
-      icon: <CheckCircleOutlined />,
-    },
-  ];
+  const groupLabel =
+    groups.find((g) => g.id === groupId)?.name || 'Selected Group'
 
   return (
     <>
       <AppBreadcrumb />
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {groupId && (
-          <Alert
-            message={`Registering to: ${groups.find(g => g.id === groupId)?.name || 'Selected Group'}`}
-            type="info"
-            showIcon
-            style={{ flex: 1 }}
-          />
-        )}
-        <Space>
-          <Button
-            icon={<BarChartOutlined />}
-            onClick={() => {
-              router.push(`/${groupId}`);
-            }}
-          >
-            Milestones
-          </Button>
-          <Button
-            icon={<TeamOutlined />}
-            onClick={() => {
-              router.push(`/${groupId}/attendance`);
-            }}
-          >
-            Attendance
-          </Button>
-          <Button
-            icon={<UserAddOutlined />}
-            onClick={() => {
-              router.push(`/${groupId}/people/register`);
-            }}
-          >
-            Register
-          </Button>
-          <Button
-            icon={<FileExcelOutlined />}
-            type="primary"
-          >
-            Bulk Register
-          </Button>
-        </Space>
-      </div>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <Card>
-          <div style={{ marginBottom: 24 }}>
-            <Title level={2}>
-              <FileExcelOutlined /> Bulk Convert Registration
-            </Title>
-            <Text type="secondary">
-              Upload an Excel file to register multiple converts at once
-            </Text>
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm">
+            Registering to: <strong>{groupLabel}</strong>
           </div>
+        )}
+        <GroupNavActions groupId={groupId} user={user} active="bulk-register" />
+      </div>
 
-          <Steps current={currentStep} items={steps} style={{ marginBottom: 32 }} />
-
-          {/* Step 1: Upload File */}
-          {currentStep === 0 && (
-            <div>
-              <Alert
-                message="Before You Start"
-                description={
-                  <div>
-                    <Paragraph>
-                      1. Download the Excel template below
-                    </Paragraph>
-                    <Paragraph>
-                      2. Fill in the convert details (delete sample rows)
-                    </Paragraph>
-                    <Paragraph>
-                      3. Upload the completed file
-                    </Paragraph>
-                    <Paragraph>
-                      4. Review and submit
-                    </Paragraph>
-                  </div>
-                }
-                type="info"
-                showIcon
-                style={{ marginBottom: 24 }}
-              />
-
-              <Button
-                type="primary"
-                icon={<DownloadOutlined />}
-                onClick={handleDownloadTemplate}
-                size="large"
-                style={{ marginBottom: 24 }}
-              >
-                Download Excel Template
-              </Button>
-
-              <Dragger
-                name="file"
-                multiple={false}
-                accept=".xlsx,.xls"
-                beforeUpload={handleFileUpload}
-                showUploadList={false}
-                style={{ marginBottom: 24 }}
-              >
-                <p className="ant-upload-drag-icon">
-                  <FileExcelOutlined style={{ fontSize: 48, color: '#1890ff' }} />
-                </p>
-                <p className="ant-upload-text">
-                  Click or drag Excel file to this area to upload
-                </p>
-                <p className="ant-upload-hint">
-                  Support for .xlsx and .xls files. Maximum 500 converts per
-                  upload.
-                </p>
-              </Dragger>
-
-              {file && (
-                <Alert
-                  message={`File uploaded: ${file.name}`}
-                  type="success"
-                  showIcon
-                  style={{ marginBottom: 24 }}
-                />
-              )}
-
-              {errors.length > 0 && (
-                <div>
-                  <Alert
-                    message={`Found ${errors.length} validation error(s)`}
-                    description="Please fix the errors in your Excel file and re-upload."
-                    type="error"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                  />
-                  <Table
-                    columns={errorColumns}
-                    dataSource={errors}
-                    rowKey={(record) => `${record.row}-${record.field}`}
-                    pagination={{ pageSize: 10 }}
-                    size="small"
-                  />
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="size-6" />
+              Bulk Convert Registration
+            </CardTitle>
+            <CardDescription>
+              Upload an Excel file to register multiple converts at once
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            <div className="flex flex-wrap gap-2">
+              {STEPS.map((label, i) => (
+                <div
+                  key={label}
+                  className={cn(
+                    'flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium',
+                    i === currentStep
+                      ? 'bg-primary text-primary-foreground'
+                      : i < currentStep
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  <span className="flex size-5 items-center justify-center rounded-full bg-background/20 text-xs">
+                    {i + 1}
+                  </span>
+                  {label}
                 </div>
-              )}
+              ))}
+            </div>
 
-              {members.length > 0 && errors.length === 0 && (
-                <div style={{ textAlign: 'center' }}>
-                  <Button
-                    type="primary"
-                    size="large"
-                    onClick={() => setCurrentStep(1)}
-                  >
-                    Continue to Review
+            {currentStep === 0 && (
+              <div className="space-y-6">
+                <div className="rounded-lg border border-primary/20 bg-muted/30 p-4 text-sm">
+                  <p className="font-medium">Before You Start</p>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+                    <li>Download the Excel template below</li>
+                    <li>Fill in the convert details (delete sample rows)</li>
+                    <li>Upload the completed file</li>
+                    <li>Review and submit</li>
+                  </ol>
+                </div>
+
+                <Button onClick={handleDownloadTemplate}>
+                  <Download className="size-4" />
+                  Download Excel Template
+                </Button>
+
+                <div
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/20 px-6 py-12 transition-colors hover:border-primary/50 hover:bg-muted/40"
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) =>
+                    e.key === 'Enter' && fileInputRef.current?.click()
+                  }
+                  role="button"
+                  tabIndex={0}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleFileUpload(f)
+                    }}
+                  />
+                  <FileSpreadsheet className="mb-3 size-12 text-primary" />
+                  <p className="font-medium">
+                    Click or drag Excel file to upload
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    .xlsx and .xls — maximum 500 converts per upload
+                  </p>
+                  <Upload className="mt-4 size-5 text-muted-foreground" />
+                </div>
+
+                {file && (
+                  <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+                    File uploaded: {file.name}
+                  </div>
+                )}
+
+                {errors.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                      Found {errors.length} validation error(s). Please fix and
+                      re-upload.
+                    </div>
+                    <div className="overflow-hidden rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Row</TableHead>
+                            <TableHead>Field</TableHead>
+                            <TableHead>Error Message</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {errors.map((err) => (
+                            <TableRow key={`${err.row}-${err.field}`}>
+                              <TableCell>{err.row}</TableCell>
+                              <TableCell>{err.field}</TableCell>
+                              <TableCell>{err.message}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {members.length > 0 && errors.length === 0 && (
+                  <div className="text-center">
+                    <Button size="lg" onClick={() => setCurrentStep(1)}>
+                      Continue to Review
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm">
+                  Ready to register {members.length} convert(s). Review the data
+                  below and click Register All Converts.
+                </div>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Row</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>DOB</TableHead>
+                        <TableHead>Gender</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Worker/Student</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {members.map((record, index) => {
+                        const rowErrors = errors.filter(
+                          (e) => e.row === index + 2
+                        )
+                        return (
+                          <TableRow key={index}>
+                            <TableCell>{index + 2}</TableCell>
+                            <TableCell>
+                              {record.first_name} {record.last_name}
+                            </TableCell>
+                            <TableCell>{record.phone_number}</TableCell>
+                            <TableCell>{record.date_of_birth}</TableCell>
+                            <TableCell>{record.gender}</TableCell>
+                            <TableCell className="max-w-[160px] truncate">
+                              {record.residential_location}
+                            </TableCell>
+                            <TableCell>{record.occupation_type}</TableCell>
+                            <TableCell>
+                              {rowErrors.length > 0 ? (
+                                <Badge variant="destructive">
+                                  <AlertCircle className="mr-1 size-3" />
+                                  {rowErrors.length} Error(s)
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-success/15 text-success">
+                                  <CheckCircle className="mr-1 size-3" />
+                                  Valid
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex justify-center gap-3">
+                  <Button variant="outline" onClick={() => setCurrentStep(0)}>
+                    Back
+                  </Button>
+                  <Button size="lg" disabled={uploading} onClick={handleBulkUpload}>
+                    {uploading && (
+                      <SynagoLoader size={16} inline />
+                    )}
+                    Register All Converts
                   </Button>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Step 2: Review Data */}
-          {currentStep === 1 && (
-            <div>
-              <Alert
-                message={`Ready to register ${members.length} convert(s)`}
-                description="Review the data below and click 'Register All Converts' to proceed."
-                type="success"
-                showIcon
-                style={{ marginBottom: 24 }}
-              />
-
-              <Table
-                columns={memberColumns}
-                dataSource={members}
-                rowKey={(_record, index) => (index ?? 0)}
-                pagination={{ pageSize: 10 }}
-                size="small"
-                style={{ marginBottom: 24 }}
-              />
-
-              <Space style={{ width: '100%', justifyContent: 'center' }}>
-                <Button onClick={() => setCurrentStep(0)}>
-                  Back
-                </Button>
-                <Button
-                  type="primary"
-                  loading={uploading}
-                  onClick={handleBulkUpload}
-                  size="large"
-                >
-                  Register All Converts
-                </Button>
-              </Space>
-            </div>
-          )}
-
-          {/* Step 3: Complete */}
-          {currentStep === 2 && uploadResult && (
-            <div>
-              <Alert
-                message="Bulk Registration Complete"
-                description={`Successfully registered ${uploadResult.inserted} convert(s). ${uploadResult.duplicates ? uploadResult.duplicates + ' duplicate(s) were skipped.' : ''}`}
-                type="success"
-                showIcon
-                style={{ marginBottom: 24 }}
-              />
-
-              <Space style={{ width: '100%', justifyContent: 'center' }}>
-                <Button
-                  type="primary"
-                  onClick={() => router.push(`/${groupId}`)}
-                >
-                  Go to Milestones
-                </Button>
-                <Button onClick={resetForm}>
-                  Register More Converts
-                </Button>
-              </Space>
-            </div>
-          )}
+            {currentStep === 2 && uploadResult && (
+              <div className="space-y-6 text-center">
+                <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm">
+                  Bulk Registration Complete — registered{' '}
+                  {uploadResult.inserted ?? uploadResult.created ?? 0} convert(s).
+                  {uploadResult.duplicates
+                    ? ` ${uploadResult.duplicates} duplicate(s) were skipped.`
+                    : ''}
+                </div>
+                <div className="flex justify-center gap-3">
+                  <Button onClick={() => router.push(`/${groupId}`)}>
+                    Go to Milestones
+                  </Button>
+                  <Button variant="outline" onClick={resetForm}>
+                    Register More Converts
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
     </>
-  );
+  )
 }
 
 export default function BulkRegisterPage() {
   return (
-    <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>}>
+    <Suspense fallback={<LoadingScreen />}>
       <BulkRegisterContent />
     </Suspense>
-  );
+  )
 }

@@ -1,439 +1,303 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react'
 import {
-  Typography,
-  Spin,
-  App,
-  Card,
-  Button,
-  Space,
-  Modal,
-  theme,
-} from 'antd';
-import {
-  HomeOutlined,
-  EnvironmentOutlined,
-  UserOutlined,
-  PhoneOutlined,
-  CalendarOutlined,
-  TeamOutlined,
-  IdcardOutlined,
-  BarChartOutlined,
-  UserAddOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useParams } from 'next/navigation';
-import AppBreadcrumb from '@/components/AppBreadcrumb';
-
-const { Title, Text } = Typography;
-const { useToken } = theme;
+  Briefcase,
+  Calendar,
+  Home,
+  MapPin,
+  Phone,
+  Trash2,
+  User,
+  Users,
+} from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRouter, useParams } from 'next/navigation'
+import AppBreadcrumb from '@/components/AppBreadcrumb'
+import { message } from '@/lib/toast'
+import { useConfirm } from '@/hooks/use-confirm'
+import { LoadingScreen } from '@/components/base/LoadingScreen'
+import { GroupNavActions } from '@/components/group/GroupNavActions'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 export default function PersonDetailPage() {
-  const { user, token, loading: authLoading } = useAuth();
-  const { message, modal } = App.useApp();
-  const router = useRouter();
-  const params = useParams();
-  const groupId = params.groupId as string;
-  const personId = params.id as string;
-  
-  const [person, setPerson] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const { token: antdToken } = useToken();
-  const isRegisterRestricted = user?.role === 'leader' || user?.role === 'overseer' || user?.role === 'leadpastor';
-  const canDeleteConvert = user?.role === 'leader' || user?.role === 'admin' || user?.role === 'overseer' || user?.role === 'leadpastor' || user?.role === 'superadmin';
+  const { user, token, loading: authLoading } = useAuth()
+  const { confirm, ConfirmDialog } = useConfirm()
+  const router = useRouter()
+  const params = useParams()
+  const groupId = params.groupId as string
+  const personId = params.id as string
+
+  const [person, setPerson] = useState<Record<string, string> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const canDeleteConvert =
+    user?.role === 'leader' ||
+    user?.role === 'admin' ||
+    user?.role === 'overseer' ||
+    user?.role === 'leadpastor' ||
+    user?.role === 'superadmin'
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth');
-      return;
+      router.push('/auth')
+      return
     }
-
-    // Validate access
-    if (!authLoading && user && user.role !== 'superadmin' && user.role !== 'leadpastor' && user.role !== 'overseer' && user.group_id !== groupId) {
-      message.error('Unauthorized access to this group');
-      router.push('/');
-      return;
+    if (
+      !authLoading &&
+      user &&
+      user.role !== 'superadmin' &&
+      user.role !== 'leadpastor' &&
+      user.role !== 'overseer' &&
+      user.group_id !== groupId
+    ) {
+      message.error('Unauthorized access to this group')
+      router.push('/')
+      return
     }
-
-    if (user && token && personId) {
-      fetchPersonDetails();
-    }
-  }, [user, token, authLoading, personId, groupId, router]);
+    if (user && token && personId) fetchPersonDetails()
+  }, [user, token, authLoading, personId, groupId, router])
 
   const fetchPersonDetails = async () => {
     try {
-      setError(null);
+      setError(null)
       const response = await fetch(`/api/people/${personId}`, {
         credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
-      });
-
+      })
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API Error Response:', errorData);
-        
-        // Extract error message from nested structures
-        let errorMsg = 'Failed to fetch person details';
-        if (typeof errorData.error === 'string') {
-          errorMsg = errorData.error;
-        } else if (typeof errorData.error === 'object' && errorData.error?.message) {
-          errorMsg = errorData.error.message;
-        } else if (typeof errorData.message === 'string') {
-          errorMsg = errorData.message;
-        } else if (response.status === 403) {
-          errorMsg = 'You do not have permission to view this person';
-        } else if (response.status === 404) {
-          errorMsg = 'Person not found';
-        } else {
-          errorMsg = `HTTP ${response.status}`;
-        }
-        throw new Error(errorMsg);
+        const errorData = await response.json().catch(() => ({}))
+        let errorMsg = 'Failed to fetch person details'
+        if (typeof errorData.error === 'string') errorMsg = errorData.error
+        else if (typeof errorData.error === 'object' && errorData.error?.message)
+          errorMsg = errorData.error.message
+        else if (typeof errorData.message === 'string') errorMsg = errorData.message
+        else if (response.status === 403)
+          errorMsg = 'You do not have permission to view this person'
+        else if (response.status === 404) errorMsg = 'Person not found'
+        else errorMsg = `HTTP ${response.status}`
+        throw new Error(errorMsg)
       }
-
-      const data = await response.json();
-      setPerson(data.data?.person || data.person);
-    } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to load person details';
-      setError(errorMsg);
-      console.error('Error fetching person details:', error);
+      const data = await response.json()
+      setPerson(data.data?.person || data.person)
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to load person details'
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
-
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spin size="large" />
-      </div>
-    );
   }
 
-  // Check if user is a leader (read-only access)
-  const isLeader = user?.role === 'leader';
-
-  const handleDelete = () => {
-    if (!canDeleteConvert || !personId) return;
-
-    modal.confirm({
+  const handleDelete = async () => {
+    if (!canDeleteConvert || !personId) return
+    const ok = await confirm({
       title: 'Delete this convert?',
-      content: 'This will soft delete the convert. Their records are preserved but hidden from active views.',
-      okText: 'Delete',
-      okButtonProps: { danger: true },
-      cancelText: 'Cancel',
-      onOk: async () => {
-        try {
-          setDeleting(true);
-          const response = await fetch(`/api/people/${personId}`, {
-            method: 'DELETE',
-            credentials: 'include',
-            headers: { Authorization: `Bearer ${token}` },
-          });
+      description:
+        'This will soft delete the convert. Their records are preserved but hidden from active views.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    })
+    if (!ok) return
+    try {
+      setDeleting(true)
+      const response = await fetch(`/api/people/${personId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          errorData?.error?.message ||
+            errorData?.message ||
+            'Failed to delete convert'
+        )
+      }
+      message.success('Convert deleted successfully')
+      router.push(`/${groupId}`)
+    } catch (err: unknown) {
+      message.error(
+        err instanceof Error ? err.message : 'Failed to delete convert'
+      )
+    } finally {
+      setDeleting(false)
+    }
+  }
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData?.error?.message || errorData?.message || 'Failed to delete convert';
-            throw new Error(errorMessage);
-          }
+  if (authLoading || loading) {
+    return <LoadingScreen label="Loading person…" />
+  }
 
-          message.success('Convert deleted successfully');
-          router.push(`/${groupId}`);
-        } catch (err: unknown) {
-          message.error(err instanceof Error ? err.message : 'Failed to delete convert');
-        } finally {
-          setDeleting(false);
-        }
-      },
-    });
-  };
+  const InfoTile = ({
+    label,
+    value,
+    className,
+  }: {
+    label: string
+    value: React.ReactNode
+    className?: string
+  }) => (
+    <div className={cn('rounded-lg border bg-muted/30 p-4', className)}>
+      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+      <div className="text-base font-semibold">{value}</div>
+    </div>
+  )
 
   return (
     <>
+      {ConfirmDialog}
       <AppBreadcrumb />
       {error && (
-        <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fff2e8', border: '1px solid #ffbb96', borderRadius: 6, color: '#d4380d' }}>
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
           {error}
-          <Button 
-            size="small" 
-            style={{ marginLeft: 16 }} 
-            onClick={() => router.back()}
-          >
+          <Button size="sm" variant="outline" onClick={() => router.back()}>
             Go Back
           </Button>
         </div>
       )}
-      <div>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Title level={2} style={{ margin: 0 }}>
-              {person?.first_name} {person?.last_name}
-            </Title>
-            <Space>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {person?.first_name} {person?.last_name}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <GroupNavActions groupId={groupId} user={user} active="milestones" />
+            {canDeleteConvert && (
               <Button
-                icon={<HomeOutlined />}
-                onClick={() => router.push(`/${groupId}`)}
+                variant="destructive"
+                size="sm"
+                disabled={deleting}
+                onClick={handleDelete}
               >
-                Home
+                <Trash2 className="size-4" />
+                Delete
               </Button>
-              <Button
-                icon={<BarChartOutlined />}
-                onClick={() => router.push(`/${groupId}/progress`)}
-              >
-                Milestones
-              </Button>
-              <Button
-                icon={<TeamOutlined />}
-                onClick={() => router.push(`/${groupId}/attendance`)}
-              >
-                Attendance
-              </Button>
-              {!isRegisterRestricted && (
-                <Button
-                  icon={<UserAddOutlined />}
-                  onClick={() => router.push(`/${groupId}/people/register`)}
-                >
-                  Register
-                </Button>
-              )}
-              {canDeleteConvert && (
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  loading={deleting}
-                  onClick={handleDelete}
-                >
-                  Delete
-                </Button>
-              )}
-            </Space>
+            )}
           </div>
         </div>
-        
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Card 
-            style={{ 
-              borderRadius: 12,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              overflow: 'hidden',
-              background: antdToken.colorBgContainer,
-            }}
-          >
-            {/* Header Section */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
-                padding: '28px 32px',
-                marginBottom: 24,
-                borderRadius: '12px 12px 0 0',
-                marginTop: -24,
-                marginLeft: -24,
-                marginRight: -24,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-                <div
-                  style={{
-                    width: 76,
-                    height: 76,
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.96)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 30,
-                    fontWeight: 700,
-                    color: '#003366',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
-                    flexShrink: 0,
-                  }}
-                >
-                  {person?.first_name?.charAt(0)}{person?.last_name?.charAt(0)}
+
+        <div className="mx-auto max-w-5xl">
+          <Card className="overflow-hidden">
+            <div className="bg-gradient-to-br from-[#003366] to-[#004080] px-8 py-7">
+              <div className="flex flex-wrap items-center gap-5">
+                <div className="flex size-[76px] shrink-0 items-center justify-center rounded-full bg-white text-3xl font-bold text-[#003366] shadow-md">
+                  {person?.first_name?.charAt(0)}
+                  {person?.last_name?.charAt(0)}
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <Title level={2} style={{ margin: 0, color: '#fff', marginBottom: 10 }}>
+                <div className="min-w-0 space-y-2">
+                  <h2 className="text-2xl font-bold text-white">
                     {person?.first_name} {person?.last_name}
-                  </Title>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
                     {person?.group_name && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 13, fontWeight: 500 }}>
-                        <CalendarOutlined /> {person.group_name}
-                      </span>
+                      <Badge className="bg-white/15 text-white hover:bg-white/20">
+                        <Calendar className="mr-1 size-3" />
+                        {person.group_name}
+                      </Badge>
                     )}
                     {person?.occupation_type && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 13, fontWeight: 500 }}>
-                        <IdcardOutlined /> {person.occupation_type}
-                      </span>
+                      <Badge className="bg-white/15 text-white hover:bg-white/20">
+                        <Briefcase className="mr-1 size-3" />
+                        {person.occupation_type}
+                      </Badge>
                     )}
                     {person?.gender && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 13, fontWeight: 500 }}>
-                        <UserOutlined /> {person.gender}
-                      </span>
+                      <Badge className="bg-white/15 text-white hover:bg-white/20">
+                        <User className="mr-1 size-3" />
+                        {person.gender}
+                      </Badge>
                     )}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Contact Information */}
-            <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
-                <PhoneOutlined /> Contact Information
-              </Title>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
-                <div 
-                  style={{ 
-                    padding: 16,
-                    background: antdToken.colorInfoBg,
-                    borderRadius: 8,
-                    border: `1px solid ${antdToken.colorInfoBorder}`
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    Phone Number
-                  </Text>
-                  <a 
-                    href={`tel:${person?.phone_number}`} 
-                    style={{ 
-                      color: antdToken.colorPrimary, 
-                      fontSize: 16, 
-                      fontWeight: 600,
-                      textDecoration: 'none' 
-                    }}
-                  >
-                    <PhoneOutlined /> {person?.phone_number}
-                  </a>
+            <CardContent className="space-y-8 p-6">
+              <section>
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-primary">
+                  <Phone className="size-5" />
+                  Contact Information
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <InfoTile
+                    label="Phone Number"
+                    value={
+                      <a
+                        href={`tel:${person?.phone_number}`}
+                        className="text-primary hover:underline"
+                      >
+                        {person?.phone_number}
+                      </a>
+                    }
+                  />
+                  <InfoTile
+                    label="Date of Birth"
+                    value={person?.date_of_birth || 'N/A'}
+                  />
                 </div>
-                
-                <div 
-                  style={{ 
-                    padding: 16,
-                    background: antdToken.colorInfoBg,
-                    borderRadius: 8,
-                    border: `1px solid ${antdToken.colorInfoBorder}`
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    Date of Birth
-                  </Text>
-                  <Text strong style={{ fontSize: 16 }}>
-                    <CalendarOutlined /> {person?.date_of_birth || 'N/A'}
-                  </Text>
-                </div>
-              </div>
-            </div>
+              </section>
 
-            {/* Personal Details */}
-            <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
-                <UserOutlined /> Personal Details
-              </Title>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
-                <div 
-                  style={{ 
-                    padding: 16,
-                    background: antdToken.colorSuccessBg,
-                    borderRadius: 8,
-                    border: `1px solid ${antdToken.colorSuccessBorder}`
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    Gender
-                  </Text>
-                  <Text strong style={{ fontSize: 16 }}>
-                    {person?.gender || 'N/A'}
-                  </Text>
+              <section>
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-primary">
+                  <User className="size-5" />
+                  Personal Details
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <InfoTile label="Gender" value={person?.gender || 'N/A'} />
+                  <InfoTile
+                    label="Occupation Type"
+                    value={person?.occupation_type || 'N/A'}
+                  />
                 </div>
-                
-                <div 
-                  style={{ 
-                    padding: 16,
-                    background: antdToken.colorSuccessBg,
-                    borderRadius: 8,
-                    border: `1px solid ${antdToken.colorSuccessBorder}`
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    Occupation Type
-                  </Text>
-                  <Text strong style={{ fontSize: 16 }}>
-                    <IdcardOutlined /> {person?.occupation_type || 'N/A'}
-                  </Text>
-                </div>
-              </div>
-            </div>
+              </section>
 
-            {/* Location Information */}
-            <div style={{ marginBottom: 8 }}>
-              <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
-                <EnvironmentOutlined /> Location Information
-              </Title>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
-                <div 
-                  style={{ 
-                    padding: 16,
-                    background: antdToken.colorWarningBg,
-                    borderRadius: 8,
-                    border: `1px solid ${antdToken.colorWarningBorder}`
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    <HomeOutlined /> Residential Location
-                  </Text>
-                  <Text strong style={{ fontSize: 16 }}>
-                    {person?.residential_location || 'N/A'}
-                  </Text>
+              <section>
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-primary">
+                  <MapPin className="size-5" />
+                  Location Information
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <InfoTile
+                    label="Residential Location"
+                    value={
+                      <span className="inline-flex items-center gap-2">
+                        <Home className="size-4 text-muted-foreground" />
+                        {person?.residential_location || 'N/A'}
+                      </span>
+                    }
+                  />
+                  {person?.school_residential_location && (
+                    <InfoTile
+                      label="School Location"
+                      value={person.school_residential_location}
+                    />
+                  )}
                 </div>
-                
-                {person?.school_residential_location && (
-                  <div 
-                    style={{ 
-                      padding: 16,
-                      background: antdToken.colorWarningBg,
-                      borderRadius: 8,
-                      border: `1px solid ${antdToken.colorWarningBorder}`
-                    }}
-                  >
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                      <EnvironmentOutlined /> School Location
-                    </Text>
-                    <Text strong style={{ fontSize: 16 }}>
-                      {person.school_residential_location}
-                    </Text>
-                  </div>
-                )}
-              </div>
-            </div>
+              </section>
 
-            {/* Department for Superadmin */}
-            {user?.role === 'superadmin' && person?.department_name && (
-              <div style={{ marginTop: 24, paddingTop: 24, borderTop: `2px solid ${antdToken.colorBorderSecondary}` }}>
-                <Title level={4} style={{ marginBottom: 16, color: antdToken.colorPrimary }}>
-                  <TeamOutlined /> Administrative Information
-                </Title>
-                <div 
-                  style={{ 
-                    padding: 16,
-                    background: antdToken.colorErrorBg,
-                    borderRadius: 8,
-                    border: `1px solid ${antdToken.colorErrorBorder}`
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    Department
-                  </Text>
-                  <Text strong style={{ fontSize: 16 }}>
-                    {person.department_name}
-                  </Text>
-                </div>
-              </div>
-            )}
+              {user?.role === 'superadmin' && person?.department_name && (
+                <section className="border-t pt-6">
+                  <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-primary">
+                    <Users className="size-5" />
+                    Administrative Information
+                  </h3>
+                  <InfoTile
+                    label="Department"
+                    value={person.department_name}
+                    className="max-w-md"
+                  />
+                </section>
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>
     </>
-  );
+  )
 }

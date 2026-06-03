@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { clearCache } from '@/hooks/use-fetch';
+import { api } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -50,7 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const { user: payload } = await res.json();
             if (payload) setUser(payload as User);
           }
-          // token is NOT restored — it's memory-only; API calls use the cookie
+          // The real JWT stays in the httpOnly cookie (used for every API call).
+          // Set a non-secret session marker so client code that gates work on a
+          // truthy `token` (e.g. superadmin pages) still runs after a refresh,
+          // where the in-memory JWT is gone. The marker is never sent as real auth.
+          setToken('cookie-session');
         } else {
           // Cookie is invalid/expired — purge stale state
           localStorage.removeItem('user');
@@ -78,8 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Login failed');
+      const error = await response.json().catch(() => ({}));
+      const message =
+        typeof error?.error === 'string'
+          ? error.error
+          : response.status === 429
+            ? 'Too many login attempts. Please wait and try again.'
+            : 'Login failed';
+      throw new Error(message);
     }
 
     const data = await response.json();
@@ -95,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Clear any cached API responses to avoid stale year/group data
     clearCache();
+    api.clearCache();
 
     // Use setTimeout to ensure localStorage is written before redirect
     setTimeout(() => {
@@ -125,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user'); // token was never stored here
     // Clear all cached data on logout
     clearCache();
+    api.clearCache();
     router.push('/auth');
   };
 

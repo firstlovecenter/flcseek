@@ -1,27 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Select, Space, Typography } from 'antd';
-import { CalendarOutlined } from '@ant-design/icons';
+import { Calendar } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { CURRENT_YEAR, MIN_YEAR } from '@/lib/constants';
+import { CURRENT_YEAR } from '@/lib/constants';
 import { api } from '@/lib/api';
 import type { GroupApiData } from '@/lib/types/api-responses';
-
-const { Text } = Typography;
 
 interface YearSelectorProps {
   value: number | null;
   onChange: (year: number) => void;
-  groupName?: string; // The month name to filter groups by
+  groupName?: string;
   showLabel?: boolean;
   style?: React.CSSProperties;
 }
 
-/**
- * Year Selector Component
- * Allows admins/leaders to switch between years for their assigned month
- */
 export default function YearSelector({
   value,
   onChange,
@@ -43,25 +45,22 @@ export default function YearSelector({
         if (response.success && response.data) {
           const groups: GroupApiData[] = (response.data?.groups as GroupApiData[]) || [];
 
-          // Filter by month name if provided
           const filteredGroups = groupName
             ? groups.filter((g) => g.name.toLowerCase() === groupName.toLowerCase())
             : groups;
 
-          // Extract unique years
-          const years = Array.from(new Set(filteredGroups.map((g) => g.year))).sort((a, b) => b - a);
-          years.sort((a, b) => b - a); // Descending order
+          const years = Array.from(new Set(filteredGroups.map((g) => g.year))).sort(
+            (a, b) => b - a
+          );
 
           setAvailableYears(years);
 
-          // If no value set and years are available, default to most recent
           if (!value && years.length > 0) {
             onChange(years[0]);
           }
         }
       } catch (error) {
         console.error('Failed to fetch available years:', error);
-        // Fallback to default years
         setAvailableYears([CURRENT_YEAR, CURRENT_YEAR - 1]);
       } finally {
         setLoading(false);
@@ -72,28 +71,36 @@ export default function YearSelector({
   }, [token, groupName]);
 
   if (availableYears.length <= 1) {
-    // Don't show selector if only one year available
     return null;
   }
 
   return (
-    <Space style={style}>
+    <div className={cn('flex items-center gap-2')} style={style}>
       {showLabel && (
-        <Text type="secondary">
-          <CalendarOutlined /> Year:
-        </Text>
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Calendar className="size-4" />
+          Year:
+        </span>
       )}
-      <Select
-        value={value}
-        onChange={onChange}
-        loading={loading}
-        style={{ width: 100 }}
-        options={availableYears.map((year) => ({
-          label: year.toString(),
-          value: year,
-        }))}
-        placeholder="Select year"
-      />
-    </Space>
+      {loading ? (
+        <Skeleton className="h-9 w-[100px]" />
+      ) : (
+        <Select
+          value={value?.toString()}
+          onValueChange={(v) => onChange(Number(v))}
+        >
+          <SelectTrigger className="w-[100px]">
+            <SelectValue placeholder="Select year" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableYears.map((year) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
   );
 }

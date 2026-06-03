@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Spin } from 'antd';
+import { LoadingScreen } from '@/components/base/LoadingScreen';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -16,11 +16,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }, [user, loading, router]);
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" />
-      </div>
-    );
+    return <LoadingScreen fullScreen label="Loading…" />;
   }
 
   if (!user || user.role !== 'superadmin') {

@@ -1,20 +1,30 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, Spin, Table, Tag, App } from 'antd';
 import {
-  UserOutlined,
-  TeamOutlined,
-  TrophyOutlined,
-  HeartOutlined,
-  RiseOutlined,
-  CalendarOutlined,
-} from '@ant-design/icons';
+  Users,
+  UsersRound,
+  Heart,
+  Calendar,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-
-const { Title, Text } = Typography;
+import { message } from '@/lib/toast';
+import { StatCard } from '@/components/base/StatCard';
+import { LoadingScreen } from '@/components/base/LoadingScreen';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DashboardStats {
   totalUsers: number;
@@ -33,9 +43,15 @@ interface RecentActivity {
   user: string;
 }
 
+const activityBadgeClass: Record<string, string> = {
+  USER: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  GROUP: 'bg-green-500/15 text-green-700 dark:text-green-300',
+  CONVERT: 'bg-purple-500/15 text-purple-700 dark:text-purple-300',
+  MILESTONE: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
+};
+
 export default function SuperAdminDashboard() {
   const { token } = useAuth();
-  const { message } = App.useApp();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     activeUsers: 0,
@@ -46,6 +62,8 @@ export default function SuperAdminDashboard() {
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activityPage, setActivityPage] = useState(1);
+  const activityPageSize = 5;
 
   useEffect(() => {
     if (token) {
@@ -55,13 +73,12 @@ export default function SuperAdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // Use new v1 stats API
       const statsResponse = await api.stats.getDashboard();
-      
+
       if (statsResponse.success && statsResponse.data) {
-        const { summary, groupStats } = statsResponse.data;
+        const { summary } = statsResponse.data;
         setStats({
-          totalUsers: 0, // Will be fetched separately if needed
+          totalUsers: 0,
           activeUsers: 0,
           totalGroups: summary.totalGroups || 0,
           totalConverts: summary.totalPeople || 0,
@@ -69,15 +86,14 @@ export default function SuperAdminDashboard() {
           activeGroupLeaders: 0,
         });
       }
-      
-      // Fallback to old API for activity data (can be migrated later)
+
       const response = await fetch('/api/superadmin/dashboard', {
         credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
       if (data.stats) {
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
           totalUsers: data.stats.totalUsers || prev.totalUsers,
           activeUsers: data.stats.activeUsers || prev.activeUsers,
@@ -94,118 +110,126 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const activityColumns = [
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type: string) => {
-        const colors: Record<string, string> = {
-          USER: 'blue',
-          GROUP: 'green',
-          CONVERT: 'purple',
-          MILESTONE: 'orange',
-        };
-        return <Tag color={colors[type] || 'default'}>{type}</Tag>;
-      },
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-    },
-    {
-      title: 'User',
-      dataIndex: 'user',
-      key: 'user',
-    },
-    {
-      title: 'Time',
-      dataIndex: 'timestamp',
-      key: 'timestamp',
-      render: (timestamp: string) => new Date(timestamp).toLocaleString(),
-    },
-  ];
+  const paginatedActivity = recentActivity.slice(
+    (activityPage - 1) * activityPageSize,
+    activityPage * activityPageSize
+  );
+  const activityTotalPages = Math.ceil(recentActivity.length / activityPageSize);
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
-        <Spin size="large" />
-      </div>
-    );
+    return <LoadingScreen label="Loading dashboard…" />;
   }
 
   return (
-    <div>
-      <Title level={2}>System Dashboard</Title>
-      <Text type="secondary">Overview of your church management system</Text>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">System dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Overview of your church management system
+        </p>
+      </div>
 
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24} sm={12} lg={8}>
-          <Link href="/superadmin/users">
-            <Card hoverable>
-              <Statistic
-                title="Total Users"
-                value={stats.totalUsers}
-                prefix={<UserOutlined />}
-                suffix={
-                  <Text type="secondary" style={{ fontSize: 14 }}>
-                    ({stats.activeUsers} active)
-                  </Text>
-                }
-              />
-            </Card>
-          </Link>
-        </Col>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/superadmin/users" className="transition-opacity hover:opacity-90">
+          <StatCard
+            title="Total users"
+            value={stats.totalUsers}
+            subtitle={`(${stats.activeUsers} active)`}
+            icon={Users}
+            accent="members"
+          />
+        </Link>
+        <Link href="/superadmin/groups" className="transition-opacity hover:opacity-90">
+          <StatCard
+            title="Total groups"
+            value={stats.totalGroups}
+            subtitle={`(${stats.activeGroupLeaders} leaders)`}
+            icon={UsersRound}
+            accent="churches"
+          />
+        </Link>
+        <Link href="/superadmin/converts" className="transition-opacity hover:opacity-90">
+          <StatCard
+            title="New converts"
+            value={stats.totalConverts}
+            icon={Heart}
+            accent="arrivals"
+            delta={`${stats.convertsThisMonth} this month`}
+            deltaPositive
+          />
+        </Link>
+      </div>
 
-        <Col xs={24} sm={12} lg={8}>
-          <Link href="/superadmin/groups">
-            <Card hoverable>
-              <Statistic
-                title="Total Groups"
-                value={stats.totalGroups}
-                prefix={<TeamOutlined />}
-                suffix={
-                  <Text type="secondary" style={{ fontSize: 14 }}>
-                    ({stats.activeGroupLeaders} leaders)
-                  </Text>
-                }
-              />
-            </Card>
-          </Link>
-        </Col>
-
-        <Col xs={24} sm={12} lg={8}>
-          <Link href="/superadmin/converts">
-            <Card hoverable>
-              <Statistic
-                title="New Converts"
-                value={stats.totalConverts}
-                prefix={<HeartOutlined />}
-                suffix={
-                  <span style={{ fontSize: 14, color: '#52c41a' }}>
-                    <RiseOutlined /> {stats.convertsThisMonth} this month
-                  </span>
-                }
-              />
-            </Card>
-          </Link>
-        </Col>
-      </Row>
-
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24}>
-          <Card title="Recent Activity" extra={<CalendarOutlined />}>
-            <Table
-              dataSource={recentActivity}
-              columns={activityColumns}
-              rowKey="id"
-              pagination={{ pageSize: 5 }}
-              size="small"
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base font-medium">Recent activity</CardTitle>
+          <Calendar className="size-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedActivity.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    No recent activity
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedActivity.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={activityBadgeClass[item.type] || ''}
+                      >
+                        {item.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{item.description}</TableCell>
+                    <TableCell>{item.user}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          {activityTotalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground tabular-nums">
+                Page {activityPage} of {activityTotalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={activityPage <= 1}
+                  onClick={() => setActivityPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={activityPage >= activityTotalPages}
+                  onClick={() => setActivityPage((p) => p + 1)}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

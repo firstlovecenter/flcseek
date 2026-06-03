@@ -1,11 +1,10 @@
-import * as XLSX from 'xlsx';
-
 /**
  * Generate an Excel template for bulk member registration
  * @param groups - Array of group names to include in the template
  * @returns Blob containing the Excel file
  */
-export function generateBulkRegistrationTemplate(groups: string[] = []): Blob {
+export async function generateBulkRegistrationTemplate(groups: string[] = []): Promise<Blob> {
+  const XLSX = await import('xlsx');
   // Create sample data with instructions
   const sampleData = [
     {
@@ -125,6 +124,7 @@ export async function parseExcelFile(
   occupation_type: string;
   group_name?: string;
 }>> {
+  const XLSX = await import('xlsx');
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 

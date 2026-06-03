@@ -1,22 +1,26 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Bot, AlertCircle, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
-  Modal,
-  Button,
-  Form,
   Select,
-  Table,
-  Tabs,
-  Empty,
-  Spin,
-  Alert,
-  Card,
-  Row,
-  Col,
-  Divider,
-} from 'antd';
-import { DeleteOutlined, EditOutlined, RobotOutlined } from '@ant-design/icons';
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { SearchFilter } from '@/lib/types/advanced-features';
 
 interface BulkActionsUIProps {
@@ -34,6 +38,14 @@ interface ActionPreview {
   warning?: string;
 }
 
+interface BulkActionResult {
+  successCount: number;
+  targetCount: number;
+  failureCount: number;
+  errors: string[];
+  duration: number;
+}
+
 export function BulkActionsUI({
   groupId,
   selectedIds = [],
@@ -43,10 +55,9 @@ export function BulkActionsUI({
 }: BulkActionsUIProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [actionType, setActionType] = useState<'reassignGroup' | 'assignMilestone' | 'delete'>('reassignGroup');
-  const [newGroupId, setNewGroupId] = useState('');
   const [milestoneId, setMilestoneId] = useState('1');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<BulkActionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const milestones = Array.from({ length: 10 }, (_, i) => ({
@@ -78,14 +89,10 @@ export function BulkActionsUI({
           action: 'Delete Records',
           targetCount,
           description: `${baseDesc} will be marked as deleted.`,
-          warning: '⚠️ This action is permanent and cannot be undone easily.',
+          warning: 'This action is permanent and cannot be undone easily.',
         };
       default:
-        return {
-          action: 'Unknown',
-          targetCount,
-          description: baseDesc,
-        };
+        return { action: 'Unknown', targetCount, description: baseDesc };
     }
   };
 
@@ -134,172 +141,175 @@ export function BulkActionsUI({
   return (
     <>
       <Button
-        type="primary"
-        icon={<RobotOutlined />}
         onClick={() => setIsOpen(true)}
         disabled={selectedIds.length === 0 && filters.length === 0}
       >
+        <Bot className="size-4" />
         Bulk Actions
       </Button>
 
-      <Modal
-        title="Bulk Actions"
-        open={isOpen}
-        onCancel={() => setIsOpen(false)}
-        width={800}
-        footer={[
-          <Button key="cancel" onClick={() => setIsOpen(false)}>
-            Cancel
-          </Button>,
-          <Button
-            key="execute"
-            type="primary"
-            loading={loading}
-            onClick={handleExecuteAction}
-            danger={actionType === 'delete'}
-          >
-            Execute Action
-          </Button>,
-        ]}
-      >
-        <Tabs
-          items={[
-            {
-              key: 'action',
-              label: 'Select Action',
-              children: (
-                <div style={{ paddingTop: 16 }}>
-                  <Form layout="vertical">
-                    <Form.Item label="Action Type">
-                      <Select
-                        value={actionType}
-                        onChange={setActionType}
-                        options={[
-                          { label: 'Reassign Group / Update', value: 'reassignGroup' },
-                          { label: 'Assign Milestone', value: 'assignMilestone' },
-                          { label: 'Delete Records', value: 'delete' },
-                        ]}
-                      />
-                    </Form.Item>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Bulk Actions</DialogTitle>
+          </DialogHeader>
 
-                    {actionType === 'reassignGroup' && (
-                      <Form.Item label="Action">
-                        <p>Updates the metadata timestamp for selected converts.</p>
-                      </Form.Item>
-                    )}
+          <Tabs defaultValue="action">
+            <TabsList>
+              <TabsTrigger value="action">Select Action</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
 
-                    {actionType === 'assignMilestone' && (
-                      <Form.Item label="Milestone">
-                        <Select
-                          value={milestoneId}
-                          onChange={setMilestoneId}
-                          options={milestones}
-                        />
-                      </Form.Item>
-                    )}
-
-                    {actionType === 'delete' && (
-                      <Alert
-                        message="Destructive Action"
-                        description="Selected records will be marked as deleted. This action is permanent."
-                        type="error"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                      />
-                    )}
-                  </Form>
-                </div>
-              ),
-            },
-            {
-              key: 'preview',
-              label: 'Preview',
-              children: (
-                <div style={{ paddingTop: 16 }}>
-                  <Card>
-                    <Row gutter={16}>
-                      <Col xs={24} sm={12}>
-                        <div>
-                          <strong>Action:</strong>
-                          <p>{preview.action}</p>
-                        </div>
-                      </Col>
-                      <Col xs={24} sm={12}>
-                        <div>
-                          <strong>Target Records:</strong>
-                          <p>{preview.targetCount}</p>
-                        </div>
-                      </Col>
-                    </Row>
-
-                    <Divider />
-
-                    <div>
-                      <strong>Details:</strong>
-                      <p>{preview.description}</p>
-                    </div>
-
-                    {preview.warning && (
-                      <Alert
-                        message={preview.warning}
-                        type={actionType === 'delete' ? 'error' : 'warning'}
-                        showIcon
-                        style={{ marginTop: 16 }}
-                      />
-                    )}
-                  </Card>
-                </div>
-              ),
-            },
-          ]}
-        />
-
-        {error && (
-          <Alert
-            message="Error"
-            description={error}
-            type="error"
-            showIcon
-            style={{ marginTop: 16 }}
-            closable
-            onClose={() => setError(null)}
-          />
-        )}
-
-        {result && (
-          <Alert
-            message="Action Completed"
-            description={
-              <div>
-                <p>
-                  <strong>Success:</strong> {result.successCount} / {result.targetCount}
-                </p>
-                {result.errors.length > 0 && (
-                  <>
-                    <p>
-                      <strong>Errors ({result.errors.length}):</strong>
-                    </p>
-                    <ul style={{ marginTop: 8 }}>
-                      {result.errors.slice(0, 5).map((err: string, idx: number) => (
-                        <li key={idx}>{err}</li>
-                      ))}
-                      {result.errors.length > 5 && (
-                        <li>... and {result.errors.length - 5} more</li>
-                      )}
-                    </ul>
-                  </>
-                )}
-                <p style={{ marginTop: 8, fontSize: 12, color: '#888' }}>
-                  Completed in {result.duration}ms
-                </p>
+            <TabsContent value="action" className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <Label>Action Type</Label>
+                <Select
+                  value={actionType}
+                  onValueChange={(v) => setActionType(v as typeof actionType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="reassignGroup">Reassign Group / Update</SelectItem>
+                    <SelectItem value="assignMilestone">Assign Milestone</SelectItem>
+                    <SelectItem value="delete">Delete Records</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            }
-            type={result.failureCount === 0 ? 'success' : 'warning'}
-            showIcon
-            style={{ marginTop: 16 }}
-          />
-        )}
-      </Modal>
+
+              {actionType === 'reassignGroup' && (
+                <p className="text-sm text-muted-foreground">
+                  Updates the metadata timestamp for selected converts.
+                </p>
+              )}
+
+              {actionType === 'assignMilestone' && (
+                <div className="space-y-2">
+                  <Label>Milestone</Label>
+                  <Select value={milestoneId} onValueChange={setMilestoneId}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {milestones.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {actionType === 'delete' && (
+                <div className="flex gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <div>
+                    <p className="font-medium">Destructive Action</p>
+                    <p>Selected records will be marked as deleted. This action is permanent.</p>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="preview" className="mt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <strong className="text-sm">Action:</strong>
+                      <p>{preview.action}</p>
+                    </div>
+                    <div>
+                      <strong className="text-sm">Target Records:</strong>
+                      <p>{preview.targetCount}</p>
+                    </div>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  <div>
+                    <strong className="text-sm">Details:</strong>
+                    <p>{preview.description}</p>
+                  </div>
+
+                  {preview.warning && (
+                    <div
+                      className={`mt-4 flex gap-3 rounded-lg border p-4 text-sm ${
+                        actionType === 'delete'
+                          ? 'border-destructive/20 bg-destructive/5 text-destructive'
+                          : 'border-warning/20 bg-warning/5 text-warning'
+                      }`}
+                    >
+                      <AlertCircle className="size-4 shrink-0" />
+                      {preview.warning}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {error && (
+            <div className="mt-4 flex items-start justify-between gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+              <div>
+                <p className="font-medium">Error</p>
+                <p>{error}</p>
+              </div>
+              <button type="button" onClick={() => setError(null)} aria-label="Dismiss">
+                <X className="size-4" />
+              </button>
+            </div>
+          )}
+
+          {result && (
+            <div
+              className={`mt-4 rounded-lg border p-4 text-sm ${
+                result.failureCount === 0
+                  ? 'border-success/20 bg-success/5'
+                  : 'border-warning/20 bg-warning/5'
+              }`}
+            >
+              <p className="font-medium">Action Completed</p>
+              <p className="mt-1">
+                <strong>Success:</strong> {result.successCount} / {result.targetCount}
+              </p>
+              {result.errors.length > 0 && (
+                <>
+                  <p className="mt-2">
+                    <strong>Errors ({result.errors.length}):</strong>
+                  </p>
+                  <ul className="mt-1 list-inside list-disc">
+                    {result.errors.slice(0, 5).map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                    {result.errors.length > 5 && (
+                      <li>... and {result.errors.length - 5} more</li>
+                    )}
+                  </ul>
+                </>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Completed in {result.duration}ms
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant={actionType === 'delete' ? 'destructive' : 'default'}
+              onClick={handleExecuteAction}
+              disabled={loading}
+            >
+              {loading ? 'Executing…' : 'Execute Action'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
