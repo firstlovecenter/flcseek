@@ -12,7 +12,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
 import { api } from '@/lib/api';
+import { personProgressCells } from '@/lib/progress-utils';
 import type { MilestoneData, PersonApiData, GroupApiData } from '@/lib/types/api-responses';
+import type { ProgressEntry } from '@/lib/types/api-responses';
 import { StatCard } from '@/components/base/StatCard';
 import { LoadingScreen } from '@/components/base/LoadingScreen';
 import { EmptyState } from '@/components/base/EmptyState';
@@ -79,8 +81,21 @@ interface AnalyticsData {
   completionRate: number;
 }
 
+function sortByRegistrationMonth(
+  entries: { month: string; count: number }[]
+): { month: string; count: number }[] {
+  return [...entries].sort((a, b) => {
+    const da = new Date(a.month);
+    const db = new Date(b.month);
+    if (!Number.isNaN(da.getTime()) && !Number.isNaN(db.getTime())) {
+      return da.getTime() - db.getTime();
+    }
+    return a.month.localeCompare(b.month);
+  });
+}
+
 export default function AnalyticsPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -89,10 +104,10 @@ export default function AnalyticsPage() {
   const [groups, setGroups] = useState<GroupApiData[]>([]);
 
   useEffect(() => {
-    if (token) {
+    if (user?.role === 'superadmin') {
       fetchAnalyticsData();
     }
-  }, [token, year]);
+  }, [user, year]);
 
   const fetchAnalyticsData = async () => {
     setLoading(true);
@@ -103,28 +118,26 @@ export default function AnalyticsPage() {
         : [];
       setGroups(yearGroups);
 
-      const [peopleRes, milestonesRes, statsRes] = await Promise.all([
-        api.people.list({ year, include: 'progress' }),
-        api.milestones.list(),
-        fetch(`/api/superadmin/converts/stats?year=${year}`, {
-          credentials: 'include',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store',
-        }),
-      ]);
+      const peopleRes = await api.people.list({ year, include: 'grid', limit: 500 });
 
-      const statsData = await statsRes.json();
       const filteredPeople: PersonApiData[] = peopleRes.success
         ? (peopleRes.data?.people ?? [])
         : [];
-      const milestonesData: MilestoneData[] = milestonesRes.success
-        ? (milestonesRes.data?.milestones ?? [])
+      const milestonesData: MilestoneData[] = peopleRes.success
+        ? (peopleRes.data?.milestones ?? [])
         : [];
+      const activeMilestones = milestonesData.filter((m) => m.is_active);
+      const stageNumbers = activeMilestones.map((m) => m.stage_number);
 
-      setPeople(filteredPeople);
-      setMilestones(milestonesData.filter((m) => m.is_active));
+      const peopleWithProgress: PersonApiData[] = filteredPeople.map((p) => ({
+        ...p,
+        progress: personProgressCells(p, stageNumbers) as ProgressEntry[],
+      }));
 
-      processAnalytics(filteredPeople, milestonesData, yearGroups, statsData.stats || {});
+      setPeople(peopleWithProgress);
+      setMilestones(activeMilestones);
+
+      processAnalytics(peopleWithProgress, milestonesData, yearGroups);
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
     } finally {
@@ -135,24 +148,31 @@ export default function AnalyticsPage() {
   const processAnalytics = (
     people: PersonApiData[],
     milestones: MilestoneData[],
-    _groups: GroupApiData[],
-    _stats: Record<string, unknown>
+    _groups: GroupApiData[]
   ) => {
     const activeMilestones = milestones.filter((m) => m.is_active);
     const totalMilestones = activeMilestones.length;
+    const stageNumbers = activeMilestones.map((m) => m.stage_number);
+
+    const progressFor = (p: PersonApiData) =>
+      p.progress?.length
+        ? p.progress
+        : personProgressCells(p, stageNumbers);
 
     const monthCounts: Record<string, number> = {};
     people.forEach((p) => {
-      const month = new Date(p.created_at).toLocaleString('default', {
+      if (!p.created_at) return;
+      const created = new Date(p.created_at);
+      if (Number.isNaN(created.getTime())) return;
+      const month = created.toLocaleString('default', {
         month: 'short',
         year: '2-digit',
       });
       monthCounts[month] = (monthCounts[month] || 0) + 1;
     });
-    const convertsByMonth = Object.entries(monthCounts).map(([month, count]) => ({
-      month,
-      count,
-    }));
+    const convertsByMonth = sortByRegistrationMonth(
+      Object.entries(monthCounts).map(([month, count]) => ({ month, count }))
+    );
 
     const groupCounts: Record<string, number> = {};
     people.forEach((p) => {
@@ -165,7 +185,7 @@ export default function AnalyticsPage() {
 
     const milestoneCompletion = activeMilestones.map((m) => {
       const completed = people.filter((p) =>
-        p.progress?.some((pr) => pr.stage_number === m.stage_number && pr.is_completed)
+        progressFor(p).some((pr) => pr.stage_number === m.stage_number && pr.is_completed)
       ).length;
       return {
         milestone: `M${m.stage_number.toString().padStart(2, '0')}`,
@@ -189,14 +209,14 @@ export default function AnalyticsPage() {
     const topPerformers = people
       .map((p) => ({
         name: `${p.first_name} ${p.last_name}`,
-        completed: p.progress?.filter((pr) => pr.is_completed).length || 0,
+        completed: progressFor(p).filter((pr) => pr.is_completed).length,
         total: totalMilestones,
       }))
       .sort((a, b) => b.completed - a.completed)
       .slice(0, 10);
 
     const totalCompleted = people.reduce(
-      (sum, p) => sum + (p.progress?.filter((pr) => pr.is_completed).length || 0),
+      (sum, p) => sum + progressFor(p).filter((pr) => pr.is_completed).length,
       0
     );
     const totalPossible = people.length * totalMilestones;

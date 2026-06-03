@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactElement } from 'react';
 import {
   Bar,
   BarChart,
@@ -14,6 +15,7 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts';
+import { CHART_HEX } from '@/lib/chart-colors';
 
 interface MilestoneCompletion {
   milestone: string;
@@ -23,22 +25,35 @@ interface MilestoneCompletion {
   percentage: number;
 }
 
-const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--members))', 'hsl(var(--churches))', 'hsl(var(--campaigns))'];
-const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
-
 function getBarColor(percentage: number) {
-  if (percentage >= 70) return '#22c55e';
-  if (percentage >= 40) return '#f59e0b';
-  return '#ef4444';
+  if (percentage >= 70) return CHART_HEX.success;
+  if (percentage >= 40) return CHART_HEX.warning;
+  return CHART_HEX.destructive;
+}
+
+function ChartFrame({
+  height,
+  children,
+}: {
+  height: number;
+  children: ReactElement;
+}) {
+  return (
+    <div className="w-full min-w-0" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {children}
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 export function MilestoneBarChart({ data }: { data: MilestoneCompletion[] }) {
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ChartFrame height={300}>
       <BarChart data={data} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-        <XAxis dataKey="milestone" tick={{ fontSize: 12 }} />
-        <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} unit="%" />
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_HEX.grid} />
+        <XAxis dataKey="milestone" tick={{ fontSize: 12, fill: 'currentColor' }} />
+        <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: 'currentColor' }} unit="%" />
         <Tooltip
           formatter={(value: number, _name, props) => {
             const item = props.payload as MilestoneCompletion;
@@ -54,13 +69,13 @@ export function MilestoneBarChart({ data }: { data: MilestoneCompletion[] }) {
           ))}
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
 export function GenderPieChart({ data }: { data: { gender: string; count: number }[] }) {
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ChartFrame height={300}>
       <PieChart>
         <Pie
           data={data}
@@ -75,32 +90,32 @@ export function GenderPieChart({ data }: { data: { gender: string; count: number
           }
         >
           {data.map((_, index) => (
-            <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+            <Cell key={index} fill={CHART_HEX.series[index % CHART_HEX.series.length]} />
           ))}
         </Pie>
         <Tooltip />
       </PieChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
 export function GroupBarChart({ data }: { data: { group: string; count: number }[] }) {
   return (
-    <ResponsiveContainer width="100%" height={250}>
+    <ChartFrame height={280}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_HEX.grid} />
         <XAxis
           dataKey="group"
-          tick={{ fontSize: 11 }}
+          tick={{ fontSize: 11, fill: 'currentColor' }}
           angle={-45}
           textAnchor="end"
           height={60}
         />
-        <YAxis tick={{ fontSize: 12 }} />
+        <YAxis tick={{ fontSize: 12, fill: 'currentColor' }} allowDecimals={false} />
         <Tooltip />
-        <Bar dataKey="count" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="count" fill={CHART_HEX.primary} radius={[4, 4, 0, 0]} />
       </BarChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -110,20 +125,20 @@ export function RegistrationsLineChart({
   data: { month: string; count: number }[];
 }) {
   return (
-    <ResponsiveContainer width="100%" height={250}>
+    <ChartFrame height={280}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-        <YAxis tick={{ fontSize: 12 }} />
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_HEX.grid} />
+        <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'currentColor' }} />
+        <YAxis tick={{ fontSize: 12, fill: 'currentColor' }} allowDecimals={false} />
         <Tooltip />
         <Line
           type="monotone"
           dataKey="count"
-          stroke="#22c55e"
+          stroke={CHART_HEX.success}
           strokeWidth={2}
-          dot={{ r: 4 }}
+          dot={{ r: 4, fill: CHART_HEX.success }}
         />
       </LineChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }

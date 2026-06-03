@@ -55,7 +55,8 @@ export interface PersonApiData {
   // Stats (present when include=progress or include=stats)
   progress?: ProgressEntry[];
   attendance_count?: number;
-  completed_stages?: number;
+  /** Count (stats include) or stage numbers (grid include). */
+  completed_stages?: number | number[];
   progress_percentage?: number;
   attendance_percentage?: number;
 }

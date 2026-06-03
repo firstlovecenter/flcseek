@@ -11,6 +11,7 @@ import {
 import { personCreateSchema } from '@/lib/schemas/api';
 import * as People from '@/lib/db/queries/people';
 import * as Milestones from '@/lib/db/queries/milestones';
+import * as Groups from '@/lib/db/queries/groups';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 import { logger } from '@/lib/logger';
 
@@ -48,6 +49,16 @@ export async function GET(request: NextRequest) {
       offset: params.offset,
       month,
     };
+
+    if (params.year !== undefined) {
+      const yearGroups = await Groups.findMany({ year: params.year, limit: 500 });
+      filters.yearGroupIds = yearGroups.map((g) => g.id);
+      filters.yearGroupNames = [...new Set(yearGroups.map((g) => g.name))];
+      delete filters.year;
+      if (!filters.yearGroupIds.length && !filters.yearGroupNames.length) {
+        filters.yearGroupIds = ['00000000-0000-0000-0000-000000000000'];
+      }
+    }
     
     if (process.env.NODE_ENV !== 'production') console.log('[API /v1/people] Request:', {
       userRole: user?.role,

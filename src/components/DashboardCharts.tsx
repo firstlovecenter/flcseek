@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { PersonApiData, MilestoneData } from '@/lib/types/api-responses';
+import { personProgressCells } from '@/lib/progress-utils';
 
 interface DashboardChartsProps {
   people: PersonApiData[];
@@ -57,12 +58,17 @@ function MilestoneRing({ percent, size = 50 }: { percent: number; size?: number 
 }
 
 export default function DashboardCharts({ people, milestones, compact = true }: DashboardChartsProps) {
+  const stageNumbers = useMemo(
+    () => milestones.map((m) => m.stage_number),
+    [milestones]
+  );
+
   const milestoneStats = useMemo(() => {
     if (!milestones.length || !people.length) return [];
 
     return milestones.map((milestone) => {
       const completedCount = people.filter((person) =>
-        (person.progress ?? []).some(
+        personProgressCells(person, stageNumbers).some(
           (p) => p.stage_number === milestone.stage_number && p.is_completed
         )
       ).length;
@@ -76,7 +82,7 @@ export default function DashboardCharts({ people, milestones, compact = true }: 
         percentage: Math.round((completedCount / people.length) * 100),
       };
     });
-  }, [people, milestones]);
+  }, [people, milestones, stageNumbers]);
 
   const milestonesNeedingAttention = useMemo(() => {
     return [...milestoneStats].sort((a, b) => a.percentage - b.percentage).slice(0, 5);
@@ -91,7 +97,9 @@ export default function DashboardCharts({ people, milestones, compact = true }: 
     let noCompletion = 0;
 
     people.forEach((person) => {
-      const completedCount = (person.progress ?? []).filter((p) => p.is_completed).length;
+      const completedCount = personProgressCells(person, stageNumbers).filter(
+        (p) => p.is_completed
+      ).length;
       if (completedCount === totalMilestones) {
         fullCompletion++;
       } else if (completedCount > 0) {
@@ -102,7 +110,7 @@ export default function DashboardCharts({ people, milestones, compact = true }: 
     });
 
     return { full: fullCompletion, partial: partialCompletion, none: noCompletion };
-  }, [people, milestones]);
+  }, [people, milestones, stageNumbers]);
 
   if (!milestones.length || !people.length) {
     return null;

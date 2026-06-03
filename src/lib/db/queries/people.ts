@@ -54,6 +54,8 @@ export interface PersonGridRow {
   last_name: string;
   full_name: string;
   phone_number: string;
+  gender?: string;
+  created_at: string;
   group_id?: string;
   group_name?: string;
   group_year?: number;
@@ -83,7 +85,10 @@ export interface PersonFilters {
   groupId?: string;
   groupName?: string;
   month?: string;  // Filter by group name (month name like "January")
-  year?: number;    // Filter by group year
+  year?: number;    // Filter by group year (legacy: group.year relation only)
+  /** Resolved from `year` in the API layer — matches groupId or groupName for that year. */
+  yearGroupIds?: string[];
+  yearGroupNames?: string[];
   search?: string;
   limit?: number;
   offset?: number;
@@ -250,7 +255,23 @@ function buildPersonWhere(filters: PersonFilters): Record<string, unknown> {
     };
   }
 
-  if (filters.year !== undefined) {
+  if (filters.yearGroupIds?.length || filters.yearGroupNames?.length) {
+    const yearScope: Record<string, unknown>[] = [];
+    if (filters.yearGroupIds?.length) {
+      yearScope.push({ groupId: { in: filters.yearGroupIds } });
+    }
+    if (filters.yearGroupNames?.length) {
+      yearScope.push({
+        groupName: { in: filters.yearGroupNames, mode: 'insensitive' },
+      });
+    }
+    if (yearScope.length === 1) {
+      Object.assign(where, yearScope[0]);
+    } else if (yearScope.length > 1) {
+      const existingOr = (where.OR as Record<string, unknown>[]) || [];
+      where.OR = [...existingOr, ...yearScope];
+    }
+  } else if (filters.year !== undefined) {
     where.group = {
       ...((where.group as Record<string, unknown>) || {}),
       year: filters.year,
@@ -258,11 +279,17 @@ function buildPersonWhere(filters: PersonFilters): Record<string, unknown> {
   }
 
   if (filters.search) {
-    where.OR = [
+    const searchOr = [
       { firstName: { contains: filters.search, mode: 'insensitive' } },
       { lastName: { contains: filters.search, mode: 'insensitive' } },
       { phoneNumber: { contains: filters.search } },
     ];
+    if (where.OR) {
+      where.AND = [{ OR: where.OR as Record<string, unknown>[] }, { OR: searchOr }];
+      delete where.OR;
+    } else {
+      where.OR = searchOr;
+    }
   }
 
   return where;
@@ -287,6 +314,8 @@ export async function findManyForGrid(
       firstName: true,
       lastName: true,
       phoneNumber: true,
+      gender: true,
+      createdAt: true,
       groupId: true,
       groupName: true,
       group: { select: { name: true, year: true } },
@@ -313,6 +342,8 @@ export async function findManyForGrid(
       last_name: lastName,
       full_name: `${firstName} ${lastName}`.trim(),
       phone_number: p.phoneNumber,
+      gender: p.gender || undefined,
+      created_at: p.createdAt?.toISOString() || new Date().toISOString(),
       group_id: p.groupId || undefined,
       group_name: p.group?.name || p.groupName || undefined,
       group_year: p.group?.year,
