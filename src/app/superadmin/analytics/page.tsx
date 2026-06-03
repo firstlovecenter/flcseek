@@ -1,35 +1,58 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Card, Row, Col, Statistic, Typography, Select, Spin, Empty, Table, Tag, Progress } from 'antd';
-import {
-  LineChartOutlined,
-  TeamOutlined,
-  RiseOutlined,
-  HeartOutlined,
-  CalendarOutlined,
-  TrophyOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-} from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
 import dynamic from 'next/dynamic';
-import DashboardCharts from '@/components/DashboardCharts';
+import {
+  LineChart as LineChartIcon,
+  UsersRound,
+  Heart,
+  Trophy,
+  CheckCircle,
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
 import { api } from '@/lib/api';
 import type { MilestoneData, PersonApiData, GroupApiData } from '@/lib/types/api-responses';
+import { StatCard } from '@/components/base/StatCard';
+import { LoadingScreen } from '@/components/base/LoadingScreen';
+import { EmptyState } from '@/components/base/EmptyState';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
-// Dynamically import chart components to avoid SSR issues.
-// Cast to unknown then React.ComponentType to avoid TypeScript infinite type instantiation.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Column = dynamic(() => import('@ant-design/charts').then(mod => mod.Column) as any, { ssr: false }) as React.ComponentType<Record<string, unknown>>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Pie = dynamic(() => import('@ant-design/charts').then(mod => mod.Pie) as any, { ssr: false }) as React.ComponentType<Record<string, unknown>>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Line = dynamic(() => import('@ant-design/charts').then(mod => mod.Line) as any, { ssr: false }) as React.ComponentType<Record<string, unknown>>;
+const DashboardCharts = dynamic(() => import('@/components/DashboardCharts'), { ssr: false });
 
-const { Title, Text } = Typography;
-const { Option } = Select;
+const MilestoneBarChart = dynamic(
+  () => import('./AnalyticsCharts').then((m) => m.MilestoneBarChart),
+  { ssr: false }
+);
+const GenderPieChart = dynamic(
+  () => import('./AnalyticsCharts').then((m) => m.GenderPieChart),
+  { ssr: false }
+);
+const GroupBarChart = dynamic(
+  () => import('./AnalyticsCharts').then((m) => m.GroupBarChart),
+  { ssr: false }
+);
+const RegistrationsLineChart = dynamic(
+  () => import('./AnalyticsCharts').then((m) => m.RegistrationsLineChart),
+  { ssr: false }
+);
 
 interface MilestoneCompletion {
   milestone: string;
@@ -74,15 +97,12 @@ export default function AnalyticsPage() {
   const fetchAnalyticsData = async () => {
     setLoading(true);
     try {
-      // Step 1: Fetch groups for the selected year using new API
       const groupsRes = await api.groups.list({ year });
-      const yearGroups: GroupApiData[] = groupsRes.success ? ((groupsRes.data?.groups ?? groupsRes.data) as GroupApiData[] || []) : [];
+      const yearGroups: GroupApiData[] = groupsRes.success
+        ? ((groupsRes.data?.groups ?? groupsRes.data) as GroupApiData[]) || []
+        : [];
       setGroups(yearGroups);
 
-      // Step 2: If we have groups, fetch their converts with year filtering
-      // Build year filter to get only converts from this year
-      
-      // Fetch remaining data in parallel
       const [peopleRes, milestonesRes, statsRes] = await Promise.all([
         api.people.list({ year, include: 'progress' }),
         api.milestones.list(),
@@ -94,21 +114,17 @@ export default function AnalyticsPage() {
       ]);
 
       const statsData = await statsRes.json();
-
-      // Use people data directly - already filtered by year on backend
-      const filteredPeople: PersonApiData[] = peopleRes.success ? (peopleRes.data?.people ?? []) : [];
-      const milestonesData: MilestoneData[] = milestonesRes.success ? (milestonesRes.data?.milestones ?? []) : [];
+      const filteredPeople: PersonApiData[] = peopleRes.success
+        ? (peopleRes.data?.people ?? [])
+        : [];
+      const milestonesData: MilestoneData[] = milestonesRes.success
+        ? (milestonesRes.data?.milestones ?? [])
+        : [];
 
       setPeople(filteredPeople);
       setMilestones(milestonesData.filter((m) => m.is_active));
 
-      // Process analytics with filtered data
-      processAnalytics(
-        filteredPeople,
-        milestonesData,
-        yearGroups,
-        statsData.stats || {}
-      );
+      processAnalytics(filteredPeople, milestonesData, yearGroups, statsData.stats || {});
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
     } finally {
@@ -116,19 +132,28 @@ export default function AnalyticsPage() {
     }
   };
 
-  const processAnalytics = (people: PersonApiData[], milestones: MilestoneData[], groups: GroupApiData[], stats: Record<string, unknown>) => {
+  const processAnalytics = (
+    people: PersonApiData[],
+    milestones: MilestoneData[],
+    _groups: GroupApiData[],
+    _stats: Record<string, unknown>
+  ) => {
     const activeMilestones = milestones.filter((m) => m.is_active);
     const totalMilestones = activeMilestones.length;
 
-    // Converts by month
     const monthCounts: Record<string, number> = {};
     people.forEach((p) => {
-      const month = new Date(p.created_at).toLocaleString('default', { month: 'short', year: '2-digit' });
+      const month = new Date(p.created_at).toLocaleString('default', {
+        month: 'short',
+        year: '2-digit',
+      });
       monthCounts[month] = (monthCounts[month] || 0) + 1;
     });
-    const convertsByMonth = Object.entries(monthCounts).map(([month, count]) => ({ month, count }));
+    const convertsByMonth = Object.entries(monthCounts).map(([month, count]) => ({
+      month,
+      count,
+    }));
 
-    // Converts by group
     const groupCounts: Record<string, number> = {};
     people.forEach((p) => {
       const group = p.group_name || 'Unknown';
@@ -138,7 +163,6 @@ export default function AnalyticsPage() {
       .map(([group, count]) => ({ group, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Milestone completion
     const milestoneCompletion = activeMilestones.map((m) => {
       const completed = people.filter((p) =>
         p.progress?.some((pr) => pr.stage_number === m.stage_number && pr.is_completed)
@@ -152,15 +176,16 @@ export default function AnalyticsPage() {
       };
     });
 
-    // Gender distribution
     const genderCounts: Record<string, number> = {};
     people.forEach((p) => {
       const gender = p.gender || 'Not specified';
       genderCounts[gender] = (genderCounts[gender] || 0) + 1;
     });
-    const genderDistribution = Object.entries(genderCounts).map(([gender, count]) => ({ gender, count }));
+    const genderDistribution = Object.entries(genderCounts).map(([gender, count]) => ({
+      gender,
+      count,
+    }));
 
-    // Top performers (most milestones completed)
     const topPerformers = people
       .map((p) => ({
         name: `${p.first_name} ${p.last_name}`,
@@ -170,20 +195,20 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.completed - a.completed)
       .slice(0, 10);
 
-    // Overall completion rate
     const totalCompleted = people.reduce(
       (sum, p) => sum + (p.progress?.filter((pr) => pr.is_completed).length || 0),
       0
     );
     const totalPossible = people.length * totalMilestones;
-    const completionRate = totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 100) : 0;
+    const completionRate =
+      totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 100) : 0;
 
     setData({
       totalConverts: people.length,
       convertsByMonth,
       convertsByGroup,
       milestoneCompletion,
-      attendanceByWeek: [], // Would need attendance data
+      attendanceByWeek: [],
       topPerformers,
       genderDistribution,
       completionRate,
@@ -196,259 +221,218 @@ export default function AnalyticsPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <Spin size="large" />
-      </div>
-    );
+    return <LoadingScreen label="Loading analytics…" />;
   }
 
   if (!data) {
-    return <Empty description="No analytics data available" />;
+    return (
+      <EmptyState
+        title="No analytics data"
+        description="Analytics data is not available for the selected year."
+      />
+    );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="space-y-6 p-2 sm:p-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Title level={3}>
-            <LineChartOutlined style={{ marginRight: 8 }} />
-            Analytics Dashboard
-          </Title>
-          <Text type="secondary">Comprehensive overview of convert progress and engagement</Text>
+          <div className="flex items-center gap-2">
+            <LineChartIcon className="size-6 text-muted-foreground" />
+            <h1 className="text-2xl font-semibold tracking-tight">Analytics dashboard</h1>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Comprehensive overview of convert progress and engagement
+          </p>
         </div>
-        <Select value={year} onChange={setYear} style={{ width: 120 }}>
-          {years.map((y) => (
-            <Option key={y} value={y}>
-              {y}
-            </Option>
-          ))}
+        <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+          <SelectTrigger className="w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 
-      {/* Key Metrics */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="Total Converts"
-              value={data.totalConverts}
-              prefix={<HeartOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="Overall Completion"
-              value={data.completionRate}
-              suffix="%"
-              prefix={<TrophyOutlined />}
-              valueStyle={{ color: data.completionRate >= 50 ? '#52c41a' : '#faad14' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="Active Groups"
-              value={groups.filter((g) => g.year === year).length}
-              prefix={<TeamOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="Milestones"
-              value={milestones.length}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Milestone Progress Overview */}
-      <WidgetErrorBoundary>
-        <DashboardCharts
-          people={people}
-          milestones={milestones}
-          compact={false}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Total converts"
+          value={data.totalConverts}
+          icon={Heart}
+          accent="arrivals"
         />
+        <StatCard
+          title="Overall completion"
+          value={`${data.completionRate}%`}
+          icon={Trophy}
+          accent="campaigns"
+          deltaPositive={data.completionRate >= 50}
+        />
+        <StatCard
+          title="Active groups"
+          value={groups.filter((g) => g.year === year).length}
+          icon={UsersRound}
+          accent="churches"
+        />
+        <StatCard
+          title="Milestones"
+          value={milestones.length}
+          icon={CheckCircle}
+          accent="primary"
+        />
+      </div>
+
+      <WidgetErrorBoundary>
+        <DashboardCharts people={people} milestones={milestones} compact={false} />
       </WidgetErrorBoundary>
 
-      {/* Charts Row 1 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} lg={16}>
-          <Card title="Milestone Completion Rates" size="small">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Milestone completion rates</CardTitle>
+          </CardHeader>
+          <CardContent>
             {data.milestoneCompletion.length > 0 ? (
-              <Column
-                data={data.milestoneCompletion}
-                xField="milestone"
-                yField="percentage"
-                color={(datum: MilestoneCompletion) =>
-                  datum.percentage >= 70 ? '#52c41a' : datum.percentage >= 40 ? '#faad14' : '#ff4d4f'
-                }
-                label={{
-                  position: 'top',
-                  formatter: (datum: MilestoneCompletion) => `${datum.percentage}%`,
-                }}
-                height={300}
-                tooltip={{
-                  formatter: (datum: MilestoneCompletion) => ({
-                    name: datum.fullName || datum.milestone,
-                    value: `${datum.completed}/${datum.total} (${datum.percentage}%)`,
-                  }),
-                }}
-              />
+              <MilestoneBarChart data={data.milestoneCompletion} />
             ) : (
-              <Empty description="No milestone data" />
+              <EmptyState title="No milestone data" className="border-0 bg-transparent p-6" />
             )}
-          </Card>
-        </Col>
-        <Col xs={24} lg={8}>
-          <Card title="Gender Distribution" size="small">
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Gender distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
             {data.genderDistribution.length > 0 ? (
-              <Pie
-                data={data.genderDistribution}
-                angleField="count"
-                colorField="gender"
-                radius={0.8}
-                innerRadius={0.6}
-                height={300}
-                label={{
-                  type: 'outer',
-                  content: '{name}: {percentage}',
-                }}
-                interactions={[{ type: 'element-active' }]}
-              />
+              <GenderPieChart data={data.genderDistribution} />
             ) : (
-              <Empty description="No gender data" />
+              <EmptyState title="No gender data" className="border-0 bg-transparent p-6" />
             )}
-          </Card>
-        </Col>
-      </Row>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Charts Row 2 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} lg={12}>
-          <Card title="Converts by Group" size="small">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Converts by group</CardTitle>
+          </CardHeader>
+          <CardContent>
             {data.convertsByGroup.length > 0 ? (
-              <Column
-                data={data.convertsByGroup.slice(0, 10)}
-                xField="group"
-                yField="count"
-                color="#1890ff"
-                height={250}
-                xAxis={{
-                  label: {
-                    autoRotate: true,
-                    autoHide: true,
-                  },
-                }}
-              />
+              <GroupBarChart data={data.convertsByGroup.slice(0, 10)} />
             ) : (
-              <Empty description="No group data" />
+              <EmptyState title="No group data" className="border-0 bg-transparent p-6" />
             )}
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="Registrations Over Time" size="small">
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Registrations over time</CardTitle>
+          </CardHeader>
+          <CardContent>
             {data.convertsByMonth.length > 0 ? (
-              <Line
-                data={data.convertsByMonth}
-                xField="month"
-                yField="count"
-                smooth={true}
-                height={250}
-                point={{
-                  size: 4,
-                  shape: 'circle',
-                }}
-                color="#52c41a"
-              />
+              <RegistrationsLineChart data={data.convertsByMonth} />
             ) : (
-              <Empty description="No registration data" />
+              <EmptyState title="No registration data" className="border-0 bg-transparent p-6" />
             )}
-          </Card>
-        </Col>
-      </Row>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Top Performers Table */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
-          <Card title="Top Performers" size="small">
-            <Table
-              dataSource={data.topPerformers}
-              rowKey="name"
-              pagination={false}
-              size="small"
-              columns={[
-                {
-                  title: 'Rank',
-                  key: 'rank',
-                  width: 60,
-                  render: (_: unknown, __: TopPerformer, index: number) => (
-                    <Tag color={index < 3 ? 'gold' : 'default'}>{index + 1}</Tag>
-                  ),
-                },
-                {
-                  title: 'Name',
-                  dataIndex: 'name',
-                  key: 'name',
-                },
-                {
-                  title: 'Progress',
-                  key: 'progress',
-                  render: (_: unknown, record: TopPerformer) => (
-                    <Progress
-                      percent={Math.round((record.completed / record.total) * 100)}
-                      size="small"
-                      format={() => `${record.completed}/${record.total}`}
-                    />
-                  ),
-                },
-              ]}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="Milestones Needing Attention" size="small">
-            <Table
-              dataSource={[...data.milestoneCompletion].sort((a, b) => a.percentage - b.percentage).slice(0, 5)}
-              rowKey="milestone"
-              pagination={false}
-              size="small"
-              columns={[
-                {
-                  title: 'Milestone',
-                  dataIndex: 'milestone',
-                  key: 'milestone',
-                },
-                {
-                  title: 'Name',
-                  dataIndex: 'fullName',
-                  key: 'fullName',
-                  ellipsis: true,
-                },
-                {
-                  title: 'Completion',
-                  key: 'completion',
-                  render: (_: unknown, record: MilestoneCompletion) => (
-                    <Progress
-                      percent={record.percentage}
-                      size="small"
-                      status={record.percentage < 30 ? 'exception' : record.percentage < 60 ? 'active' : 'success'}
-                    />
-                  ),
-                },
-              ]}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Top performers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Rank</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Progress</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.topPerformers.map((record, index) => {
+                  const pct =
+                    record.total > 0
+                      ? Math.round((record.completed / record.total) * 100)
+                      : 0;
+                  return (
+                    <TableRow key={record.name}>
+                      <TableCell>
+                        <Badge variant={index < 3 ? 'default' : 'secondary'} className="tabular-nums">
+                          {index + 1}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{record.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Progress value={pct} className="h-2 flex-1" />
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {record.completed}/{record.total}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Milestones needing attention</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Milestone</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Completion</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[...data.milestoneCompletion]
+                  .sort((a, b) => a.percentage - b.percentage)
+                  .slice(0, 5)
+                  .map((record) => (
+                    <TableRow key={record.milestone}>
+                      <TableCell className="font-medium">{record.milestone}</TableCell>
+                      <TableCell className="max-w-[140px] truncate">{record.fullName}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Progress
+                            value={record.percentage}
+                            className={`h-2 flex-1 ${
+                              record.percentage < 30
+                                ? '[&>div]:bg-destructive'
+                                : record.percentage < 60
+                                  ? '[&>div]:bg-amber-500'
+                                  : ''
+                            }`}
+                          />
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {record.percentage}%
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

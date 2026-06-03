@@ -1,180 +1,147 @@
-'use client';
+'use client'
 
-import { Form, Input, Button, Typography, App } from 'antd';
-import { UserOutlined, LockOutlined, HomeOutlined } from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { SynagoLogo } from '@/components/shell/SynagoLogo'
+import { ThemeToggle } from '@/components/shell/ThemeToggle'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Lock, User } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { LoadingScreen } from '@/components/base/LoadingScreen'
+import { toast } from '@/lib/toast'
 
-const { Title, Text } = Typography;
+const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
+})
+
+type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const { login, user, loading } = useAuth();
-  const router = useRouter();
-  const [form] = Form.useForm();
-  const { message } = App.useApp();
+  const { login, user, loading } = useAuth()
+  const router = useRouter()
+  const [submitting, setSubmitting] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+  })
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'superadmin') {
-        router.push('/superadmin');
-      } else if (user.role === 'leadpastor' || user.role === 'overseer') {
-        router.push('/leadpastor');
-      } else if (user.role === 'admin' || user.role === 'leader') {
-        // Redirect to their group or group selector
-        if (user.group_id) {
-          router.push(`/${user.group_id}`);
-        } else {
-          router.push('/');
-        }
-      } else {
-        router.push('/');
-      }
+      if (user.role === 'superadmin') router.push('/superadmin')
+      else if (user.role === 'leadpastor' || user.role === 'overseer')
+        router.push('/leadpastor')
+      else if (user.role === 'admin' || user.role === 'leader')
+        router.push(user.group_id ? `/${user.group_id}` : '/')
+      else router.push('/')
     }
-  }, [user, loading, router]);
+  }, [user, loading, router])
 
-  const onFinish = async (values: { username: string; password: string }) => {
+  const onSubmit = async (values: LoginForm) => {
+    setSubmitting(true)
     try {
-      await login(values.username, values.password);
-      message.success('Login successful!');
+      await login(values.username.trim(), values.password)
+      toast.success('Signed in')
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : 'Login failed');
+      toast.error(
+        error instanceof Error ? error.message : 'Sign in failed'
+      )
+    } finally {
+      setSubmitting(false)
     }
-  };
+  }
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'linear-gradient(160deg, #eef3fb 0%, #ffffff 60%)',
-        }}
-      >
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderColor: '#003366' }}
-        ></div>
+      <div className="relative min-h-[100dvh] bg-background">
+        <div className="absolute top-4 right-4 z-10 safe-area-top">
+          <ThemeToggle />
+        </div>
+        <LoadingScreen fullScreen label="Checking session…" />
       </div>
-    );
+    )
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem 1rem',
-        background: 'linear-gradient(160deg, #eef3fb 0%, #ffffff 55%, #eef3fb 100%)',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 420,
-          background: '#ffffff',
-          borderRadius: 16,
-          border: '1px solid #eef0f2',
-          boxShadow: '0 1px 2px rgba(16,24,40,0.04), 0 12px 32px rgba(0,51,102,0.10)',
-          padding: '40px 32px',
-        }}
-      >
-        {/* Brand mark + heading */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 16,
-              background: 'linear-gradient(135deg, #003366 0%, #004a93 100%)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 18,
-              boxShadow: '0 6px 16px rgba(0,51,102,0.25)',
-            }}
-          >
-            <HomeOutlined style={{ color: '#fff', fontSize: 26 }} />
-          </div>
-          <Title
-            level={2}
-            style={{
-              color: '#003366',
-              margin: 0,
-              marginBottom: 6,
-              fontSize: 'clamp(1.5rem, 5vw, 1.9rem)',
-              fontWeight: 700,
-              letterSpacing: '-0.01em',
-            }}
-          >
-            FLC Sheep Seeking
-          </Title>
-          <Text style={{ fontSize: 14, color: 'rgba(0,0,0,0.5)' }}>
-            Sign in to your dashboard
-          </Text>
-        </div>
-
-        <Form form={form} onFinish={onFinish} layout="vertical" size="large" requiredMark={false}>
-          <Form.Item
-            name="username"
-            label={<span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>Username</span>}
-            rules={[{ required: true, message: 'Please enter your username' }]}
-            style={{ marginBottom: 18 }}
-          >
-            <Input
-              prefix={<UserOutlined style={{ color: 'rgba(0,0,0,0.35)' }} />}
-              placeholder="Enter your username"
-              autoComplete="username"
-              style={{ height: 46 }}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
-            label={<span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>Password</span>}
-            rules={[{ required: true, message: 'Please enter your password' }]}
-            style={{ marginBottom: 26 }}
-          >
-            <Input.Password
-              prefix={<LockOutlined style={{ color: 'rgba(0,0,0,0.35)' }} />}
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              style={{ height: 46 }}
-            />
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 0 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              style={{
-                height: 48,
-                fontSize: 16,
-                fontWeight: 600,
-                minHeight: 44,
-                touchAction: 'manipulation',
-                background: 'linear-gradient(135deg, #003366 0%, #004a93 100%)',
-                border: 'none',
-                boxShadow: '0 4px 12px rgba(0,51,102,0.22)',
-              }}
-            >
-              Sign In
-            </Button>
-          </Form.Item>
-        </Form>
-
-        <div style={{ textAlign: 'center', marginTop: 24 }}>
-          <Text style={{ fontSize: 12.5, color: 'rgba(0,0,0,0.4)' }}>
-            Only authorized users can log in
-          </Text>
-        </div>
+    <div className="relative flex min-h-[100dvh] items-center justify-center bg-background p-4">
+      <div className="absolute top-4 right-4 z-10 safe-area-top">
+        <ThemeToggle />
       </div>
+      <Card className="w-full max-w-md shadow-sm">
+        <CardHeader className="space-y-4 text-center">
+          <div className="mx-auto flex size-16 items-center justify-center">
+            <SynagoLogo size={48} surface="auto" priority />
+          </div>
+          <div className="space-y-1">
+            <CardTitle className="text-2xl tracking-tight">Seek</CardTitle>
+            <CardDescription>Sheep seeking milestone tracker</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="username">Username or email</Label>
+              <div className="relative">
+                <User className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="username"
+                  className="min-h-11 pl-9"
+                  placeholder="Enter username"
+                  aria-invalid={!!errors.username}
+                  {...register('username')}
+                />
+              </div>
+              {errors.username && (
+                <p className="text-xs text-destructive">
+                  {errors.username.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  className="min-h-11 pl-9"
+                  placeholder="Enter password"
+                  aria-invalid={!!errors.password}
+                  {...register('password')}
+                />
+              </div>
+              {errors.password && (
+                <p className="text-xs text-destructive">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+            <Button
+              type="submit"
+              className="min-h-11 w-full"
+              disabled={submitting}
+            >
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
 }

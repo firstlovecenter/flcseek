@@ -1,13 +1,24 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { Form, Input, Button, Card, Typography, Divider, Select, Space, Tag, App } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Save, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-
-const { Title, Paragraph, Text } = Typography;
-const { Option } = Select;
+import { message } from '@/lib/toast';
+import { LoadingScreen } from '@/components/base/LoadingScreen';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Convert {
   id: string;
@@ -26,15 +37,36 @@ interface Convert {
   updated_at: string;
 }
 
+interface ConvertFormValues {
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  date_of_birth: string;
+  gender: string;
+  residential_location: string;
+  school_residential_location: string;
+  occupation_type: string;
+  group_name: string;
+}
+
 export default function EditConvertPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { token } = useAuth();
-  const { message } = App.useApp();
   const router = useRouter();
-  const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [convert, setConvert] = useState<Convert | null>(null);
+  const [formValues, setFormValues] = useState<ConvertFormValues>({
+    first_name: '',
+    last_name: '',
+    phone_number: '',
+    date_of_birth: '',
+    gender: '',
+    residential_location: '',
+    school_residential_location: '',
+    occupation_type: '',
+    group_name: '',
+  });
 
   useEffect(() => {
     if (token) {
@@ -48,19 +80,19 @@ export default function EditConvertPage({ params }: { params: Promise<{ id: stri
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
-      
+
       if (response.ok) {
         setConvert(data.convert);
-        form.setFieldsValue({
-          first_name: data.convert.first_name,
-          last_name: data.convert.last_name,
-          phone_number: data.convert.phone_number,
-          date_of_birth: data.convert.date_of_birth,
-          gender: data.convert.gender,
-          residential_location: data.convert.residential_location,
-          school_residential_location: data.convert.school_residential_location,
-          occupation_type: data.convert.occupation_type,
-          group_name: data.convert.group_name,
+        setFormValues({
+          first_name: data.convert.first_name || '',
+          last_name: data.convert.last_name || '',
+          phone_number: data.convert.phone_number || '',
+          date_of_birth: data.convert.date_of_birth || '',
+          gender: data.convert.gender || '',
+          residential_location: data.convert.residential_location || '',
+          school_residential_location: data.convert.school_residential_location || '',
+          occupation_type: data.convert.occupation_type || '',
+          group_name: data.convert.group_name || '',
         });
       } else {
         message.error(data.error || 'Failed to load convert');
@@ -74,23 +106,24 @@ export default function EditConvertPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const onFinish = async (values: Record<string, unknown>) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setSaving(true);
 
     try {
       const response = await fetch(`/api/superadmin/converts/${id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(formValues),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        message.success('✅ Convert details updated successfully');
+        message.success('Convert details updated successfully');
         setConvert(data.convert);
         setTimeout(() => router.back(), 1000);
       } else {
@@ -105,151 +138,189 @@ export default function EditConvertPage({ params }: { params: Promise<{ id: stri
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '30px', textAlign: 'center' }}>
-        <LoadingOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
-        <p>Loading convert details...</p>
-      </div>
-    );
+    return <LoadingScreen label="Loading convert details…" />;
   }
 
   if (!convert) {
     return (
-      <div style={{ padding: '30px' }}>
+      <div className="p-8">
         <Card>
-          <Title level={2}>Convert Not Found</Title>
-          <Button onClick={() => router.back()} type="primary">
-            <ArrowLeftOutlined /> Go Back
-          </Button>
+          <CardHeader>
+            <CardTitle>Convert not found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => router.back()}>
+              <ArrowLeft className="size-4" />
+              Go back
+            </Button>
+          </CardContent>
         </Card>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '30px' }}>
-      <Button
-        onClick={() => router.back()}
-        style={{ marginBottom: '20px' }}
-      >
-        <ArrowLeftOutlined /> Back
+    <div className="space-y-6 p-2 sm:p-0">
+      <Button variant="outline" onClick={() => router.back()}>
+        <ArrowLeft className="size-4" />
+        Back
       </Button>
 
       <Card>
-        <div style={{ marginBottom: '20px' }}>
-          <Title level={2}>Edit Convert Details</Title>
-          <Paragraph>
-            <strong>Name:</strong> {convert.full_name}
-          </Paragraph>
-          <Paragraph>
-            <strong>Group:</strong> <Tag color="blue">{convert.group_name}</Tag>
-          </Paragraph>
-          <Paragraph>
-            <strong>Created:</strong> {new Date(convert.created_at).toLocaleDateString()}
-            {' '}
-            <strong>Updated:</strong> {new Date(convert.updated_at).toLocaleDateString()}
-          </Paragraph>
-        </div>
-
-        <Divider />
-
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={onFinish}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            <Form.Item
-              label="First Name"
-              name="first_name"
-              rules={[{ required: true, message: 'First name is required' }]}
-            >
-              <Input placeholder="First name" />
-            </Form.Item>
-
-            <Form.Item
-              label="Last Name"
-              name="last_name"
-              rules={[{ required: true, message: 'Last name is required' }]}
-            >
-              <Input placeholder="Last name" />
-            </Form.Item>
-
-            <Form.Item
-              label="Phone Number"
-              name="phone_number"
-              rules={[{ required: true, message: 'Phone number is required' }]}
-            >
-              <Input placeholder="Phone number" />
-            </Form.Item>
-
-            <Form.Item
-              label="Date of Birth (DD-MM)"
-              name="date_of_birth"
-            >
-              <Input placeholder="e.g., 15-03" />
-            </Form.Item>
-
-            <Form.Item
-              label="Gender"
-              name="gender"
-            >
-              <Select placeholder="Select gender">
-                <Option value="Male">Male</Option>
-                <Option value="Female">Female</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              label="Worker or Student"
-              name="occupation_type"
-            >
-              <Select placeholder="Select worker or student">
-                <Option value="Worker">Worker</Option>
-                <Option value="Student">Student</Option>
-                <Option value="Unemployed">Unemployed</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              label="Residential Location"
-              name="residential_location"
-            >
-              <Input placeholder="Residential location" />
-            </Form.Item>
-
-            <Form.Item
-              label="School/Residential Location (if student)"
-              name="school_residential_location"
-            >
-              <Input placeholder="School or residential location" />
-            </Form.Item>
-
-            <Form.Item
-              label="Group"
-              name="group_name"
-              rules={[{ required: true, message: 'Group is required' }]}
-            >
-              <Input placeholder="Group name" disabled />
-            </Form.Item>
+        <CardHeader>
+          <CardTitle>Edit convert details</CardTitle>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>
+              <strong className="text-foreground">Name:</strong> {convert.full_name}
+            </p>
+            <p>
+              <strong className="text-foreground">Group:</strong>{' '}
+              <Badge variant="secondary">{convert.group_name}</Badge>
+            </p>
+            <p className="tabular-nums">
+              <strong className="text-foreground">Created:</strong>{' '}
+              {new Date(convert.created_at).toLocaleDateString()}{' '}
+              <strong className="text-foreground">Updated:</strong>{' '}
+              {new Date(convert.updated_at).toLocaleDateString()}
+            </p>
           </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">First name *</Label>
+                <Input
+                  id="first_name"
+                  placeholder="First name"
+                  value={formValues.first_name}
+                  onChange={(e) =>
+                    setFormValues((v) => ({ ...v, first_name: e.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last name *</Label>
+                <Input
+                  id="last_name"
+                  placeholder="Last name"
+                  value={formValues.last_name}
+                  onChange={(e) =>
+                    setFormValues((v) => ({ ...v, last_name: e.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone_number">Phone number *</Label>
+                <Input
+                  id="phone_number"
+                  placeholder="Phone number"
+                  value={formValues.phone_number}
+                  onChange={(e) =>
+                    setFormValues((v) => ({ ...v, phone_number: e.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="date_of_birth">Date of birth (DD-MM)</Label>
+                <Input
+                  id="date_of_birth"
+                  placeholder="e.g., 15-03"
+                  value={formValues.date_of_birth}
+                  onChange={(e) =>
+                    setFormValues((v) => ({ ...v, date_of_birth: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gender</Label>
+                <Select
+                  value={formValues.gender || '__none__'}
+                  onValueChange={(v) =>
+                    setFormValues((f) => ({ ...f, gender: v === '__none__' ? '' : v }))
+                  }
+                >
+                  <SelectTrigger id="gender">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Not specified</SelectItem>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="occupation_type">Worker or student</Label>
+                <Select
+                  value={formValues.occupation_type || '__none__'}
+                  onValueChange={(v) =>
+                    setFormValues((f) => ({
+                      ...f,
+                      occupation_type: v === '__none__' ? '' : v,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="occupation_type">
+                    <SelectValue placeholder="Select worker or student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Not specified</SelectItem>
+                    <SelectItem value="Worker">Worker</SelectItem>
+                    <SelectItem value="Student">Student</SelectItem>
+                    <SelectItem value="Unemployed">Unemployed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="residential_location">Residential location</Label>
+                <Input
+                  id="residential_location"
+                  placeholder="Residential location"
+                  value={formValues.residential_location}
+                  onChange={(e) =>
+                    setFormValues((v) => ({ ...v, residential_location: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="school_residential_location">
+                  School/residential location (if student)
+                </Label>
+                <Input
+                  id="school_residential_location"
+                  placeholder="School or residential location"
+                  value={formValues.school_residential_location}
+                  onChange={(e) =>
+                    setFormValues((v) => ({
+                      ...v,
+                      school_residential_location: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="group_name">Group *</Label>
+                <Input id="group_name" value={formValues.group_name} disabled />
+              </div>
+            </div>
 
-          <Divider />
+            <Separator />
 
-          <Space style={{ marginTop: '20px' }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={saving}
-              icon={<SaveOutlined />}
-            >
-              Save Changes
-            </Button>
-            <Button onClick={() => router.back()}>
-              Cancel
-            </Button>
-          </Space>
-        </Form>
+            <div className="flex gap-3">
+              <Button type="submit" disabled={saving}>
+                <Save className="size-4" />
+                {saving ? 'Saving…' : 'Save changes'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
       </Card>
     </div>
   );

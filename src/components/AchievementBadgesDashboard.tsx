@@ -1,26 +1,29 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Trophy, Flame, Star, Crown, X } from 'lucide-react';
+import { SynagoLoader } from '@/components/shell/SynagoLoader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
-  Card,
   Table,
-  Spin,
-  Empty,
-  Progress,
-  Row,
-  Col,
-  Badge as AntBadge,
-  Tag,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
   Tooltip,
-  Button,
-  Alert,
-  Tabs,
-  Statistic,
-  Space,
-} from 'antd';
-import { TrophyOutlined, FireOutlined, StarOutlined, CrownOutlined } from '@ant-design/icons';
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { EmptyState } from '@/components/base/EmptyState';
+import { cn } from '@/lib/utils';
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 
-interface Badge {
+interface BadgeItem {
   id: string;
   name: string;
   description: string;
@@ -36,7 +39,7 @@ interface Badge {
 }
 
 interface BadgeProgress {
-  badge: Badge;
+  badge: BadgeItem;
   progress: number;
   earned: boolean;
 }
@@ -55,13 +58,52 @@ interface AchievementBadgesDashboardProps {
   token?: string;
 }
 
+function getRarityColor(rarity: string) {
+  switch (rarity) {
+    case 'legendary':
+      return '#FFD700';
+    case 'rare':
+      return '#9370DB';
+    case 'uncommon':
+      return '#4169E1';
+    default:
+      return '#A9A9A9';
+  }
+}
+
+function ProgressRing({ value, color }: { value: number; color: string }) {
+  const data = [
+    { name: 'value', value: Math.round(value) },
+    { name: 'rest', value: 100 - Math.round(value) },
+  ];
+  return (
+    <ResponsiveContainer width={40} height={40}>
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="value"
+          cx="50%"
+          cy="50%"
+          innerRadius={12}
+          outerRadius={18}
+          startAngle={90}
+          endAngle={-270}
+          stroke="none"
+        >
+          <Cell fill={color} />
+          <Cell fill="hsl(var(--muted))" />
+        </Pie>
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function AchievementBadgesDashboard({
   groupId,
   userId,
-  token,
 }: AchievementBadgesDashboardProps) {
   const [loading, setLoading] = useState(true);
-  const [badges, setBadges] = useState<Badge[]>([]);
+  const [badges, setBadges] = useState<BadgeItem[]>([]);
   const [badgeProgress, setBadgeProgress] = useState<BadgeProgress[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +120,6 @@ export function AchievementBadgesDashboard({
     setError(null);
 
     try {
-      // Load all badges
       const badgesRes = await fetch('/api/badges', {
         headers: { 'X-User-ID': userId },
       });
@@ -87,7 +128,6 @@ export function AchievementBadgesDashboard({
       const badgesData = await badgesRes.json();
       setBadges(badgesData.badges || []);
 
-      // Load badge progress
       const progressRes = await fetch(`/api/badges/${userId}?action=progress`, {
         headers: { 'X-User-ID': userId },
       });
@@ -97,12 +137,9 @@ export function AchievementBadgesDashboard({
         setBadgeProgress(progressData.progress || []);
       }
 
-      // Load leaderboard
       const leaderboardRes = await fetch(
         `/api/badges/leaderboard?${groupId ? `groupId=${groupId}&` : ''}limit=20`,
-        {
-          headers: { 'X-User-ID': userId },
-        }
+        { headers: { 'X-User-ID': userId } }
       );
 
       if (leaderboardRes.ok) {
@@ -116,125 +153,12 @@ export function AchievementBadgesDashboard({
     }
   };
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case 'legendary':
-        return '#FFD700';
-      case 'rare':
-        return '#9370DB';
-      case 'uncommon':
-        return '#4169E1';
-      case 'common':
-      default:
-        return '#A9A9A9';
-    }
-  };
-
   const earnedCount = badgeProgress.filter((b) => b.earned).length;
-
-  const progressColumns = [
-    {
-      title: 'Badge',
-      dataIndex: 'badge',
-      key: 'badge',
-      render: (_: unknown, record: BadgeProgress) => (
-        <Tooltip title={record.badge.description}>
-          <span>
-            <span style={{ fontSize: 24, marginRight: 8 }}>{record.badge.icon}</span>
-            {record.badge.name}
-          </span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Progress',
-      dataIndex: 'progress',
-      key: 'progress',
-      render: (progress: number, record: BadgeProgress) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Progress
-            type="circle"
-            percent={Math.round(progress)}
-            width={40}
-            strokeColor={
-              record.earned
-                ? '#52c41a'
-                : getRarityColor(record.badge.rarity)
-            }
-          />
-          <span>{Math.round(progress)}%</span>
-          {record.earned && (
-            <Tag color="success">Earned</Tag>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Rarity',
-      dataIndex: 'badge.rarity',
-      key: 'rarity',
-      render: (rarity: string) => (
-        <AntBadge
-          color={getRarityColor(rarity)}
-          text={rarity.toUpperCase()}
-        />
-      ),
-    },
-    {
-      title: 'Criteria',
-      dataIndex: 'badge.criteria.description',
-      key: 'criteria',
-    },
-  ];
-
-  const leaderboardColumns = [
-    {
-      title: 'Rank',
-      dataIndex: 'rank',
-      key: 'rank',
-      render: (rank: number) => {
-        let icon = null;
-        if (rank === 1) icon = <CrownOutlined style={{ color: '#FFD700' }} />;
-        else if (rank === 2) icon = <CrownOutlined style={{ color: '#C0C0C0' }} />;
-        else if (rank === 3) icon = <CrownOutlined style={{ color: '#CD7F32' }} />;
-
-        return (
-          <Space>
-            {icon}
-            <strong>#{rank}</strong>
-          </Space>
-        );
-      },
-    },
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Badges Earned',
-      dataIndex: 'badgesEarned',
-      key: 'badgesEarned',
-      render: (count: number) => (
-        <Tag color="blue">
-          <TrophyOutlined /> {count} badges
-        </Tag>
-      ),
-    },
-    {
-      title: 'Last Achievement',
-      dataIndex: 'lastBadgeEarned',
-      key: 'lastBadgeEarned',
-      render: (date?: string) => (
-        <span>{date ? new Date(date).toLocaleDateString() : '—'}</span>
-      ),
-    },
-  ];
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: 40 }}>
-        <Spin />
+      <div className="flex justify-center py-10">
+        <SynagoLoader size={32} />
       </div>
     );
   }
@@ -242,142 +166,189 @@ export function AchievementBadgesDashboard({
   return (
     <div>
       {error && (
-        <Alert
-          message="Error"
-          description={error}
-          type="error"
-          showIcon
-          closable
-          style={{ marginBottom: 16 }}
-        />
+        <div className="mb-4 flex items-start justify-between gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+          <div>
+            <p className="font-medium">Error</p>
+            <p>{error}</p>
+          </div>
+          <button type="button" onClick={() => setError(null)} aria-label="Dismiss">
+            <X className="size-4" />
+          </button>
+        </div>
       )}
 
-      <Tabs
-        items={[
-          {
-            key: 'overview',
-            label: 'Overview',
-            children: (
-              <div style={{ marginTop: 16 }}>
-                <Row gutter={16} style={{ marginBottom: 24 }}>
-                  <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                      <Statistic
-                        title="Badges Earned"
-                        value={earnedCount}
-                        prefix={<TrophyOutlined />}
-                        valueStyle={{ color: '#1890ff' }}
-                      />
-                    </Card>
-                  </Col>
-                  <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                      <Statistic
-                        title="Available Badges"
-                        value={badges.length}
-                        prefix={<StarOutlined />}
-                        valueStyle={{ color: '#faad14' }}
-                      />
-                    </Card>
-                  </Col>
-                  <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                      <Statistic
-                        title="Completion"
-                        value={(earnedCount / badges.length * 100).toFixed(0)}
-                        suffix="%"
-                        prefix={<FireOutlined />}
-                        valueStyle={{ color: '#ff4d4f' }}
-                      />
-                    </Card>
-                  </Col>
-                  <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                      <Statistic
-                        title="Total Points"
-                        value={badgeProgress
-                          .filter((b) => b.earned)
-                          .reduce((sum, b) => sum + b.badge.points, 0)}
-                        valueStyle={{ color: '#52c41a' }}
-                      />
-                    </Card>
-                  </Col>
-                </Row>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="progress">Badge Progress</TabsTrigger>
+          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+        </TabsList>
 
-                <Card title="Your Badges" size="small">
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                    {badgeProgress
-                      .filter((b) => b.earned)
-                      .map((b) => (
-                        <Tooltip
-                          key={b.badge.id}
-                          title={`${b.badge.name}\n${b.badge.description}\n+${b.badge.points} points`}
-                        >
-                          <div
-                            style={{
-                              fontSize: 32,
-                              cursor: 'pointer',
-                              opacity: 1,
-                              transition: 'transform 0.2s',
-                            }}
-                            onMouseEnter={(e) =>
-                              (e.currentTarget.style.transform = 'scale(1.2)')
-                            }
-                            onMouseLeave={(e) =>
-                              (e.currentTarget.style.transform = 'scale(1)')
-                            }
-                          >
-                            {b.badge.icon}
-                          </div>
-                        </Tooltip>
-                      ))}
-                  </div>
-                  {earnedCount === 0 && (
-                    <Empty
-                      description="No badges earned yet"
-                      style={{ marginTop: 16 }}
-                    />
-                  )}
-                </Card>
+        <TabsContent value="overview" className="mt-4 space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Trophy className="size-4 text-primary" />
+                  <span className="text-sm">Badges Earned</span>
+                </div>
+                <p className="text-3xl font-semibold text-primary tabular-nums">{earnedCount}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Star className="size-4 text-warning" />
+                  <span className="text-sm">Available Badges</span>
+                </div>
+                <p className="text-3xl font-semibold text-warning tabular-nums">{badges.length}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Flame className="size-4 text-destructive" />
+                  <span className="text-sm">Completion</span>
+                </div>
+                <p className="text-3xl font-semibold text-destructive tabular-nums">
+                  {badges.length ? ((earnedCount / badges.length) * 100).toFixed(0) : 0}%
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <span className="text-sm text-muted-foreground">Total Points</span>
+                <p className="text-3xl font-semibold text-success tabular-nums">
+                  {badgeProgress.filter((b) => b.earned).reduce((sum, b) => sum + b.badge.points, 0)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Your Badges</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-3">
+                {badgeProgress
+                  .filter((b) => b.earned)
+                  .map((b) => (
+                    <Tooltip key={b.badge.id}>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-pointer text-3xl transition-transform hover:scale-110">
+                          {b.badge.icon}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {b.badge.name} — {b.badge.description} (+{b.badge.points} points)
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
               </div>
-            ),
-          },
-          {
-            key: 'progress',
-            label: 'Badge Progress',
-            children: (
-              <div style={{ marginTop: 16 }}>
-                <Table
-                  columns={progressColumns}
-                  dataSource={badgeProgress}
-                  rowKey="badge.id"
-                  pagination={{ pageSize: 10 }}
-                  size="small"
-                />
-              </div>
-            ),
-          },
-          {
-            key: 'leaderboard',
-            label: 'Leaderboard',
-            children: (
-              <div style={{ marginTop: 16 }}>
-                {leaderboard.length === 0 ? (
-                  <Empty description="No leaderboard data" />
-                ) : (
-                  <Table
-                    columns={leaderboardColumns}
-                    dataSource={leaderboard}
-                    rowKey="userId"
-                    pagination={{ pageSize: 20 }}
-                    size="small"
-                  />
-                )}
-              </div>
-            ),
-          },
-        ]}
-      />
+              {earnedCount === 0 && (
+                <EmptyState title="No badges earned yet" className="mt-4 border-0 bg-transparent py-6" />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="progress" className="mt-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Badge</TableHead>
+                <TableHead>Progress</TableHead>
+                <TableHead>Rarity</TableHead>
+                <TableHead>Criteria</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {badgeProgress.map((record) => (
+                <TableRow key={record.badge.id}>
+                  <TableCell>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-2">
+                          <span className="text-2xl">{record.badge.icon}</span>
+                          {record.badge.name}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{record.badge.description}</TooltipContent>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <ProgressRing
+                        value={record.progress}
+                        color={
+                          record.earned ? 'hsl(var(--success))' : getRarityColor(record.badge.rarity)
+                        }
+                      />
+                      <span>{Math.round(record.progress)}%</span>
+                      {record.earned && <Badge variant="success">Earned</Badge>}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: getRarityColor(record.badge.rarity) }}
+                      />
+                      {record.badge.rarity.toUpperCase()}
+                    </span>
+                  </TableCell>
+                  <TableCell>{record.badge.criteria.description}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TabsContent>
+
+        <TabsContent value="leaderboard" className="mt-4">
+          {leaderboard.length === 0 ? (
+            <EmptyState title="No leaderboard data" />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Rank</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Badges Earned</TableHead>
+                  <TableHead>Last Achievement</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {leaderboard.map((entry) => {
+                  const crownColor =
+                    entry.rank === 1 ? '#FFD700' : entry.rank === 2 ? '#C0C0C0' : entry.rank === 3 ? '#CD7F32' : undefined;
+                  return (
+                    <TableRow key={entry.userId}>
+                      <TableCell>
+                        <span className="flex items-center gap-2">
+                          {crownColor && <Crown className="size-4" style={{ color: crownColor }} />}
+                          <strong>#{entry.rank}</strong>
+                        </span>
+                      </TableCell>
+                      <TableCell>{entry.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          <Trophy className="size-3" /> {entry.badgesEarned} badges
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {entry.lastBadgeEarned
+                          ? new Date(entry.lastBadgeEarned).toLocaleDateString()
+                          : '—'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

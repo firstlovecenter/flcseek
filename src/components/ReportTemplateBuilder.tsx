@@ -2,30 +2,44 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Modal,
-  Button,
-  Form,
-  Input,
-  Select,
-  Table,
-  Drawer,
-  Space,
-  Card,
-  Divider,
-  Switch,
-  Empty,
-  Spin,
-  Alert,
-  Tag,
-  Tooltip,
-} from 'antd';
+  Plus,
+  Trash2,
+  Pencil,
+  FileText,
+  Save,
+  X,
+} from 'lucide-react';
+import { SynagoLoader } from '@/components/shell/SynagoLoader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
 import {
-  PlusOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  FileTextOutlined,
-  SaveOutlined,
-} from '@ant-design/icons';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { EmptyState } from '@/components/base/EmptyState';
+import { Separator } from '@/components/ui/separator';
 import { ReportTemplate, ReportSection } from '@/lib/report-templates';
 
 interface ReportTemplateBuilderProps {
@@ -58,13 +72,14 @@ export function ReportTemplateBuilder({
   onTemplateCreated,
 }: ReportTemplateBuilderProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [form] = Form.useForm();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const [sections, setSections] = useState<ReportSection[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingSection, setEditingSection] = useState<ReportSection | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
 
@@ -80,9 +95,7 @@ export function ReportTemplateBuilder({
     setTemplatesLoading(true);
     try {
       const response = await fetch(`/api/report-templates?groupId=${groupId}`, {
-        headers: {
-          'X-User-ID': userId,
-        },
+        headers: { 'X-User-ID': userId },
       });
 
       if (response.ok) {
@@ -96,9 +109,22 @@ export function ReportTemplateBuilder({
     }
   };
 
+  const resetForm = () => {
+    setName('');
+    setDescription('');
+    setIsPublic(false);
+    setSections([]);
+    setError(null);
+  };
+
   const handleSaveTemplate = async () => {
     if (!token || !userId) {
       setError('Authentication required');
+      return;
+    }
+
+    if (!name.trim()) {
+      setError('Template name is required');
       return;
     }
 
@@ -106,8 +132,6 @@ export function ReportTemplateBuilder({
     setError(null);
 
     try {
-      const values = await form.validateFields();
-
       const response = await fetch('/api/report-templates', {
         method: 'POST',
         headers: {
@@ -115,11 +139,11 @@ export function ReportTemplateBuilder({
           'X-User-ID': userId,
         },
         body: JSON.stringify({
-          name: values.name,
-          description: values.description,
+          name,
+          description,
           sections,
           groupId,
-          isPublic: values.isPublic || false,
+          isPublic,
         }),
       });
 
@@ -129,13 +153,11 @@ export function ReportTemplateBuilder({
 
       const template = await response.json();
       setTemplates([...templates, template]);
-      form.resetFields();
-      setSections([]);
+      resetForm();
+      setDrawerOpen(false);
       setIsOpen(false);
 
-      if (onTemplateCreated) {
-        onTemplateCreated(template);
-      }
+      onTemplateCreated?.(template);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save template');
     } finally {
@@ -147,7 +169,7 @@ export function ReportTemplateBuilder({
     const newSection: ReportSection = {
       id: `section-${Date.now()}`,
       title: `Section ${sections.length + 1}`,
-      type: type as any,
+      type: type as ReportSection['type'],
       metrics: [],
       includeVisuals: false,
     };
@@ -162,12 +184,7 @@ export function ReportTemplateBuilder({
   const handleSaveSection = () => {
     if (!editingSection) return;
 
-    setSections(
-      sections.map((s) =>
-        s.id === editingSection.id ? editingSection : s
-      )
-    );
-    setDrawerOpen(false);
+    setSections(sections.map((s) => (s.id === editingSection.id ? editingSection : s)));
     setEditingSection(null);
   };
 
@@ -175,277 +192,264 @@ export function ReportTemplateBuilder({
     setSections(sections.filter((s) => s.id !== id));
   };
 
-  const sectionsTableColumns = [
-    {
-      title: 'Title',
-      dataIndex: 'title',
-      key: 'title',
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type: string) => (
-        <Tag>{type.replace('_', ' ').toUpperCase()}</Tag>
-      ),
-    },
-    {
-      title: 'Metrics',
-      dataIndex: 'metrics',
-      key: 'metrics',
-      render: (metrics: string[]) => (
-        <span>{metrics?.length || 0} metric{(metrics?.length || 0) !== 1 ? 's' : ''}</span>
-      ),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: unknown, record: ReportSection) => (
-        <Space size="small">
-          <Button
-            icon={<EditOutlined />}
-            size="small"
-            onClick={() => handleEditSection(record)}
-          />
-          <Button
-            icon={<DeleteOutlined />}
-            size="small"
-            danger
-            onClick={() => handleDeleteSection(record.id)}
-          />
-        </Space>
-      ),
-    },
-  ];
+  const openNewTemplate = () => {
+    resetForm();
+    setEditingSection(null);
+    setDrawerOpen(true);
+  };
 
-  const templatesTableColumns = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Sections',
-      dataIndex: 'sections',
-      key: 'sections',
-      render: (sections: ReportSection[]) => sections?.length || 0,
-    },
-    {
-      title: 'Schedule',
-      dataIndex: 'scheduleFrequency',
-      key: 'schedule',
-      render: (freq: string) => freq && freq !== 'never' ? freq : '—',
-    },
-    {
-      title: 'Visibility',
-      dataIndex: 'isPublic',
-      key: 'visibility',
-      render: (isPublic: boolean) => (
-        <Tag color={isPublic ? 'blue' : 'default'}>
-          {isPublic ? 'Public' : 'Private'}
-        </Tag>
-      ),
-    },
-  ];
+  const toggleMetric = (metric: string, checked: boolean) => {
+    if (!editingSection) return;
+    const metrics = editingSection.metrics || [];
+    setEditingSection({
+      ...editingSection,
+      metrics: checked ? [...metrics, metric] : metrics.filter((m) => m !== metric),
+    });
+  };
 
   return (
     <>
-      <Button
-        type="primary"
-        icon={<FileTextOutlined />}
-        onClick={() => setIsOpen(true)}
-      >
+      <Button onClick={() => setIsOpen(true)}>
+        <FileText className="size-4" />
         Report Templates
       </Button>
 
-      <Modal
-        title="Report Templates"
-        open={isOpen}
-        onCancel={() => setIsOpen(false)}
-        width={900}
-        footer={null}
-      >
-        <Spin spinning={templatesLoading}>
-          {templates.length === 0 ? (
-            <Empty
-              description="No templates yet"
-              style={{ marginTop: 32, marginBottom: 32 }}
-            >
-              <Button type="primary" onClick={() => setDrawerOpen(true)}>
-                Create Your First Template
-              </Button>
-            </Empty>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Report Templates</DialogTitle>
+          </DialogHeader>
+
+          {templatesLoading ? (
+            <div className="flex justify-center py-10">
+              <SynagoLoader size={32} />
+            </div>
+          ) : templates.length === 0 ? (
+            <EmptyState
+              title="No templates yet"
+              action={
+                <Button onClick={openNewTemplate}>Create Your First Template</Button>
+              }
+              className="py-10"
+            />
           ) : (
             <>
-              <Table
-                columns={templatesTableColumns}
-                dataSource={templates}
-                rowKey="id"
-                size="small"
-                pagination={{ pageSize: 5 }}
-              />
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  form.resetFields();
-                  setSections([]);
-                  setDrawerOpen(true);
-                }}
-                style={{ marginTop: 16 }}
-              >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Sections</TableHead>
+                    <TableHead>Schedule</TableHead>
+                    <TableHead>Visibility</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {templates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell>{template.name}</TableCell>
+                      <TableCell>{template.sections?.length || 0}</TableCell>
+                      <TableCell>
+                        {template.scheduleFrequency && template.scheduleFrequency !== 'never'
+                          ? template.scheduleFrequency
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={template.isPublic ? 'default' : 'secondary'}>
+                          {template.isPublic ? 'Public' : 'Private'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Button className="mt-4" onClick={openNewTemplate}>
+                <Plus className="size-4" />
                 New Template
               </Button>
             </>
           )}
-        </Spin>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
-      <Drawer
-        title={editingSection ? 'Edit Section' : 'New Report Template'}
-        onClose={() => {
-          setDrawerOpen(false);
-          setEditingSection(null);
-        }}
+      <Sheet
         open={drawerOpen}
-        width={600}
-        footer={
-          !editingSection && (
-            <Space style={{ float: 'right' }}>
-              <Button onClick={() => setDrawerOpen(false)}>Cancel</Button>
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                loading={loading}
-                onClick={editingSection ? handleSaveSection : handleSaveTemplate}
-              >
-                {editingSection ? 'Save Section' : 'Create Template'}
-              </Button>
-            </Space>
-          )
-        }
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) setEditingSection(null);
+        }}
       >
-        {!editingSection ? (
-          <>
-            <Form form={form} layout="vertical">
-              <Form.Item
-                label="Template Name"
-                name="name"
-                rules={[{ required: true, message: 'Required' }]}
-              >
-                <Input placeholder="e.g., Monthly Accountability Report" />
-              </Form.Item>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{editingSection ? 'Edit Section' : 'New Report Template'}</SheetTitle>
+          </SheetHeader>
 
-              <Form.Item label="Description" name="description">
-                <Input.TextArea
+          {!editingSection ? (
+            <div className="mt-6 space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="template-name">Template Name</Label>
+                <Input
+                  id="template-name"
+                  placeholder="e.g., Monthly Accountability Report"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="template-desc">Description</Label>
+                <Textarea
+                  id="template-desc"
                   rows={2}
                   placeholder="Optional description of this template"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
-              </Form.Item>
+              </div>
 
-              <Form.Item label="Visibility" name="isPublic" valuePropName="checked">
-                <Switch /> <span style={{ marginLeft: 8 }}>Make public for other leaders</span>
-              </Form.Item>
-            </Form>
+              <div className="flex items-center gap-3">
+                <Switch id="is-public" checked={isPublic} onCheckedChange={setIsPublic} />
+                <Label htmlFor="is-public">Make public for other leaders</Label>
+              </div>
 
-            <Divider>Sections</Divider>
+              <Separator />
 
-            {sections.length === 0 ? (
-              <Empty description="No sections added" style={{ marginBottom: 16 }} />
-            ) : (
-              <Table
-                columns={sectionsTableColumns}
-                dataSource={sections}
-                rowKey="id"
-                size="small"
-                pagination={false}
-                style={{ marginBottom: 16 }}
-              />
-            )}
+              <div>
+                <p className="mb-3 font-medium">Sections</p>
+                {sections.length === 0 ? (
+                  <EmptyState title="No sections added" className="mb-4 border-0 bg-transparent py-4" />
+                ) : (
+                  <Table className="mb-4">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Metrics</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sections.map((section) => (
+                        <TableRow key={section.id}>
+                          <TableCell>{section.title}</TableCell>
+                          <TableCell>
+                            <Badge>{section.type.replace('_', ' ').toUpperCase()}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {section.metrics?.length || 0} metric
+                            {(section.metrics?.length || 0) !== 1 ? 's' : ''}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8"
+                                onClick={() => handleEditSection(section)}
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-destructive"
+                                onClick={() => handleDeleteSection(section.id)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
 
-            <div style={{ marginBottom: 16 }}>
-              <strong>Add Section:</strong>
-              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {sectionTypes.map((type) => (
-                  <Button
-                    key={type.value}
-                    size="small"
-                    onClick={() => handleAddSection(type.value)}
-                  >
-                    {type.label}
-                  </Button>
-                ))}
+                <p className="mb-2 text-sm font-medium">Add Section:</p>
+                <div className="flex flex-wrap gap-2">
+                  {sectionTypes.map((type) => (
+                    <Button key={type.value} variant="outline" size="sm" onClick={() => handleAddSection(type.value)}>
+                      {type.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-start justify-between gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+                  <div>
+                    <p className="font-medium">Error</p>
+                    <p>{error}</p>
+                  </div>
+                  <button type="button" onClick={() => setError(null)} aria-label="Dismiss">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setDrawerOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveTemplate} disabled={loading}>
+                  {loading ? (
+                    <SynagoLoader size={16} inline />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
+                  Create Template
+                </Button>
               </div>
             </div>
-
-            {error && (
-              <Alert
-                message="Error"
-                description={error}
-                type="error"
-                showIcon
-                closable
-                onClose={() => setError(null)}
-                style={{ marginTop: 16 }}
-              />
-            )}
-          </>
-        ) : (
-          <div>
-            <Form layout="vertical">
-              <Form.Item label="Section Title">
+          ) : (
+            <div className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label>Section Title</Label>
                 <Input
                   value={editingSection.title}
                   onChange={(e) =>
-                    setEditingSection({
-                      ...editingSection,
-                      title: e.target.value,
-                    })
+                    setEditingSection({ ...editingSection, title: e.target.value })
                   }
                 />
-              </Form.Item>
+              </div>
 
               {editingSection.type === 'metrics' && (
-                <Form.Item label="Select Metrics">
-                  <Select
-                    mode="multiple"
-                    value={editingSection.metrics || []}
-                    onChange={(metrics) =>
-                      setEditingSection({
-                        ...editingSection,
-                        metrics,
-                      })
-                    }
-                    options={availableMetrics.map((m) => ({
-                      label: m,
-                      value: m,
-                    }))}
-                  />
-                </Form.Item>
+                <div className="space-y-2">
+                  <Label>Select Metrics</Label>
+                  <div className="space-y-2 rounded-md border p-3">
+                    {availableMetrics.map((metric) => (
+                      <label key={metric} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={(editingSection.metrics || []).includes(metric)}
+                          onCheckedChange={(checked) => toggleMetric(metric, checked === true)}
+                        />
+                        {metric}
+                      </label>
+                    ))}
+                  </div>
+                </div>
               )}
 
-              <Form.Item label="Include Visuals" valuePropName="checked">
+              <div className="flex items-center gap-3">
                 <Switch
+                  id="include-visuals"
                   checked={editingSection.includeVisuals}
-                  onChange={(checked) =>
-                    setEditingSection({
-                      ...editingSection,
-                      includeVisuals: checked,
-                    })
+                  onCheckedChange={(checked) =>
+                    setEditingSection({ ...editingSection, includeVisuals: checked })
                   }
                 />
-              </Form.Item>
-            </Form>
+                <Label htmlFor="include-visuals">Include Visuals</Label>
+              </div>
 
-            <Space style={{ marginTop: 16 }}>
-              <Button onClick={handleSaveSection} type="primary">
-                Save Section
-              </Button>
-              <Button onClick={() => setEditingSection(null)}>Cancel</Button>
-            </Space>
-          </div>
-        )}
-      </Drawer>
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleSaveSection}>Save Section</Button>
+                <Button variant="outline" onClick={() => setEditingSection(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
