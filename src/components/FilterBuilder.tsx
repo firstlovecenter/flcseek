@@ -1,31 +1,51 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  Button,
-  Form,
-  Input,
+  Plus,
+  Trash2,
+  Save,
+  Filter,
+  Eraser,
+  Copy,
+  X,
+} from 'lucide-react';
+import { SynagoLoader } from '@/components/shell/SynagoLoader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
   Select,
-  DatePicker,
-  Space,
-  Card,
-  Tabs,
-  Tag,
-  Modal,
-  Table,
-  Empty,
-  Spin,
-  App,
-  Tooltip,
-} from 'antd';
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import {
-  PlusOutlined,
-  DeleteOutlined,
-  SaveOutlined,
-  FilterOutlined,
-  ClearOutlined,
-  CopyOutlined,
-} from '@ant-design/icons';
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { EmptyState } from '@/components/base/EmptyState';
+import { toast } from '@/lib/toast';
 import type { SearchFilter, SavedSearchFilters } from '@/lib/types/advanced-features';
 import dayjs from 'dayjs';
 
@@ -59,7 +79,7 @@ const FILTER_OPERATORS = [
   { label: 'Between', value: 'between' },
 ];
 
-const FILTER_PRESETS = {
+const FILTER_PRESETS: Record<string, string> = {
   active_converts: 'Active Converts',
   new_converts: 'New Converts',
   at_risk: 'At Risk (50+)',
@@ -70,9 +90,12 @@ const FILTER_PRESETS = {
   recently_added: 'Recently Added (30 days)',
 };
 
-export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [], groupId }: FilterBuilderProps) {
-  const { message } = App.useApp();
-  const [form] = Form.useForm();
+export function FilterBuilder({
+  onApplyFilters,
+  onSaveSearch,
+  initialFilters = [],
+  groupId,
+}: FilterBuilderProps) {
   const [filters, setFilters] = useState<SearchFilter[]>(initialFilters);
   const [loading, setLoading] = useState(false);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
@@ -81,8 +104,7 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; filters: SearchFilter[] }>>([]);
   const [sort, setSort] = useState<{ field: string; order: 'asc' | 'desc' } | undefined>();
 
-  // Load presets and templates on mount
-  React.useEffect(() => {
+  useEffect(() => {
     const loadPresetsAndTemplates = async () => {
       try {
         const [presetsRes, templatesRes] = await Promise.all([
@@ -101,355 +123,358 @@ export function FilterBuilder({ onApplyFilters, onSaveSearch, initialFilters = [
         }
       } catch (error) {
         console.error('Failed to load presets:', error);
-        // Non-fatal: filters still work without server presets
       }
     };
 
     loadPresetsAndTemplates();
   }, []);
 
-  // Add a new filter row
   const handleAddFilter = useCallback(() => {
-    const newFilter: SearchFilter = {
-      field: '',
-      operator: 'equals',
-      value: '',
-    };
-    setFilters([...filters, newFilter]);
-  }, [filters]);
+    setFilters((prev) => [...prev, { field: '', operator: 'equals', value: '' }]);
+  }, []);
 
-  // Update filter
-  const handleUpdateFilter = (index: number, field: keyof SearchFilter, value: SearchFilter[keyof SearchFilter]) => {
-    const updated = [...filters];
-    updated[index] = {
-      ...updated[index],
-      [field]: value,
-    };
-    setFilters(updated);
+  const handleUpdateFilter = (
+    index: number,
+    field: keyof SearchFilter,
+    value: SearchFilter[keyof SearchFilter]
+  ) => {
+    setFilters((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
-  // Remove filter
   const handleRemoveFilter = (index: number) => {
-    setFilters(filters.filter((_, i) => i !== index));
+    setFilters((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Clear all filters
   const handleClearFilters = () => {
     setFilters([]);
-    form.resetFields();
     setSort(undefined);
   };
 
-  // Apply filters
   const handleApplyFilters = async () => {
     if (filters.length === 0) {
-      message.warning('Please add at least one filter');
+      toast.warning('Please add at least one filter');
       return;
     }
 
     setLoading(true);
     try {
       onApplyFilters(filters);
-      message.success('Filters applied successfully');
+      toast.success('Filters applied successfully');
     } catch (error) {
-      message.error('Failed to apply filters');
+      toast.error('Failed to apply filters');
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Apply preset
   const handleApplyPreset = (presetKey: string) => {
     const presetFilters = presets[presetKey] || [];
     setFilters(presetFilters);
-    message.info(`Preset '${FILTER_PRESETS[presetKey as keyof typeof FILTER_PRESETS]}' applied`);
+    toast.info(`Preset '${FILTER_PRESETS[presetKey]}' applied`);
   };
 
-  // Apply template
   const handleApplyTemplate = (templateId: string) => {
     const template = templates.find((t) => t.id === templateId);
     if (template) {
       setFilters(template.filters);
-      message.info(`Template '${template.name}' applied`);
+      toast.info(`Template '${template.name}' applied`);
     }
   };
 
-  // Save as search
   const handleSaveSearch = async () => {
     if (!searchName.trim()) {
-      message.error('Please enter a search name');
+      toast.error('Please enter a search name');
       return;
     }
 
-    const searchFilters: SavedSearchFilters = {
-      filters,
-      sort,
-    };
+    const searchFilters: SavedSearchFilters = { filters, sort };
 
     try {
       onSaveSearch(searchName, searchFilters);
       setSaveModalVisible(false);
       setSearchName('');
-      message.success('Search saved successfully');
+      toast.success('Search saved successfully');
     } catch (error) {
-      message.error('Failed to save search');
+      toast.error('Failed to save search');
       console.error(error);
     }
   };
 
-  // Duplicate filter
   const handleDuplicateFilter = (index: number) => {
-    const filter = filters[index];
-    setFilters([...filters, { ...filter }]);
+    setFilters((prev) => [...prev, { ...prev[index] }]);
   };
 
-  const filterColumns = [
-    {
-      title: 'Field',
-      dataIndex: 'field',
-      key: 'field',
-      width: 150,
-      render: (_: unknown, record: SearchFilter, index: number) => (
-        <Select
-          style={{ width: '100%' }}
-          placeholder="Select field"
-          value={record.field}
-          onChange={(value) => handleUpdateFilter(index, 'field', value)}
-          options={FILTER_FIELDS}
+  const renderValueInput = (record: SearchFilter, index: number) => {
+    const isDateField = ['createdAt', 'updatedAt'].includes(record.field);
+    const isNumericField = ['riskScore', 'daysSinceLastAttendance', 'daysSinceLastMilestone'].includes(
+      record.field
+    );
+
+    if (record.operator === 'between') {
+      return (
+        <Input
+          placeholder="e.g., 10,50"
+          value={
+            Array.isArray(record.value) ? `${record.value[0]},${record.value[1]}` : ''
+          }
+          onChange={(e) => {
+            const [start, end] = e.target.value.split(',').map((v) => v.trim());
+            handleUpdateFilter(index, 'value', [start, end]);
+          }}
         />
-      ),
-    },
-    {
-      title: 'Operator',
-      dataIndex: 'operator',
-      key: 'operator',
-      width: 140,
-      render: (_: unknown, record: SearchFilter, index: number) => (
-        <Select
-          style={{ width: '100%' }}
-          value={record.operator}
-          onChange={(value) => handleUpdateFilter(index, 'operator', value)}
-          options={FILTER_OPERATORS}
+      );
+    }
+
+    if (isDateField) {
+      const dateValue = record.value
+        ? dayjs(record.value as string | number | Date).format('YYYY-MM-DD')
+        : '';
+      return (
+        <Input
+          type="date"
+          value={dateValue}
+          onChange={(e) =>
+            handleUpdateFilter(index, 'value', e.target.value ? new Date(e.target.value) : '')
+          }
         />
-      ),
-    },
-    {
-      title: 'Value',
-      dataIndex: 'value',
-      key: 'value',
-      render: (_: unknown, record: SearchFilter, index: number) => {
-        const isDateField = ['createdAt', 'updatedAt'].includes(record.field);
-        const isNumericField = ['riskScore', 'daysSinceLastAttendance', 'daysSinceLastMilestone'].includes(
-          record.field
-        );
+      );
+    }
 
-        if (record.operator === 'between') {
-          return (
-            <Input
-              placeholder="e.g., 10,50"
-              value={
-                Array.isArray(record.value)
-                  ? `${record.value[0]},${record.value[1]}`
-                  : ''
-              }
-              onChange={(e) => {
-                const [start, end] = e.target.value.split(',').map((v) => v.trim());
-                handleUpdateFilter(index, 'value', [start, end]);
-              }}
-            />
-          );
-        }
+    if (isNumericField) {
+      return (
+        <Input
+          type="number"
+          placeholder="Enter value"
+          value={record.value as string | number | undefined}
+          onChange={(e) =>
+            handleUpdateFilter(index, 'value', parseInt(e.target.value) || 0)
+          }
+        />
+      );
+    }
 
-        if (isDateField) {
-          return (
-            <DatePicker
-              style={{ width: '100%' }}
-              value={record.value ? dayjs(record.value as string | number | Date) : null}
-              onChange={(date) => handleUpdateFilter(index, 'value', date?.toDate())}
-            />
-          );
-        }
-
-        if (isNumericField) {
-          return (
-            <Input
-              type="number"
-              placeholder="Enter value"
-              value={record.value as string | number | undefined}
-              onChange={(e) => handleUpdateFilter(index, 'value', parseInt(e.target.value) || 0)}
-            />
-          );
-        }
-
-        return (
-          <Input
-            placeholder="Enter value"
-            value={record.value as string | number | undefined}
-            onChange={(e) => handleUpdateFilter(index, 'value', e.target.value)}
-          />
-        );
-      },
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 100,
-      render: (_: unknown, __: SearchFilter, index: number) => (
-        <Space>
-          <Tooltip title="Duplicate">
-            <Button
-              type="text"
-              size="small"
-              icon={<CopyOutlined />}
-              onClick={() => handleDuplicateFilter(index)}
-            />
-          </Tooltip>
-          <Tooltip title="Delete">
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => handleRemoveFilter(index)}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
-  ];
+    return (
+      <Input
+        placeholder="Enter value"
+        value={record.value as string | number | undefined}
+        onChange={(e) => handleUpdateFilter(index, 'value', e.target.value)}
+      />
+    );
+  };
 
   return (
-    <Card title="Advanced Filter Builder" className="mb-6">
-      <Tabs
-        items={[
-          {
-            key: 'builder',
-            label: 'Custom Filters',
-            children: (
-              <div className="space-y-4">
-                {filters.length > 0 ? (
-                  <Table
-                    dataSource={filters.map((f, i) => ({ ...f, key: i }))}
-                    columns={filterColumns}
-                    pagination={false}
-                    size="small"
-                  />
-                ) : (
-                  <Empty description="No filters added yet" />
-                )}
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="text-base">Advanced Filter Builder</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="builder">
+          <TabsList>
+            <TabsTrigger value="builder">Custom Filters</TabsTrigger>
+            <TabsTrigger value="presets">Quick Presets</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
 
-                <Space>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={handleAddFilter}>
-                    Add Filter
-                  </Button>
-                  {filters.length > 0 && (
-                    <>
-                      <Button icon={<ClearOutlined />} onClick={handleClearFilters}>
-                        Clear All
-                      </Button>
-                      <Button
-                        type="primary"
-                        icon={<FilterOutlined />}
-                        loading={loading}
-                        onClick={handleApplyFilters}
-                      >
-                        Apply Filters
-                      </Button>
-                      <Button icon={<SaveOutlined />} onClick={() => setSaveModalVisible(true)}>
-                        Save Search
-                      </Button>
-                    </>
-                  )}
-                </Space>
-              </div>
-            ),
-          },
-          {
-            key: 'presets',
-            label: 'Quick Presets',
-            children: (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                  {Object.entries(FILTER_PRESETS).map(([key, label]) => (
-                    <Button
-                      key={key}
-                      onClick={() => handleApplyPreset(key)}
-                      className="text-left"
-                    >
-                      {label}
-                    </Button>
+          <TabsContent value="builder" className="mt-4 space-y-4">
+            {filters.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Field</TableHead>
+                    <TableHead>Operator</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filters.map((record, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Select
+                          value={record.field || undefined}
+                          onValueChange={(v) => handleUpdateFilter(index, 'field', v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select field" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FILTER_FIELDS.map((f) => (
+                              <SelectItem key={f.value} value={f.value}>
+                                {f.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={record.operator}
+                          onValueChange={(v) => handleUpdateFilter(index, 'operator', v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FILTER_OPERATORS.map((op) => (
+                              <SelectItem key={op.value} value={op.value}>
+                                {op.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>{renderValueInput(record, index)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8"
+                                onClick={() => handleDuplicateFilter(index)}
+                              >
+                                <Copy className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Duplicate</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-destructive"
+                                onClick={() => handleRemoveFilter(index)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </div>
-              </div>
-            ),
-          },
-          {
-            key: 'templates',
-            label: 'Templates',
-            children: (
-              <div className="space-y-4">
-                {templates.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    {templates.map((template) => (
-                      <Button
-                        key={template.id}
-                        onClick={() => handleApplyTemplate(template.id)}
-                        className="text-left"
-                      >
-                        {template.name}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <Empty description="No templates available" />
-                )}
-              </div>
-            ),
-          },
-        ]}
-      />
+                </TableBody>
+              </Table>
+            ) : (
+              <EmptyState title="No filters added yet" />
+            )}
 
-      {/* Save Search Modal */}
-      <Modal
-        title="Save Search"
-        open={saveModalVisible}
-        onOk={handleSaveSearch}
-        onCancel={() => setSaveModalVisible(false)}
-      >
-        <Form layout="vertical">
-          <Form.Item label="Search Name" required>
-            <Input
-              placeholder="e.g., High Risk Converts"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              autoFocus
-            />
-          </Form.Item>
-          <div className="text-sm text-gray-500">
-            Filters: {filters.length} • Applying to {groupId ? 'current group' : 'all converts'}
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleAddFilter}>
+                <Plus className="size-4" />
+                Add Filter
+              </Button>
+              {filters.length > 0 && (
+                <>
+                  <Button variant="outline" onClick={handleClearFilters}>
+                    <Eraser className="size-4" />
+                    Clear All
+                  </Button>
+                  <Button onClick={handleApplyFilters} disabled={loading}>
+                    {loading ? (
+                      <SynagoLoader size={16} inline />
+                    ) : (
+                      <Filter className="size-4" />
+                    )}
+                    Apply Filters
+                  </Button>
+                  <Button variant="outline" onClick={() => setSaveModalVisible(true)}>
+                    <Save className="size-4" />
+                    Save Search
+                  </Button>
+                </>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="presets" className="mt-4">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+              {Object.entries(FILTER_PRESETS).map(([key, label]) => (
+                <Button key={key} variant="outline" className="justify-start" onClick={() => handleApplyPreset(key)}>
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="templates" className="mt-4">
+            {templates.length > 0 ? (
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                {templates.map((template) => (
+                  <Button
+                    key={template.id}
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => handleApplyTemplate(template.id)}
+                  >
+                    {template.name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No templates available" />
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <Dialog open={saveModalVisible} onOpenChange={setSaveModalVisible}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Save Search</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="search-name">Search Name</Label>
+                <Input
+                  id="search-name"
+                  placeholder="e.g., High Risk Converts"
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Filters: {filters.length} • Applying to {groupId ? 'current group' : 'all converts'}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSaveModalVisible(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveSearch}>Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {filters.length > 0 && (
+          <div className="mt-4 border-t pt-4">
+            <p className="mb-2 text-sm font-semibold">Active Filters:</p>
+            <div className="flex flex-wrap gap-2">
+              {filters.map((filter, index) => (
+                <Badge key={index} variant="secondary" className="gap-1 pr-1">
+                  {filter.field} {filter.operator} {String(filter.value).substring(0, 20)}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFilter(index)}
+                    className="ml-1 rounded-sm p-0.5 hover:bg-muted"
+                    aria-label="Remove filter"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
           </div>
-        </Form>
-      </Modal>
-
-      {/* Current Filters Display */}
-      {filters.length > 0 && (
-        <div className="mt-4 border-t pt-4">
-          <p className="mb-2 text-sm font-semibold">Active Filters:</p>
-          <Space wrap>
-            {filters.map((filter, index) => (
-              <Tag
-                key={index}
-                closable
-                onClose={() => handleRemoveFilter(index)}
-                color="blue"
-              >
-                {filter.field} {filter.operator} {String(filter.value).substring(0, 20)}
-              </Tag>
-            ))}
-          </Space>
-        </div>
-      )}
+        )}
+      </CardContent>
     </Card>
   );
 }

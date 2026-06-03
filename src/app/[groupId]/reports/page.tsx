@@ -2,36 +2,51 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Card,
-  Tabs,
-  Typography,
-  Spin,
-  App,
-  Statistic,
-  Row,
-  Col,
-  Table,
-  Progress,
-  Tag,
-  Space,
-  Button,
-  Select,
-  DatePicker,
-  Tooltip,
-  Dropdown,
-  Menu,
-} from 'antd';
+  BarChart3,
+  CheckCircle,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  LineChart,
+  Users,
+} from 'lucide-react';
+import { message } from '@/lib/toast';
+import { LoadingScreen } from '@/components/base/LoadingScreen';
+import { StatCard } from '@/components/base/StatCard';
+import { GroupNavActions } from '@/components/group/GroupNavActions';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import {
-  BarChartOutlined,
-  LineChartOutlined,
-  TeamOutlined,
-  CheckCircleOutlined,
-  FileExcelOutlined,
-  FilterOutlined,
-  DownloadOutlined,
-  FileTextOutlined,
-  FilePdfOutlined,
-} from '@ant-design/icons';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PredictiveAnalyticsDashboard } from '@/components/PredictiveAnalyticsDashboard';
 import { CohortAnalysisDashboard } from '@/components/CohortAnalysisDashboard';
 import { GrowthForecastDashboard } from '@/components/GrowthForecastDashboard';
@@ -43,14 +58,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import AppBreadcrumb from '@/components/AppBreadcrumb';
 import { api } from '@/lib/api';
-import { useThemeStyles } from '@/lib/theme-utils';
 import { ATTENDANCE_GOAL } from '@/lib/constants';
 import dayjs from 'dayjs';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import type { MilestoneData, PersonApiData, GroupApiData, AttendanceRecord } from '@/lib/types/api-responses';
-
-const { Title, Text } = Typography;
 
 interface AttendanceSummary {
   totalConverts: number;
@@ -80,11 +90,9 @@ interface ConvertDetail {
 
 export default function ReportsPage() {
   const { user, token, loading: authLoading } = useAuth();
-  const { message } = App.useApp();
   const router = useRouter();
   const params = useParams();
   const groupId = params.groupId as string;
-  const themeStyles = useThemeStyles();
 
   const [loading, setLoading] = useState(true);
   const [reportType, setReportType] = useState('summary');
@@ -241,11 +249,17 @@ export default function ReportsPage() {
     setConvertDetails(details);
   };
 
-  const downloadAsPDF = (type: string = 'all') => {
+  const downloadAsPDF = async (type: string = 'all') => {
     if (!attendanceSummary) {
       message.warning('No data to export');
       return;
     }
+
+    // Lazy-load the PDF libraries so they stay out of the page's initial bundle.
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -585,497 +599,439 @@ export default function ReportsPage() {
     message.success('Report downloaded successfully');
   };
 
-  const attendanceColumns = [
-    {
-      title: 'Name',
-      dataIndex: 'full_name',
-      key: 'full_name',
-      render: (text: string) => <strong>{text}</strong>,
-    },
-    {
-      title: 'Phone',
-      dataIndex: 'phone_number',
-      key: 'phone_number',
-    },
-    {
-      title: 'Attendance',
-      dataIndex: 'attendanceCount',
-      key: 'attendanceCount',
-      render: (count: number) => (
-        <Tag color={count >= ATTENDANCE_GOAL ? 'success' : 'warning'}>{count}/{ATTENDANCE_GOAL}</Tag>
-      ),
-    },
-    {
-      title: 'Progress',
-      key: 'progress',
-      render: (_: unknown, record: ConvertDetail) => (
-        <div style={{ width: 150 }}>
-          <Progress
-            percent={record.attendancePercentage}
-            strokeColor={record.attendancePercentage >= 100 ? '#52c41a' : '#ff7a45'}
-            size="small"
-          />
-        </div>
-      ),
-    },
-  ];
-
-  const milestoneCols = [
-    {
-      title: 'Milestone',
-      dataIndex: 'stageName',
-      key: 'stageName',
-      render: (text: string, record: MilestoneSummary) => (
-        <div>
-          <strong>{record.stageNumber}</strong>. {text}
-        </div>
-      ),
-    },
-    {
-      title: 'Completed',
-      dataIndex: 'completed',
-      key: 'completed',
-      render: (completed: number, record: MilestoneSummary) => (
-        <strong>{completed}/{record.total}</strong>
-      ),
-    },
-    {
-      title: 'Progress',
-      key: 'progress',
-      render: (_: unknown, record: MilestoneSummary) => (
-        <div style={{ width: 200 }}>
-          <Progress
-            percent={record.percentage}
-            strokeColor={record.percentage >= 75 ? '#52c41a' : record.percentage >= 50 ? '#faad14' : '#ff7a45'}
-            size="small"
-            format={() => `${record.percentage}%`}
-          />
-        </div>
-      ),
-    },
-  ];
-
-  const convertCols = [
-    {
-      title: 'Name',
-      dataIndex: 'full_name',
-      key: 'full_name',
-      render: (text: string) => <strong>{text}</strong>,
-    },
-    {
-      title: 'Phone',
-      dataIndex: 'phone_number',
-      key: 'phone_number',
-    },
-    {
-      title: 'Attendance',
-      key: 'attendance',
-      render: (_: unknown, record: ConvertDetail) => (
-        <Tooltip title={`${record.attendanceCount}/${ATTENDANCE_GOAL} Sundays`}>
-          <Progress
-            type="circle"
-            percent={record.attendancePercentage}
-            width={50}
-            strokeColor={record.attendancePercentage >= 100 ? '#52c41a' : '#ff7a45'}
-          />
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Milestones',
-      key: 'milestones',
-      render: (_: unknown, record: ConvertDetail) => (
-        <Tooltip title={`${record.milestonesCompleted}/${record.totalMilestones} milestones`}>
-          <Progress
-            type="circle"
-            percent={record.milestonePercentage}
-            width={50}
-            strokeColor={record.milestonePercentage >= 75 ? '#52c41a' : '#faad14'}
-          />
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Overall Progress',
-      key: 'overall',
-      render: (_: unknown, record: ConvertDetail) => {
-        const overall = Math.round((record.attendancePercentage + record.milestonePercentage) / 2);
-        return (
-          <Tag
-            color={overall >= 75 ? 'success' : overall >= 50 ? 'processing' : 'warning'}
-          >
-            {overall}%
-          </Tag>
-        );
-      },
-    },
-  ];
+  const sortedAttendance = [...convertDetails].sort(
+    (a, b) => b.attendanceCount - a.attendanceCount
+  )
+  const sortedMilestones = [...milestoneSummaries].sort(
+    (a, b) => a.stageNumber - b.stageNumber
+  )
+  const sortedPerformance = [...convertDetails].sort((a, b) => {
+    const overallA = (a.attendancePercentage + a.milestonePercentage) / 2
+    const overallB = (b.attendancePercentage + b.milestonePercentage) / 2
+    return overallB - overallA
+  })
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spin size="large" />
-      </div>
-    );
+    return <LoadingScreen label="Loading reports…" />
   }
 
-  const exportMenu = (
-    <Menu
-      items={[
-        {
-          key: 'all',
-          label: 'Complete Report (All Data)',
-          icon: <FileTextOutlined />,
-          onClick: () => downloadAsCSV('all'),
-        },
-        {
-          key: 'all-pdf',
-          label: 'Complete Report (PDF)',
-          icon: <FilePdfOutlined />,
-          onClick: () => downloadAsPDF('all'),
-        },
-        {
-          key: 'attendance',
-          label: 'Attendance Report',
-          icon: <CheckCircleOutlined />,
-          onClick: () => downloadAsCSV('attendance'),
-        },
-        {
-          key: 'attendance-pdf',
-          label: 'Attendance Report (PDF)',
-          icon: <FilePdfOutlined />,
-          onClick: () => downloadAsPDF('attendance'),
-        },
-        {
-          key: 'milestones',
-          label: 'Milestone Report',
-          icon: <BarChartOutlined />,
-          onClick: () => downloadAsCSV('milestones'),
-        },
-        {
-          key: 'milestones-pdf',
-          label: 'Milestone Report (PDF)',
-          icon: <FilePdfOutlined />,
-          onClick: () => downloadAsPDF('milestones'),
-        },
-        {
-          key: 'performance',
-          label: 'Performance Report',
-          icon: <LineChartOutlined />,
-          onClick: () => downloadAsCSV('performance'),
-        },
-        {
-          key: 'performance-pdf',
-          label: 'Performance Report (PDF)',
-          icon: <FilePdfOutlined />,
-          onClick: () => downloadAsPDF('performance'),
-        },
-      ]}
-    />
-  );
-
   return (
-    <>
+    <TooltipProvider>
       <AppBreadcrumb />
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-          <Title level={2} style={{ margin: 0 }}>
-            <BarChartOutlined /> Reports
-          </Title>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
-            <Button icon={<BarChartOutlined />} onClick={() => router.push(`/${groupId}/progress`)}>
-              Milestones
-            </Button>
-
-            <Button icon={<TeamOutlined />} onClick={() => router.push(`/${groupId}/attendance`)}>
-              Attendance
-            </Button>
-
-            <Button type="primary" icon={<FileExcelOutlined />} onClick={() => router.push(`/${groupId}/reports`)}>
-              Reports
-            </Button>
-          </div>
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <BarChart3 className="size-7" />
+            Reports
+          </h1>
+          <GroupNavActions groupId={groupId} user={user} active="reports" />
         </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <Text type="secondary">
-            Comprehensive analytics and reporting for convert tracking and milestone progress
-          </Text>
-
-          <Space>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Comprehensive analytics and reporting for convert tracking and
+            milestone progress
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
             {availableYears.length > 1 && (
               <Select
-                value={selectedYear}
-                onChange={setSelectedYear}
-                style={{ width: 120 }}
-                options={availableYears.map((y) => ({ label: y.toString(), value: y }))}
-              />
+                value={selectedYear != null ? String(selectedYear) : undefined}
+                onValueChange={(v) => setSelectedYear(Number(v))}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableYears.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-            <Dropdown overlay={exportMenu} placement="bottomRight">
-              <Button type="primary" icon={<DownloadOutlined />}>
-                Export Report
-              </Button>
-            </Dropdown>
-          </Space>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Download className="size-4" />
+                  Export Report
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => downloadAsCSV('all')}>
+                  <FileText className="mr-2 size-4" />
+                  Complete Report (All Data)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadAsPDF('all')}>
+                  <FileSpreadsheet className="mr-2 size-4" />
+                  Complete Report (PDF)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadAsCSV('attendance')}>
+                  <CheckCircle className="mr-2 size-4" />
+                  Attendance Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadAsPDF('attendance')}>
+                  Attendance Report (PDF)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadAsCSV('milestones')}>
+                  <BarChart3 className="mr-2 size-4" />
+                  Milestone Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadAsPDF('milestones')}>
+                  Milestone Report (PDF)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadAsCSV('performance')}>
+                  <LineChart className="mr-2 size-4" />
+                  Performance Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadAsPDF('performance')}>
+                  Performance Report (PDF)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ background: themeStyles.containerBg, borderRadius: 8 }}>
-            <Statistic
-              title="Total Converts"
-              value={attendanceSummary?.totalConverts || 0}
-              prefix={<TeamOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ background: themeStyles.containerBg, borderRadius: 8 }}>
-            <Statistic
-              title="With Attendance"
-              value={attendanceSummary?.percentage || 0}
-              suffix="%"
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ background: themeStyles.containerBg, borderRadius: 8 }}>
-            <Statistic
-              title="Avg Attendance"
-              value={attendanceSummary?.avgAttendance || 0}
-              suffix={`/${ATTENDANCE_GOAL}`}
-              prefix={<LineChartOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ background: themeStyles.containerBg, borderRadius: 8 }}>
-            <Statistic
-              title="Milestones"
-              value={milestoneSummaries.length}
-              prefix={<FilterOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Total Converts"
+          value={attendanceSummary?.totalConverts || 0}
+          icon={Users}
+          accent="members"
+        />
+        <StatCard
+          title="With Attendance"
+          value={`${attendanceSummary?.percentage || 0}%`}
+          icon={CheckCircle}
+          accent="arrivals"
+        />
+        <StatCard
+          title="Avg Attendance"
+          value={attendanceSummary?.avgAttendance || 0}
+          subtitle={`/${ATTENDANCE_GOAL}`}
+          icon={LineChart}
+          accent="campaigns"
+        />
+        <StatCard
+          title="Milestones"
+          value={milestoneSummaries.length}
+          icon={Filter}
+          accent="primary"
+        />
+      </div>
 
-      {/* Reports Tabs */}
-      <Card style={{ background: themeStyles.containerBg, borderRadius: 8 }}>
-        <Tabs
-          activeKey={reportType}
-          onChange={setReportType}
-          items={[
-            {
-              key: 'summary',
-              label: 'Summary',
-              children: (
-                <div style={{ marginTop: 16 }}>
-                  <Row gutter={16}>
-                    <Col xs={24} lg={12}>
-                      <Card title="Attendance Overview" size="small">
-                        <p>
-                          <strong>{attendanceSummary?.withAttendance}</strong> of{' '}
-                          <strong>{attendanceSummary?.totalConverts}</strong> converts have
-                          attended at least one service.
-                        </p>
-                        <p>
-                          Average attendance: <strong>{attendanceSummary?.avgAttendance}</strong> out of{' '}
-                          <strong>{ATTENDANCE_GOAL}</strong> Sundays.
-                        </p>
-                        <Progress
-                          percent={attendanceSummary?.percentage || 0}
-                          status="active"
-                          format={() => `${attendanceSummary?.percentage || 0}% with attendance`}
-                        />
-                      </Card>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Card title="Milestone Completion" size="small">
-                        {milestoneSummaries.slice(0, 5).map((m) => (
-                          <div key={m.stageNumber} style={{ marginBottom: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                              <span>
-                                <strong>{m.stageNumber}.</strong> {m.stageName}
-                              </span>
-                              <span>{m.completed}/{m.total}</span>
-                            </div>
-                            <Progress
-                              percent={m.percentage}
-                              size="small"
-                              format={() => `${m.percentage}%`}
-                            />
+      <Card>
+        <CardContent className="pt-6">
+          <Tabs value={reportType} onValueChange={setReportType}>
+            <TabsList className="mb-4 flex h-auto flex-wrap gap-1">
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="attendance">Attendance Details</TabsTrigger>
+              <TabsTrigger value="milestones">Milestone Progress</TabsTrigger>
+              <TabsTrigger value="converts">Convert Performance</TabsTrigger>
+              <TabsTrigger value="predictive">Predictive Analytics</TabsTrigger>
+              <TabsTrigger value="cohorts">Cohort Analysis</TabsTrigger>
+              <TabsTrigger value="forecast">Growth Forecasting</TabsTrigger>
+              <TabsTrigger value="bulk-actions">Bulk Actions</TabsTrigger>
+              <TabsTrigger value="report-templates">Report Templates</TabsTrigger>
+              <TabsTrigger value="badges">Achievement Badges</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="summary" className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Attendance Overview</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <p>
+                      <strong>{attendanceSummary?.withAttendance}</strong> of{' '}
+                      <strong>{attendanceSummary?.totalConverts}</strong> converts
+                      have attended at least one service.
+                    </p>
+                    <p>
+                      Average attendance:{' '}
+                      <strong>{attendanceSummary?.avgAttendance}</strong> out of{' '}
+                      <strong>{ATTENDANCE_GOAL}</strong> Sundays.
+                    </p>
+                    <Progress value={attendanceSummary?.percentage || 0} />
+                    <p className="text-xs text-muted-foreground">
+                      {attendanceSummary?.percentage || 0}% with attendance
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Milestone Completion</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {milestoneSummaries.slice(0, 5).map((m) => (
+                      <div key={m.stageNumber}>
+                        <div className="mb-1 flex justify-between text-sm">
+                          <span>
+                            <strong>{m.stageNumber}.</strong> {m.stageName}
+                          </span>
+                          <span>
+                            {m.completed}/{m.total}
+                          </span>
+                        </div>
+                        <Progress value={m.percentage} className="h-1.5" />
+                      </div>
+                    ))}
+                    {milestoneSummaries.length > 5 && (
+                      <p className="text-xs text-muted-foreground">
+                        + {milestoneSummaries.length - 5} more milestones
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="attendance">
+              <div className="mb-4 flex justify-end">
+                <Button variant="outline" onClick={() => downloadAsCSV('attendance')}>
+                  <Download className="size-4" />
+                  Export Attendance
+                </Button>
+              </div>
+              <div className="overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Attendance</TableHead>
+                      <TableHead>Progress</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedAttendance.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-semibold">
+                          {record.full_name}
+                        </TableCell>
+                        <TableCell>{record.phone_number}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              record.attendanceCount >= ATTENDANCE_GOAL
+                                ? 'default'
+                                : 'secondary'
+                            }
+                          >
+                            {record.attendanceCount}/{ATTENDANCE_GOAL}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Progress
+                            value={record.attendancePercentage}
+                            className="h-2 max-w-[150px]"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="milestones">
+              <div className="mb-4 flex justify-end">
+                <Button variant="outline" onClick={() => downloadAsCSV('milestones')}>
+                  <Download className="size-4" />
+                  Export Milestones
+                </Button>
+              </div>
+              <div className="overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Milestone</TableHead>
+                      <TableHead>Completed</TableHead>
+                      <TableHead>Progress</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedMilestones.map((record) => (
+                      <TableRow key={record.stageNumber}>
+                        <TableCell>
+                          <strong>{record.stageNumber}</strong>. {record.stageName}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {record.completed}/{record.total}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex max-w-[200px] items-center gap-2">
+                            <Progress value={record.percentage} className="h-2 flex-1" />
+                            <span className="text-xs tabular-nums">
+                              {record.percentage}%
+                            </span>
                           </div>
-                        ))}
-                        {milestoneSummaries.length > 5 && (
-                          <Text type="secondary">+ {milestoneSummaries.length - 5} more milestones</Text>
-                        )}
-                      </Card>
-                    </Col>
-                  </Row>
-                </div>
-              ),
-            },
-            {
-              key: 'attendance',
-              label: 'Attendance Details',
-              children: (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                    <Button
-                      icon={<DownloadOutlined />}
-                      onClick={() => downloadAsCSV('attendance')}
-                    >
-                      Export Attendance
-                    </Button>
-                  </div>
-                  <Table
-                    columns={attendanceColumns}
-                    dataSource={convertDetails.sort((a, b) => b.attendanceCount - a.attendanceCount)}
-                    rowKey="id"
-                    pagination={{ pageSize: 20 }}
-                  />
-                </div>
-              ),
-            },
-            {
-              key: 'milestones',
-              label: 'Milestone Progress',
-              children: (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                    <Button
-                      icon={<DownloadOutlined />}
-                      onClick={() => downloadAsCSV('milestones')}
-                    >
-                      Export Milestones
-                    </Button>
-                  </div>
-                  <Table
-                    columns={milestoneCols}
-                    dataSource={milestoneSummaries.sort((a, b) => a.stageNumber - b.stageNumber)}
-                    rowKey="stageNumber"
-                    pagination={false}
-                  />
-                </div>
-              ),
-            },
-            {
-              key: 'converts',
-              label: 'Convert Performance',
-              children: (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                    <Button
-                      icon={<DownloadOutlined />}
-                      onClick={() => downloadAsCSV('performance')}
-                    >
-                      Export Performance
-                    </Button>
-                  </div>
-                  <Table
-                    columns={convertCols}
-                    dataSource={convertDetails.sort((a, b) => {
-                      const overallA = (a.attendancePercentage + a.milestonePercentage) / 2;
-                      const overallB = (b.attendancePercentage + b.milestonePercentage) / 2;
-                      return overallB - overallA;
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="converts">
+              <div className="mb-4 flex justify-end">
+                <Button variant="outline" onClick={() => downloadAsCSV('performance')}>
+                  <Download className="size-4" />
+                  Export Performance
+                </Button>
+              </div>
+              <div className="overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Attendance</TableHead>
+                      <TableHead>Milestones</TableHead>
+                      <TableHead>Overall</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedPerformance.map((record) => {
+                      const overall = Math.round(
+                        (record.attendancePercentage +
+                          record.milestonePercentage) /
+                          2
+                      )
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-semibold">
+                            {record.full_name}
+                          </TableCell>
+                          <TableCell>{record.phone_number}</TableCell>
+                          <TableCell>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex size-12 items-center justify-center rounded-full border-2 border-primary text-xs font-bold">
+                                  {record.attendancePercentage}%
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {record.attendanceCount}/{ATTENDANCE_GOAL}{' '}
+                                Sundays
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex size-12 items-center justify-center rounded-full border-2 border-primary text-xs font-bold">
+                                  {record.milestonePercentage}%
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {record.milestonesCompleted}/
+                                {record.totalMilestones} milestones
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                overall >= 75
+                                  ? 'default'
+                                  : overall >= 50
+                                    ? 'secondary'
+                                    : 'outline'
+                              }
+                            >
+                              {overall}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
                     })}
-                    rowKey="id"
-                    pagination={{ pageSize: 20 }}
-                  />
-                </div>
-              ),
-            },
-            {
-              key: 'predictive',
-              label: 'Predictive Analytics',
-              children: (
-                <div style={{ marginTop: 16 }}>
-                  <PredictiveAnalyticsDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
-                </div>
-              ),
-            },
-            {
-              key: 'cohorts',
-              label: 'Cohort Analysis',
-              children: (
-                <div style={{ marginTop: 16 }}>
-                  <CohortAnalysisDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
-                </div>
-              ),
-            },
-            {
-              key: 'forecast',
-              label: 'Growth Forecasting',
-              children: (
-                <div style={{ marginTop: 16 }}>
-                  <GrowthForecastDashboard groupId={groupId} userId={user?.id || 'system'} token={token || undefined} />
-                </div>
-              ),
-            },
-            {
-              key: 'bulk-actions',
-              label: 'Bulk Actions',
-              children: (
-                <div style={{ marginTop: 16 }}>
-                  <Card>
-                    <div style={{ marginBottom: 16 }}>
-                      <Title level={4}>Perform Actions on Multiple Records</Title>
-                      <Text type="secondary">
-                        Update status, assign milestones, or delete multiple converts at once.
-                      </Text>
-                    </div>
-                    <BulkActionsUI
-                      groupId={groupId}
-                      userId={user?.id || 'system'}
-                      token={token || undefined}
-                    />
-                  </Card>
-                </div>
-              ),
-            },
-            {
-              key: 'report-templates',
-              label: 'Report Templates',
-              children: (
-                <div style={{ marginTop: 16 }}>
-                  <Card>
-                    <div style={{ marginBottom: 16 }}>
-                      <Title level={4}>Create and Manage Report Templates</Title>
-                      <Text type="secondary">
-                        Build reusable report templates with custom sections and metrics.
-                      </Text>
-                    </div>
-                    <WidgetErrorBoundary>
-                      <ReportTemplateBuilder
-                        groupId={groupId}
-                        userId={user?.id || 'system'}
-                        token={token || undefined}
-                      />
-                    </WidgetErrorBoundary>
-                  </Card>
-                </div>
-              ),
-            },
-            {
-              key: 'badges',
-              label: 'Achievement Badges',
-              children: (
-                <div style={{ marginTop: 16 }}>
-                  <AchievementBadgesDashboard
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="predictive">
+              <PredictiveAnalyticsDashboard
+                groupId={groupId}
+                userId={user?.id || 'system'}
+                token={token || undefined}
+              />
+            </TabsContent>
+
+            <TabsContent value="cohorts">
+              <CohortAnalysisDashboard
+                groupId={groupId}
+                userId={user?.id || 'system'}
+                token={token || undefined}
+              />
+            </TabsContent>
+
+            <TabsContent value="forecast">
+              <GrowthForecastDashboard
+                groupId={groupId}
+                userId={user?.id || 'system'}
+                token={token || undefined}
+              />
+            </TabsContent>
+
+            <TabsContent value="bulk-actions">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Perform Actions on Multiple Records
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Update status, assign milestones, or delete multiple converts
+                    at once.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <BulkActionsUI
                     groupId={groupId}
                     userId={user?.id || 'system'}
                     token={token || undefined}
                   />
-                </div>
-              ),
-            },
-          ]}
-        />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="report-templates">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Create and Manage Report Templates
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Build reusable report templates with custom sections and
+                    metrics.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <WidgetErrorBoundary>
+                    <ReportTemplateBuilder
+                      groupId={groupId}
+                      userId={user?.id || 'system'}
+                      token={token || undefined}
+                    />
+                  </WidgetErrorBoundary>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="badges">
+              <AchievementBadgesDashboard
+                groupId={groupId}
+                userId={user?.id || 'system'}
+                token={token || undefined}
+              />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
       </Card>
-    </>
-  );
+    </TooltipProvider>
+  )
 }
+

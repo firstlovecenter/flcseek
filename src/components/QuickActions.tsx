@@ -1,47 +1,45 @@
 'use client';
 
-import { Button, Space, Dropdown } from 'antd';
+import { UserPlus, Users, MoreHorizontal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
-  UserAddOutlined,
-  MessageOutlined,
-  FileAddOutlined,
-  TeamOutlined,
-  MoreOutlined,
-} from '@ant-design/icons';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import type { MenuProps } from 'antd';
 
 export default function QuickActions() {
   const { user } = useAuth();
   const router = useRouter();
-  const isRegisterRestricted = user?.role === 'leadpastor' || user?.role === 'overseer';
 
-  const superAdminActions: MenuProps['items'] = [
+  const superAdminActions = [
     {
       key: 'users',
-      icon: <TeamOutlined />,
+      icon: Users,
       label: 'Manage Users',
       onClick: () => router.push('/superadmin/users'),
     },
     {
       key: 'groups',
-      icon: <TeamOutlined />,
+      icon: Users,
       label: 'Manage Groups',
       onClick: () => router.push('/superadmin/groups'),
     },
     {
       key: 'converts',
-      icon: <UserAddOutlined />,
+      icon: UserPlus,
       label: 'View New Converts',
       onClick: () => router.push('/superadmin/converts'),
     },
   ];
 
-  const sheepSeekerActions: MenuProps['items'] = [
+  const sheepSeekerActions = [
     {
       key: 'register',
-      icon: <UserAddOutlined />,
+      icon: UserPlus,
       label: 'Register New Person',
       onClick: () => router.push('/people/register'),
     },
@@ -50,10 +48,21 @@ export default function QuickActions() {
   const actions = user?.role === 'superadmin' ? superAdminActions : sheepSeekerActions;
 
   return (
-    <Dropdown menu={{ items: actions }} placement="bottomRight">
-      <Button type="primary" icon={<MoreOutlined />}>
-        Quick Actions
-      </Button>
-    </Dropdown>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button>
+          <MoreHorizontal className="size-4" />
+          Quick Actions
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {actions.map((action) => (
+          <DropdownMenuItem key={action.key} onClick={action.onClick}>
+            <action.icon className="size-4" />
+            {action.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

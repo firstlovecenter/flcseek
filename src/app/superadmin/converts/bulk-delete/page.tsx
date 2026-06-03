@@ -1,13 +1,49 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Button, Input, Modal, Space, Card, Typography, Tag, Checkbox, Divider, Select, App } from 'antd';
-import { DeleteOutlined, WarningOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
+import {
+  Trash2,
+  AlertTriangle,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useThemeStyles } from '@/lib/theme-utils';
-
-const { Title, Paragraph, Text } = Typography;
-const { Option } = Select;
+import { message } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Convert {
   id: string;
@@ -24,18 +60,18 @@ interface Convert {
 
 export default function BulkDeleteConvertsPage() {
   const { token } = useAuth();
-  const { message, modal } = App.useApp();
   const [converts, setConverts] = useState<Convert[]>([]);
   const [filteredConverts, setFilteredConverts] = useState<Convert[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const themeStyles = useThemeStyles();
   const [searchText, setSearchText] = useState('');
-  const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
-  const [filterYear, setFilterYear] = useState<number | undefined>(undefined);
-  const [filterGender, setFilterGender] = useState<string | undefined>(undefined);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [filterGroup, setFilterGroup] = useState<string>('__all__');
+  const [filterYear, setFilterYear] = useState<string>('__all__');
+  const [filterGender, setFilterGender] = useState<string>('__all__');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
   useEffect(() => {
     if (token) {
@@ -55,7 +91,7 @@ export default function BulkDeleteConvertsPage() {
       const data = await response.json();
       setConverts(data.converts || []);
       setFilteredConverts(data.converts || []);
-    } catch (error) {
+    } catch {
       message.error('Failed to fetch converts');
     } finally {
       setLoading(false);
@@ -72,20 +108,18 @@ export default function BulkDeleteConvertsPage() {
           convert.phone_number.includes(searchText)
       );
     }
-
-    if (filterGroup) {
+    if (filterGroup !== '__all__') {
       filtered = filtered.filter((convert) => convert.group_name === filterGroup);
     }
-
-    if (filterYear !== undefined) {
-      filtered = filtered.filter((convert) => convert.group_year === filterYear);
+    if (filterYear !== '__all__') {
+      filtered = filtered.filter((convert) => convert.group_year === Number(filterYear));
     }
-
-    if (filterGender) {
+    if (filterGender !== '__all__') {
       filtered = filtered.filter((convert) => convert.gender === filterGender);
     }
 
     setFilteredConverts(filtered);
+    setCurrentPage(1);
   };
 
   const handleSelectChange = (id: string, checked: boolean) => {
@@ -100,45 +134,46 @@ export default function BulkDeleteConvertsPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(filteredConverts.map(c => c.id)));
+      setSelectedIds(new Set(filteredConverts.map((c) => c.id)));
     } else {
       setSelectedIds(new Set());
     }
   };
 
   const getUniqueGroups = () => {
-    const groups = new Set(converts.map(c => c.group_name).filter(Boolean));
+    const groups = new Set(converts.map((c) => c.group_name).filter(Boolean));
     return Array.from(groups).sort();
   };
 
   const getUniqueYears = () => {
-    const years = new Set(converts.map(c => c.group_year).filter(Boolean) as number[]);
+    const years = new Set(converts.map((c) => c.group_year).filter(Boolean) as number[]);
     return Array.from(years).sort((a, b) => b - a);
   };
 
   const clearFilters = () => {
     setSearchText('');
-    setFilterGroup(undefined);
-    setFilterYear(undefined);
-    setFilterGender(undefined);
+    setFilterGroup('__all__');
+    setFilterYear('__all__');
+    setFilterGender('__all__');
     setSelectedIds(new Set());
   };
 
+  const hasFilters =
+    searchText || filterGroup !== '__all__' || filterYear !== '__all__' || filterGender !== '__all__';
+
   const performBulkDelete = async () => {
     const ids = Array.from(selectedIds);
-    
     if (ids.length === 0) {
       message.warning('No converts selected');
       return;
     }
 
     setDeleting(true);
-
     try {
       const response = await fetch('/api/superadmin/converts/bulk-delete', {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ person_ids: ids }),
@@ -147,18 +182,20 @@ export default function BulkDeleteConvertsPage() {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        message.success(`✅ Deleted ${result.deleted_count} convert(s) and all their related data`);
+        message.success(
+          `Deleted ${result.deleted_count} convert(s) and all their related data`
+        );
         setSelectedIds(new Set());
         await fetchConverts();
       } else {
-        message.error(`❌ Error: ${result.error || 'Failed to delete'}`);
+        message.error(`Error: ${result.error || 'Failed to delete'}`);
       }
     } catch (error) {
       message.error('Failed to perform bulk delete');
       console.error(error);
     } finally {
       setDeleting(false);
-      setConfirmDelete(false);
+      setConfirmOpen(false);
     }
   };
 
@@ -167,222 +204,268 @@ export default function BulkDeleteConvertsPage() {
       message.warning('No converts selected');
       return;
     }
-
-    modal.confirm({
-      title: '⚠️ Confirm Bulk Delete',
-      icon: <WarningOutlined />,
-      content: (
-        <div>
-          <Paragraph>
-            <strong style={{ color: '#ff4d4f' }}>
-              You are about to permanently delete {selectedIds.size} convert(s) and ALL their related data:
-            </strong>
-          </Paragraph>
-          <ul>
-            <li>❌ Delete from new_converts table</li>
-            <li>❌ Delete from progress_records table</li>
-            <li>❌ Delete from attendance_records table</li>
-          </ul>
-          <Paragraph>
-            <strong>This action CANNOT be undone.</strong>
-          </Paragraph>
-          <Paragraph>
-            Selected converts:
-            <br />
-            {Array.from(selectedIds).slice(0, 5).map((id) => {
-              const c = converts.find(x => x.id === id);
-              return c ? `• ${c.full_name} (${c.phone_number})\n` : '';
-            })}
-            {selectedIds.size > 5 && `...and ${selectedIds.size - 5} more`}
-          </Paragraph>
-        </div>
-      ),
-      okText: 'Yes, Delete All',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk() {
-        performBulkDelete();
-      },
-    });
+    setConfirmOpen(true);
   };
 
-  const columns = [
-    {
-      title: (
-        <Checkbox
-          checked={selectedIds.size === filteredConverts.length && filteredConverts.length > 0}
-          onChange={(e) => handleSelectAll(e.target.checked)}
-        />
-      ),
-      key: 'select',
-      width: 50,
-      render: (_: unknown, record: Convert) => (
-        <Checkbox
-          checked={selectedIds.has(record.id)}
-          onChange={(e) => handleSelectChange(record.id, e.target.checked)}
-        />
-      ),
-    },
-    {
-      title: 'Name',
-      dataIndex: 'full_name',
-      key: 'full_name',
-      render: (text: string) => <Text strong>{text}</Text>,
-    },
-    {
-      title: 'Phone',
-      dataIndex: 'phone_number',
-      key: 'phone_number',
-    },
-    {
-      title: 'Gender',
-      dataIndex: 'gender',
-      key: 'gender',
-      render: (text: string) => text || '-',
-    },
-    {
-      title: 'Group',
-      dataIndex: 'group_name',
-      key: 'group_name',
-      render: (text: string, record: Convert) => (
-        <div>
-          <div><Text strong>{text}</Text></div>
-          {record.group_year && <Text type="secondary" style={{ fontSize: '12px' }}>{record.group_year}</Text>}
-        </div>
-      ),
-    },
-    {
-      title: 'Progress',
-      dataIndex: 'completed_stages',
-      key: 'completed_stages',
-      render: (stages: number) => <Tag color="blue">{stages}/18 stages</Tag>,
-    },
-    {
-      title: 'Attendance',
-      dataIndex: 'total_attendance',
-      key: 'total_attendance',
-      render: (count: number) => <Tag color="cyan">{count} records</Tag>,
-    },
-  ];
+  const paginated = filteredConverts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+  const totalPages = Math.ceil(filteredConverts.length / pageSize);
+  const allSelected =
+    filteredConverts.length > 0 && selectedIds.size === filteredConverts.length;
 
   return (
-    <div style={{ padding: '30px' }}>
+    <div className="space-y-6 p-2 sm:p-0">
       <Card>
-        <Title level={2}>
-          <DeleteOutlined style={{ color: themeStyles.error }} /> Bulk Delete New Converts
-        </Title>
-        
-        <div style={{ 
-          backgroundColor: themeStyles.warningBg, 
-          padding: '15px', 
-          borderRadius: '4px', 
-          marginBottom: '20px', 
-          borderLeft: `4px solid ${themeStyles.warning}` 
-        }}>
-          <Paragraph strong style={{ color: themeStyles.error }}>
-            ⚠️ DANGER ZONE - This operation is irreversible!
-          </Paragraph>
-          <Paragraph>
-            You can select multiple converts below and delete them along with ALL their related data including:
-            progress records, attendance records, and all other associated information.
-          </Paragraph>
-        </div>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="size-5" />
+            Bulk delete new converts
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="rounded-lg border-l-4 border-amber-500 bg-amber-500/10 p-4">
+            <p className="flex items-center gap-2 font-semibold text-destructive">
+              <AlertTriangle className="size-4" />
+              Danger zone — this operation is irreversible!
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              You can select multiple converts below and delete them along with ALL their related
+              data including progress records, attendance records, and all other associated
+              information.
+            </p>
+          </div>
 
-        <Divider />
+          <Separator />
 
-        <div style={{ marginBottom: '20px' }}>
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <Space wrap>
-              <Input
-                placeholder="Search by name or phone number"
-                prefix={<SearchOutlined />}
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                style={{ width: '300px' }}
-                allowClear
-              />
-              
-              <Select
-                placeholder="Filter by Group"
-                style={{ width: '200px' }}
-                value={filterGroup}
-                onChange={setFilterGroup}
-                allowClear
-              >
-                {getUniqueGroups().map(group => (
-                  <Option key={group} value={group}>{group}</Option>
-                ))}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or phone number"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={filterGroup} onValueChange={setFilterGroup}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All groups</SelectItem>
+                  {getUniqueGroups().map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {group}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-
-              <Select
-                placeholder="Filter by Year"
-                style={{ width: '150px' }}
-                value={filterYear}
-                onChange={setFilterYear}
-                allowClear
-              >
-                {getUniqueYears().map(year => (
-                  <Option key={year} value={year}>{year}</Option>
-                ))}
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Filter by year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All years</SelectItem>
+                  {getUniqueYears().map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-
-              <Select
-                placeholder="Filter by Gender"
-                style={{ width: '150px' }}
-                value={filterGender}
-                onChange={setFilterGender}
-                allowClear
-              >
-                <Option value="Male">Male</Option>
-                <Option value="Female">Female</Option>
+              <Select value={filterGender} onValueChange={setFilterGender}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Filter by gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All genders</SelectItem>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                </SelectContent>
               </Select>
-
-              {(searchText || filterGroup || filterYear || filterGender) && (
-                <Button onClick={clearFilters} icon={<FilterOutlined />}>
-                  Clear Filters
+              {hasFilters && (
+                <Button variant="outline" onClick={clearFilters}>
+                  <Filter className="size-4" />
+                  Clear filters
                 </Button>
               )}
-            </Space>
+            </div>
 
-            <Space>
-              <Text type="secondary">
-                Showing {filteredConverts.length} of {converts.length} converts
-              </Text>
-            </Space>
-          </Space>
-        </div>
+            <p className="text-sm text-muted-foreground tabular-nums">
+              Showing {filteredConverts.length} of {converts.length} converts
+            </p>
+          </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <Space>
-            <Text strong>Selected: {selectedIds.size}</Text>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-semibold tabular-nums">Selected: {selectedIds.size}</span>
             {selectedIds.size > 0 && (
+              <>
+                <Button variant="destructive" onClick={handleDeleteClick} disabled={deleting}>
+                  <Trash2 className="size-4" />
+                  Delete selected ({selectedIds.size})
+                </Button>
+                <Button variant="outline" onClick={() => setSelectedIds(new Set())}>
+                  Clear selection
+                </Button>
+              </>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                    />
+                  </TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Gender</TableHead>
+                  <TableHead>Group</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Attendance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((__, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : paginated.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      No converts found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginated.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(record.id)}
+                          onCheckedChange={(checked) =>
+                            handleSelectChange(record.id, checked === true)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{record.full_name}</TableCell>
+                      <TableCell className="tabular-nums">{record.phone_number}</TableCell>
+                      <TableCell>{record.gender || '—'}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{record.group_name}</div>
+                        {record.group_year && (
+                          <div className="text-xs text-muted-foreground tabular-nums">
+                            {record.group_year}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="tabular-nums">
+                          {record.completed_stages}/18 stages
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="tabular-nums">
+                          {record.total_attendance} records
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {!loading && filteredConverts.length > pageSize && (
+            <div className="flex items-center justify-end gap-2">
               <Button
-                danger
-                type="primary"
-                icon={<DeleteOutlined />}
-                onClick={handleDeleteClick}
-                loading={deleting}
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
               >
-                Delete Selected ({selectedIds.size})
+                <ChevronLeft className="size-4" />
               </Button>
-            )}
-            {selectedIds.size > 0 && (
-              <Button onClick={() => setSelectedIds(new Set())}>
-                Clear Selection
+              <span className="text-sm tabular-nums">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                <ChevronRight className="size-4" />
               </Button>
-            )}
-          </Space>
-        </div>
-
-        <Table
-          columns={columns}
-          dataSource={filteredConverts}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 50 }}
-          scroll={{ x: 1000 }}
-        />
+            </div>
+          )}
+        </CardContent>
       </Card>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Confirm bulk delete
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-left text-sm text-muted-foreground">
+                <p className="font-semibold text-destructive">
+                  You are about to permanently delete {selectedIds.size} convert(s) and ALL their
+                  related data:
+                </p>
+                <ul className="list-inside list-disc space-y-1">
+                  <li>Delete from new_converts table</li>
+                  <li>Delete from progress_records table</li>
+                  <li>Delete from attendance_records table</li>
+                </ul>
+                <p className="font-semibold text-foreground">This action cannot be undone.</p>
+                <div>
+                  <p className="font-medium text-foreground">Selected converts:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {Array.from(selectedIds)
+                      .slice(0, 5)
+                      .map((sid) => {
+                        const c = converts.find((x) => x.id === sid);
+                        return c ? (
+                          <li key={sid}>
+                            {c.full_name} ({c.phone_number})
+                          </li>
+                        ) : null;
+                      })}
+                    {selectedIds.size > 5 && (
+                      <li>…and {selectedIds.size - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={cn('bg-destructive text-destructive-foreground hover:bg-destructive/90')}
+              onClick={performBulkDelete}
+              disabled={deleting}
+            >
+              Yes, delete all
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

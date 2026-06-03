@@ -1,8 +1,21 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Segmented, Spin, Empty, Progress } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
+import { SynagoLoader } from '@/components/shell/SynagoLoader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { EmptyState } from '@/components/base/EmptyState';
+import { cn } from '@/lib/utils';
 
 interface CohortRow {
   key: string;
@@ -33,27 +46,63 @@ interface CohortAnalysisDashboardProps {
   token?: string;
 }
 
-export function CohortAnalysisDashboard({ groupId, months = 6, userId, token }: CohortAnalysisDashboardProps) {
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { label: React.ReactNode; value: T }[];
+}) {
+  return (
+    <div className="inline-flex rounded-lg border p-1">
+      {options.map((opt) => (
+        <Button
+          key={opt.value}
+          variant={value === opt.value ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+export function CohortAnalysisDashboard({
+  groupId,
+  months = 6,
+  userId,
+  token,
+}: CohortAnalysisDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'table' | 'compare'>('table');
   const [rows, setRows] = useState<CohortRow[]>([]);
-  const [summary, setSummary] = useState<any>(null);
+  const [summary, setSummary] = useState<{
+    bestRetention30?: { label: string; retention30: number };
+    bestCompletion?: { label: string; completionRate: number };
+  } | null>(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/cohorts/compare?months=${months}${groupId ? `&groupId=${groupId}` : ''}`, {
-          credentials: 'include',
-          headers: {
-            'x-user-id': userId,
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
+        const res = await fetch(
+          `/api/cohorts/compare?months=${months}${groupId ? `&groupId=${groupId}` : ''}`,
+          {
+            credentials: 'include',
+            headers: {
+              'x-user-id': userId,
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
+        );
         if (res.ok) {
           const data = await res.json();
           setRows(
-            (data.cohorts as CohortApiRow[] || []).map((c) => ({
+            ((data.cohorts as CohortApiRow[]) || []).map((c) => ({
               key: c.cohortKey,
               label: c.label,
               size: c.size,
@@ -71,109 +120,123 @@ export function CohortAnalysisDashboard({ groupId, months = 6, userId, token }: 
       }
     };
     load();
-  }, [groupId, months]);
+  }, [groupId, months, userId, token]);
 
   if (loading) {
     return (
-      <Card className="text-center">
-        <Spin indicator={<LoadingOutlined spin style={{ fontSize: 40 }} />} />
-        <p className="mt-2">Loading cohort analytics...</p>
+      <Card>
+        <CardContent className="flex flex-col items-center py-10">
+          <SynagoLoader size={40} />
+          <p className="mt-2 text-sm text-muted-foreground">Loading cohort analytics...</p>
+        </CardContent>
       </Card>
     );
   }
 
   if (!rows.length) {
-    return <Empty description="No cohort data available" />;
+    return <EmptyState title="No cohort data available" />;
   }
 
-  const columns = [
-    {
-      title: 'Cohort',
-      dataIndex: 'label',
-      key: 'label',
-    },
-    {
-      title: 'Size',
-      dataIndex: 'size',
-      key: 'size',
-    },
-    {
-      title: 'Retention 30d',
-      dataIndex: 'retention30',
-      key: 'retention30',
-      render: (value: number) => <Progress percent={value} size="small" strokeColor="#52c41a" />,
-    },
-    {
-      title: 'Retention 60d',
-      dataIndex: 'retention60',
-      key: 'retention60',
-      render: (value: number) => <Progress percent={value} size="small" strokeColor="#faad14" />,
-    },
-    {
-      title: 'Retention 90d',
-      dataIndex: 'retention90',
-      key: 'retention90',
-      render: (value: number) => <Progress percent={value} size="small" strokeColor="#ff4d4f" />,
-    },
-    {
-      title: 'Completion',
-      dataIndex: 'completionRate',
-      key: 'completionRate',
-      render: (value: number) => (
-        <Tag color={value > 50 ? 'green' : value > 25 ? 'orange' : 'red'}>{value}%</Tag>
-      ),
-    },
-    {
-      title: 'Avg Milestones',
-      dataIndex: 'avgMilestones',
-      key: 'avgMilestones',
-    },
-  ];
+  const completionVariant = (value: number) => {
+    if (value > 50) return 'success' as const;
+    if (value > 25) return 'warning' as const;
+    return 'destructive' as const;
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Cohort Analysis</h3>
-        <Segmented
+        <SegmentedControl
           value={view}
-          onChange={(v) => setView(v as typeof view)}
-          options={[{ label: 'Table', value: 'table' }, { label: 'Highlights', value: 'compare' }]}
+          onChange={(v) => setView(v)}
+          options={[
+            { label: 'Table', value: 'table' },
+            { label: 'Highlights', value: 'compare' },
+          ]}
         />
       </div>
 
       {view === 'table' ? (
         <Card>
-          <Table dataSource={rows} columns={columns} pagination={false} rowKey="key" size="small" />
+          <CardContent className="pt-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cohort</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead>Retention 30d</TableHead>
+                  <TableHead>Retention 60d</TableHead>
+                  <TableHead>Retention 90d</TableHead>
+                  <TableHead>Completion</TableHead>
+                  <TableHead>Avg Milestones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.key}>
+                    <TableCell>{row.label}</TableCell>
+                    <TableCell>{row.size}</TableCell>
+                    <TableCell>
+                      <Progress value={row.retention30} className="h-1.5 [&>div]:bg-success" />
+                    </TableCell>
+                    <TableCell>
+                      <Progress value={row.retention60} className="h-1.5 [&>div]:bg-warning" />
+                    </TableCell>
+                    <TableCell>
+                      <Progress value={row.retention90} className="h-1.5 [&>div]:bg-destructive" />
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={completionVariant(row.completionRate)}>
+                        {row.completionRate}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{row.avgMilestones}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
         </Card>
       ) : (
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
-            <Card title="Best 30-day Retention">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Best 30-day Retention</CardTitle>
+            </CardHeader>
+            <CardContent>
               {summary?.bestRetention30 ? (
-                <Statistic
-                  title={summary.bestRetention30.label}
-                  value={`${summary.bestRetention30.retention30}%`}
-                  suffix="Retention"
-                />
+                <div>
+                  <p className="text-sm text-muted-foreground">{summary.bestRetention30.label}</p>
+                  <p className="text-3xl font-semibold tabular-nums">
+                    {summary.bestRetention30.retention30}%
+                    <span className="ml-2 text-base font-normal text-muted-foreground">Retention</span>
+                  </p>
+                </div>
               ) : (
-                <Empty description="No data" />
+                <EmptyState title="No data" className="border-0 bg-transparent py-6" />
               )}
-            </Card>
-          </Col>
-          <Col xs={24} md={12}>
-            <Card title="Best Completion Rate">
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Best Completion Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
               {summary?.bestCompletion ? (
-                <Statistic
-                  title={summary.bestCompletion.label}
-                  value={`${summary.bestCompletion.completionRate}%`}
-                  suffix="Completion"
-                />
+                <div>
+                  <p className="text-sm text-muted-foreground">{summary.bestCompletion.label}</p>
+                  <p className="text-3xl font-semibold tabular-nums">
+                    {summary.bestCompletion.completionRate}%
+                    <span className="ml-2 text-base font-normal text-muted-foreground">Completion</span>
+                  </p>
+                </div>
               ) : (
-                <Empty description="No data" />
+                <EmptyState title="No data" className="border-0 bg-transparent py-6" />
               )}
-            </Card>
-          </Col>
-        </Row>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

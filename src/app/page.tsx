@@ -1,396 +1,357 @@
-'use client';
+'use client'
 
-import { useEffect, useState, useCallback } from 'react';
-import { Card, Button, Typography, Spin, Row, Col, theme, Empty, Select, Collapse, Tag, Space, Checkbox, Divider, App } from 'antd';
-import { TeamOutlined, CalendarOutlined, DownOutlined, HomeOutlined, RightOutlined } from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
-import { CURRENT_YEAR } from '@/lib/constants';
-
-const { Title, Text } = Typography;
-const { useToken } = theme;
-const { Panel } = Collapse;
+import { useEffect, useState, useCallback } from 'react'
+import {
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  Home,
+  Users,
+} from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
+import { api } from '@/lib/api'
+import { CURRENT_YEAR } from '@/lib/constants'
+import { message } from '@/lib/toast'
+import { LoadingScreen } from '@/components/base/LoadingScreen'
+import { EmptyState } from '@/components/base/EmptyState'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 interface Group {
-  id: string;
-  name: string;
-  description?: string;
-  year: number;
-  archived: boolean;
-  leader_name?: string;
-  member_count?: number;
+  id: string
+  name: string
+  description?: string
+  year: number
+  archived: boolean
+  leader_name?: string
+  member_count?: number
 }
 
 interface GroupsByYear {
-  [year: number]: Group[];
+  [year: number]: Group[]
 }
 
-// Unified, refined group card. One brand accent, consistent shape, quiet hover.
-function GroupCard({ group, selected, onSelect }: { group: Group; selected: boolean; onSelect: (id: string) => void }) {
+function GroupCard({
+  group,
+  selected,
+  onSelect,
+}: {
+  group: Group
+  selected: boolean
+  onSelect: (id: string) => void
+}) {
   return (
     <Card
-      hoverable
+      className={cn(
+        'cursor-pointer transition-all hover:border-primary/40',
+        selected && 'border-primary ring-2 ring-primary/10'
+      )}
       onClick={() => onSelect(group.id)}
-      style={{
-        borderRadius: 14,
-        border: `1px solid ${selected ? '#003366' : '#e8e8e8'}`,
-        boxShadow: selected ? '0 0 0 3px rgba(0,51,102,0.08)' : '0 1px 2px rgba(16,24,40,0.05)',
-        transition: 'border-color .2s ease, box-shadow .2s ease',
-        cursor: 'pointer',
-      }}
-      styles={{ body: { padding: 18 } }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              background: 'rgba(0,51,102,0.08)',
-              color: '#003366',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <CalendarOutlined style={{ fontSize: 18 }} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(0,0,0,0.88)', lineHeight: 1.25 }}>
-              {group.name}
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Calendar className="size-5" />
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>{group.year}</div>
+            <div className="min-w-0">
+              <p className="truncate font-semibold">{group.name}</p>
+              <p className="text-xs text-muted-foreground">{group.year}</p>
+            </div>
           </div>
+          <ChevronRight className="size-4 shrink-0 text-primary" />
         </div>
-        <RightOutlined style={{ color: '#003366', fontSize: 12, flexShrink: 0 }} />
-      </div>
-
-      <div
-        style={{
-          marginTop: 16,
-          paddingTop: 14,
-          borderTop: '1px solid #f0f0f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          fontSize: 12,
-          color: 'rgba(0,0,0,0.55)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <TeamOutlined />
-          {group.member_count ?? 0} {group.member_count === 1 ? 'member' : 'members'}
-        </span>
-        {group.leader_name && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: '50%',
-                background: 'rgba(0,51,102,0.1)',
-                color: '#003366',
-                fontSize: 10,
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {group.leader_name.charAt(0).toUpperCase()}
-            </span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {group.leader_name}
-            </span>
+        <div className="mt-4 flex flex-wrap items-center gap-4 border-t pt-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <Users className="size-3.5" />
+            {group.member_count ?? 0}{' '}
+            {group.member_count === 1 ? 'member' : 'members'}
           </span>
-        )}
-      </div>
+          {group.leader_name && (
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                {group.leader_name.charAt(0).toUpperCase()}
+              </span>
+              <span className="truncate">{group.leader_name}</span>
+            </span>
+          )}
+        </div>
+      </CardContent>
     </Card>
-  );
+  )
+}
+
+function PageHeader() {
+  return (
+    <div className="border-b bg-card px-6 py-4">
+      <div className="mx-auto flex max-w-6xl items-center gap-3">
+        <Home className="size-6 text-foreground" />
+        <div>
+          <h1 className="text-lg font-semibold">Select A Group</h1>
+          <p className="text-xs text-muted-foreground">
+            Choose a group to view milestone tracking and attendance
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function YearAccordionSection({
+  year,
+  groups,
+  currentYear,
+  selectedGroupId,
+  onSelectGroup,
+  defaultOpen,
+}: {
+  year: number
+  groups: Group[]
+  currentYear: number
+  selectedGroupId: string | null
+  onSelectGroup: (id: string) => void
+  defaultOpen?: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? year === currentYear)
+
+  return (
+    <div className="mb-4 overflow-hidden rounded-lg border bg-card">
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ChevronDown
+          className={cn('size-5 transition-transform', !open && '-rotate-90')}
+        />
+        <Calendar className="size-5 text-primary" />
+        <span className="text-lg font-semibold">{year}</span>
+        <Badge variant={year === currentYear ? 'default' : 'secondary'}>
+          {groups.length} {groups.length === 1 ? 'group' : 'groups'}
+        </Badge>
+        {year === currentYear && (
+          <Badge variant="outline" className="border-success/40 text-success">
+            Current Year
+          </Badge>
+        )}
+      </button>
+      {open && (
+        <div className="grid gap-4 border-t p-4 sm:grid-cols-2 lg:grid-cols-4">
+          {groups.map((group) => (
+            <GroupCard
+              key={group.id}
+              group={group}
+              selected={selectedGroupId === group.id}
+              onSelect={onSelectGroup}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function RootPage() {
-  const { user, token, loading: authLoading } = useAuth();
-  const { message } = App.useApp();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [allGroups, setAllGroups] = useState<Group[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR);
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
-  const [activeKeys, setActiveKeys] = useState<string[]>([CURRENT_YEAR.toString()]);
-  const { token: antdToken } = useToken();
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [groups, setGroups] = useState<Group[]>([])
+  const [allGroups, setAllGroups] = useState<Group[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR)
+  const [availableYears, setAvailableYears] = useState<number[]>([])
 
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
-        // Not logged in - redirect to login
-        router.push('/auth');
-        return;
-      } else if (user.role === 'superadmin') {
-        // Superadmin goes to superadmin dashboard
-        router.push('/superadmin');
-        return;
-      } else if (user.group_id) {
-        // Admin/leader with single group_id goes directly to their group
-        router.push(`/${user.group_id}`);
-        return;
-      } else {
-        // Admin/leader/leadpastor/overseer without group_id or multi-group needs selector
-        fetchGroups();
+        router.push('/auth')
+        return
       }
+      if (user.role === 'superadmin') {
+        router.push('/superadmin')
+        return
+      }
+      if (user.group_id) {
+        router.push(`/${user.group_id}`)
+        return
+      }
+      fetchGroups()
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router])
 
   const fetchGroups = async () => {
     try {
-      setLoading(true);
-      const response = await api.groups.list({ active: true });
+      setLoading(true)
+      const response = await api.groups.list({ active: true })
+      if (!response.success) throw new Error('Failed to fetch groups')
 
-      if (!response.success) {
-        throw new Error('Failed to fetch groups');
+      let fetchedGroups: Group[] = (response.data?.groups as Group[]) || []
+
+      if (
+        (user?.role === 'admin' || user?.role === 'leader') &&
+        user?.group_name
+      ) {
+        fetchedGroups = fetchedGroups.filter(
+          (g) => g.name.toLowerCase() === user.group_name!.toLowerCase()
+        )
       }
 
-      let fetchedGroups: Group[] = (response.data?.groups as Group[]) || [];
-
-      // For admin/leader with assigned group name, filter by that group
-      if ((user?.role === 'admin' || user?.role === 'leader') && user?.group_name) {
-        fetchedGroups = fetchedGroups.filter((g) =>
-          g.name.toLowerCase() === user.group_name!.toLowerCase()
-        );
-      }
-
-      // Sort by year descending, then by name
       fetchedGroups.sort((a, b) => {
-        if (b.year !== a.year) return b.year - a.year;
-        return a.name.localeCompare(b.name);
-      });
+        if (b.year !== a.year) return b.year - a.year
+        return a.name.localeCompare(b.name)
+      })
 
-      setAllGroups(fetchedGroups);
-
-      // Extract unique years
-      const years = Array.from(new Set<number>(fetchedGroups.map((g) => Number(g.year)))).sort((a, b) => b - a);
-      setAvailableYears(years);
-      setActiveKeys([CURRENT_YEAR.toString()]);
-
-      // Filter by selected year
-      filterGroupsByYear(fetchedGroups, selectedYear);
+      setAllGroups(fetchedGroups)
+      const years = Array.from(
+        new Set<number>(fetchedGroups.map((g) => Number(g.year)))
+      ).sort((a, b) => b - a)
+      setAvailableYears(years)
+      filterGroupsByYear(fetchedGroups, selectedYear)
     } catch (error: unknown) {
-      console.error('Failed to fetch groups:', error);
-      message.error('Failed to load groups');
+      console.error('Failed to fetch groups:', error)
+      message.error('Failed to load groups')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const filterGroupsByYear = useCallback((groupsToFilter: Group[], year: number) => {
-    const filtered = groupsToFilter.filter((g) => g.year === year);
-    setGroups(filtered);
-  }, []);
+    setGroups(groupsToFilter.filter((g) => g.year === year))
+  }, [])
 
   useEffect(() => {
     if (allGroups.length > 0) {
-      filterGroupsByYear(allGroups, selectedYear);
+      filterGroupsByYear(allGroups, selectedYear)
     }
-  }, [selectedYear, allGroups, filterGroupsByYear]);
+  }, [selectedYear, allGroups, filterGroupsByYear])
 
   const handleSelectGroup = (groupId: string) => {
-    setSelectedGroupId(groupId);
-    setTimeout(() => {
-      router.push(`/${groupId}`);
-    }, 300);
-  };
+    setSelectedGroupId(groupId)
+    setTimeout(() => router.push(`/${groupId}`), 300)
+  }
 
-  const monthOrder: { [key: string]: number } = {
-    january: 1, february: 2, march: 3, april: 4,
-    may: 5, june: 6, july: 7, august: 8,
-    september: 9, october: 10, november: 11, december: 12,
-  };
+  const monthOrder: Record<string, number> = {
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12,
+  }
 
-  // Organize groups by year for leadpastor/overseer view
-  const groupsByYear: GroupsByYear = allGroups.reduce((acc: GroupsByYear, group: Group) => {
-    if (!acc[group.year]) {
-      acc[group.year] = [];
-    }
-    acc[group.year].push(group);
-    return acc;
-  }, {} as GroupsByYear);
+  const groupsByYear: GroupsByYear = allGroups.reduce((acc: GroupsByYear, group) => {
+    if (!acc[group.year]) acc[group.year] = []
+    acc[group.year].push(group)
+    return acc
+  }, {} as GroupsByYear)
 
-  // Sort groups within each year by month order
   Object.keys(groupsByYear).forEach((year) => {
     groupsByYear[parseInt(year, 10)].sort((a, b) => {
-      const aOrder = monthOrder[a.name.toLowerCase()] || 999;
-      const bOrder = monthOrder[b.name.toLowerCase()] || 999;
-      return aOrder - bOrder;
-    });
-  });
+      const aOrder = monthOrder[a.name.toLowerCase()] || 999
+      const bOrder = monthOrder[b.name.toLowerCase()] || 999
+      return aOrder - bOrder
+    })
+  })
 
   const sortedYears = Object.keys(groupsByYear)
     .map(Number)
-    .sort((a, b) => b - a);
+    .sort((a, b) => b - a)
 
   if (authLoading || loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" />
-        <Text type="secondary">Loading...</Text>
-      </div>
-    );
+    return <LoadingScreen label="Loading groups…" />
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null
 
-  // Show leadpastor/overseer view with collapsible years
   if (user.role === 'leadpastor' || user.role === 'overseer') {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-        {/* Header Section */}
-        <div style={{ 
-          backgroundColor: '#ffffff',
-          borderBottom: `1px solid #e8e8e8`,
-          padding: '16px 24px'
-        }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <HomeOutlined style={{ fontSize: 24 }} />
-              <div>
-                <Title level={3} style={{ margin: 0, fontSize: 18 }}>Select A Group</Title>
-                <Text type="secondary" style={{ fontSize: 12 }}>Choose a group to view milestone tracking and attendance</Text>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content Section */}
-        <div style={{ padding: '32px 8px' }}>
-        {sortedYears.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 0' }}>
-            <Empty description="No groups found" />
-          </div>
-        ) : (
-          <Collapse
-            activeKey={activeKeys}
-            onChange={(keys) => setActiveKeys(Array.isArray(keys) ? keys : [keys])}
-            expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
-            style={{ background: 'transparent', border: 'none' }}
-          >
-            {sortedYears.map((year) => (
-              <Panel
-                header={(
-                  <Space>
-                    <CalendarOutlined style={{ fontSize: 20 }} />
-                    <Text strong style={{ fontSize: 18 }}>
-                      {year}
-                    </Text>
-                    <Tag color={year === CURRENT_YEAR ? 'blue' : 'default'}>
-                      {groupsByYear[year].length} {groupsByYear[year].length === 1 ? 'group' : 'groups'}
-                    </Tag>
-                    {year === CURRENT_YEAR && (
-                      <Tag color="green">Current Year</Tag>
-                    )}
-                  </Space>
-                )}
-                key={year.toString()}
-                style={{
-                  marginBottom: 16,
-                  borderRadius: 8,
-                  border: '1px solid #d9d9d9',
-                  background: '#fff',
-                }}
-              >
-                <Row gutter={[24, 24]} style={{ paddingTop: 8 }}>
-                  {groupsByYear[year].map((group) => (
-                    <Col xs={24} sm={12} md={6} lg={6} key={group.id}>
-                      <GroupCard
-                        group={group}
-                        selected={selectedGroupId === group.id}
-                        onSelect={handleSelectGroup}
-                      />
-                    </Col>
-                  ))}
-                </Row>
-              </Panel>
-            ))}
-          </Collapse>
-        )}
+      <div className="min-h-screen bg-muted/30">
+        <PageHeader />
+        <div className="px-2 py-8 sm:px-4">
+          {sortedYears.length === 0 ? (
+            <EmptyState title="No groups found" />
+          ) : (
+            sortedYears.map((year) => (
+              <YearAccordionSection
+                key={year}
+                year={year}
+                groups={groupsByYear[year]}
+                currentYear={CURRENT_YEAR}
+                selectedGroupId={selectedGroupId}
+                onSelectGroup={handleSelectGroup}
+                defaultOpen={year === CURRENT_YEAR}
+              />
+            ))
+          )}
         </div>
       </div>
-    );
+    )
   }
 
-  // Show admin/leader view with year filter
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      {/* Header Section */}
-      <div style={{ 
-        backgroundColor: '#ffffff',
-        borderBottom: `1px solid #e8e8e8`,
-        padding: '16px 24px'
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <HomeOutlined style={{ fontSize: 24 }} />
-            <div>
-              <Title level={3} style={{ margin: 0, fontSize: 18 }}>Select A Group</Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>Choose a group to view milestone tracking and attendance</Text>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Section */}
-      <div style={{ padding: '32px 24px', maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
-            Select Your Group
-          </Title>
-          <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginBottom: 24 }}>
+    <div className="min-h-screen bg-muted/30">
+      <PageHeader />
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="mx-auto mb-8 max-w-2xl text-center">
+          <h2 className="text-2xl font-bold tracking-tight">Select Your Group</h2>
+          <p className="mt-2 text-muted-foreground">
             Choose which group and year you want to manage
-          </Text>
-          
+          </p>
           {availableYears.length > 1 && (
-            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
-              <Text>Filter by Year:</Text>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <span className="text-sm">Filter by Year:</span>
               <Select
-                value={selectedYear}
-                onChange={setSelectedYear}
-                style={{ width: 120 }}
-                options={availableYears.map(year => ({ label: year, value: year }))}
-              />
+                value={String(selectedYear)}
+                onValueChange={(v) => setSelectedYear(Number(v))}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableYears.map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
 
-        <Row gutter={[24, 24]}>
-          {groups.length === 0 ? (
-            <Col span={24}>
-              <Empty
-                description={`No groups found for year ${selectedYear}`}
-                style={{ marginTop: '50px' }}
-              >
-                <Text type="secondary">Try selecting a different year</Text>
-              </Empty>
-            </Col>
-          ) : (
-            groups.map((group) => (
-            <Col key={group.id} xs={24} sm={12} md={8}>
+        {groups.length === 0 ? (
+          <EmptyState
+            title={`No groups found for year ${selectedYear}`}
+            description="Try selecting a different year"
+          />
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {groups.map((group) => (
               <GroupCard
+                key={group.id}
                 group={group}
                 selected={selectedGroupId === group.id}
                 onSelect={handleSelectGroup}
               />
-            </Col>
-          )))}
-        </Row>
+            ))}
+          </div>
+        )}
       </div>
     </div>
-  );
+  )
 }

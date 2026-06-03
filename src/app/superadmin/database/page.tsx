@@ -1,14 +1,65 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, Alert, Button, Tabs, Table, Modal, Form, Input, Select, Popconfirm, Tag, App } from 'antd';
-import { DatabaseOutlined, TableOutlined, UserOutlined, TeamOutlined, HeartOutlined, CheckCircleOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import {
+  Database,
+  Table2,
+  User,
+  UsersRound,
+  Heart,
+  CheckCircle,
+  Pencil,
+  Trash2,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { message } from '@/lib/toast';
+import { LoadingScreen } from '@/components/base/LoadingScreen';
+import { StatCard } from '@/components/base/StatCard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const { Title, Paragraph, Text } = Typography;
-const { TabPane } = Tabs;
-
-// Keep allowed tables aligned with the API allowlist
 const ALLOWED_TABLES = [
   'users',
   'groups',
@@ -44,8 +95,7 @@ interface TableSchema {
 }
 
 export default function DatabaseManagementPage() {
-  const { token, user } = useAuth();
-  const { message } = App.useApp();
+  const { token } = useAuth();
   const [dbInfo, setDbInfo] = useState<DatabaseInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [schema, setSchema] = useState<Record<string, TableSchema[]>>({});
@@ -55,22 +105,23 @@ export default function DatabaseManagementPage() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
-  const [form] = Form.useForm();
+  const [editFormValues, setEditFormValues] = useState<Record<string, string>>({});
+  const [deleteRecord, setDeleteRecord] = useState<Record<string, unknown> | null>(null);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 50, total: 0 });
 
-  // Decode token to get username
   const getUsernameFromToken = (): string | null => {
     if (!token) return null;
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const jsonPayload = decodeURIComponent(
-        atob(base64).split('').map((c) => 
-          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-        ).join('')
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
       );
       return JSON.parse(jsonPayload).username;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
@@ -89,9 +140,8 @@ export default function DatabaseManagementPage() {
     if (selectedTable && token) {
       fetchTableData(selectedTable, pagination.current);
     }
-  }, [selectedTable, pagination.current]);
+  }, [selectedTable, pagination.current, pagination.pageSize]);
 
-  // Auto-select first allowed table present in schema when it loads
   useEffect(() => {
     const tableNames = ALLOWED_TABLES.filter((t) => schema[t]);
     if (tableNames.length > 0) {
@@ -111,7 +161,7 @@ export default function DatabaseManagementPage() {
       });
       const data = await response.json();
       setSchema(data.schema || {});
-    } catch (error) {
+    } catch {
       message.error('Failed to fetch database schema');
     }
   };
@@ -132,15 +182,14 @@ export default function DatabaseManagementPage() {
           offset: (page - 1) * pagination.pageSize,
         }),
       });
-      
+
       const data = await response.json();
-      
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch table data');
       }
-      
+
       setTableData(data.data || []);
-      setPagination(prev => ({ ...prev, total: data.total, current: page }));
+      setPagination((prev) => ({ ...prev, total: data.total, current: page }));
     } catch (error: unknown) {
       message.error(error instanceof Error ? error.message : 'Failed to fetch table data');
     } finally {
@@ -156,7 +205,7 @@ export default function DatabaseManagementPage() {
       });
       const data = await response.json();
       setDbInfo(data);
-    } catch (error) {
+    } catch {
       message.error('Failed to fetch database info');
     } finally {
       setLoading(false);
@@ -165,7 +214,13 @@ export default function DatabaseManagementPage() {
 
   const handleEdit = (record: Record<string, unknown>) => {
     setEditingRecord(record);
-    form.setFieldsValue(record);
+    const values: Record<string, string> = {};
+    Object.entries(record).forEach(([key, val]) => {
+      if (key !== 'id' && key !== 'created_at' && key !== 'updated_at') {
+        values[key] = val === null || val === undefined ? '' : String(val);
+      }
+    });
+    setEditFormValues(values);
     setEditModalVisible(true);
   };
 
@@ -174,9 +229,22 @@ export default function DatabaseManagementPage() {
     setViewModalVisible(true);
   };
 
-  const handleUpdate = async (values: Record<string, unknown>) => {
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
       const idField = selectedTable === 'milestones' ? 'stage_number' : 'id';
+      const updates: Record<string, unknown> = {};
+      const cols = schema[selectedTable] || [];
+      cols.forEach((col) => {
+        if (col.name === 'id' || col.name === 'created_at' || col.name === 'updated_at') return;
+        const raw = editFormValues[col.name];
+        if (col.type === 'boolean') {
+          updates[col.name] = raw === 'true';
+        } else {
+          updates[col.name] = raw;
+        }
+      });
+
       const response = await fetch('/api/superadmin/database/edit', {
         method: 'PATCH',
         credentials: 'include',
@@ -187,7 +255,7 @@ export default function DatabaseManagementPage() {
         body: JSON.stringify({
           tableName: selectedTable,
           id: editingRecord?.[idField],
-          updates: values,
+          updates,
         }),
       });
 
@@ -204,16 +272,18 @@ export default function DatabaseManagementPage() {
     }
   };
 
-  const handleDelete = async (record: Record<string, unknown>) => {
+  const handleDelete = async () => {
+    if (!deleteRecord) return;
     try {
       const idField = selectedTable === 'milestones' ? 'stage_number' : 'id';
-      const response = await fetch(`/api/superadmin/database/edit?table=${selectedTable}&id=${record[idField]}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `/api/superadmin/database/edit?table=${selectedTable}&id=${deleteRecord[idField]}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
@@ -224,308 +294,418 @@ export default function DatabaseManagementPage() {
       fetchTableData(selectedTable, pagination.current);
     } catch (error: unknown) {
       message.error(error instanceof Error ? error.message : 'Failed to delete record');
+    } finally {
+      setDeleteRecord(null);
     }
   };
 
-  const getTableColumns = (tableName: string) => {
-    const columns = schema[tableName] || [];
-    const idField = tableName === 'milestones' ? 'stage_number' : 'id';
-    
-    // Show all columns for attendance_records, limit others to prevent overwhelming display
-    const columnLimit = tableName === 'attendance_records' ? columns.length : 8;
-    
-    const tableColumns: import('antd/es/table').ColumnType<Record<string, unknown>>[] = columns.slice(0, columnLimit).map(col => ({
-      title: col.name,
-      dataIndex: col.name,
-      key: col.name,
-      ellipsis: true,
-      width: col.name === 'id' || col.name === 'person_id' ? 120 : undefined, // Ensure ID columns are visible
-      render: (text: unknown) => {
-        if (text === null || text === undefined) return <Text type="secondary">NULL</Text>;
-        if (typeof text === 'boolean') return text ? <Tag color="green">true</Tag> : <Tag color="red">false</Tag>;
-        if (typeof text === 'object') return JSON.stringify(text).substring(0, 50) + '...';
-        return String(text).substring(0, 100);
-      },
-    }));
-
-    tableColumns.push({
-      title: 'Actions',
-      key: 'actions',
-      fixed: 'right' as const,
-      width: 150,
-      render: (_: unknown, record: Record<string, unknown>) => (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handleView(record)}
-          >
-            View
-          </Button>
-          {isSkaduteye && (
-            <>
-              <Button
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => handleEdit(record)}
-              />
-              <Popconfirm
-                title="Are you sure you want to delete this record?"
-                onConfirm={() => handleDelete(record)}
-                okText="Yes"
-                cancelText="No"
-              >
-                <Button size="small" danger icon={<DeleteOutlined />} />
-              </Popconfirm>
-            </>
-          )}
-        </div>
-      ),
-    });
-
-    return tableColumns;
+  const renderCellValue = (text: unknown) => {
+    if (text === null || text === undefined) {
+      return <span className="text-muted-foreground">NULL</span>;
+    }
+    if (typeof text === 'boolean') {
+      return (
+        <Badge variant={text ? 'default' : 'destructive'}>{String(text)}</Badge>
+      );
+    }
+    if (typeof text === 'object') {
+      return JSON.stringify(text).substring(0, 50) + '…';
+    }
+    return String(text).substring(0, 100);
   };
 
-  if (loading || !dbInfo) {
-    return <div>Loading database information...</div>;
-  }
+  const getVisibleColumns = (tableName: string) => {
+    const columns = schema[tableName] || [];
+    const columnLimit = tableName === 'attendance_records' ? columns.length : 8;
+    return columns.slice(0, columnLimit);
+  };
 
   const tables = ALLOWED_TABLES.filter((t) => schema[t]);
+  const totalPages = Math.ceil(pagination.total / pagination.pageSize);
+
+  if (loading || !dbInfo) {
+    return <LoadingScreen label="Loading database information…" />;
+  }
 
   return (
-    <div>
-      <Title level={2}>
-        <DatabaseOutlined /> Database Management
-      </Title>
+    <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <Database className="size-6 text-muted-foreground" />
+        <h1 className="text-2xl font-semibold tracking-tight">Database management</h1>
+      </div>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="Total Records"
-              value={dbInfo.totalRecords}
-              prefix={<TableOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="Total Tables"
-              value={tables.length}
-              prefix={<DatabaseOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="Database Status"
-              value="Connected"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          title="Total records"
+          value={dbInfo.totalRecords}
+          icon={Table2}
+          accent="primary"
+        />
+        <StatCard
+          title="Total tables"
+          value={tables.length}
+          icon={Database}
+          accent="campaigns"
+        />
+        <StatCard
+          title="Database status"
+          value="Connected"
+          icon={CheckCircle}
+          accent="campaigns"
+          deltaPositive
+        />
+      </div>
 
-      <Card title="Database Tables & Data" style={{ marginBottom: 24 }}>
-        <Tabs
-          activeKey={selectedTable && schema[selectedTable] ? selectedTable : tables[0] || ''}
-          onChange={(key) => {
-            setSelectedTable(key);
-            setPagination((prev) => ({ ...prev, current: 1 }));
-          }}
-        >
-          {tables.map(table => (
-            <TabPane tab={table} key={table}>
-              <div style={{ marginBottom: 16 }}>
-                <Text strong>Columns ({schema[table]?.length || 0}):</Text>
-                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {schema[table]?.map(col => (
-                    <Tag key={col.name} color="blue">
-                      {col.name} <Text type="secondary" style={{ fontSize: 11 }}>({col.type})</Text>
-                    </Tag>
-                  ))}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-medium">Database tables & data</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs
+            value={selectedTable && schema[selectedTable] ? selectedTable : tables[0] || ''}
+            onValueChange={(key) => {
+              setSelectedTable(key);
+              setPagination((prev) => ({ ...prev, current: 1 }));
+            }}
+          >
+            <TabsList className="mb-4 h-auto flex-wrap">
+              {tables.map((table) => (
+                <TabsTrigger key={table} value={table} className="text-xs">
+                  {table}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {tables.map((table) => (
+              <TabsContent key={table} value={table} className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium">
+                    Columns ({schema[table]?.length || 0}):
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {schema[table]?.map((col) => (
+                      <Badge key={col.name} variant="secondary">
+                        {col.name}{' '}
+                        <span className="text-muted-foreground">({col.type})</span>
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              
-              <Table
-                dataSource={tableData}
-                columns={getTableColumns(table)}
-                loading={tableLoading}
-                pagination={{
-                  current: pagination.current,
-                  pageSize: pagination.pageSize,
-                  total: pagination.total,
-                  showSizeChanger: true,
-                  showTotal: (total) => `Total ${total} records`,
-                }}
-                onChange={(newPagination) => {
-                  setPagination(prev => ({
-                    ...prev,
-                    current: newPagination.current || 1,
-                    pageSize: newPagination.pageSize || 50,
-                  }));
-                }}
-                rowKey={(record) => {
-                  const idField = table === 'milestones' ? 'stage_number' : 'id';
-                  return String(record[idField] ?? '');
-                }}
-                scroll={{ x: 'max-content' }}
-                size="small"
-              />
-            </TabPane>
-          ))}
-        </Tabs>
+
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {getVisibleColumns(table).map((col) => (
+                          <TableHead key={col.name}>{col.name}</TableHead>
+                        ))}
+                        <TableHead className="sticky right-0 bg-card">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tableLoading ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                          <TableRow key={i}>
+                            {Array.from({ length: getVisibleColumns(table).length + 1 }).map(
+                              (__, j) => (
+                                <TableCell key={j}>
+                                  <Skeleton className="h-4 w-full" />
+                                </TableCell>
+                              )
+                            )}
+                          </TableRow>
+                        ))
+                      ) : tableData.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={getVisibleColumns(table).length + 1}
+                            className="text-center text-muted-foreground"
+                          >
+                            No records
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        tableData.map((record, idx) => {
+                          const idField = table === 'milestones' ? 'stage_number' : 'id';
+                          return (
+                            <TableRow key={String(record[idField] ?? idx)}>
+                              {getVisibleColumns(table).map((col) => (
+                                <TableCell key={col.name} className="max-w-[160px] truncate">
+                                  {renderCellValue(record[col.name])}
+                                </TableCell>
+                              ))}
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleView(record)}
+                                  >
+                                    <Eye className="size-4" />
+                                    View
+                                  </Button>
+                                  {isSkaduteye && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEdit(record)}
+                                      >
+                                        <Pencil className="size-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive hover:text-destructive"
+                                        onClick={() => setDeleteRecord(record)}
+                                      >
+                                        <Trash2 className="size-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {pagination.total > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <p className="text-sm text-muted-foreground tabular-nums">
+                      Total {pagination.total} records
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={String(pagination.pageSize)}
+                        onValueChange={(v) =>
+                          setPagination((prev) => ({
+                            ...prev,
+                            pageSize: Number(v),
+                            current: 1,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['25', '50', '100'].map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s} / page
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pagination.current <= 1}
+                        onClick={() =>
+                          setPagination((prev) => ({ ...prev, current: prev.current - 1 }))
+                        }
+                      >
+                        <ChevronLeft className="size-4" />
+                      </Button>
+                      <span className="text-sm tabular-nums">
+                        {pagination.current} / {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pagination.current >= totalPages}
+                        onClick={() =>
+                          setPagination((prev) => ({ ...prev, current: prev.current + 1 }))
+                        }
+                      >
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
       </Card>
 
-      {/* Edit Modal */}
-      <Modal
-        title={`Edit Record in ${selectedTable}`}
-        open={editModalVisible}
-        onCancel={() => setEditModalVisible(false)}
-        footer={null}
-        width={700}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleUpdate}
-        >
-          {schema[selectedTable]?.filter(col => col.name !== 'id' && col.name !== 'created_at' && col.name !== 'updated_at').map(col => (
-            <Form.Item
-              key={col.name}
-              name={col.name}
-              label={`${col.name} (${col.type})`}
-            >
-              {col.type === 'boolean' ? (
-                <Select>
-                  <Select.Option value={true}>true</Select.Option>
-                  <Select.Option value={false}>false</Select.Option>
-                </Select>
-              ) : col.type === 'text' ? (
-                <Input.TextArea rows={3} />
-              ) : (
-                <Input />
-              )}
-            </Form.Item>
-          ))}
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block>
-              Update Record
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* View Modal */}
-      <Modal
-        title={`View Record from ${selectedTable}`}
-        open={viewModalVisible}
-        onCancel={() => setViewModalVisible(false)}
-        footer={[
-          <Button key="close" onClick={() => setViewModalVisible(false)}>
-            Close
-          </Button>
-        ]}
-        width={700}
-      >
-        {editingRecord && (
-          <div style={{ maxHeight: 500, overflow: 'auto' }}>
-            {Object.entries(editingRecord).map(([key, value]) => (
-              <div key={key} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #f0f0f0' }}>
-                <Text strong>{key}:</Text>
-                <div style={{ marginTop: 4 }}>
-                  {value === null || value === undefined ? (
-                    <Text type="secondary">NULL</Text>
-                  ) : typeof value === 'boolean' ? (
-                    value ? <Tag color="green">true</Tag> : <Tag color="red">false</Tag>
-                  ) : typeof value === 'object' ? (
-                    <pre style={{ background: '#f5f5f5', padding: 8, borderRadius: 4 }}>
-                      {JSON.stringify(value, null, 2)}
-                    </pre>
+      <Dialog open={editModalVisible} onOpenChange={setEditModalVisible}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit record in {selectedTable}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdate} className="space-y-4">
+            {schema[selectedTable]
+              ?.filter(
+                (col) =>
+                  col.name !== 'id' && col.name !== 'created_at' && col.name !== 'updated_at'
+              )
+              .map((col) => (
+                <div key={col.name} className="space-y-2">
+                  <Label htmlFor={col.name}>
+                    {col.name} ({col.type})
+                  </Label>
+                  {col.type === 'boolean' ? (
+                    <Select
+                      value={editFormValues[col.name] || 'false'}
+                      onValueChange={(v) =>
+                        setEditFormValues((prev) => ({ ...prev, [col.name]: v }))
+                      }
+                    >
+                      <SelectTrigger id={col.name}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">true</SelectItem>
+                        <SelectItem value="false">false</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : col.type === 'text' ? (
+                    <Textarea
+                      id={col.name}
+                      rows={3}
+                      value={editFormValues[col.name] || ''}
+                      onChange={(e) =>
+                        setEditFormValues((prev) => ({
+                          ...prev,
+                          [col.name]: e.target.value,
+                        }))
+                      }
+                    />
                   ) : (
-                    <Text>{String(value)}</Text>
+                    <Input
+                      id={col.name}
+                      value={editFormValues[col.name] || ''}
+                      onChange={(e) =>
+                        setEditFormValues((prev) => ({
+                          ...prev,
+                          [col.name]: e.target.value,
+                        }))
+                      }
+                    />
                   )}
                 </div>
-              </div>
-            ))}
+              ))}
+            <DialogFooter>
+              <Button type="submit" className="w-full sm:w-auto">
+                Update record
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewModalVisible} onOpenChange={setViewModalVisible}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>View record from {selectedTable}</DialogTitle>
+          </DialogHeader>
+          {editingRecord && (
+            <div className="max-h-[500px] space-y-3 overflow-auto">
+              {Object.entries(editingRecord).map(([key, value]) => (
+                <div key={key} className="border-b border-border pb-3">
+                  <p className="font-medium">{key}</p>
+                  <div className="mt-1 text-sm">
+                    {value === null || value === undefined ? (
+                      <span className="text-muted-foreground">NULL</span>
+                    ) : typeof value === 'boolean' ? (
+                      <Badge variant={value ? 'default' : 'destructive'}>
+                        {String(value)}
+                      </Badge>
+                    ) : typeof value === 'object' ? (
+                      <pre className="rounded-md bg-muted p-2 text-xs">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    ) : (
+                      <span>{String(value)}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewModalVisible(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteRecord} onOpenChange={() => setDeleteRecord(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div>
+        <h2 className="mb-4 text-lg font-semibold tracking-tight">Table statistics</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard title="Users" value={dbInfo.tables.users} icon={User} accent="members" />
+          <StatCard title="Groups" value={dbInfo.tables.groups} icon={UsersRound} accent="churches" />
+          <StatCard title="New converts" value={dbInfo.tables.new_converts} icon={Heart} accent="arrivals" />
+          <StatCard
+            title="Progress records"
+            value={dbInfo.tables.progress_records}
+            icon={CheckCircle}
+            accent="primary"
+          />
+          <StatCard
+            title="Attendance records"
+            value={dbInfo.tables.attendance_records}
+            icon={CheckCircle}
+            accent="campaigns"
+          />
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-medium">Database information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            <strong className="text-foreground">Database provider:</strong> Neon Database
+            (Serverless PostgreSQL)
+          </p>
+          <p>
+            <strong className="text-foreground">Connection:</strong> Pooled connection for optimal
+            performance
+          </p>
+          <p>
+            <strong className="text-foreground">Location:</strong> US East (AWS)
+          </p>
+          <p>
+            <strong className="text-foreground">Backup:</strong> Automatic backups managed by Neon
+            Database
+          </p>
+          <div className="mt-4 flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+            <AlertTriangle className="size-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-medium text-foreground">Backup recommendation</p>
+              <p className="mt-1">
+                Neon Database automatically backs up your data. For additional safety, consider
+                exporting your data regularly using the export features in each management section.
+              </p>
+            </div>
           </div>
-        )}
-      </Modal>
-
-      <Title level={4} style={{ marginTop: 24 }}>Table Statistics</Title>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="Users"
-              value={dbInfo.tables.users}
-              prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="Groups"
-              value={dbInfo.tables.groups}
-              prefix={<TeamOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="New Converts"
-              value={dbInfo.tables.new_converts}
-              prefix={<HeartOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="Progress Records"
-              value={dbInfo.tables.progress_records}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="Attendance Records"
-              value={dbInfo.tables.attendance_records}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <Card title="Database Information" style={{ marginTop: 24 }}>
-        <Paragraph>
-          <strong>Database Provider:</strong> Neon Database (Serverless PostgreSQL)
-        </Paragraph>
-        <Paragraph>
-          <strong>Connection:</strong> Pooled connection for optimal performance
-        </Paragraph>
-        <Paragraph>
-          <strong>Location:</strong> US East (AWS)
-        </Paragraph>
-        <Paragraph>
-          <strong>Backup:</strong> Automatic backups managed by Neon Database
-        </Paragraph>
-        <Alert
-          message="Backup Recommendation"
-          description="Neon Database automatically backs up your data. For additional safety, consider exporting your data regularly using the export features in each management section."
-          type="warning"
-          showIcon
-          style={{ marginTop: 16 }}
-        />
+        </CardContent>
       </Card>
     </div>
   );

@@ -13,23 +13,31 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, password } = body;
+    const identifier =
+      typeof body.username === 'string' ? body.username.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
     const { ipAddress, userAgent } = extractRequestInfo(request.headers);
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[LOGIN] Attempt for user: ${username}`);
+      console.log(`[LOGIN] Attempt for user: ${identifier}`);
     }
 
-    if (!username || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
         { error: 'Username and password are required' },
         { status: 400 }
       );
     }
 
-    // Database authentication using Prisma
-    const user = await prisma.user.findUnique({
-      where: { username },
+    // Match by username or email (form allows either); ignore soft-deleted users
+    const user = await prisma.user.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          { username: { equals: identifier, mode: 'insensitive' } },
+          { email: { equals: identifier, mode: 'insensitive' } },
+        ],
+      },
       include: {
         group: {
           select: {
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       await logAuditEvent({
         action: 'LOGIN_FAILED',
-        newValues: { username, reason: 'user_not_found' },
+        newValues: { username: identifier, reason: 'user_not_found' },
         ipAddress,
         userAgent,
       });
