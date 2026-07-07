@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo, Suspense } from 'react'
 import {
   Calendar,
   CheckSquare,
+  ChevronLeft,
+  ChevronRight,
   Plus,
 } from 'lucide-react'
 import { SynagoLoader } from '@/components/shell/SynagoLoader'
@@ -68,6 +70,8 @@ function AttendancePageContent() {
   const [selectedDate, setSelectedDate] = useState(getMostRecentSunday())
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkMarking, setBulkMarking] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
 
   const isLeader = user?.role === 'leader'
   const isSuperAdmin = user?.role === 'superadmin'
@@ -136,6 +140,7 @@ function AttendancePageContent() {
         group_id: groupId,
         year: selectedYear || undefined,
         include: 'stats',
+        limit: 500,
       })
       if (!response.success) throw new Error('Failed to fetch people')
       const peopleWithAttendance = (
@@ -154,6 +159,7 @@ function AttendancePageContent() {
         ),
       }))
       setPeople(peopleWithAttendance)
+      setPage(1)
     } catch (error: unknown) {
       message.error(
         error instanceof Error ? error.message : 'Failed to load people'
@@ -246,8 +252,15 @@ function AttendancePageContent() {
     )
   }
 
+  const totalPages = Math.max(1, Math.ceil(people.length / pageSize))
+
+  const paginatedPeople = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return people.slice(start, start + pageSize)
+  }, [people, page, pageSize])
+
   const toggleSelectAll = (checked: boolean) => {
-    setSelectedIds(checked ? people.map((p) => p.id) : [])
+    setSelectedIds(checked ? paginatedPeople.map((p) => p.id) : [])
   }
 
   const attendanceStats = useMemo(() => {
@@ -400,8 +413,10 @@ function AttendancePageContent() {
                   <TableHead className="w-10">
                     <Checkbox
                       checked={
-                        people.length > 0 &&
-                        selectedIds.length === people.length
+                        paginatedPeople.length > 0 &&
+                        paginatedPeople.every((p) =>
+                          selectedIds.includes(p.id)
+                        )
                       }
                       onCheckedChange={(c) => toggleSelectAll(!!c)}
                     />
@@ -413,7 +428,7 @@ function AttendancePageContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {people.map((record) => (
+              {paginatedPeople.map((record) => (
                 <TableRow key={record.id}>
                   {!isReadOnly && (
                     <TableCell>
@@ -492,10 +507,58 @@ function AttendancePageContent() {
               ))}
             </TableBody>
           </Table>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
+            <span>
+              {people.length === 0
+                ? '0 of 0 new converts'
+                : `${(page - 1) * pageSize + 1}–${Math.min(
+                    page * pageSize,
+                    people.length
+                  )} of ${people.length} new converts`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v))
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="h-8 w-[80px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {['20', '50', '100'].map((n) => (
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span>
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Total {people.length} new converts
-        </p>
       </div>
     </>
   )
