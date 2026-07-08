@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const converts = await prisma.newConvert.findMany({
+      where: { deletedAt: null },
       include: {
         registeredBy: {
           select: { username: true }

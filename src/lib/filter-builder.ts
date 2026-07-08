@@ -16,6 +16,9 @@ export class FilterBuilder {
   static buildWhereClause(filters: SearchFilter[], groupId?: string): WhereClause {
     const conditions: WhereClause[] = [];
 
+    // Always exclude soft-deleted converts
+    conditions.push({ deletedAt: null });
+
     // Add group filter if provided
     if (groupId) {
       conditions.push({
