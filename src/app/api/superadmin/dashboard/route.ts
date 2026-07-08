@@ -31,9 +31,9 @@ export async function GET(request: NextRequest) {
       prisma.user.count({
         where: { role: { in: ['leader', 'admin', 'leadpastor'] } }
       }),
-      prisma.newConvert.count(),
+      prisma.newConvert.count({ where: { deletedAt: null } }),
       prisma.newConvert.count({
-        where: { createdAt: { gt: thirtyDaysAgo } }
+        where: { deletedAt: null, createdAt: { gt: thirtyDaysAgo } }
       }),
       prisma.user.findMany({
         take: 10,
