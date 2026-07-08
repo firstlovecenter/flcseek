@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const whereClause = groupId ? { groupId } : {};
+    const whereClause: Record<string, unknown> = { deletedAt: null };
+    if (groupId) whereClause.groupId = groupId;
 
     const [totalConverts, thisMonth, thisWeek, allConverts] = await Promise.all([
       prisma.newConvert.count({ where: whereClause }),
