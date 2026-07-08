@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.group.findMany({
         include: {
-          _count: { select: { newConverts: true } }
+          _count: { select: { newConverts: { where: { deletedAt: null } } } }
         }
       }),
       prisma.user.count({
@@ -42,11 +42,12 @@ export async function GET(request: NextRequest) {
           role: { in: ['leader', 'admin', 'leadpastor'] }
         }
       }),
-      prisma.newConvert.count(),
+      prisma.newConvert.count({ where: { deletedAt: null } }),
       prisma.newConvert.count({
-        where: { createdAt: { gt: thirtyDaysAgo } }
+        where: { deletedAt: null, createdAt: { gt: thirtyDaysAgo } }
       }),
       prisma.newConvert.findMany({
+        where: { deletedAt: null },
         include: {
           progressRecords: {
             where: { isCompleted: true },

@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
 
     const data: Record<string, unknown[]> = {};
 
-    // Build filter conditions
-    const groupFilter = groupId ? { groupId } : {};
+    // Build filter conditions (exclude soft-deleted converts everywhere below)
+    const groupFilter: Record<string, unknown> = { deletedAt: null };
+    if (groupId) groupFilter.groupId = groupId;
 
     // Export converts
     if (exportType === 'converts' || exportType === 'all') {
@@ -156,9 +157,10 @@ export async function GET(request: NextRequest) {
       const groups = await prisma.group.findMany({
         include: {
           _count: {
-            select: { newConverts: true }
+            select: { newConverts: { where: { deletedAt: null } } }
           },
           newConverts: {
+            where: { deletedAt: null },
             include: {
               progressRecords: { where: { isCompleted: true } },
               attendanceRecords: true,

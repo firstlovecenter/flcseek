@@ -88,7 +88,7 @@ export class BulkActionsService {
     let successCount = 0;
 
     try {
-      const where: Record<string, unknown> = {};
+      const where: Record<string, unknown> = { deletedAt: null };
       if (groupId) where.groupId = groupId;
 
       filters.forEach((f) => {
