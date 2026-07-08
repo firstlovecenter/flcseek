@@ -139,16 +139,21 @@ export async function DELETE(
     const { user, error } = requireAuth(request);
     if (error) return error;
 
-    // Leaders and admins can delete only within their own group.
+    // Leaders cannot delete converts.
+    if (user!.role === ROLES.LEADER) {
+      return errors.forbidden('Insufficient permissions to delete');
+    }
+
+    // Admins can delete only within their own group.
     // Higher roles (overseer/leadpastor/superadmin) can delete any group.
-    const restrictedRoles: string[] = [ROLES.LEADER, ROLES.ADMIN];
+    const restrictedRoles: string[] = [ROLES.ADMIN];
 
     const { id } = await params;
     const idValidation = validateUUID(id);
     if (!idValidation.valid) {
       return errors.validation('Invalid person ID', idValidation.errors);
     }
-    
+
     const existing = await People.findById(id);
     if (!existing) {
       return errors.notFound('Person');
@@ -162,7 +167,7 @@ export async function DELETE(
         return errors.forbidden('You can only delete people in your group');
       }
     }
-    
+
     await People.remove(id);
     
     return success({ deleted: true, id });

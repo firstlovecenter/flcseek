@@ -18,6 +18,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, filters, newStatus, milestoneId, convertIds, groupId } = body;
 
+    if (action === 'delete' && user!.role === 'leader') {
+      return NextResponse.json({ error: 'Insufficient permissions to delete' }, { status: 403 });
+    }
+
     let result;
 
     switch (action) {

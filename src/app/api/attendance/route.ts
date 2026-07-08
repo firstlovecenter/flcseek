@@ -17,6 +17,38 @@ import { logger } from '@/lib/logger';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Only superadmins may backdate attendance to an earlier Sunday. Everyone
+ * else may only record attendance for the most recent Sunday (today, if
+ * today is a Sunday). Returns an error message, or null if the date is valid.
+ */
+function validateAttendanceDate(dateAttended: string, role: string): string | null {
+  const date = new Date(`${dateAttended}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    return 'Invalid date_attended value';
+  }
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  if (date.getTime() > today.getTime()) {
+    return 'Cannot record attendance for a future date';
+  }
+
+  if (date.getUTCDay() !== 0) {
+    return 'Attendance can only be recorded for a Sunday';
+  }
+
+  if (role !== ROLES.SUPERADMIN) {
+    const mostRecentSunday = new Date(today);
+    mostRecentSunday.setUTCDate(today.getUTCDate() - today.getUTCDay());
+    if (date.getTime() !== mostRecentSunday.getTime()) {
+      return 'You can only record attendance for the most recent Sunday';
+    }
+  }
+
+  return null;
+}
+
+/**
  * GET /api/v1/attendance
  * Get attendance records with optional filters
  * 
@@ -90,6 +122,10 @@ export async function POST(request: NextRequest) {
         if (!record.person_id || !record.date_attended) {
           return errors.validation('Each record must have person_id and date_attended');
         }
+        const dateError = validateAttendanceDate(record.date_attended, user!.role);
+        if (dateError) {
+          return errors.validation(dateError);
+        }
       }
       
       // Add recorded_by to each record
@@ -129,7 +165,12 @@ export async function POST(request: NextRequest) {
     if (!body.person_id || !body.date_attended) {
       return errors.validation('person_id and date_attended are required');
     }
-    
+
+    const dateError = validateAttendanceDate(body.date_attended, user!.role);
+    if (dateError) {
+      return errors.validation(dateError);
+    }
+
     // Verify person exists and user has access
     const person = await People.findById(body.person_id);
     if (!person) {

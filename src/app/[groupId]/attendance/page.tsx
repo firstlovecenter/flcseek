@@ -75,8 +75,7 @@ function AttendancePageContent() {
 
   const isLeader = user?.role === 'leader'
   const isSuperAdmin = user?.role === 'superadmin'
-  const isAdmin = user?.role === 'admin'
-  const canSelectPastDates = isSuperAdmin || isAdmin
+  const canSelectPastDates = isSuperAdmin
   const isReadOnly =
     user?.role === 'leader' ||
     user?.role === 'overseer' ||
@@ -243,6 +242,19 @@ function AttendancePageContent() {
     if (!value) return
     const date = dayjs(value)
     if (!date.isValid()) return
+    const today = dayjs()
+    if (date.isAfter(today, 'day')) {
+      message.warning('Cannot select a future date')
+      return
+    }
+    if (date.day() !== 0) {
+      message.warning('Attendance can only be marked for a Sunday')
+      return
+    }
+    if (!canSelectPastDates && !date.isSame(getMostRecentSunday(), 'day')) {
+      message.warning('You can only mark attendance for the most recent Sunday')
+      return
+    }
     setSelectedDate(date)
   }
 
@@ -333,11 +345,17 @@ function AttendancePageContent() {
               type="date"
               className="w-[200px]"
               value={dateInputValue}
+              min={
+                canSelectPastDates
+                  ? undefined
+                  : getMostRecentSunday().format('YYYY-MM-DD')
+              }
+              max={dayjs().format('YYYY-MM-DD')}
               onChange={(e) => handleDateChange(e.target.value)}
             />
             {canSelectPastDates && (
               <span className="text-xs text-muted-foreground">
-                (Can select any past Sunday)
+                (Superadmin: Can select any past Sunday)
               </span>
             )}
           </div>

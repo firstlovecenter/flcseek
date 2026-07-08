@@ -37,7 +37,6 @@ export default function PersonDetailPage() {
   const [deleting, setDeleting] = useState(false)
 
   const canDeleteConvert =
-    user?.role === 'leader' ||
     user?.role === 'admin' ||
     user?.role === 'overseer' ||
     user?.role === 'leadpastor' ||
