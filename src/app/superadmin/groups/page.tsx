@@ -387,7 +387,7 @@ export default function GroupsManagementPage() {
                         <button
                           type="button"
                           className="font-medium text-primary hover:underline"
-                          onClick={() => router.push(`/?group_id=${record.id}`)}
+                          onClick={() => router.push(`/${record.id}`)}
                         >
                           {record.name} {record.year}
                         </button>
