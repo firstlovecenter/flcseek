@@ -503,7 +503,6 @@ function SheepSeekerDashboardContent() {
     user?.role === 'overseer' ||
     user?.role === 'leadpastor'
   const canDeleteConverts =
-    user?.role === 'leader' ||
     user?.role === 'admin' ||
     user?.role === 'overseer' ||
     user?.role === 'leadpastor' ||
