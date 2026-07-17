@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
                 personId: person.id,
                 stageNumber: milestone.stageNumber,
                 stageName: milestone.stageName || `Stage ${milestone.stageNumber}`,
-                isCompleted: false,
+                isCompleted: milestone.stageNumber === 1,
+                dateCompleted: milestone.stageNumber === 1 ? new Date() : null,
                 updatedById: userPayload.id,
               },
               update: {}, // No update needed if exists

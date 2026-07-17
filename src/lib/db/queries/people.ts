@@ -522,6 +522,35 @@ export async function findManyWithStats(
 }
 
 /**
+ * Create progress records for a newly registered person, one per active milestone.
+ * The first milestone (stage 1) is automatically completed on registration.
+ */
+async function initializeMilestoneProgress(
+  personId: string,
+  registeredBy: string
+): Promise<void> {
+  const activeMilestones = await prisma.milestone.findMany({
+    where: { isActive: true },
+    select: { stageNumber: true, stageName: true },
+  });
+
+  if (activeMilestones.length === 0) return;
+
+  const now = new Date();
+  await prisma.progressRecord.createMany({
+    data: activeMilestones.map((m) => ({
+      personId,
+      stageNumber: m.stageNumber,
+      stageName: m.stageName || `Stage ${m.stageNumber}`,
+      isCompleted: m.stageNumber === 1,
+      dateCompleted: m.stageNumber === 1 ? now : null,
+      updatedById: registeredBy,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+/**
  * Create a new person
  * IMPORTANT: group_id should be provided to ensure the record appears in filtered queries
  */
@@ -535,7 +564,7 @@ export async function create(input: CreatePersonInput): Promise<Person> {
   if (!input.group_id) {
     console.warn('[create] Creating person without group_id - record may not appear in filtered views');
   }
-  
+
   const person = await prisma.newConvert.create({
     data: {
       firstName: input.first_name,
@@ -554,6 +583,8 @@ export async function create(input: CreatePersonInput): Promise<Person> {
       group: { select: { name: true, year: true } },
     },
   });
+
+  await initializeMilestoneProgress(person.id, input.registered_by);
 
   return transformPerson(person);
 }
@@ -709,6 +740,30 @@ export async function createMany(
 
   for (const row of rows) {
     created.push(transformPerson(row));
+  }
+
+  if (rows.length > 0) {
+    const activeMilestones = await prisma.milestone.findMany({
+      where: { isActive: true },
+      select: { stageNumber: true, stageName: true },
+    });
+
+    if (activeMilestones.length > 0) {
+      const now = new Date();
+      await prisma.progressRecord.createMany({
+        data: rows.flatMap((row) =>
+          activeMilestones.map((m) => ({
+            personId: row.id,
+            stageNumber: m.stageNumber,
+            stageName: m.stageName || `Stage ${m.stageNumber}`,
+            isCompleted: m.stageNumber === 1,
+            dateCompleted: m.stageNumber === 1 ? now : null,
+            updatedById: row.registeredById!,
+          }))
+        ),
+        skipDuplicates: true,
+      });
+    }
   }
 
   return { created, skipped };
