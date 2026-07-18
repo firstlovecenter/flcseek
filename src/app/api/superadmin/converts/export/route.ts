@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const rateLimitResponse = await checkRateLimit(request, '/api/superadmin/converts/export');
   if (rateLimitResponse) return rateLimitResponse;
 
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

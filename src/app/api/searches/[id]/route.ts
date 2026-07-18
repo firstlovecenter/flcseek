@@ -53,7 +53,7 @@ export async function GET(request: NextRequest, context: { params: Params }) {
  */
 export async function PUT(request: NextRequest, context: { params: Params }) {
   try {
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 
@@ -116,7 +116,7 @@ export async function PUT(request: NextRequest, context: { params: Params }) {
  */
 export async function DELETE(request: NextRequest, context: { params: Params }) {
   try {
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 

@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user, error } = requireSuperAdmin(request);
+    const { user, error } = await requireSuperAdmin(request);
     if (error) return error;
     
     const body = await request.json();

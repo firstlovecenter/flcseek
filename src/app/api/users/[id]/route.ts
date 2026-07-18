@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user: currentUser, error } = requireAuth(request);
+    const { user: currentUser, error } = await requireAuth(request);
     if (error) return error;
 
     const { id } = await params;
@@ -67,7 +67,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user: currentUser, error } = requireAuth(request);
+    const { user: currentUser, error } = await requireAuth(request);
     if (error) return error;
 
     const { id } = await params;
@@ -130,7 +130,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = requireSuperAdmin(request);
+    const { error } = await requireSuperAdmin(request);
     if (error) return error;
 
     const { id } = await params;

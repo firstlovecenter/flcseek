@@ -29,7 +29,7 @@ function transformMilestone(m: {
 
 // GET - List all milestones
 export async function GET(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new milestone
 export async function POST(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
 // PUT - Update a milestone
 export async function PUT(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -122,7 +122,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Delete a milestone
 export async function DELETE(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -168,7 +168,7 @@ export async function DELETE(request: NextRequest) {
 
 // PATCH - Toggle milestone active status
 export async function PATCH(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
