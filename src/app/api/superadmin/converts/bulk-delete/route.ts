@@ -8,7 +8,7 @@ export async function DELETE(request: NextRequest) {
   const rateLimitResponse = await checkRateLimit(request, '/api/superadmin/converts/bulk-delete');
   if (rateLimitResponse) return rateLimitResponse;
 
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized - Only skaduteye and sysadmin can perform bulk delete' }, { status: 401 });
   }

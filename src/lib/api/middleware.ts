@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { verifyToken, UserPayload } from '@/lib/auth';
+import { resolveFreshUser } from '@/lib/auth-verify';
 import { errors } from './response';
 import { ROLES, UserRole } from '@/lib/constants';
 
@@ -13,7 +14,11 @@ export interface AuthenticatedRequest extends NextRequest {
 }
 
 /**
- * Extract and verify the JWT token from request headers
+ * Extract and verify the JWT token from request headers.
+ *
+ * Signature check only — does NOT consult the database, so revoked tokens and
+ * stale role/group claims pass. Route handlers must use getVerifiedAuthUser()
+ * or the requireAuth/requireRole family instead.
  */
 export function getAuthUser(request: NextRequest): UserPayload | null {
   // Try httpOnly cookie first (safe from XSS)
@@ -33,15 +38,25 @@ export function getAuthUser(request: NextRequest): UserPayload | null {
 }
 
 /**
+ * Signature check + DB freshness check. Returns a payload rebuilt from current
+ * DB state (fresh role/group), or null if the token is invalid or revoked.
+ */
+export async function getVerifiedAuthUser(request: NextRequest): Promise<UserPayload | null> {
+  const decoded = getAuthUser(request);
+  if (!decoded) return null;
+  return resolveFreshUser(decoded);
+}
+
+/**
  * Require authentication - returns user or error response
  */
-export function requireAuth(request: NextRequest) {
-  const user = getAuthUser(request);
-  
+export async function requireAuth(request: NextRequest) {
+  const user = await getVerifiedAuthUser(request);
+
   if (!user) {
     return { user: null, error: errors.unauthorized() };
   }
-  
+
   return { user, error: null };
 }
 
@@ -67,8 +82,8 @@ export function hasMinRole(userRole: UserRole, requiredRole: UserRole): boolean 
 /**
  * Require specific role(s) - returns user or error response
  */
-export function requireRole(request: NextRequest, allowedRoles: UserRole | UserRole[]) {
-  const { user, error: authError } = requireAuth(request);
+export async function requireRole(request: NextRequest, allowedRoles: UserRole | UserRole[]) {
+  const { user, error: authError } = await requireAuth(request);
   
   if (authError) {
     return { user: null, error: authError };
@@ -89,8 +104,8 @@ export function requireRole(request: NextRequest, allowedRoles: UserRole | UserR
 /**
  * Require minimum role level - returns user or error response
  */
-export function requireMinRole(request: NextRequest, minRole: UserRole) {
-  const { user, error: authError } = requireAuth(request);
+export async function requireMinRole(request: NextRequest, minRole: UserRole) {
+  const { user, error: authError } = await requireAuth(request);
   
   if (authError) {
     return { user: null, error: authError };

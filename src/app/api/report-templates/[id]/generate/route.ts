@@ -9,7 +9,7 @@ export async function POST(
 ) {
   try {
     // Get user from header
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 

@@ -3,17 +3,11 @@
  * Handles automatic milestone progression based on attendance and time
  */
 
+import { randomBytes } from 'crypto'
+import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { logger } from './logger'
 import dayjs from 'dayjs'
-
-/** Minimal shape of a convert with relations needed by the auto-calc engine */
-interface ConvertForAutoCalc {
-  id?: string
-  createdAt?: Date | null
-  attendanceRecords: Array<{ attendanceDate: Date | string }>
-  progressRecords?: Array<{ stageNumber: number; isCompleted: boolean }>
-}
 
 export interface MilestoneAutoTriggerConfig {
   enabled: boolean
@@ -37,6 +31,142 @@ export interface MilestoneProgressionResult {
 }
 
 /**
+ * The facts about a convert that auto-trigger conditions are evaluated against.
+ * Kept as a plain value object so condition evaluation is pure and unit-testable.
+ */
+export interface ConvertEvaluationInput {
+  attendanceCount: number
+  daysSinceRegistration: number
+  completedStages: Set<number>
+}
+
+function compareWithOperator(
+  actual: number,
+  threshold: number,
+  operator: AutoTriggerCondition['operator']
+): boolean {
+  switch (operator || 'gte') {
+    case 'equals':
+      return actual === threshold
+    case 'gte':
+      return actual >= threshold
+    case 'lte':
+      return actual <= threshold
+    default:
+      return false
+  }
+}
+
+/**
+ * Evaluate a single auto-trigger condition. Pure function — no I/O.
+ */
+export function evaluateCondition(
+  input: ConvertEvaluationInput,
+  stageNumber: number,
+  condition: AutoTriggerCondition
+): boolean {
+  switch (condition.type) {
+    case 'attendance_count': {
+      const threshold = typeof condition.value === 'number' ? condition.value : 0
+      return compareWithOperator(input.attendanceCount, threshold, condition.operator)
+    }
+
+    case 'time_elapsed': {
+      const daysThreshold = typeof condition.value === 'number' ? condition.value : 0
+      return compareWithOperator(input.daysSinceRegistration, daysThreshold, condition.operator)
+    }
+
+    case 'previous_milestone': {
+      const previousMilestoneNum = stageNumber - 1
+      if (previousMilestoneNum < 1) return true // First milestone always passes
+      return input.completedStages.has(previousMilestoneNum)
+    }
+
+    case 'custom':
+      // Implement custom logic as needed
+      return true
+
+    default:
+      return false
+  }
+}
+
+/**
+ * Evaluate a full condition set with AND/OR logic. Pure function — no I/O.
+ */
+export function evaluateConditionSet(
+  input: ConvertEvaluationInput,
+  stageNumber: number,
+  conditions: AutoTriggerCondition[],
+  logic: 'AND' | 'OR' = 'AND'
+): boolean {
+  if (!conditions || conditions.length === 0) return false
+  const results = conditions.map((c) => evaluateCondition(input, stageNumber, c))
+  return logic === 'AND' ? results.every(Boolean) : results.some(Boolean)
+}
+
+// ---------------------------------------------------------------------------
+// System user resolution
+// ---------------------------------------------------------------------------
+
+const SYSTEM_USERNAME = 'system'
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+let cachedSystemUserId: string | null = null
+
+/**
+ * Resolve the user id that automated jobs write progress records under.
+ * progress_records.updated_by is a UUID foreign key, so this must be a real
+ * users row — never a bare string like "system".
+ *
+ * Order: valid SYSTEM_USER_ID env var pointing at an existing user →
+ * existing "system" user → create the "system" user (non-loginable: its
+ * password is random bytes, not a bcrypt hash, so verification always fails).
+ */
+export async function getSystemUserId(): Promise<string> {
+  if (cachedSystemUserId) return cachedSystemUserId
+
+  const fromEnv = process.env.SYSTEM_USER_ID
+  if (fromEnv && UUID_RE.test(fromEnv)) {
+    const exists = await prisma.user.findUnique({ where: { id: fromEnv }, select: { id: true } })
+    if (exists) {
+      cachedSystemUserId = exists.id
+      return exists.id
+    }
+    logger.warn(`SYSTEM_USER_ID ${fromEnv} does not match any user — falling back to '${SYSTEM_USERNAME}' user`)
+  } else if (fromEnv) {
+    logger.warn(`SYSTEM_USER_ID is not a valid UUID — falling back to '${SYSTEM_USERNAME}' user`)
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { username: SYSTEM_USERNAME },
+    select: { id: true },
+  })
+  if (existing) {
+    cachedSystemUserId = existing.id
+    return existing.id
+  }
+
+  const created = await prisma.user.create({
+    data: {
+      username: SYSTEM_USERNAME,
+      password: randomBytes(48).toString('hex'), // not a bcrypt hash — login impossible
+      role: 'system',
+      firstName: 'System',
+      lastName: 'Automation',
+    },
+    select: { id: true },
+  })
+  logger.info(`Created system automation user ${created.id}`)
+  cachedSystemUserId = created.id
+  return created.id
+}
+
+// ---------------------------------------------------------------------------
+// Per-convert evaluation (used by the on-demand /api/milestones/auto-update)
+// ---------------------------------------------------------------------------
+
+/**
  * Check if a convert meets criteria for automatic milestone completion
  */
 export async function evaluateMilestoneCompletion(
@@ -51,17 +181,13 @@ export async function evaluateMilestoneCompletion(
       wasSuccessful: true,
     }
 
-    // Get convert and their progress
     const convert = await prisma.newConvert.findUnique({
       where: { id: convertId },
-      include: {
-        progressRecords: {
-          include: {
-            person: true,
-          },
-        },
-        attendanceRecords: true,
-        group: true,
+      select: {
+        id: true,
+        createdAt: true,
+        progressRecords: { select: { stageNumber: true, isCompleted: true } },
+        _count: { select: { attendanceRecords: true } },
       },
     })
 
@@ -71,42 +197,37 @@ export async function evaluateMilestoneCompletion(
       return result
     }
 
-    // Get all active milestones with auto-trigger enabled
     const autoTriggeredMilestones = await prisma.milestone.findMany({
-      where: {
-        isActive: true,
-        isAutoCalculated: true,
-      },
-      orderBy: {
-        stageNumber: 'asc',
-      },
+      where: { isActive: true, isAutoCalculated: true },
+      orderBy: { stageNumber: 'asc' },
     })
 
-    // Evaluate each milestone
+    const input: ConvertEvaluationInput = {
+      attendanceCount: convert._count.attendanceRecords,
+      daysSinceRegistration: dayjs().diff(dayjs(convert.createdAt), 'days'),
+      completedStages: new Set(
+        convert.progressRecords.filter((p) => p.isCompleted).map((p) => p.stageNumber)
+      ),
+    }
+
     for (const milestone of autoTriggeredMilestones) {
       const config = milestone.autoTriggerConfig as unknown as (MilestoneAutoTriggerConfig | null)
       if (!config?.enabled) continue
 
-      // Check if already completed
-      const existingProgress = convert.progressRecords.find(
-        (p) => p.stageNumber === milestone.stageNumber
-      )
-      if (existingProgress?.isCompleted) {
+      if (input.completedStages.has(milestone.stageNumber)) {
         result.completedMilestones.push(`${milestone.stageNumber}`)
         continue
       }
 
-      // Evaluate conditions
-      const conditionsMet = await evaluateConditions(
-        convert as ConvertForAutoCalc,
+      const conditionsMet = evaluateConditionSet(
+        input,
         milestone.stageNumber,
         config.conditions,
         config.logic || 'AND'
       )
 
       if (conditionsMet) {
-        // Mark milestone as completed
-        const progressUpdate = await prisma.progressRecord.upsert({
+        await prisma.progressRecord.upsert({
           where: {
             personId_stageNumber: {
               personId: convertId,
@@ -128,19 +249,20 @@ export async function evaluateMilestoneCompletion(
           },
         })
 
+        // Later milestones in this same run see this one as completed.
+        input.completedStages.add(milestone.stageNumber)
         result.completedMilestones.push(`${milestone.stageNumber}`)
         result.newlyCompletedCount++
 
-        // Update convert's last milestone date
-        await prisma.newConvert.update({
-          where: { id: convertId },
-          data: {
-            lastMilestoneDate: new Date(),
-          },
-        })
-
         logger.info(`Milestone auto-completed: Convert ${convertId}, Stage ${milestone.stageNumber}`)
       }
+    }
+
+    if (result.newlyCompletedCount > 0) {
+      await prisma.newConvert.update({
+        where: { id: convertId },
+        data: { lastMilestoneDate: new Date() },
+      })
     }
 
     return result
@@ -156,125 +278,148 @@ export async function evaluateMilestoneCompletion(
   }
 }
 
-/**
- * Evaluate if conditions are met for milestone completion
- */
-async function evaluateConditions(
-  convert: ConvertForAutoCalc,
-  stageNumber: number,
-  conditions: AutoTriggerCondition[],
-  logic: 'AND' | 'OR'
-): Promise<boolean> {
-  const results = await Promise.all(
-    conditions.map((condition) => evaluateSingleCondition(convert, stageNumber, condition))
-  )
-
-  return logic === 'AND' ? results.every((r) => r) : results.some((r) => r)
-}
+// ---------------------------------------------------------------------------
+// Daily batch job (Netlify scheduled function)
+// ---------------------------------------------------------------------------
 
 /**
- * Evaluate a single condition
+ * Run milestone auto-completion for all active converts.
+ *
+ * Set-based: a fixed number of queries regardless of convert count, instead of
+ * the previous 3+ queries per convert (which risked scheduled-function
+ * timeouts as data grew).
+ *  1. active auto-trigger milestones
+ *  2. active converts (id, createdAt)
+ *  3. attendance counts grouped by convert
+ *  4. completed progress stages
+ *  5. one INSERT … ON CONFLICT upsert for every newly-met milestone
+ *  6. one updateMany stamping lastMilestoneDate on affected converts
  */
-async function evaluateSingleCondition(
-  convert: ConvertForAutoCalc,
-  stageNumber: number,
-  condition: AutoTriggerCondition
-): Promise<boolean> {
-  try {
-    switch (condition.type) {
-      case 'attendance_count': {
-        // Count attendance records
-        const count = convert.attendanceRecords.length
-        const threshold = typeof condition.value === 'number' ? condition.value : 0
-        const operator = condition.operator || 'gte'
-
-        switch (operator) {
-          case 'equals':
-            return count === threshold
-          case 'gte':
-            return count >= threshold
-          case 'lte':
-            return count <= threshold
-          default:
-            return false
-        }
-      }
-
-      case 'time_elapsed': {
-        // Check if enough time has passed since registration
-        const daysThreshold = typeof condition.value === 'number' ? condition.value : 0
-        const daysSinceRegistration = dayjs().diff(dayjs(convert.createdAt), 'days')
-
-        const operator = condition.operator || 'gte'
-        switch (operator) {
-          case 'equals':
-            return daysSinceRegistration === daysThreshold
-          case 'gte':
-            return daysSinceRegistration >= daysThreshold
-          case 'lte':
-            return daysSinceRegistration <= daysThreshold
-          default:
-            return false
-        }
-      }
-
-      case 'previous_milestone': {
-        // Check if previous milestone is completed
-        const previousMilestoneNum = stageNumber - 1
-        if (previousMilestoneNum < 1) return true // First milestone always passes
-
-        const previousProgress = (convert.progressRecords ?? []).find(
-          (p) => p.stageNumber === previousMilestoneNum
-        )
-        return previousProgress?.isCompleted || false
-      }
-
-      case 'custom':
-        // Implement custom logic as needed
-        return true
-
-      default:
-        return false
-    }
-  } catch (error) {
-    logger.error(`Error evaluating condition:`, error)
-    return false
-  }
-}
-
-/**
- * Run milestone auto-completion for a group (daily cron job)
- */
-export async function runDailyMilestoneAutoCompletion(userId: string): Promise<void> {
+export async function runDailyMilestoneAutoCompletion(userId?: string): Promise<void> {
   try {
     logger.info('Starting daily milestone auto-completion process')
 
-    // Get all active converts
-    const converts = await prisma.newConvert.findMany({
-      where: {
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-      },
-    })
+    const updatedById = userId && UUID_RE.test(userId) ? userId : await getSystemUserId()
 
-    let totalProcessed = 0
-    let totalNewMilestones = 0
+    const milestones = await prisma.milestone.findMany({
+      where: { isActive: true, isAutoCalculated: true },
+      orderBy: { stageNumber: 'asc' },
+      select: { stageNumber: true, stageName: true, autoTriggerConfig: true },
+    })
+    const activeMilestones = milestones
+      .map((m) => ({
+        stageNumber: m.stageNumber,
+        stageName: m.stageName || `Stage ${m.stageNumber}`,
+        config: m.autoTriggerConfig as unknown as MilestoneAutoTriggerConfig | null,
+      }))
+      .filter((m) => m.config?.enabled)
+
+    if (activeMilestones.length === 0) {
+      logger.info('No enabled auto-trigger milestones — nothing to do')
+      return
+    }
+
+    const [converts, attendanceCounts, completedProgress] = await Promise.all([
+      prisma.newConvert.findMany({
+        where: { deletedAt: null },
+        select: { id: true, createdAt: true },
+      }),
+      prisma.attendanceRecord.groupBy({
+        by: ['personId'],
+        _count: { personId: true },
+      }),
+      prisma.progressRecord.findMany({
+        where: { isCompleted: true },
+        select: { personId: true, stageNumber: true },
+      }),
+    ])
+
+    const attendanceByPerson = new Map(
+      attendanceCounts.map((a) => [a.personId, a._count.personId])
+    )
+    const completedByPerson = new Map<string, Set<number>>()
+    for (const p of completedProgress) {
+      let set = completedByPerson.get(p.personId)
+      if (!set) {
+        set = new Set()
+        completedByPerson.set(p.personId, set)
+      }
+      set.add(p.stageNumber)
+    }
+
+    // Evaluate everything in memory.
+    const now = dayjs()
+    const toComplete: { personId: string; stageNumber: number; stageName: string }[] = []
 
     for (const convert of converts) {
-      const result = await evaluateMilestoneCompletion(convert.id, userId)
-      if (result.wasSuccessful) {
-        totalProcessed++
-        totalNewMilestones += result.newlyCompletedCount
+      const input: ConvertEvaluationInput = {
+        attendanceCount: attendanceByPerson.get(convert.id) ?? 0,
+        daysSinceRegistration: now.diff(dayjs(convert.createdAt), 'days'),
+        completedStages: completedByPerson.get(convert.id) ?? new Set(),
+      }
+
+      // Milestones are ordered; completing one lets the next see it via
+      // the previous_milestone condition within the same run.
+      for (const milestone of activeMilestones) {
+        if (input.completedStages.has(milestone.stageNumber)) continue
+        const met = evaluateConditionSet(
+          input,
+          milestone.stageNumber,
+          milestone.config!.conditions,
+          milestone.config!.logic || 'AND'
+        )
+        if (met) {
+          input.completedStages.add(milestone.stageNumber)
+          toComplete.push({
+            personId: convert.id,
+            stageNumber: milestone.stageNumber,
+            stageName: milestone.stageName,
+          })
+        }
       }
     }
 
+    if (toComplete.length === 0) {
+      logger.info(
+        `Daily milestone auto-completion complete: ${converts.length} converts evaluated, 0 new milestones`
+      )
+      return
+    }
+
+    // Single set-based upsert for all newly-met milestones.
+    const personIds = toComplete.map((t) => t.personId)
+    const stageNumbers = toComplete.map((t) => t.stageNumber)
+    const stageNames = toComplete.map((t) => t.stageName)
+
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO progress_records (person_id, stage_number, stage_name, is_completed, date_completed, updated_by)
+      SELECT t.person_id, t.stage_number, t.stage_name, true, CURRENT_DATE, ${updatedById}::uuid
+      FROM unnest(
+        ${personIds}::uuid[],
+        ${stageNumbers}::int[],
+        ${stageNames}::text[]
+      ) AS t(person_id, stage_number, stage_name)
+      ON CONFLICT (person_id, stage_number)
+      DO UPDATE SET
+        is_completed = true,
+        date_completed = CURRENT_DATE,
+        updated_by = EXCLUDED.updated_by
+      WHERE progress_records.is_completed IS NOT TRUE
+    `)
+
+    const affectedConverts = Array.from(new Set(personIds))
+    await prisma.newConvert.updateMany({
+      where: { id: { in: affectedConverts } },
+      data: { lastMilestoneDate: new Date() },
+    })
+
     logger.info(
-      `Daily milestone auto-completion complete: ${totalProcessed} converts processed, ${totalNewMilestones} new milestones completed`
+      `Daily milestone auto-completion complete: ${converts.length} converts evaluated, ` +
+        `${toComplete.length} new milestones across ${affectedConverts.length} converts`
     )
   } catch (error) {
     logger.error('Error in daily milestone auto-completion:', error)
+    throw error
   }
 }
 

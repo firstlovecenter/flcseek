@@ -14,7 +14,7 @@ function getMonthOrder(name: string): number {
 
 // GET - List all groups with optional archived filtering
 export async function GET(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new group
 export async function POST(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user, error } = requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
     
     const params = getQueryParams(request);
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user, error } = requireSuperAdmin(request);
+    const { user, error } = await requireSuperAdmin(request);
     if (error) return error;
     
     const body = await request.json();

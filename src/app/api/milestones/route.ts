@@ -15,7 +15,7 @@ export const revalidate = 3600; // Cache for 1 hour
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user, error } = requireAuth(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
     
     const { searchParams } = new URL(request.url);

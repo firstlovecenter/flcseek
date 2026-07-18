@@ -5,13 +5,16 @@ import { logger } from '../../src/lib/logger';
 /**
  * Netlify Scheduled Function: Daily Milestone Auto-Completion
  * Runs daily at 2:00 AM UTC.
- * Replaces the node-cron job in src/lib/cron-jobs.ts which does not work in serverless.
+ *
+ * The job is set-based (a fixed number of queries regardless of convert
+ * count) so it stays well inside the free-tier 10s function execution limit.
+ * The acting user id is resolved internally (SYSTEM_USER_ID env var if it
+ * points at a real user, otherwise the dedicated "system" user).
  */
 export default async function handler() {
   logger.info('Netlify scheduled: Running daily milestone auto-completion...');
   try {
-    const systemUserId = process.env.SYSTEM_USER_ID || 'system';
-    await runDailyMilestoneAutoCompletion(systemUserId);
+    await runDailyMilestoneAutoCompletion();
     logger.info('Daily milestone auto-completion complete');
     return { statusCode: 200 };
   } catch (error) {

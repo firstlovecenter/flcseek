@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     // Get user from header
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 
@@ -35,7 +35,7 @@ export async function PUT(
 ) {
   try {
     // Get user from header
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 
@@ -73,7 +73,7 @@ export async function DELETE(
 ) {
   try {
     // Get user from header
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 

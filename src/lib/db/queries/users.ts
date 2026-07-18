@@ -200,7 +200,7 @@ export async function findLeaders(): Promise<User[]> {
  * Create a new user
  */
 export async function create(input: CreateUserInput): Promise<User> {
-  const hashedPassword = hashPassword(input.password);
+  const hashedPassword = await hashPassword(input.password);
 
   const user = await prisma.user.create({
     data: {
@@ -240,7 +240,13 @@ export async function update(
   const data: Record<string, any> = {};
 
   if (updates.password !== undefined) {
-    data.password = hashPassword(updates.password);
+    data.password = await hashPassword(updates.password);
+    // Invalidate all outstanding sessions when the password changes.
+    data.tokenVersion = { increment: 1 };
+  }
+  if (updates.role !== undefined) {
+    // Role changes take effect immediately — old tokens must re-authenticate.
+    data.tokenVersion = { increment: 1 };
   }
   if (updates.email !== undefined) {
     data.email = updates.email;
