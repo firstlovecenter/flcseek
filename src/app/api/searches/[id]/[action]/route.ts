@@ -12,7 +12,7 @@ type Params = Promise<{ id: string; action: string }>;
  */
 export async function POST(request: NextRequest, context: { params: Params }) {
   try {
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 

@@ -33,7 +33,7 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user, error } = requireAuth(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
     
     const params = getQueryParams(request);

@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { id, action } = params
 
   try {
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 

@@ -187,6 +187,10 @@ export async function createMany(
         attendanceDate: new Date(r.date_attended),
         markedById: r.recorded_by,
       })),
+      // The DB now enforces UNIQUE (person_id, date_attended); if a concurrent
+      // request wins the race after our duplicate pre-check, skip silently
+      // instead of failing the whole batch.
+      skipDuplicates: true,
     });
     for (const row of newRecords) {
       created.push(transformAttendanceRecord(row));

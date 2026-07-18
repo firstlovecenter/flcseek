@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/api/middleware';
+import { getVerifiedAuthUser } from '@/lib/api/middleware';
 import * as Users from '@/lib/db/queries/users';
 import type { UserRole } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {
-    const userPayload = getAuthUser(request);
+    const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json(

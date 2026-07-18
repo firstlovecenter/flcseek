@@ -3,14 +3,14 @@ import type { ZodType } from 'zod';
 import type { UserPayload } from '@/lib/auth';
 import type { UserRole } from '@/lib/constants';
 import { errors } from './response';
-import { getAuthUser, hasMinRole } from './middleware';
+import { getVerifiedAuthUser, hasMinRole } from './middleware';
 
 /**
  * Centralized API route wrapper.
  *
  * Handles, in one place, the cross-cutting concerns that were previously
  * duplicated (and drifting) across every route handler:
- *  - authentication (cookie + Bearer, via getAuthUser)
+ *  - authentication (cookie + Bearer, DB-verified via getVerifiedAuthUser)
  *  - role / minimum-role authorization
  *  - JSON body parsing + Zod validation
  *  - a single error contract ({ success: false, error: { code, message } })
@@ -49,7 +49,7 @@ export function withApiHandler<Body = undefined, Params = Record<string, string>
       let user: UserPayload | null = null;
 
       if (options.auth) {
-        user = getAuthUser(request);
+        user = await getVerifiedAuthUser(request);
         if (!user) return errors.unauthorized();
 
         if (typeof options.auth === 'object') {

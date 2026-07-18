@@ -10,43 +10,12 @@ import {
 import * as Attendance from '@/lib/db/queries/attendance';
 import * as People from '@/lib/db/queries/people';
 import { ROLES } from '@/lib/constants';
+import { validateAttendanceDate } from '@/lib/utils/attendance-validation';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 import { logger } from '@/lib/logger';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
-
-/**
- * Only superadmins may backdate attendance to an earlier Sunday. Everyone
- * else may only record attendance for the most recent Sunday (today, if
- * today is a Sunday). Returns an error message, or null if the date is valid.
- */
-function validateAttendanceDate(dateAttended: string, role: string): string | null {
-  const date = new Date(`${dateAttended}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) {
-    return 'Invalid date_attended value';
-  }
-
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  if (date.getTime() > today.getTime()) {
-    return 'Cannot record attendance for a future date';
-  }
-
-  if (date.getUTCDay() !== 0) {
-    return 'Attendance can only be recorded for a Sunday';
-  }
-
-  if (role !== ROLES.SUPERADMIN) {
-    const mostRecentSunday = new Date(today);
-    mostRecentSunday.setUTCDate(today.getUTCDate() - today.getUTCDay());
-    if (date.getTime() !== mostRecentSunday.getTime()) {
-      return 'You can only record attendance for the most recent Sunday';
-    }
-  }
-
-  return null;
-}
 
 /**
  * GET /api/v1/attendance
@@ -60,7 +29,7 @@ function validateAttendanceDate(dateAttended: string, role: string): string | nu
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user, error } = requireAuth(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
     
     const params = getQueryParams(request);
@@ -106,7 +75,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user, error } = requireAuth(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
     
     const body = await request.json();

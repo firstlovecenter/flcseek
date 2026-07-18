@@ -21,7 +21,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error } = requireAuth(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
 
     const { id } = await params;

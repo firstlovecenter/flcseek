@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user, error } = requireAuth(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
     
     const body = await request.json();

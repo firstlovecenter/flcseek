@@ -29,7 +29,7 @@ interface RouteContext {
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   try {
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   try {
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 

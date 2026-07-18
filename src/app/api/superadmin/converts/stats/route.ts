@@ -4,7 +4,7 @@ import { verifySuperAdmin } from '@/lib/auth';
 
 // GET - Get converts stats
 export async function GET(request: NextRequest) {
-  const user = verifySuperAdmin(request);
+  const user = await verifySuperAdmin(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

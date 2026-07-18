@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "audit:deps": "npm audit --audit-level=moderate",
     "postinstall": "prisma generate",
     "db:setup": "node scripts/setup-initial-db.js",
@@ -54,6 +56,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^8.49.0",
     "eslint-config-next": "^15.0.0",
+    "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^5.0.7",
@@ -78,6 +81,7 @@
   },
   "devDependencies": {
     "prisma": "^7.2.0",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "vitest": "^4.1.10"
   }
 }

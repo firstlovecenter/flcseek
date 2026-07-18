@@ -6,7 +6,7 @@ import { requireAuth } from '@/lib/api/middleware';
 export async function POST(request: NextRequest) {
   try {
     // Get user from header
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Get user from header
-    const { user, error: authError } = requireAuth(request);
+    const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
 

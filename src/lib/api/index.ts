@@ -20,6 +20,7 @@ export {
 // Middleware utilities
 export {
   getAuthUser,
+  getVerifiedAuthUser,
   requireAuth,
   requireRole,
   requireMinRole,

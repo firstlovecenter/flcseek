@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { error } = requireSuperAdmin(request);
+    const { error } = await requireSuperAdmin(request);
     if (error) return error;
     
     const milestones = await Milestones.findAll();
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { error } = requireSuperAdmin(request);
+    const { error } = await requireSuperAdmin(request);
     if (error) return error;
     
     const body = await request.json();
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const { error } = requireSuperAdmin(request);
+    const { error } = await requireSuperAdmin(request);
     if (error) return error;
     
     const { searchParams } = new URL(request.url);

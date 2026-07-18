@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/api/middleware';
+import { getVerifiedAuthUser } from '@/lib/api/middleware';
 import { prisma } from '@/lib/prisma';
 import { logAuditEvent } from '@/lib/audit-log';
 
@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userPayload = getAuthUser(request);
+    const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -63,7 +63,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userPayload = getAuthUser(request);
+    const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -123,7 +123,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userPayload = getAuthUser(request);
+    const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -182,7 +182,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userPayload = getAuthUser(request);
+    const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
