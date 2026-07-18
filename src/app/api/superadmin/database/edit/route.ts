@@ -1,25 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/api/middleware';
+import { getVerifiedAuthUser } from '@/lib/api/middleware';
+import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import type { UserPayload } from '@/lib/auth';
+
+/**
+ * Raw database editor (superadmin UI).
+ *
+ * Gated by:
+ *  1. ENABLE_DB_EDITOR=true env var — off by default per instance. Operators
+ *     who don't need in-app editing (Prisma Studio / Neon console cover the
+ *     same need) should leave it disabled.
+ *  2. A DB-verified superadmin session (revoked tokens rejected).
+ *  3. Optional DB_EDITOR_USERS env var — comma-separated usernames further
+ *     restricting who may use it. Replaces the previous hardcoded username
+ *     list, which broke when accounts were renamed and couldn't vary per
+ *     deployed instance.
+ *
+ * Every edit/delete is written to the audit log.
+ */
+async function authorizeDbEditor(
+  request: NextRequest
+): Promise<{ user: UserPayload } | { error: NextResponse }> {
+  if (process.env.ENABLE_DB_EDITOR !== 'true') {
+    return {
+      error: NextResponse.json(
+        { error: 'The database editor is disabled on this instance (set ENABLE_DB_EDITOR=true to enable).' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  const user = await getVerifiedAuthUser(request);
+  if (!user || user.role !== 'superadmin') {
+    return {
+      error: NextResponse.json(
+        { error: 'Unauthorized. Only superadmins can edit database records.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  const allowedUsers = (process.env.DB_EDITOR_USERS || '')
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (allowedUsers.length > 0 && !allowedUsers.includes(user.username)) {
+    return {
+      error: NextResponse.json(
+        { error: 'Unauthorized. Your account is not permitted to edit database records.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { user };
+}
+
+// Validate table name to prevent SQL injection
+const allowedTables = [
+  'users',
+  'groups',
+  'new_converts',
+  'progress_records',
+  'attendance_records',
+  'milestones',
+];
 
 export async function PATCH(request: NextRequest) {
   try {
-    const userPayload = getAuthUser(request);
-
-    // Only skaduteye and sysadmin can edit database
-    if (
-      !userPayload ||
-      userPayload.role !== 'superadmin' ||
-      !['skaduteye', 'sysadmin'].includes(userPayload.username)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Unauthorized. Only skaduteye and sysadmin can edit database records.',
-        },
-        { status: 403 }
-      );
-    }
+    const auth = await authorizeDbEditor(request);
+    if ('error' in auth) return auth.error;
+    const userPayload = auth.user;
 
     const { tableName, id, updates } = await request.json();
 
@@ -30,15 +82,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Validate table name to prevent SQL injection
-    const allowedTables = [
-      'users',
-      'groups',
-      'new_converts',
-      'progress_records',
-      'attendance_records',
-      'milestones',
-    ];
     if (!allowedTables.includes(tableName)) {
       return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });
     }
@@ -99,6 +142,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
     }
 
+    const reqInfo = extractRequestInfo(request.headers);
+    await logAuditEvent({
+      userId: userPayload.id,
+      action: 'DB_EDITOR_UPDATE',
+      entityType: tableName,
+      entityId: String(id),
+      newValues: updates,
+      ipAddress: reqInfo.ipAddress,
+      userAgent: reqInfo.userAgent,
+    });
+
     // Convert BigInt to Number for JSON serialization
     const record: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(result[0])) {
@@ -121,22 +175,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const userPayload = getAuthUser(request);
-
-    // Only skaduteye and sysadmin can delete database records
-    if (
-      !userPayload ||
-      userPayload.role !== 'superadmin' ||
-      !['skaduteye', 'sysadmin'].includes(userPayload.username)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Unauthorized. Only skaduteye and sysadmin can delete database records.',
-        },
-        { status: 403 }
-      );
-    }
+    const auth = await authorizeDbEditor(request);
+    if ('error' in auth) return auth.error;
+    const userPayload = auth.user;
 
     const { searchParams } = new URL(request.url);
     const tableName = searchParams.get('table');
@@ -149,15 +190,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Validate table name to prevent SQL injection
-    const allowedTables = [
-      'users',
-      'groups',
-      'new_converts',
-      'progress_records',
-      'attendance_records',
-      'milestones',
-    ];
     if (!allowedTables.includes(tableName)) {
       return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });
     }
@@ -177,6 +209,17 @@ export async function DELETE(request: NextRequest) {
     if (result.length === 0) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
     }
+
+    const reqInfo = extractRequestInfo(request.headers);
+    await logAuditEvent({
+      userId: userPayload.id,
+      action: 'DB_EDITOR_DELETE',
+      entityType: tableName,
+      entityId: String(id),
+      oldValues: result[0] as Record<string, unknown>,
+      ipAddress: reqInfo.ipAddress,
+      userAgent: reqInfo.userAgent,
+    });
 
     // Convert BigInt to Number for JSON serialization
     const record: Record<string, unknown> = {};

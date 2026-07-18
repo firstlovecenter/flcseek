@@ -5,7 +5,6 @@ import { logger } from '../../src/lib/logger';
 /**
  * Netlify Scheduled Function: Weekly Notification Cleanup
  * Runs every Sunday at 3:00 AM UTC.
- * Replaces the node-cron job in src/lib/cron-jobs.ts which does not work in serverless.
  */
 export default async function handler() {
   logger.info('Netlify scheduled: Running notification cleanup...');

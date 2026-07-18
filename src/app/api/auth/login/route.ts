@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isValidPassword = verifyPassword(password, user.password);
+    const isValidPassword = await verifyPassword(password, user.password);
 
     if (!isValidPassword) {
       await logAuditEvent({
@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
       group_name: groupName || undefined,
       group_year: groupYear || undefined,
       group_id: groupId || undefined,
+      tv: user.tokenVersion,
     });
 
     // Log successful login

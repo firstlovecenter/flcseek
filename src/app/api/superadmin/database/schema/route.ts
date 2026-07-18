@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/api/middleware';
+import { getVerifiedAuthUser } from '@/lib/api/middleware';
 
 export async function GET(request: NextRequest) {
   try {
-    const userPayload = getAuthUser(request);
+    const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload || userPayload.role !== 'superadmin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

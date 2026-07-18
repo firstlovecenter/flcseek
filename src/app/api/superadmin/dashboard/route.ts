@@ -5,7 +5,7 @@ import { verifySuperAdmin } from '@/lib/auth';
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
-    const decoded = verifySuperAdmin(request);
+    const decoded = await verifySuperAdmin(request);
     if (!decoded) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

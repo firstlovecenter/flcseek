@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/api/middleware';
+import { getVerifiedAuthUser } from '@/lib/api/middleware';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 import { checkRateLimit } from '@/lib/rate-limit';
 
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     if (rateLimitResponse) return rateLimitResponse;
 
     // Use cookie-aware auth helper (checks cookie first, then Bearer header)
-    const userPayload = getAuthUser(request);
+    const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

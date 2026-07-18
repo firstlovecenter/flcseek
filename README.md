@@ -1,505 +1,287 @@
-# FLCSeek - Church New Convert Tracking System
+# FLCSeek — Church New Convert Tracking System
 
-A comprehensive, performance-optimized church management system for tracking new convert spiritual growth, milestone progression, and attendance across monthly groups.
+A performance-optimized Progressive Web App (PWA) for tracking new-convert
+spiritual growth, milestone progression, and attendance across monthly groups.
+Each church/site runs its own independent deployment (Netlify + Neon Postgres).
 
-## 🌟 What is FLCSeek?
+> This is the single project document. Setup, architecture, operations, and
+> troubleshooting all live here. The only other doc is `DESIGN.md` — a
+> reusable frontend design-system spec (typography, tokens, component
+> conventions) for building sibling apps with the same look and feel.
 
-FLCSeek is a Progressive Web App (PWA) designed to help churches systematically track and nurture new converts through their spiritual journey. It provides role-based dashboards, real-time progress monitoring, bulk registration tools, and analytics to ensure no new believer falls through the cracks.
+---
 
-### Key Features
+## Features
 
-✅ **Month-Based Organization** - Organize new converts by registration month (January - December)  
-✅ **18 Milestone Progression** - Track spiritual growth through 18 customizable milestones  
-✅ **Attendance Tracking** - Monitor church attendance with 26-week goal  
-✅ **Role-Based Access Control** - Super Admin, Lead Pastor, Admin (Month Leader), and Sheep Seeker roles  
-✅ **Bulk Registration** - Register multiple converts via Excel import  
-✅ **Real-Time Analytics** - Department performance dashboards with visual progress indicators  
-✅ **Performance Optimized** - Sub-second page loads with advanced database indexing  
-✅ **Theme Support** - Light and dark mode with WCAG AA color contrast compliance  
+- **Month-based organization** — converts are organized by registration month (January–December), one group per month per year
+- **18-milestone progression** — customizable spiritual growth stages, with optional auto-completion rules (attendance count, time elapsed, previous milestone)
+- **Attendance tracking** — Sunday attendance with a 26-week goal; the attendance milestone auto-completes at the goal
+- **Role-based access control** — Super Admin, Lead Pastor, Overseer, Admin (month admin), Leader
+- **Bulk registration** — Excel import for registering many converts at once
+- **Analytics** — dashboards, cohort analysis, growth forecasting, risk scoring, achievement badges
+- **PWA** — installable, offline-capable, with light/dark themes
 
-## 🚀 Quick Start (5 Minutes Setup)
+### Roles & permissions
+
+| Feature | Super Admin | Lead Pastor / Overseer | Admin | Leader |
+|---|---|---|---|---|
+| View all months | ✅ | ✅ | ❌ | ❌ |
+| Manage assigned month | ✅ | ❌ | ✅ | ✅ (view) |
+| Register converts | ✅ | ❌ | ✅ | ❌ |
+| Mark milestones | ✅ | ❌ | ✅ | ❌ |
+| Track attendance | ✅ | ✅ | ✅ | ✅ |
+| Create users / edit milestones | ✅ | ❌ | ❌ | ❌ |
+| Analytics | ✅ | ✅ | ❌ | ❌ |
+| Database management / bulk delete | ✅ | ❌ | ❌ | ❌ |
+
+Leaders and admins are scoped to their **month name across all years**
+(implemented in `resolveGroupScope` — the single source of truth for
+role-based data scoping).
+
+---
+
+## Tech stack & architecture
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15 (App Router), React 19, Tailwind CSS 4, Radix UI |
+| API | Next.js route handlers (`src/app/api/*`) |
+| Database | Neon Postgres via Prisma 7 (`@prisma/adapter-neon`) |
+| Auth | JWT (httpOnly cookie) + DB-backed verification |
+| Hosting | Netlify (free tier) — functions have a ~10s execution limit |
+| Background jobs | Netlify Scheduled Functions (`netlify/functions/`) |
+
+### Code layering
+
+```
+src/app/api/*/route.ts     → thin route handlers: auth + validation + delegation
+src/lib/api/               → middleware (requireAuth/requireRole), response helpers, handler wrapper
+src/lib/db/queries/*       → repository layer (all Prisma access for domain reads/writes)
+src/lib/*                  → domain services (milestone auto-calc, rollover, notifications, …)
+prisma/schema.prisma       → schema; prisma/migrations/*.sql → numbered SQL migrations
+```
+
+Route handlers must go through `requireAuth` / `requireRole` /
+`getVerifiedAuthUser` (in `src/lib/api/middleware.ts`) — never raw token
+decoding.
+
+### Authentication model
+
+- Login sets an **httpOnly cookie** (`auth_token`, 7 days). The JWT is an
+  *identity assertion only*.
+- Every authenticated request re-resolves the user from the database
+  (`src/lib/auth-verify.ts`): role, group assignment, soft-delete status, and
+  `users.token_version` are checked fresh. Bumping `token_version` (password
+  change, role change) instantly revokes all outstanding tokens for that user.
+- Edge middleware (`src/middleware.ts`) verifies JWT signatures with `jose`
+  before a route function is even invoked.
+- Rate limiting (`src/lib/rate-limit.ts`): security-critical endpoints (login,
+  exports, bulk delete) are enforced through a **shared database counter**
+  (`rate_limit_records`) so limits hold across serverless instances; the
+  in-memory counter is only a per-instance backstop.
+
+### Scheduled jobs (Netlify Scheduled Functions)
+
+Schedules are declared **in-code** via the exported `config` in each function
+file — `netlify.toml` intentionally has no schedule blocks.
+
+| Function | Schedule | Purpose |
+|---|---|---|
+| `scheduled-analytics` | daily 02:00 UTC | milestone auto-completion (set-based; fixed query count regardless of convert volume) |
+| `scheduled-cleanup` | Sun 03:00 UTC | delete notifications older than 30 days |
+| `scheduled-yearly-rollover` | Jan 1 00:15 UTC | clone previous-year groups into the new year |
+
+Jobs act as a non-loginable `system` user (auto-created; its stored password
+is random bytes, not a bcrypt hash, so login is impossible). Override with
+`SYSTEM_USER_ID` if you want a specific account.
+
+---
+
+## Quick start
 
 ### Prerequisites
-- Node.js 18+ and npm installed
-- A Neon Database account (free tier available)
+- Node.js 18+ and npm
+- A Neon database (free tier is fine)
 
-### 1. Clone and Install
+### 1. Clone and install
 ```bash
 git clone https://github.com/firstlovecenter/flcseek.git
 cd flcseek
-npm install
+npm install --legacy-peer-deps
 ```
 
-### 2. Set Up Database
-1. Create a **free** Neon database account at [neon.tech](https://neon.tech)
-2. Create a new project (choose your preferred region)
-3. Copy your connection string (looks like `postgresql://user:pass@host/database`)
-
-### 3. Configure Environment Variables
-Create a `.env.local` file in the root directory:
+### 2. Configure environment
+Create `.env.local` (see `.env.example` for the full list):
 
 ```env
-# Database Connection (REQUIRED)
 NEON_DATABASE_URL=postgresql://username:password@host.neon.tech/database?sslmode=require
-
-# Authentication Secret (REQUIRED - Change this to a random string!)
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-min-32-chars
+JWT_SECRET=<random 32+ char secret>
 ```
 
-**🔐 Security Note:** Generate a strong JWT_SECRET using:
+Generate a strong secret:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### 4. Initialize Database Schema
-Run the initial migration to create all tables, indexes, and seed data:
+Optional variables:
 
+| Variable | Purpose |
+|---|---|
+| `SYSTEM_USER_ID` | User id automated jobs act as (auto-created `system` user if unset) |
+| `ENABLE_DB_EDITOR` | Set exactly `true` to enable the in-app raw DB editor (off by default) |
+| `DB_EDITOR_USERS` | Comma-separated usernames additionally allowed to use the DB editor |
+
+### 3. Initialize the database
 ```bash
 npm run db:setup
 ```
+Creates the schema, indexes, seed milestones, month groups, and a default
+superadmin (`superadmin` / `admin123` — **change this immediately**).
 
-This will create:
-- 6 database tables (`users`, `groups`, `milestones`, `new_converts`, `progress_records`, `attendance_records`)
-- 15+ performance indexes for optimized queries
-- Default superadmin account (username: `superadmin`, password: `admin123`)
-- 18 spiritual growth milestones
-- 12 month groups for 2025
-
-### 5. Start the Application
+### 4. Run
 ```bash
-npm run dev
-```
-
-Visit **http://localhost:3000** and log in with:
-- **Username:** `superadmin`
-- **Password:** `admin123`
-- **Role:** Super Administrator (full system access)
-
-**⚠️ IMPORTANT:** Change the superadmin password immediately after first login!
-
----
-
-## 📱 Features Overview
-
-### For Super Admins
-- **Full System Access** - Manage all months, users, and converts
-- **User Management** - Create admin and sheep seeker accounts
-- **Milestone Customization** - Define and edit spiritual growth stages
-- **Analytics Dashboard** - View system-wide statistics and trends
-- **Bulk Operations** - Export data, bulk delete records
-- **Database Management** - Run migrations, view table statistics
-
-### For Lead Pastors
-- **Multi-Month View** - Track progress across all monthly groups
-- **Comparative Analytics** - See which months are performing well
-- **Leadership Oversight** - Monitor sheep seeker effectiveness
-- **Progress Reports** - Generate month-by-month progress reports
-
-### For Admins (Month Admins)
-- **Month Management** - Oversee a specific monthly group
-- **Convert Registration** - Register new converts (bulk or individual)
-- **Progress Tracking** - View milestone completion for all group members
-- **Attendance Management** - Mark attendance for group members
-
-### For Sheep Seekers (Month Leaders)
-- **Assigned Converts** - Manage specific converts in your month
-- **Milestone Updates** - Mark milestones as completed
-- **Attendance Recording** - Track church attendance
-- **Individual Progress** - View detailed convert profiles
-- **Quick Actions** - Fast navigation to common tasks
-
----
-
-## 🛠️ Tech Stack
-
-| Technology | Purpose |
-|------------|---------|
-| **Next.js 13** | React framework with App Router and Server Components |
-| **TypeScript** | Type-safe development |
-| **Ant Design** | Professional UI component library |
-| **Tailwind CSS** | Utility-first CSS framework |
-| **Neon Database** | Serverless PostgreSQL with auto-scaling |
-| **JWT + bcrypt** | Secure authentication and password hashing |
-| **next-pwa** | Progressive Web App capabilities |
-
----
-
-## 📊 Database Schema
-
-### Core Tables
-1. **users** - User accounts with role-based access
-2. **groups** - Month-based groups (e.g., "January 2025")
-3. **milestones** - Spiritual growth stages (18 default stages)
-4. **new_converts** - Registered new converts with contact info
-5. **progress_records** - Milestone completion tracking
-6. **attendance_records** - Church attendance records
-
-### Performance Optimizations
-- 15+ strategic indexes on frequently queried columns
-- Optimized JOIN queries eliminate N+1 problems
-- Single-query data fetching with JSON aggregation
-- Partial indexes for conditional filtering
-
----
-
-## 🗂️ Project Structure
-
-```
-flcseek/
-├── app/                          # Next.js 13 App Router
-│   ├── api/                      # API Routes
-│   │   ├── auth/                 # Authentication endpoints
-│   │   ├── people/               # Convert management APIs
-│   │   │   ├── with-progress/    # Optimized endpoint (eliminates N+1)
-│   │   │   ├── with-stats/       # Aggregated stats endpoint
-│   │   │   └── bulk/             # Bulk registration
-│   │   ├── milestones/           # Milestone CRUD
-│   │   ├── groups/               # Group management
-│   │   ├── attendance/           # Attendance tracking
-│   │   ├── progress/             # Progress updates
-│   │   └── superadmin/           # Admin-only endpoints
-│   ├── sheep-seeker/             # Sheep Seeker dashboard
-│   │   ├── page.tsx              # Main milestone board
-│   │   ├── progress/             # Progress view
-│   │   ├── attendance/           # Attendance tracking
-│   │   └── people/               # Convert registration
-│   ├── leader/                   # Admin (Month Leader) dashboard
-│   ├── leadpastor/               # Lead Pastor dashboard
-│   │   └── [month]/              # Month-specific views
-│   ├── superadmin/               # Super Admin dashboard
-│   │   ├── users/                # User management
-│   │   ├── groups/               # Group management
-│   │   ├── milestones/           # Milestone configuration
-│   │   ├── converts/             # All converts view
-│   │   ├── analytics/            # System analytics
-│   │   └── database/             # Database management
-│   ├── person/[id]/              # Individual convert profile
-│   ├── layout.tsx                # Root layout with theme provider
-│   └── globals.css               # Global styles with theme variables
-├── components/                   # Reusable React components
-│   ├── ui/                       # shadcn/ui components
-│   ├── Navigation.tsx            # Role-based navigation
-│   ├── TopNav.tsx                # Top navigation bar
-│   └── PullToRefresh.tsx         # Mobile pull-to-refresh
-├── contexts/
-│   └── AuthContext.tsx           # Authentication context
-├── lib/                          # Utility functions
-│   ├── auth.ts                   # JWT token management & bcrypt
-│   ├── neon.ts                   # Database connection & query helper
-│   ├── constants.ts              # App-wide constants
-│   └── utils.ts                  # Helper functions
-├── db/
-│   └── migrations/               # Database migrations
-│       ├── 000_initial_setup.sql # Complete schema setup (NEW!)
-│       ├── 013_add_performance_indexes.sql
-│       └── 013_remove_full_name_column.sql
-├── public/                       # Static assets
-│   ├── manifest.json             # PWA manifest
-│   ├── sw.js                     # Service worker (auto-generated)
-│   └── icons/                    # PWA icons
-├── .env.local                    # Environment variables (create this)
-├── next.config.js                # Next.js configuration
-├── tailwind.config.ts            # Tailwind CSS configuration
-└── package.json                  # Dependencies & scripts
+npm run dev     # http://localhost:3000
 ```
 
 ---
 
-## 🔐 User Roles & Permissions
+## Database & migrations
 
-### Role Hierarchy
-```
-Super Admin (Full Access)
-    ↓
-Lead Pastor (All Months Read)
-    ↓
-Admin (Single Month Edit Access)
-    ↓
-Leader (Single Month View Access)
-```
+- Schema of record: `prisma/schema.prisma` (core tables: `users`, `groups`,
+  `milestones`, `new_converts`, `progress_records`, `attendance_records`, plus
+  supporting tables for audit logs, notifications, saved searches, badges,
+  alerts, report templates, and rate limits).
+- Migrations are **numbered SQL files** in `prisma/migrations/`, applied
+  manually per instance:
+  ```bash
+  psql $NEON_DATABASE_URL -f prisma/migrations/<file>.sql
+  ```
 
-### Permission Matrix
+> ⚠️ **Production databases:** always review a migration before applying it,
+> and take a Neon branch or note a point-in-time-restore timestamp first.
+> Migration `018_attendance_unique_and_token_version.sql` **must be applied
+> before deploying** code that expects it (it adds `users.token_version` and
+> the attendance uniqueness constraint, deduplicating existing attendance rows
+> in the process — review duplicates with a `SELECT` first if in doubt).
 
-| Feature | Super Admin | Lead Pastor | Admin | Leader |
-|---------|-------------|-------------|-------|---------|
-| View All Months | ✅ | ✅ | ❌ | ❌ |
-| Manage Assigned Month | ✅ | ❌ | ✅ | ✅ |
-| Register New Converts | ✅ | ❌ | ✅ | ❌ |
-| Mark Milestones | ✅ | ❌ | ✅ | ❌ |
-| Track Attendance | ✅ | ✅ | ✅ | ✅ |
-| Create Users | ✅ | ❌ | ❌ | ❌ |
-| Edit Milestones | ✅ | ❌ | ❌ | ❌ |
-| View Analytics | ✅ | ✅ | ❌ | ❌ |
-| Database Management | ✅ | ❌ | ❌ | ❌ |
-| Bulk Delete | ✅ | ❌ | ❌ | ❌ |
+Key invariants enforced by the schema:
+- `UNIQUE (person_id, date_attended)` on `attendance_records` — a person can't
+  be marked present twice for the same Sunday
+- `UNIQUE (person_id, stage_number)` on `progress_records`
+- `UNIQUE (name, year)` on `groups`
+
+*Roadmap note:* the long-term plan is to adopt `prisma migrate` (tracked
+migrations per database) and retire the hand-numbered files.
 
 ---
 
-## 🚢 Deployment
+## Year rollover
 
-### Netlify (Recommended)
+On **January 1st at 00:15 UTC** each instance clones all active groups from
+the previous year into the new year (same names, descriptions, leaders;
+**converts are not migrated** — new-year groups start empty). Groups already
+present in the current year are skipped, so the job is idempotent.
 
-1. **Connect Repository**
-   ```bash
-   # Push your code to GitHub
-   git remote add origin https://github.com/yourusername/flcseek.git
-   git push -u origin main
-   ```
+- Automatic: `netlify/functions/scheduled-yearly-rollover.ts`
+- Manual: **Superadmin → Groups → "Clone <previous year> Groups"** (same
+  idempotent service — running both is harmless)
+- Verify: Superadmin → Activity Logs → `CLONE_GROUP` entries; or the function
+  log in the Netlify dashboard
 
-2. **Configure Netlify**
-   - Go to [netlify.com](https://netlify.com) and click "New site from Git"
-   - Select your repository
-   - **Build settings:**
-     - Build command: `npm run build`
-     - Publish directory: `.next`
-   
-3. **Set Environment Variables**
-   In Netlify Dashboard → Site settings → Environment variables:
-   ```
-   NEON_DATABASE_URL=your_production_database_url
-   JWT_SECRET=your_production_jwt_secret
-   ```
+No external cron, GitHub Actions workflow, or long-lived token is involved.
 
-4. **Deploy**
-   - Click "Deploy site"
-   - Your app will be live at `https://your-site-name.netlify.app`
+---
 
-### Vercel (Alternative)
+## Multi-instance setup
+
+Each church/site = one Netlify site + one Neon database, fully independent.
+Per instance: create the database, set a **unique** `JWT_SECRET`, run
+`npm run db:setup` (or apply migrations), deploy. Scheduled jobs ship with the
+app and need no extra configuration.
+
+---
+
+## Deployment (Netlify)
+
+1. Connect the repo to a Netlify site (build settings come from `netlify.toml`).
+2. Set `NEON_DATABASE_URL` and `JWT_SECRET` in the site's environment variables.
+3. Apply any pending SQL migrations to that instance's database **before**
+   deploying code that depends on them.
+4. Deploy. Security headers (CSP, HSTS, frame denial) are set in `netlify.toml`.
+
+Free-tier constraints to keep in mind: ~10s function execution limit (keep
+jobs set-based), no background functions, no paid add-ons (shared state such
+as rate limiting uses the Neon database, not Redis).
+
+---
+
+## Development
 
 ```bash
-npm install -g vercel
-vercel --prod
+npm run dev          # dev server
+npm run build        # production build (runs prisma generate first)
+npm run typecheck    # tsc --noEmit
+npm run lint         # next lint
+npm test             # vitest run (unit tests in src/**/__tests__)
+npm run test:watch   # vitest watch mode
+npm run prisma:studio# browse the DB (careful on prod!)
 ```
 
-Set environment variables in Vercel Dashboard or via CLI:
-```bash
-vercel env add NEON_DATABASE_URL production
-vercel env add JWT_SECRET production
-```
+### Tests & CI
+
+Unit tests (Vitest) cover the security- and correctness-critical pure logic:
+role hierarchy and group scoping, attendance date validation, milestone
+auto-trigger conditions, and JWT/password handling. CI
+(`.github/workflows/ci.yml`) runs typecheck + lint + tests on every push/PR to
+`main`. Please keep new domain logic in pure, testable functions
+(see `src/lib/milestone-auto-calc.ts` for the pattern).
 
 ---
 
-## 🔧 Common Tasks
+## API overview
 
-### Change Admin Password
-1. Log in as admin
-2. Navigate to Super Admin → Users
-3. Click on admin user → Edit → Change Password
+All endpoints live under `/api/*` and require the httpOnly session cookie
+(or an `Authorization: Bearer` token). Responses follow
+`{ success, data, error, meta }` (see `src/lib/api/response.ts`).
 
-### Create New User Accounts
-1. Super Admin → Users → Create User
-2. Fill in username, role, and assign to group (for admins/leaders)
-3. Provide credentials to new user
+Main resource groups: `auth`, `people`, `groups`, `milestones`, `attendance`,
+`progress`, `stats`, `export`, `notifications`, plus `superadmin/*`
+(user/group/milestone management, analytics, activity logs, database tools).
 
-### Customize Milestones
-1. Super Admin → Milestones
-2. Edit existing milestones or add new ones
-3. Stage numbers must be unique (1-99)
-
-### Bulk Register Converts
-1. Download Excel template from Sheep Seeker → Bulk Register
-2. Fill in convert information (Name, Phone, DOB, Gender, Location)
-3. Upload Excel file
-4. Review and confirm registration
-
-### Create New Year Groups
-1. Super Admin → Groups → Create Group
-2. Create 12 groups for new year (e.g., "January 2026")
-3. Assign leaders to each month
-
-### Run Additional Migrations
-1. Super Admin → Database Management
-2. View available migrations
-3. Click "Run Migration" on pending migrations
-
-### Export Data
-1. Super Admin → Converts
-2. Use filters (month, progress status, etc.)
-3. Click "Export to Excel"
+Notable behaviors:
+- Attendance can only be recorded for Sundays; non-superadmins only for the
+  most recent Sunday (`src/lib/utils/attendance-validation.ts`)
+- List endpoints cap `limit` at 500
+- Login is rate-limited to 5 attempts / 15 min per IP (DB-enforced);
+  exports 10/hour; bulk deletes 5/hour
 
 ---
 
-## 📈 Performance Metrics
+## Troubleshooting
 
-FLCSeek has been heavily optimized for performance:
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Milestone Board Load (100 people) | 12s | <1s | **92% faster** |
-| API Requests per Page | 101 | 1 | **99% reduction** |
-| Bulk Registration (50 people) | 8s | <1s | **87% faster** |
-| Database Queries (progress fetch) | 202+ | 1 | **99.5% reduction** |
-
-### Key Optimizations Applied
-✅ Eliminated N+1 query problem with JOIN aggregation  
-✅ Strategic database indexes on all foreign keys  
-✅ HTTP caching with stale-while-revalidate  
-✅ Bulk INSERT operations instead of loops  
-✅ Server-side data aggregation  
-✅ Single-query data fetching with JSON_AGG  
-
-See [PERFORMANCE_OPTIMIZATIONS.md](./PERFORMANCE_OPTIMIZATIONS.md) for technical details.
+| Problem | Check |
+|---|---|
+| Can't connect to DB | `NEON_DATABASE_URL` includes `?sslmode=require`; Neon project isn't suspended |
+| Login fails for everyone | `JWT_SECRET` set in the deploy environment; migration 018 applied (`users.token_version` must exist) |
+| Login fails for one user | Their `token_version` was bumped (password/role change) — they must log in again |
+| Build errors | `rm -rf .next && npm run build`; ensure `prisma generate` ran |
+| Milestones not auto-completing | Netlify function log for `scheduled-analytics`; milestone's auto-trigger config is `enabled` |
+| No new-year groups on Jan 1 | Function log for `scheduled-yearly-rollover`; use the manual Clone button as fallback |
+| Slow queries | Verify indexes exist (`\d+ progress_records` etc.) — see migrations 013/015 |
 
 ---
 
-## 🐛 Troubleshooting
+## Security notes
 
-### Database Connection Issues
-**Problem:** "Database connection not configured" error
-
-**Solution:**
-1. Verify `.env.local` file exists in root directory
-2. Check `NEON_DATABASE_URL` is correctly formatted
-3. Ensure connection string includes `?sslmode=require`
-4. Test connection: `psql $NEON_DATABASE_URL -c "SELECT 1"`
-
-### Build Errors
-**Problem:** Build fails with TypeScript errors
-
-**Solution:**
-```bash
-# Clear Next.js cache and rebuild
-rm -rf .next
-npm run build
-```
-
-### Migration Fails
-**Problem:** Migration fails with "relation already exists"
-
-**Solution:**
-This is normal if tables already exist. The migrations use `IF NOT EXISTS` clauses and will skip existing structures.
-
-### Login Not Working
-**Problem:** "Invalid credentials" despite correct password
-
-**Solution:**
-1. Verify superadmin account exists:
-   ```sql
-   SELECT username, role FROM users WHERE username = 'superadmin';
-   ```
-2. If issues persist, verify environment variables and database connectivity.
-
-### Slow Performance
-**Problem:** Pages load slowly despite optimizations
-
-**Solution:**
-1. Verify performance indexes are created:
-   ```bash
-   # Check if indexes exist
-   psql $NEON_DATABASE_URL -c "\d+ progress_records"
-   ```
-2. Run index migration if missing:
-   - Super Admin → Database → Run Migration `013_add_performance_indexes.sql`
-
----
-
-## 🧪 Development
-
-### Run Development Server
-```bash
-npm run dev
-```
-
-### Run Tests
-```bash
-npm test
-```
-
-### Build for Production
-```bash
-npm run build
-npm start
-```
-
-### Lint Code
-```bash
-npm run lint
-```
-
-### Database Commands
-```bash
-# Setup database (run once)
-npm run db:setup
-
-# Run specific migration
-psql $NEON_DATABASE_URL -f db/migrations/000_initial_setup.sql
-
-# Check database schema
-psql $NEON_DATABASE_URL -c "\dt"  # List tables
-psql $NEON_DATABASE_URL -c "\d+ users"  # Describe table
-```
-
----
-
-## 📝 API Documentation
-
-### Authentication
-All API endpoints require JWT authentication via `Authorization: Bearer <token>` header.
-
-**Login:**
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "username": "superadmin",
-  "password": "admin123"
-}
-
-Response: { "token": "jwt_token_here", "user": {...} }
-```
-
-### Key Endpoints
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/auth/login` | POST | ❌ | User login |
-| `/api/people/with-progress` | GET | ✅ | Fetch people with progress (optimized) |
-| `/api/people/bulk` | POST | ✅ | Bulk register converts |
-| `/api/milestones` | GET | ✅ | Get all milestones (cached 1hr) |
-| `/api/progress/[person_id]` | PUT | ✅ | Update milestone progress |
-| `/api/attendance/[person_id]` | POST | ✅ | Mark attendance |
-| `/api/groups` | GET | ✅ | List groups |
-| `/api/superadmin/users` | GET/POST | ✅ (superadmin) | User management |
-
-See inline code documentation for detailed API schemas.
-
----
-
-## 🤝 Contributing
-
-This is a proprietary project for First Love Church. For feature requests or bug reports, contact the development team.
-
-### Development Guidelines
-1. Follow TypeScript strict mode
-2. Use Ant Design components for consistency
-3. Write optimized database queries
-4. Test on mobile devices (PWA focus)
-5. Maintain WCAG AA color contrast compliance
-
----
-
-## 📜 License
-
-Proprietary © 2025 First Love Church (FLC). All rights reserved.
-
-**For Organizations Interested in Forking:**
-1. Fork the repository
-2. Run the `000_initial_setup.sql` migration on your Neon database
-3. Update branding in `app/layout.tsx` and `public/manifest.json`
-4. Customize milestones in Super Admin dashboard
-5. Deploy to Netlify/Vercel with your own environment variables
-
-**Support:** For setup assistance, email your dev team or create an issue in the repository.
-
----
-
-## 📞 Support
-
-- **Technical Issues:** Check [PERFORMANCE_OPTIMIZATIONS.md](./PERFORMANCE_OPTIMIZATIONS.md) and this README
-- **Database Issues:** Review [db/migrations/000_initial_setup.sql](./db/migrations/000_initial_setup.sql)
-- **Feature Requests:** Contact church tech team
-
----
-
-**Built with ❤️ for First Love Church** | Version 2.0 | October 2025
+- JWTs are held in an httpOnly cookie; the client never stores the token in
+  `localStorage`
+- All authorization state is re-checked against the DB per request (revocation
+  via `users.token_version`)
+- Brute-force, export, and bulk-delete limits are enforced through a shared DB
+  counter, keyed by the Netlify-provided client IP
+  (`x-nf-client-connection-ip`)
+- The raw DB editor is disabled unless `ENABLE_DB_EDITOR=true`, restricted to
+  DB-verified superadmins (optionally narrowed by `DB_EDITOR_USERS`), and
+  fully audit-logged
+- Every sensitive action (logins, registrations, deletions, DB edits, clones)
+  is written to `activity_logs`
