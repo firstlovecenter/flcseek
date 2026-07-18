@@ -4,12 +4,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { useParams } from 'next/navigation'
 import { RegisterConvertDialog } from '@/components/group/RegisterConvertDialog'
+import { OPEN_REGISTER_EVENT } from '@/components/shell/mobileNav'
 
 type OpenRegisterOptions = {
   onSuccess?: () => void
@@ -36,6 +38,12 @@ export function RegisterModalProvider({ children }: { children: ReactNode }) {
     onCloseRef.current = options?.onClose
     setOpen(true)
   }, [])
+
+  useEffect(() => {
+    const onOpen = () => openRegister()
+    window.addEventListener(OPEN_REGISTER_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_REGISTER_EVENT, onOpen)
+  }, [openRegister])
 
   const handleOpenChange = useCallback((next: boolean) => {
     setOpen(next)

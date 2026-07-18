@@ -49,7 +49,7 @@ export function GroupNavActions({
     user?.role === 'overseer'
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div className={cn('hidden flex-wrap items-center gap-2 md:flex', className)}>
       {showHome && (
         <Button variant="outline" size="sm" onClick={() => router.push('/')}>
           <Home className="size-4" />

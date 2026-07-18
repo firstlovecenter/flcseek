@@ -4,18 +4,10 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { SynagoLogo } from '@/components/shell/SynagoLogo'
-import {
-  LogOut,
-  Menu,
-  RefreshCw,
-  User,
-  ChevronDown,
-  LineChart,
-} from 'lucide-react'
+import { LogOut, RefreshCw, User, ChevronDown } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import type { GroupApiData } from '@/lib/types/api-responses'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,16 +17,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/shell/ThemeToggle'
+import { TabBar } from '@/components/shell/TabBar'
+import { IconRail } from '@/components/shell/IconRail'
+import { MoreNavSheet } from '@/components/shell/MoreNavSheet'
 import {
-  Sidebar,
-  buildSuperAdminNav,
-  MobileNavLink,
-  type NavItem,
-} from '@/components/shell/Sidebar'
-import { Home, Users, UserPlus } from 'lucide-react'
+  buildGroupMoreNav,
+  buildGroupPrimaryNav,
+  buildSuperAdminMoreNav,
+  buildSuperAdminPrimaryNav,
+  groupIdFromPath,
+  isGroupMoreActive,
+  isSuperAdminMoreActive,
+} from '@/components/shell/mobileNav'
+import { cn } from '@/lib/utils'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -44,7 +41,7 @@ export default function AppShell({ children }: AppShellProps) {
   const { user, logout, token } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [groupInfo, setGroupInfo] = useState<{ name: string; year: number } | null>(null)
 
   useEffect(() => {
@@ -97,6 +94,10 @@ export default function AppShell({ children }: AppShellProps) {
     fetchGroupInfo()
   }, [user, token, pathname])
 
+  useEffect(() => {
+    setMoreOpen(false)
+  }, [pathname])
+
   const getContextLabel = () => {
     if (user?.role === 'superadmin') return ''
     if (user?.role === 'leadpastor') {
@@ -122,65 +123,47 @@ export default function AppShell({ children }: AppShellProps) {
     router.push('/auth')
   }
 
-  const groupIdMatch = pathname.match(/^\/([a-f0-9-]{36})/)
-  const groupIdFromPath = groupIdMatch?.[1]
-  const canViewReports =
-    user?.role === 'superadmin' ||
-    user?.role === 'leadpastor' ||
-    user?.role === 'overseer'
-
-  const superAdminNav = buildSuperAdminNav()
-  const mobileBottomNav: NavItem[] = [
-    { href: '/superadmin', label: 'Home', icon: Home },
-    { href: '/superadmin/users', label: 'Users', icon: Users },
-    { href: '/superadmin/converts', label: 'Converts', icon: Users },
-    { href: '/superadmin/groups', label: 'Groups', icon: UserPlus },
-  ]
-
-  if (canViewReports && groupIdFromPath) {
-    mobileBottomNav.push({
-      href: `/${groupIdFromPath}/reports`,
-      label: 'Reports',
-      icon: LineChart,
-    })
-  }
-
-  const showSidebar = user?.role === 'superadmin'
-  const navItems = showSidebar ? superAdminNav : []
-
   if (pathname === '/auth' || !user) {
     return <>{children}</>
   }
 
-  const homeHref = user?.role === 'superadmin' ? '/superadmin' : '/'
+  const isSuperAdmin = user.role === 'superadmin'
+  const groupId = groupIdFromPath(pathname)
+  const showGroupTabBar = !isSuperAdmin && !!groupId
+
+  const superPrimary = buildSuperAdminPrimaryNav()
+  const superMore = buildSuperAdminMoreNav()
+  const groupPrimary = groupId ? buildGroupPrimaryNav(groupId, user) : []
+  const groupMore = groupId ? buildGroupMoreNav(groupId, user) : []
+
+  const showMobileTabBar = isSuperAdmin || showGroupTabBar
+  const mobileItems = isSuperAdmin ? superPrimary : groupPrimary
+  const moreItems = isSuperAdmin ? superMore : groupMore
+  const moreActive = isSuperAdmin
+    ? isSuperAdminMoreActive(pathname)
+    : groupId
+      ? isGroupMoreActive(pathname, groupId, user)
+      : false
+
+  const homeHref = isSuperAdmin ? '/superadmin' : '/'
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {showSidebar && (
-        <div className="hidden shrink-0 md:block">
-          <Sidebar items={navItems} className="h-screen" />
-        </div>
+      {isSuperAdmin && (
+        <IconRail
+          items={superPrimary}
+          pathname={pathname}
+          moreActive={moreActive}
+          moreOpen={moreOpen}
+          onMoreClick={() => setMoreOpen(true)}
+          onLogout={handleLogout}
+          homeHref={homeHref}
+        />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 safe-area-top">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            {showSidebar && (
-              <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetTrigger asChild className="md:hidden">
-                  <Button variant="ghost" size="icon" aria-label="Open menu">
-                    <Menu className="size-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-72 p-0">
-                  <Sidebar
-                    items={navItems}
-                    className="h-full w-full border-0"
-                  />
-                </SheetContent>
-              </Sheet>
-            )}
-
             <Link href={homeHref} className="flex shrink-0 items-center gap-2">
               <SynagoLogo size={28} surface="auto" />
               <span className="hidden font-semibold tracking-tight sm:inline">
@@ -250,26 +233,37 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 safe-area-bottom">
+        <main
+          className={cn(
+            'flex-1 overflow-y-auto p-4 md:p-6',
+            showMobileTabBar
+              ? 'pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-6'
+              : 'safe-area-bottom'
+          )}
+        >
           {children}
         </main>
-
-        {user?.role === 'superadmin' && (
-          <nav className="flex shrink-0 items-center justify-around border-t border-border bg-card px-2 py-2 md:hidden safe-area-bottom">
-            {mobileBottomNav.map((item) => (
-              <MobileNavLink
-                key={item.href}
-                item={item}
-                active={
-                  pathname === item.href ||
-                  (item.href !== '/superadmin' &&
-                    pathname.startsWith(item.href))
-                }
-              />
-            ))}
-          </nav>
-        )}
       </div>
+
+      {showMobileTabBar && (
+        <TabBar
+          items={mobileItems}
+          pathname={pathname}
+          moreActive={moreActive}
+          moreOpen={moreOpen}
+          onMoreClick={() => setMoreOpen(true)}
+          showMore={moreItems.length > 0}
+        />
+      )}
+
+      <MoreNavSheet
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        items={moreItems}
+        pathname={pathname}
+        title="More"
+        desktopBesideRail={isSuperAdmin}
+      />
     </div>
   )
 }
