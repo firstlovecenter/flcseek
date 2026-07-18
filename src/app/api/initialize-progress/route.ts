@@ -10,59 +10,83 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - Superadmin only' }, { status: 401 });
     }
 
-    // Get all active milestones from the database
     const milestones = await prisma.milestone.findMany({
+      where: { isActive: true },
       orderBy: { stageNumber: 'asc' },
     });
 
     if (milestones.length === 0) {
-      return NextResponse.json({ error: 'No milestones found in database' }, { status: 400 });
+      return NextResponse.json({ error: 'No active milestones found in database' }, { status: 400 });
     }
 
-    // Get all registered people
+    // Active converts only — skip soft-deleted and archived groups
     const people = await prisma.newConvert.findMany({
-      select: { id: true },
+      where: {
+        deletedAt: null,
+        OR: [{ group: null }, { group: { archived: false } }],
+      },
+      select: { id: true, createdAt: true },
     });
 
     let initialized = 0;
     let skipped = 0;
+    let stage1Fixed = 0;
 
     for (const person of people) {
-      // Check if this person already has progress records
-      const existingCount = await prisma.progressRecord.count({
+      const existing = await prisma.progressRecord.findMany({
         where: { personId: person.id },
+        select: { stageNumber: true, isCompleted: true },
       });
+      const byStage = new Map(existing.map((r) => [r.stageNumber, r]));
 
-      if (existingCount === 0 || existingCount < milestones.length) {
-        // Initialize or fill in missing milestones for this person
-        for (const milestone of milestones) {
+      let touched = false;
+
+      for (const milestone of milestones) {
+        const current = byStage.get(milestone.stageNumber);
+        if (!current) {
           try {
-            await prisma.progressRecord.upsert({
-              where: {
-                personId_stageNumber: {
-                  personId: person.id,
-                  stageNumber: milestone.stageNumber,
-                },
-              },
-              create: {
+            await prisma.progressRecord.create({
+              data: {
                 personId: person.id,
                 stageNumber: milestone.stageNumber,
                 stageName: milestone.stageName || `Stage ${milestone.stageNumber}`,
                 isCompleted: milestone.stageNumber === 1,
-                dateCompleted: milestone.stageNumber === 1 ? new Date() : null,
+                dateCompleted:
+                  milestone.stageNumber === 1
+                    ? person.createdAt ?? new Date()
+                    : null,
                 updatedById: userPayload.id,
               },
-              update: {}, // No update needed if exists
             });
+            touched = true;
+            if (milestone.stageNumber === 1) stage1Fixed++;
           } catch {
-            // Ignore errors for individual records
+            // Ignore duplicate races
           }
+        } else if (
+          milestone.stageNumber === 1 &&
+          current.isCompleted !== true
+        ) {
+          await prisma.progressRecord.update({
+            where: {
+              personId_stageNumber: {
+                personId: person.id,
+                stageNumber: 1,
+              },
+            },
+            data: {
+              isCompleted: true,
+              dateCompleted: person.createdAt ?? new Date(),
+              updatedById: userPayload.id,
+            },
+          });
+          touched = true;
+          stage1Fixed++;
         }
-        initialized++;
-      } else {
-        // Person already has all progress records
-        skipped++;
       }
+
+      if (touched) initialized++;
+      else skipped++;
     }
 
     return NextResponse.json({
@@ -70,6 +94,7 @@ export async function POST(request: NextRequest) {
       totalPeople: people.length,
       initialized,
       skipped,
+      stage1Fixed,
     });
   } catch (error) {
     console.error('Error initializing progress:', error);
