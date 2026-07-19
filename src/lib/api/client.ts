@@ -242,13 +242,15 @@ class APIClient {
 
     create: (data: {
       name: string;
+      year?: number;
       leader_id?: string;
       description?: string;
     }) => this.post('/groups', data),
 
     update: (id: string, data: Partial<{
       name: string;
-      leader_id: string;
+      year: number;
+      leader_id: string | null;
       description: string;
       archived: boolean;
     }>) => this.patch(`/groups/${id}`, data),

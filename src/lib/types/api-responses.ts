@@ -50,6 +50,7 @@ export interface PersonApiData {
   group_name?: string;
   group_year?: number;
   registered_by?: string;
+  registered_by_name?: string;
   created_at: string;
   updated_at: string;
   // Stats (present when include=progress or include=stats)
@@ -110,16 +111,14 @@ export interface UserApiData {
 }
 
 // ============================================================================
-// Superadmin converts stats (from /api/superadmin/converts/stats)
+// Convert directory stats (from /api/stats → data.converts)
 // ============================================================================
 
 export interface ConvertStatsData {
-  total?: number;
-  by_month?: Record<string, number>;
-  by_group?: Record<string, number>;
-  by_gender?: Record<string, number>;
-  active?: number;
-  deleted?: number;
+  totalConverts?: number;
+  thisMonth?: number;
+  thisWeek?: number;
+  activeGroups?: number;
 }
 
 // ============================================================================

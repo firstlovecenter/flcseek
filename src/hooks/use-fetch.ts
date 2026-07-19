@@ -130,6 +130,7 @@ export function usePeopleWithStats(
   filters?: { year?: number; group_id?: string; group?: string; month?: string; limit?: number; offset?: number }
 ) {
   const queryParams = new URLSearchParams();
+  queryParams.set('include', 'stats');
   if (filters?.year) queryParams.set('year', filters.year.toString());
   if (filters?.group_id) queryParams.set('group_id', filters.group_id);
   if (filters?.group) queryParams.set('group', filters.group);
@@ -137,7 +138,7 @@ export function usePeopleWithStats(
   if (filters?.limit) queryParams.set('limit', filters.limit.toString());
   if (filters?.offset) queryParams.set('offset', filters.offset.toString());
 
-  const url = `/api/people/with-stats${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+  const url = `/api/people?${queryParams.toString()}`;
 
   return useFetch<{ people: PersonApiData[]; total: number; has_more: boolean }>(url, token, {
     cacheTime: 0, // disable in-memory cache for year-dependent list

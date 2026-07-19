@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { RegisterModalProvider } from '@/contexts/RegisterModalContext'
 
 export default function GroupLayout({
@@ -5,5 +6,9 @@ export default function GroupLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <RegisterModalProvider>{children}</RegisterModalProvider>
+  return (
+    <Suspense fallback={null}>
+      <RegisterModalProvider>{children}</RegisterModalProvider>
+    </Suspense>
+  )
 }

@@ -41,22 +41,43 @@ export async function GET(request: NextRequest) {
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const [totalPeople, totalGroups, totalMilestones, totalCompleted, recentAttendance] =
-      await Promise.all([
-        prisma.newConvert.count({ where: convertWhere }),
-        prisma.group.count({ where: activeGroupWhere }),
-        prisma.milestone.count({ where: { isActive: true } }),
-        prisma.progressRecord.count({
-          where: { isCompleted: true, person: convertWhere },
-        }),
-        prisma.attendanceRecord.count({
-          where: {
-            attendanceDate: { gte: thirtyDaysAgo },
-            person: convertWhere,
-          },
-        }),
-      ]);
+    const [
+      totalPeople,
+      totalGroups,
+      totalMilestones,
+      totalCompleted,
+      recentAttendance,
+      convertsThisMonth,
+      convertsThisWeek,
+      distinctGroupIds,
+    ] = await Promise.all([
+      prisma.newConvert.count({ where: convertWhere }),
+      prisma.group.count({ where: activeGroupWhere }),
+      prisma.milestone.count({ where: { isActive: true } }),
+      prisma.progressRecord.count({
+        where: { isCompleted: true, person: convertWhere },
+      }),
+      prisma.attendanceRecord.count({
+        where: {
+          attendanceDate: { gte: thirtyDaysAgo },
+          person: convertWhere,
+        },
+      }),
+      prisma.newConvert.count({
+        where: { ...convertWhere, createdAt: { gt: thirtyDaysAgo } },
+      }),
+      prisma.newConvert.count({
+        where: { ...convertWhere, createdAt: { gt: sevenDaysAgo } },
+      }),
+      prisma.newConvert.findMany({
+        where: { ...convertWhere, groupId: { not: null } },
+        select: { groupId: true },
+        distinct: ['groupId'],
+      }),
+    ]);
 
     const totalPossibleCompletions = totalPeople * (totalMilestones || 1);
     const completionRate =
@@ -125,6 +146,13 @@ export async function GET(request: NextRequest) {
         totalMilestones,
         recentAttendance,
         completionRate,
+      },
+      // Convert-directory cards (replaces /api/superadmin/converts/stats)
+      converts: {
+        totalConverts: totalPeople,
+        thisMonth: convertsThisMonth,
+        thisWeek: convertsThisWeek,
+        activeGroups: distinctGroupIds.length,
       },
       groupStats,
     });

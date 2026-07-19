@@ -211,21 +211,12 @@ export default function GroupsManagementPage() {
 
   const handleArchive = async (groupId: string, archived: boolean) => {
     try {
-      const response = await fetch(`/api/superadmin/groups/${groupId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ archived: !archived }),
-      });
-
-      if (response.ok) {
+      const response = await api.groups.update(groupId, { archived: !archived });
+      if (response.success) {
         message.success(`Group ${!archived ? 'archived' : 'unarchived'} successfully`);
         fetchGroups();
       } else {
-        message.error('Failed to update group');
+        message.error(response.error?.message || 'Failed to update group');
       }
     } catch {
       message.error('An error occurred');
@@ -235,13 +226,13 @@ export default function GroupsManagementPage() {
   const handleDelete = async () => {
     if (!deleteGroupId) return;
     try {
-      await fetch(`/api/superadmin/groups/${deleteGroupId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      message.success('Group deleted successfully');
-      fetchGroups();
+      const response = await api.groups.delete(deleteGroupId);
+      if (response.success) {
+        message.success('Group deleted successfully');
+        fetchGroups();
+      } else {
+        message.error(response.error?.message || 'Failed to delete group');
+      }
     } catch {
       message.error('Failed to delete group');
     } finally {
@@ -258,39 +249,31 @@ export default function GroupsManagementPage() {
 
     setSubmitting(true);
     try {
-      const url = editingGroup
-        ? `/api/superadmin/groups/${editingGroup.id}`
-        : '/api/superadmin/groups';
-      const method = editingGroup ? 'PUT' : 'POST';
-
-      const payload: Record<string, unknown> = {
+      const payload = {
         name: formValues.name,
         year: Number(formValues.year),
         description: formValues.description,
         leader_id: formValues.leader_id || null,
+        ...(editingGroup ? { archived: formValues.archived === 'true' } : {}),
       };
-      if (editingGroup) {
-        payload.archived = formValues.archived === 'true';
-      }
 
-      const response = await fetch(url, {
-        method,
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = editingGroup
+        ? await api.groups.update(editingGroup.id, payload)
+        : await api.groups.create({
+            name: payload.name,
+            year: payload.year,
+            description: payload.description,
+            leader_id: payload.leader_id || undefined,
+          });
 
-      if (response.ok) {
+      if (response.success) {
         message.success(`Group ${editingGroup ? 'updated' : 'created'} successfully`);
         setIsModalVisible(false);
         setFormValues(emptyGroupForm);
         setEditingGroup(null);
         fetchGroups();
       } else {
-        message.error('Failed to save group');
+        message.error(response.error?.message || 'Failed to save group');
       }
     } catch {
       message.error('An error occurred');

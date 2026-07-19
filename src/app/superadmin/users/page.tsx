@@ -221,13 +221,13 @@ export default function UsersManagementPage() {
   const handleDelete = async () => {
     if (!deleteUserId) return;
     try {
-      await fetch(`/api/superadmin/users/${deleteUserId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      message.success('User deleted successfully');
-      fetchUsers();
+      const response = await api.users.delete(deleteUserId);
+      if (response.success) {
+        message.success('User deleted successfully');
+        fetchUsers();
+      } else {
+        message.error(response.error?.message || 'Failed to delete user');
+      }
     } catch {
       message.error('Failed to delete user');
     } finally {
@@ -248,11 +248,6 @@ export default function UsersManagementPage() {
 
     setSubmitting(true);
     try {
-      const url = editingUser
-        ? `/api/superadmin/users/${editingUser.id}`
-        : '/api/superadmin/users';
-      const method = editingUser ? 'PUT' : 'POST';
-
       const payload: Record<string, string> = { ...formValues };
       if (editingUser && !payload.password) {
         delete payload.password;
@@ -261,26 +256,27 @@ export default function UsersManagementPage() {
         delete payload.group_name;
       }
 
-      const response = await fetch(url, {
-        method,
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = editingUser
+        ? await api.users.update(editingUser.id, payload)
+        : await api.users.create({
+            username: payload.username,
+            password: payload.password,
+            role: payload.role,
+            email: payload.email || undefined,
+            first_name: payload.first_name || undefined,
+            last_name: payload.last_name || undefined,
+            phone_number: payload.phone_number,
+            group_name: payload.group_name || undefined,
+          });
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (response.success) {
         message.success(`User ${editingUser ? 'updated' : 'created'} successfully`);
         setIsModalVisible(false);
         setFormValues(emptyForm);
         setEditingUser(null);
         fetchUsers();
       } else {
-        message.error(data.error || 'Failed to save user');
+        message.error(response.error?.message || 'Failed to save user');
       }
     } catch (error: unknown) {
       console.error('Error saving user:', error);

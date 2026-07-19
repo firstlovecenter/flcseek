@@ -42,12 +42,6 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     message: 'Export rate limit exceeded. Please wait before exporting again.',
     persist: true,
   },
-  '/api/superadmin/converts/export': {
-    windowMs: 60 * 60 * 1000,
-    maxRequests: 10,
-    message: 'Export rate limit exceeded. Please wait before exporting again.',
-    persist: true,
-  },
   // Bulk destructive operations: 5 per hour per IP
   '/api/superadmin/converts/bulk-delete': {
     windowMs: 60 * 60 * 1000,

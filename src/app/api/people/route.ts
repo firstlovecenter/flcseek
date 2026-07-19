@@ -101,6 +101,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (include.includes('stats')) {
+      // Directory views (superadmin converts) may need more than the default 500 cap.
+      const statsLimit = Math.min(
+        parseInt(params.raw.get('limit') || String(params.limit), 10) || 1000,
+        2000
+      );
+      filters.limit = statsLimit;
+
       const [milestones, { people, total }] = await Promise.all([
         activeMilestonesPromise,
         activeMilestonesPromise.then((m) =>
@@ -112,9 +119,9 @@ export async function GET(request: NextRequest) {
         { people, totalMilestones: milestones.length },
         {
           total,
-          limit: params.limit,
+          limit: statsLimit,
           offset: params.offset,
-          hasMore: params.offset + params.limit < total,
+          hasMore: params.offset + statsLimit < total,
         }
       );
     }

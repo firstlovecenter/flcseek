@@ -85,7 +85,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const body: MilestoneAutoTriggerConfig = await request.json()
 
     // Validate configuration
-    if (!body.enabled !== undefined) {
+    if (typeof body.enabled !== 'boolean') {
       return NextResponse.json({ error: 'Invalid configuration' }, { status: 400 })
     }
 
