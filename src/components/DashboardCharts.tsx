@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { PersonApiData, MilestoneData } from '@/lib/types/api-responses';
-import { personProgressCells } from '@/lib/progress-utils';
+import { completionPercent, personProgressCells } from '@/lib/progress-utils';
 
 interface DashboardChartsProps {
   people: PersonApiData[];
@@ -79,7 +79,7 @@ export default function DashboardCharts({ people, milestones, compact = true }: 
         fullName: milestone.stage_name,
         completed: completedCount,
         incomplete: people.length - completedCount,
-        percentage: Math.round((completedCount / people.length) * 100),
+        percentage: completionPercent(completedCount, people.length),
       };
     });
   }, [people, milestones, stageNumbers]);
@@ -218,6 +218,9 @@ export default function DashboardCharts({ people, milestones, compact = true }: 
                 </div>
                 <span className="mt-1 block truncate text-[10px] text-muted-foreground">
                   {stat.name.split('\n')[0]}
+                </span>
+                <span className="block text-[10px] tabular-nums text-muted-foreground">
+                  {stat.completed}/{people.length}
                 </span>
               </div>
             ))}

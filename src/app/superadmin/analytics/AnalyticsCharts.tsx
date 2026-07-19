@@ -38,9 +38,11 @@ function ChartFrame({
   height: number;
   children: ReactElement;
 }) {
+  // Pass an explicit numeric height so Recharts doesn't depend on a
+  // percentage-sized parent (which can measure as 0 in CSS grid/cards).
   return (
-    <div className="w-full min-w-0" style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full min-w-0" style={{ width: '100%', height, minHeight: height }}>
+      <ResponsiveContainer width="100%" height={height} debounce={50}>
         {children}
       </ResponsiveContainer>
     </div>
@@ -85,8 +87,8 @@ export function GenderPieChart({ data }: { data: { gender: string; count: number
           cy="50%"
           innerRadius={60}
           outerRadius={100}
-          label={({ gender, percent }) =>
-            `${gender}: ${((percent ?? 0) * 100).toFixed(0)}%`
+          label={({ name, percent }) =>
+            `${name ?? ''}: ${((percent ?? 0) * 100).toFixed(0)}%`
           }
         >
           {data.map((_, index) => (
