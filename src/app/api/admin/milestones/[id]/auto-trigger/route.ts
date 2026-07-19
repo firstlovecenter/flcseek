@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (authError) return authError;
     const userId = user!.id;
 
-    if (!['superadmin', 'leadpastor', 'overseer', 'admin'].includes(user!.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -78,7 +78,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     if (authError) return authError;
     const userId = user!.id;
 
-    if (!['superadmin', 'leadpastor', 'overseer', 'admin'].includes(user!.role || '')) {
+    if (!['superadmin', 'leadpastor', 'overseer'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 

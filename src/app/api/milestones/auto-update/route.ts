@@ -11,7 +11,11 @@ import { evaluateMilestoneCompletion } from '@/lib/milestone-auto-calc'
 import { notifyMilestoneCompletion } from '@/lib/leader-notifications'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/api/middleware';
+import {
+  requireAuth,
+  assertGroupAccess,
+  assertPersonAccess,
+} from '@/lib/api/middleware';
 
 interface AutoUpdateRequest {
   convertId?: string
@@ -21,7 +25,6 @@ interface AutoUpdateRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user from session/token
     const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
     const userId = user!.id;
@@ -29,7 +32,6 @@ export async function POST(request: NextRequest) {
     const body: AutoUpdateRequest = await request.json()
     const { convertId, groupId, forceAll } = body
 
-    // Validate that user is admin/leader
     if (!['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'].includes(user!.role || '')) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -42,13 +44,25 @@ export async function POST(request: NextRequest) {
 
     // Single convert update
     if (convertId) {
-      const convert = await prisma.newConvert.findUnique({
-        where: { id: convertId },
+      const convert = await prisma.newConvert.findFirst({
+        where: { id: convertId, deletedAt: null },
+        select: {
+          id: true,
+          groupId: true,
+          groupName: true,
+          group: { select: { name: true } },
+        },
       })
 
       if (!convert) {
         return NextResponse.json({ error: 'Convert not found' }, { status: 404 })
       }
+
+      const accessError = assertPersonAccess(user!, {
+        group_id: convert.groupId,
+        group_name: convert.group?.name || convert.groupName,
+      })
+      if (accessError) return accessError
 
       const result = await evaluateMilestoneCompletion(convertId, userId)
       if (result.wasSuccessful && result.newlyCompletedCount > 0) {
@@ -70,6 +84,16 @@ export async function POST(request: NextRequest) {
 
     // Group update
     else if (groupId) {
+      const group = await prisma.group.findFirst({
+        where: { id: groupId, deletedAt: null },
+        select: { id: true, name: true },
+      })
+      if (!group) {
+        return NextResponse.json({ error: 'Group not found' }, { status: 404 })
+      }
+      const scopeError = assertGroupAccess(user!, group)
+      if (scopeError) return scopeError
+
       const converts = await prisma.newConvert.findMany({
         where: {
           groupId: groupId,
@@ -87,11 +111,7 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Notify leaders once
-      const group = await prisma.group.findUnique({
-        where: { id: groupId },
-      })
-      if (group && results.some((r) => r.newMilestones > 0)) {
+      if (results.some((r) => r.newMilestones > 0)) {
         const totalNewMilestones = results.reduce((sum, r) => sum + r.newMilestones, 0)
         logger.info(
           `Auto-update complete for group ${groupId}: ${totalNewMilestones} new milestones`

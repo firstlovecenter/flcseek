@@ -17,6 +17,23 @@ import {
 import { EmptyState } from '@/components/base/EmptyState';
 import { LineChart as ReLineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import dayjs from 'dayjs';
+import type { ReactElement } from 'react';
+
+function ChartFrame({
+  height,
+  children,
+}: {
+  height: number;
+  children: ReactElement;
+}) {
+  return (
+    <div className="w-full min-w-0" style={{ width: '100%', height, minHeight: height }}>
+      <ResponsiveContainer width="100%" height={height} debounce={50}>
+        {children}
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 interface GrowthForecastDashboardProps {
   groupId?: string;
@@ -163,14 +180,14 @@ export function GrowthForecastDashboard({ groupId, userId, token }: GrowthForeca
           <CardTitle className="text-base">Attendance Forecast</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
+          <ChartFrame height={220}>
             <ReLineChart data={chartData}>
               <XAxis dataKey="week" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Line type="monotone" dataKey="attendance" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
             </ReLineChart>
-          </ResponsiveContainer>
+          </ChartFrame>
         </CardContent>
       </Card>
 

@@ -21,6 +21,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useThemeStyles } from '@/lib/theme-utils'
 import { api } from '@/lib/api'
 import { useGroupYears } from '@/hooks/use-group-years'
+import { canAccessGroupClient } from '@/lib/group-access'
 import { expandCompletedStages } from '@/lib/progress-utils'
 import { formatMilestonesForDisplay } from '@/lib/milestone-display'
 import type { MilestoneData } from '@/lib/types/api-responses'
@@ -324,7 +325,7 @@ function SheepSeekerDashboardContent() {
   const [searchText, setSearchText] = useState('')
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
-  const { defaultYear, error: yearsError } = useGroupYears(
+  const { groupName, defaultYear, loading: yearsLoading, error: yearsError } = useGroupYears(
     groupId,
     !!(user && token)
   )
@@ -362,18 +363,20 @@ function SheepSeekerDashboardContent() {
       router.push('/auth')
       return
     }
-    if (
-      !authLoading &&
-      user &&
-      user.role !== 'superadmin' &&
-      user.role !== 'leadpastor' &&
-      user.role !== 'overseer' &&
-      user.group_id !== groupId
-    ) {
+    if (authLoading || !user) return
+
+    const orgRoles = ['superadmin', 'leadpastor', 'overseer']
+    if (orgRoles.includes(user.role || '')) return
+
+    // Wait for month name when primary group_id differs (multi-year access)
+    if (user.group_id === groupId) return
+    if (yearsLoading) return
+
+    if (!canAccessGroupClient(user, groupId, groupName)) {
       message.error('Unauthorized access to this group')
       router.push('/')
     }
-  }, [user, authLoading, router, groupId])
+  }, [user, authLoading, router, groupId, groupName, yearsLoading])
 
   const loadBundle = useCallback(
     async (year: number) => {

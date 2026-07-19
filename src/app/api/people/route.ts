@@ -7,6 +7,8 @@ import {
   getQueryParams,
   resolveGroupScope,
   withApiHandler,
+  assertGroupAccess,
+  isGroupScopedRole,
 } from '@/lib/api';
 import { personCreateSchema } from '@/lib/schemas/api';
 import * as People from '@/lib/db/queries/people';
@@ -162,6 +164,23 @@ const handleCreatePerson = withApiHandler(
         );
       }
 
+      if (isGroupScopedRole(user.role) && !user.group_name && !user.group_id) {
+        return errors.forbidden('You must be assigned to a group to register people');
+      }
+
+      const targetGroup = await Groups.findById(targetGroupId);
+      if (!targetGroup) {
+        return errors.validation(
+          'Invalid group_id. The specified group does not exist in the database.'
+        );
+      }
+
+      const scopeError = assertGroupAccess(user, {
+        id: targetGroup.id,
+        name: targetGroup.name,
+      });
+      if (scopeError) return scopeError;
+
       const input: People.CreatePersonInput = {
         first_name: body.first_name,
         last_name: body.last_name,
@@ -172,8 +191,8 @@ const handleCreatePerson = withApiHandler(
         school_residential_location: body.school_residential_location,
         occupation_type: body.occupation_type,
         address: body.address, // Legacy field support
-        group_id: targetGroupId,
-        group_name: body.group_name || user.group_name,
+        group_id: targetGroup.id,
+        group_name: targetGroup.name,
         registered_by: user.id,
       };
 

@@ -11,6 +11,7 @@ import {
 import { SynagoLoader } from '@/components/shell/SynagoLoader'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useParams } from 'next/navigation'
+import { canAccessGroupClient } from '@/lib/group-access'
 import AppBreadcrumb from '@/components/AppBreadcrumb'
 import {
   generateBulkRegistrationTemplate,
@@ -84,18 +85,17 @@ function BulkRegisterContent() {
   const [groups, setGroups] = useState<GroupApiData[]>([])
 
   useEffect(() => {
-    if (
-      user &&
-      user.role !== 'superadmin' &&
-      user.role !== 'leadpastor' &&
-      user.role !== 'overseer' &&
-      user.group_id !== groupId
-    ) {
-      router.push('/')
-      return
-    }
+    if (!user) return
     fetchGroups()
-  }, [user, groupId, router])
+  }, [user, groupId])
+
+  useEffect(() => {
+    if (!user || groups.length === 0) return
+    const selected = groups.find((g) => g.id === groupId)
+    if (!canAccessGroupClient(user, groupId, selected?.name)) {
+      router.push('/')
+    }
+  }, [user, groupId, groups, router])
 
   const fetchGroups = async () => {
     try {

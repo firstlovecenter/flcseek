@@ -205,3 +205,62 @@ export function getEffectiveGroupFilter(
 ): GroupScope {
   return resolveGroupScope(user, params);
 }
+
+/** Leaders and group admins are locked to their month name across years. */
+export function isGroupScopedRole(role: UserRole | string | undefined): boolean {
+  return role === ROLES.LEADER || role === ROLES.ADMIN;
+}
+
+function namesMatch(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * Whether a scoped user may access a group (by month name) or unrestricted roles
+ * may access any group.
+ */
+export function canAccessGroup(
+  user: UserPayload,
+  group: { id?: string | null; name?: string | null }
+): boolean {
+  if (!isGroupScopedRole(user.role)) return true;
+  if (group.id && user.group_id && group.id === user.group_id) return true;
+  return namesMatch(group.name, user.group_name);
+}
+
+/**
+ * Whether a scoped user may access a person. Prefer group_name (month) so the
+ * same month across years stays consistent with resolveGroupScope.
+ */
+export function canAccessPerson(
+  user: UserPayload,
+  person: { group_id?: string | null; group_name?: string | null }
+): boolean {
+  if (!isGroupScopedRole(user.role)) return true;
+  if (namesMatch(person.group_name, user.group_name)) return true;
+  if (person.group_id && user.group_id && person.group_id === user.group_id) {
+    return true;
+  }
+  return false;
+}
+
+/** Forbidden response when person access fails; null when allowed. */
+export function assertPersonAccess(
+  user: UserPayload,
+  person: { group_id?: string | null; group_name?: string | null },
+  message = 'You can only access people in your group'
+) {
+  if (canAccessPerson(user, person)) return null;
+  return errors.forbidden(message);
+}
+
+/** Forbidden response when group access fails; null when allowed. */
+export function assertGroupAccess(
+  user: UserPayload,
+  group: { id?: string | null; name?: string | null },
+  message = 'You can only access your own group'
+) {
+  if (canAccessGroup(user, group)) return null;
+  return errors.forbidden(message);
+}

@@ -11,6 +11,7 @@ import {
 import { SynagoLoader } from '@/components/shell/SynagoLoader'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useParams } from 'next/navigation'
+import { canAccessGroupClient } from '@/lib/group-access'
 import { ATTENDANCE_GOAL } from '@/lib/constants'
 import AppBreadcrumb from '@/components/AppBreadcrumb'
 import dayjs from 'dayjs'
@@ -61,6 +62,7 @@ function AttendancePageContent() {
   const [loading, setLoading] = useState(true)
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [groupName, setGroupName] = useState('')
 
   const getMostRecentSunday = () => {
     const today = dayjs()
@@ -91,6 +93,7 @@ function AttendancePageContent() {
           const selectedGroup = groups.find((g) => g.id === groupId)
           if (!selectedGroup) throw new Error('Group not found')
           const monthName = selectedGroup.name
+          setGroupName(monthName)
           const matchingGroups = groups.filter(
             (g) => g.name.toLowerCase() === monthName.toLowerCase()
           )
@@ -120,17 +123,21 @@ function AttendancePageContent() {
     if (
       !authLoading &&
       user &&
-      user.role !== 'superadmin' &&
-      user.role !== 'leadpastor' &&
-      user.role !== 'overseer' &&
-      user.group_id !== groupId
+      !canAccessGroupClient(user, groupId, groupName || undefined)
     ) {
-      message.error('Unauthorized access to this group')
-      router.push('/')
-      return
+      // Allow while groupName still loading if primary id matches
+      if (user.group_id === groupId) {
+        // ok
+      } else if (!groupName) {
+        return
+      } else {
+        message.error('Unauthorized access to this group')
+        router.push('/')
+        return
+      }
     }
     if (user && token && selectedYear) fetchPeople()
-  }, [user, token, authLoading, router, groupId, selectedYear])
+  }, [user, token, authLoading, router, groupId, selectedYear, groupName])
 
   const fetchPeople = async () => {
     try {
