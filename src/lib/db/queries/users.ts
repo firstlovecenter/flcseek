@@ -42,12 +42,31 @@ export interface UserFilters {
   role?: UserRole | UserRole[];
   groupId?: string;
   search?: string;
+  /** When false, include system users. Ignored if viewerUsername is set. */
   excludeSystemUsers?: boolean;
+  /** Applies skaduteye/sysadmin visibility rules (parity with legacy superadmin users API). */
+  viewerUsername?: string;
   limit?: number;
   offset?: number;
 }
 
 const SYSTEM_USERNAMES = ['skaduteye', 'sysadmin'];
+
+function applySystemUserVisibility(
+  where: Record<string, any>,
+  filters: UserFilters
+): void {
+  if (filters.viewerUsername === 'skaduteye') {
+    return;
+  }
+  if (filters.viewerUsername === 'sysadmin') {
+    where.username = { not: 'skaduteye' };
+    return;
+  }
+  if (filters.excludeSystemUsers !== false) {
+    where.username = { notIn: SYSTEM_USERNAMES };
+  }
+}
 
 /**
  * Helper to transform Prisma user to snake_case format
@@ -95,15 +114,14 @@ export async function findMany(filters: UserFilters = {}): Promise<User[]> {
     where.groupId = filters.groupId;
   }
 
-  if (filters.excludeSystemUsers !== false) {
-    where.username = { notIn: SYSTEM_USERNAMES };
-  }
+  applySystemUserVisibility(where, filters);
 
   if (filters.search) {
     where.OR = [
       { username: { contains: filters.search, mode: 'insensitive' } },
       { firstName: { contains: filters.search, mode: 'insensitive' } },
       { lastName: { contains: filters.search, mode: 'insensitive' } },
+      { phoneNumber: { contains: filters.search, mode: 'insensitive' } },
     ];
   }
 
@@ -116,6 +134,7 @@ export async function findMany(filters: UserFilters = {}): Promise<User[]> {
       role: true,
       firstName: true,
       lastName: true,
+      phoneNumber: true,
       groupId: true,
       groupName: true,
       createdAt: true,
@@ -145,6 +164,7 @@ export async function findById(id: string): Promise<User | null> {
       role: true,
       firstName: true,
       lastName: true,
+      phoneNumber: true,
       groupId: true,
       groupName: true,
       createdAt: true,
@@ -210,6 +230,7 @@ export async function create(input: CreateUserInput): Promise<User> {
       role: input.role,
       firstName: input.first_name || null,
       lastName: input.last_name || null,
+      phoneNumber: input.phone_number || null,
       groupId: input.group_id || null,
       groupName: input.group_name || null,
     },
@@ -220,6 +241,7 @@ export async function create(input: CreateUserInput): Promise<User> {
       role: true,
       firstName: true,
       lastName: true,
+      phoneNumber: true,
       groupId: true,
       groupName: true,
       createdAt: true,
@@ -260,6 +282,9 @@ export async function update(
   if (updates.last_name !== undefined) {
     data.lastName = updates.last_name;
   }
+  if (updates.phone_number !== undefined) {
+    data.phoneNumber = updates.phone_number || null;
+  }
   if (updates.group_id !== undefined) {
     if (updates.group_id) {
       data.group = { connect: { id: updates.group_id } };
@@ -286,6 +311,7 @@ export async function update(
         role: true,
         firstName: true,
         lastName: true,
+        phoneNumber: true,
         groupId: true,
         groupName: true,
         createdAt: true,
@@ -387,9 +413,7 @@ export async function count(filters: UserFilters = {}): Promise<number> {
     where.role = { in: roles };
   }
 
-  if (filters.excludeSystemUsers !== false) {
-    where.username = { notIn: SYSTEM_USERNAMES };
-  }
+  applySystemUserVisibility(where, filters);
 
   return prisma.user.count({ where });
 }

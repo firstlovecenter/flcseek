@@ -53,6 +53,7 @@ interface Convert {
   phone_number: string;
   gender: string | null;
   group_name: string;
+  group_id: string | null;
   group_year: number | null;
   registered_by_name: string;
   created_at: string;
@@ -105,31 +106,63 @@ export default function NewConvertsManagementPage() {
 
   const fetchConverts = async () => {
     try {
-      const response = await fetch('/api/superadmin/converts', {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setConverts(data.converts || []);
-      setFilteredConverts(data.converts || []);
+      const response = await api.people.list({ include: 'stats', limit: 2000 });
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch converts');
+      }
+      const rows = (response.data?.people || []) as Array<{
+        id: string;
+        full_name?: string;
+        first_name?: string;
+        last_name?: string;
+        phone_number: string;
+        gender?: string | null;
+        group_name?: string;
+        group_id?: string | null;
+        group_year?: number | null;
+        registered_by_name?: string;
+        created_at: string;
+        completed_stages?: number;
+        attendance_count?: number;
+      }>;
+      const mapped: Convert[] = rows.map((c) => ({
+        id: c.id,
+        full_name:
+          c.full_name ||
+          `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+        phone_number: c.phone_number,
+        gender: c.gender ?? null,
+        group_name: c.group_name || 'Unknown',
+        group_id: c.group_id ?? null,
+        group_year: c.group_year ?? null,
+        registered_by_name: c.registered_by_name || '—',
+        created_at: c.created_at,
+        completed_stages: c.completed_stages ?? 0,
+        total_attendance: c.attendance_count ?? 0,
+      }));
+      setConverts(mapped);
+      setFilteredConverts(mapped);
 
       const uniqueGroups = Array.from(
-        new Set(
-          data.converts.map((c: Convert) => formatGroupLabel(c.group_name, c.group_year))
-        )
-      ) as string[];
+        new Set(mapped.map((c) => formatGroupLabel(c.group_name, c.group_year)))
+      );
       setGroups(uniqueGroups);
 
       const uniqueYears = Array.from(
         new Set(
-          (data.converts as Convert[])
+          mapped
             .map((c) => c.group_year)
             .filter((year): year is number => typeof year === 'number')
         )
-      ).sort((a, b) => b - a) as number[];
+      ).sort((a, b) => b - a);
       setYears(uniqueYears);
+
+      if (typeof response.data?.totalMilestones === 'number') {
+        setTotalMilestones(response.data.totalMilestones);
+      }
     } catch {
       console.error('Failed to fetch converts');
+      message.error('Failed to fetch converts');
     } finally {
       setLoading(false);
     }
@@ -139,9 +172,12 @@ export default function NewConvertsManagementPage() {
     try {
       const response = await api.milestones.list();
       if (response.success) {
+        const list = Array.isArray(response.data)
+          ? response.data
+          : response.data?.milestones || [];
         const activeMilestones =
-          response.data?.filter((m: { is_active?: boolean }) => m.is_active) || [];
-        setTotalMilestones(activeMilestones.length);
+          list.filter((m: { is_active?: boolean }) => m.is_active !== false) || [];
+        if (activeMilestones.length) setTotalMilestones(activeMilestones.length);
       }
     } catch {
       console.error('Failed to fetch milestone count');
@@ -150,12 +186,17 @@ export default function NewConvertsManagementPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/superadmin/converts/stats', {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setStats(data.stats || stats);
+      const response = await api.stats.getDashboard();
+      if (!response.success) return;
+      const convertsStats = response.data?.converts;
+      if (convertsStats) {
+        setStats({
+          totalConverts: convertsStats.totalConverts ?? 0,
+          thisMonth: convertsStats.thisMonth ?? 0,
+          thisWeek: convertsStats.thisWeek ?? 0,
+          activeGroups: convertsStats.activeGroups ?? 0,
+        });
+      }
     } catch {
       console.error('Failed to fetch stats');
     }
@@ -373,7 +414,11 @@ export default function NewConvertsManagementPage() {
                     <TableRow key={record.id}>
                       <TableCell>
                         <Link
-                          href={`/superadmin/converts/${record.id}`}
+                          href={
+                            record.group_id
+                              ? `/${record.group_id}/person/${record.id}`
+                              : `/superadmin/converts/${record.id}`
+                          }
                           className="font-medium text-primary hover:underline"
                         >
                           {record.full_name}

@@ -81,7 +81,8 @@ export async function POST(request: NextRequest) {
     
     const group = await Groups.create({
       name: body.name,
-      leader_id: body.leader_id,
+      year: body.year ? Number(body.year) : undefined,
+      leader_id: body.leader_id || undefined,
       description: body.description,
     });
     

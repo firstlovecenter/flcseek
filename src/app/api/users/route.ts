@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const filters: Users.UserFilters = {
       role: roleParam ? roleParam.split(',') as any : undefined,
       search: params.search,
+      viewerUsername: user!.username,
       limit: params.limit,
       offset: params.offset,
     };

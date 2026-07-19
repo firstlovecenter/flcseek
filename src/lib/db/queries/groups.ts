@@ -87,21 +87,24 @@ export async function findMany(filters: GroupFilters = {}): Promise<Group[]> {
     skip: filters.offset,
   });
 
-  return groups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    year: g.year,
-    leader_id: g.leaderId || undefined,
-    leader_name: g.leader?.username || undefined,
-    leader_full_name: g.leader
+  return groups.map((g) => {
+    const leaderFullName = g.leader
       ? `${g.leader.firstName || ''} ${g.leader.lastName || ''}`.trim()
-      : undefined,
-    description: g.description || undefined,
-    archived: g.archived ?? false,
-    created_at: g.createdAt?.toISOString() || new Date().toISOString(),
-    updated_at: g.updatedAt?.toISOString() || new Date().toISOString(),
-    member_count: g._count.newConverts,
-  }));
+      : '';
+    return {
+      id: g.id,
+      name: g.name,
+      year: g.year,
+      leader_id: g.leaderId || undefined,
+      leader_name: leaderFullName || g.leader?.username || undefined,
+      leader_full_name: leaderFullName || undefined,
+      description: g.description || undefined,
+      archived: g.archived ?? false,
+      created_at: g.createdAt?.toISOString() || new Date().toISOString(),
+      updated_at: g.updatedAt?.toISOString() || new Date().toISOString(),
+      member_count: g._count.newConverts,
+    };
+  });
 }
 
 /**
@@ -128,15 +131,17 @@ export async function findById(id: string): Promise<Group | null> {
 
   if (!group) return null;
 
+  const leaderFullName = group.leader
+    ? `${group.leader.firstName || ''} ${group.leader.lastName || ''}`.trim()
+    : '';
+
   return {
     id: group.id,
     name: group.name,
     year: group.year,
     leader_id: group.leaderId || undefined,
-    leader_name: group.leader?.username || undefined,
-    leader_full_name: group.leader
-      ? `${group.leader.firstName || ''} ${group.leader.lastName || ''}`.trim()
-      : undefined,
+    leader_name: leaderFullName || group.leader?.username || undefined,
+    leader_full_name: leaderFullName || undefined,
     description: group.description || undefined,
     archived: group.archived ?? false,
     created_at: group.createdAt?.toISOString() || new Date().toISOString(),
@@ -186,6 +191,9 @@ export async function update(
   if (updates.name !== undefined) {
     data.name = updates.name;
   }
+  if (updates.year !== undefined) {
+    data.year = updates.year;
+  }
   if (updates.leader_id !== undefined) {
     data.leader = updates.leader_id
       ? { connect: { id: updates.leader_id } }
@@ -222,12 +230,17 @@ export async function update(
       },
     });
 
+    const leaderFullName = group.leader
+      ? `${group.leader.firstName || ''} ${group.leader.lastName || ''}`.trim()
+      : '';
+
     return {
       id: group.id,
       name: group.name,
       year: group.year,
       leader_id: group.leaderId || undefined,
-      leader_name: group.leader?.username || undefined,
+      leader_name: leaderFullName || group.leader?.username || undefined,
+      leader_full_name: leaderFullName || undefined,
       description: group.description || undefined,
       archived: group.archived ?? false,
       created_at: group.createdAt?.toISOString() || new Date().toISOString(),

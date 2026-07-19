@@ -23,6 +23,7 @@ export interface Person {
   group_name?: string;
   group_year?: number;
   registered_by?: string;
+  registered_by_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +46,7 @@ export interface PersonWithStats extends Person {
   attendance_count: number;
   progress_percentage: number;
   attendance_percentage: number;
+  registered_by_name?: string;
 }
 
 /** Compact row for milestone grids — only completed stage numbers, not 18 full objects. */
@@ -227,10 +229,21 @@ export async function findById(id: string): Promise<Person | null> {
       createdAt: true,
       updatedAt: true,
       group: { select: { name: true, year: true } },
+      registeredBy: { select: { username: true, firstName: true, lastName: true } },
     },
   });
 
-  return person ? transformPerson(person) : null;
+  if (!person) return null;
+
+  const result = transformPerson(person);
+  const registrar = person.registeredBy;
+  if (registrar) {
+    result.registered_by_name =
+      `${registrar.firstName || ''} ${registrar.lastName || ''}`.trim() ||
+      registrar.username ||
+      undefined;
+  }
+  return result;
 }
 
 /** Shared where-clause builder for person list queries. */
@@ -442,33 +455,8 @@ export async function findManyWithStats(
   filters: PersonFilters = {},
   totalMilestones: number = 18
 ): Promise<{ people: PersonWithStats[]; total: number }> {
-  const where: Record<string, unknown> = { deletedAt: null };
-
-  if (filters.groupId) {
-    where.groupId = filters.groupId;
-  }
-
-  if (filters.groupName) {
-    where.group = {
-      ...((where.group as Record<string, unknown>) || {}),
-      name: filters.groupName
-    };
-  }
-
-  if (filters.year !== undefined) {
-    where.group = {
-      ...((where.group as Record<string, unknown>) || {}),
-      year: filters.year,
-    };
-  }
-
-  if (filters.search) {
-    where.OR = [
-      { firstName: { contains: filters.search, mode: 'insensitive' } },
-      { lastName: { contains: filters.search, mode: 'insensitive' } },
-      { phoneNumber: { contains: filters.search } },
-    ];
-  }
+  const where = buildPersonWhere(filters);
+  const take = Math.min(Math.max(filters.limit || 100, 1), 2000);
 
   const [total, peopleData] = await Promise.all([
     prisma.newConvert.count({ where }),
@@ -476,6 +464,7 @@ export async function findManyWithStats(
       where,
       include: {
         group: { select: { name: true, year: true } },
+        registeredBy: { select: { username: true, firstName: true, lastName: true } },
         progressRecords: {
           where: { isCompleted: true },
           select: { id: true },
@@ -485,7 +474,7 @@ export async function findManyWithStats(
         },
       },
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      take: filters.limit || 100,
+      take,
       skip: filters.offset || 0,
     }),
   ]);
@@ -495,6 +484,12 @@ export async function findManyWithStats(
     const attendanceCount = p._count.attendanceRecords;
     const firstName = p.firstName || '';
     const lastName = p.lastName || '';
+    const registrar = p.registeredBy;
+    const registeredByName = registrar
+      ? (`${registrar.firstName || ''} ${registrar.lastName || ''}`.trim() ||
+          registrar.username ||
+          '')
+      : undefined;
 
     return {
       id: p.id,
@@ -515,6 +510,7 @@ export async function findManyWithStats(
         Math.round((attendanceCount / ATTENDANCE_GOAL) * 100),
         100
       ),
+      registered_by_name: registeredByName,
     };
   });
 
@@ -610,8 +606,20 @@ export async function update(
   if (updates.gender !== undefined) {
     data.gender = updates.gender;
   }
-  if (updates.address !== undefined) {
-    data.residentialLocation = updates.address;
+  if (updates.date_of_birth !== undefined) {
+    data.dateOfBirth = updates.date_of_birth || null;
+  }
+  if (updates.residential_location !== undefined) {
+    data.residentialLocation = updates.residential_location || null;
+  } else if (updates.address !== undefined) {
+    // Legacy alias
+    data.residentialLocation = updates.address || null;
+  }
+  if (updates.school_residential_location !== undefined) {
+    data.schoolResidentialLocation = updates.school_residential_location || null;
+  }
+  if (updates.occupation_type !== undefined) {
+    data.occupationType = updates.occupation_type || null;
   }
   if (updates.group_id !== undefined) {
     if (updates.group_id) {

@@ -135,7 +135,6 @@ export function buildGroupPrimaryNav(
       icon: BarChart3,
       matches: (p) =>
         p === `/${groupId}` ||
-        p.startsWith(`/${groupId}/progress`) ||
         p.startsWith(`/${groupId}/person/`),
     },
     {

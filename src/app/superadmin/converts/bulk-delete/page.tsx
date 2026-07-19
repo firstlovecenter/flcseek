@@ -10,6 +10,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 import { message } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -85,12 +86,40 @@ export default function BulkDeleteConvertsPage() {
 
   const fetchConverts = async () => {
     try {
-      const response = await fetch('/api/superadmin/converts', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setConverts(data.converts || []);
-      setFilteredConverts(data.converts || []);
+      const response = await api.people.list({ include: 'stats', limit: 2000 });
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch converts');
+      }
+      const rows = (response.data?.people || []) as Array<{
+        id: string;
+        full_name?: string;
+        first_name?: string;
+        last_name?: string;
+        phone_number: string;
+        gender?: string | null;
+        group_name?: string;
+        group_year?: number | null;
+        registered_by_name?: string;
+        created_at: string;
+        completed_stages?: number;
+        attendance_count?: number;
+      }>;
+      const mapped: Convert[] = rows.map((c) => ({
+        id: c.id,
+        full_name:
+          c.full_name ||
+          `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+        phone_number: c.phone_number,
+        gender: c.gender ?? null,
+        group_name: c.group_name || 'Unknown',
+        group_year: c.group_year ?? null,
+        registered_by_name: c.registered_by_name || '—',
+        created_at: c.created_at,
+        completed_stages: c.completed_stages ?? 0,
+        total_attendance: c.attendance_count ?? 0,
+      }));
+      setConverts(mapped);
+      setFilteredConverts(mapped);
     } catch {
       message.error('Failed to fetch converts');
     } finally {
