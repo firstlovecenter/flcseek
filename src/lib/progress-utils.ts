@@ -4,6 +4,15 @@
 
 export type ProgressCell = { stage_number: number; is_completed: boolean };
 
+/**
+ * Percent of `total` that are complete.
+ * Never rounds a positive count down to 0% (e.g. 1/281 → 1, not 0).
+ */
+export function completionPercent(completed: number, total: number): number {
+  if (total <= 0 || completed <= 0) return 0;
+  return Math.max(1, Math.round((completed / total) * 100));
+}
+
 type PersonProgressSource = {
   progress?: ProgressCell[];
   completed_stages?: number | number[];

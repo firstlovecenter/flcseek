@@ -12,7 +12,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { WidgetErrorBoundary } from '@/components/ErrorBoundary';
 import { api } from '@/lib/api';
-import { personProgressCells } from '@/lib/progress-utils';
+import { completionPercent, personProgressCells } from '@/lib/progress-utils';
 import type { MilestoneData, PersonApiData, GroupApiData } from '@/lib/types/api-responses';
 import type { ProgressEntry } from '@/lib/types/api-responses';
 import { StatCard } from '@/components/base/StatCard';
@@ -192,7 +192,7 @@ export default function AnalyticsPage() {
         fullName: m.stage_name,
         completed,
         total: people.length,
-        percentage: people.length > 0 ? Math.round((completed / people.length) * 100) : 0,
+        percentage: completionPercent(completed, people.length),
       };
     });
 
@@ -441,8 +441,8 @@ export default function AnalyticsPage() {
                                   : ''
                             }`}
                           />
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            {record.percentage}%
+                          <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+                            {record.completed}/{record.total} ({record.percentage}%)
                           </span>
                         </div>
                       </TableCell>

@@ -71,7 +71,7 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.53.0",
     "react-resizable-panels": "^2.1.3",
-    "recharts": "^2.12.7",
+    "recharts": "^2.15.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.0",
@@ -83,5 +83,8 @@
     "prisma": "^7.2.0",
     "tsx": "^4.20.6",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "react-is": "$react"
   }
 }
