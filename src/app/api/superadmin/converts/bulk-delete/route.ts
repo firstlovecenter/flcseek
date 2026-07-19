@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySuperAdmin } from '@/lib/auth';
+import { requireSuperAdmin } from '@/lib/api';
 import { checkRateLimit } from '@/lib/rate-limit';
 
-// DELETE - Bulk delete new converts and all related data
+/**
+ * DELETE — Soft-delete converts (sets deletedAt). Preserves progress/attendance.
+ * Destructive purge is intentionally not exposed here.
+ */
 export async function DELETE(request: NextRequest) {
-  const rateLimitResponse = await checkRateLimit(request, '/api/superadmin/converts/bulk-delete');
+  const rateLimitResponse = await checkRateLimit(
+    request,
+    '/api/superadmin/converts/bulk-delete'
+  );
   if (rateLimitResponse) return rateLimitResponse;
 
-  const user = await verifySuperAdmin(request);
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized - Only skaduteye and sysadmin can perform bulk delete' }, { status: 401 });
+  const { user, error } = await requireSuperAdmin(request);
+  if (error || !user) {
+    return NextResponse.json(
+      { error: 'Unauthorized — superadmin only' },
+      { status: 401 }
+    );
   }
 
   try {
@@ -24,9 +33,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Get the converts before deleting for response
     const convertsToDelete = await prisma.newConvert.findMany({
-      where: { id: { in: person_ids } },
+      where: { id: { in: person_ids }, deletedAt: null },
       select: {
         id: true,
         firstName: true,
@@ -34,23 +42,24 @@ export async function DELETE(request: NextRequest) {
       },
     });
 
-    // Delete will cascade due to onDelete: Cascade in schema
-    await prisma.newConvert.deleteMany({
-      where: { id: { in: person_ids } },
+    const result = await prisma.newConvert.updateMany({
+      where: { id: { in: person_ids }, deletedAt: null },
+      data: {
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      },
     });
 
     return NextResponse.json({
       success: true,
-      deleted_count: convertsToDelete.length,
-      deleted_records: convertsToDelete.map((c: { id: string; firstName: string | null; lastName: string | null }) => ({
+      deleted_count: result.count,
+      deleted: convertsToDelete.map((c) => ({
         id: c.id,
-        full_name: `${c.firstName || ''} ${c.lastName || ''}`.trim(),
+        name: `${c.firstName || ''} ${c.lastName || ''}`.trim(),
       })),
-      message: `Successfully deleted ${convertsToDelete.length} convert(s) and all related data`,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    console.error('Error deleting converts:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (err) {
+    console.error('[bulk-delete]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

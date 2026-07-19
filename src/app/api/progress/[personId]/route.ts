@@ -5,10 +5,10 @@ import {
   requireAuth,
   validateUUID,
   validateInt,
+  assertPersonAccess,
 } from '@/lib/api';
 import * as Progress from '@/lib/db/queries/progress';
 import * as People from '@/lib/db/queries/people';
-import { ROLES } from '@/lib/constants';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 
 // Disable caching
@@ -38,10 +38,12 @@ export async function GET(
       return errors.notFound('Person');
     }
     
-    // Leaders can only see their own group's people
-    if (user!.role === ROLES.LEADER && person.group_id !== user!.group_id) {
-      return errors.forbidden('You can only view progress for people in your group');
-    }
+    const accessError = assertPersonAccess(
+      user!,
+      person,
+      'You can only view progress for people in your group'
+    );
+    if (accessError) return accessError;
     
     const progress = await Progress.findByPersonId(personId);
     const completionRate = await Progress.getPersonCompletionRate(personId);
@@ -112,10 +114,12 @@ export async function PATCH(
       return errors.notFound('Person');
     }
     
-    // Leaders can only update their own group's people
-    if (user!.role === ROLES.LEADER && person.group_id !== user!.group_id) {
-      return errors.forbidden('You can only update progress for people in your group');
-    }
+    const accessError = assertPersonAccess(
+      user!,
+      person,
+      'You can only update progress for people in your group'
+    );
+    if (accessError) return accessError;
     
     const progressRecord = await Progress.upsert(
       personId,

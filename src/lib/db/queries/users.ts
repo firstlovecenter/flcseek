@@ -103,7 +103,7 @@ function transformUser(u: {
  * Get all users with optional filters
  */
 export async function findMany(filters: UserFilters = {}): Promise<User[]> {
-  const where: Record<string, any> = {};
+  const where: Record<string, any> = { deletedAt: null };
 
   if (filters.role) {
     const roles = Array.isArray(filters.role) ? filters.role : [filters.role];
@@ -339,8 +339,15 @@ export async function remove(id: string): Promise<boolean> {
   }
 
   try {
-    await prisma.user.delete({ where: { id } });
-    return true;
+    const result = await prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: {
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+        tokenVersion: { increment: 1 },
+      },
+    });
+    return result.count > 0;
   } catch (error) {
     if ((error as any)?.code === 'P2025') {
       return false;
@@ -406,7 +413,7 @@ export async function assignToGroup(userId: string, groupId: string): Promise<vo
  * Count users with filters
  */
 export async function count(filters: UserFilters = {}): Promise<number> {
-  const where: Record<string, any> = {};
+  const where: Record<string, any> = { deletedAt: null };
 
   if (filters.role) {
     const roles = Array.isArray(filters.role) ? filters.role : [filters.role];

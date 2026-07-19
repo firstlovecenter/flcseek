@@ -4,9 +4,11 @@ import {
   errors,
   requireAuth,
   validatePersonData,
+  assertGroupAccess,
+  isGroupScopedRole,
 } from '@/lib/api';
 import * as People from '@/lib/db/queries/people';
-import { prisma } from '@/lib/prisma';
+import * as Groups from '@/lib/db/queries/groups';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 import { logger } from '@/lib/logger';
 
@@ -43,16 +45,23 @@ export async function POST(request: NextRequest) {
     if (!targetGroupId) {
       return errors.validation('group_id is required. Either provide it in the request or ensure your user account has a group assigned.');
     }
+
+    if (isGroupScopedRole(user!.role) && !user!.group_name && !user!.group_id) {
+      return errors.forbidden('You must be assigned to a group to register people');
+    }
     
     // Verify the group exists in the database
-    const targetGroup = await prisma.group.findUnique({
-      where: { id: targetGroupId },
-      select: { id: true, name: true, year: true },
-    });
+    const targetGroup = await Groups.findById(targetGroupId);
     
     if (!targetGroup) {
       return errors.validation(`Invalid group_id: ${targetGroupId}. The specified group does not exist.`);
     }
+
+    const scopeError = assertGroupAccess(user!, {
+      id: targetGroup.id,
+      name: targetGroup.name,
+    });
+    if (scopeError) return scopeError;
     
     // Validate all records
     const validationErrors: string[] = [];

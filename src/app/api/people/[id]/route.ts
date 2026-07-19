@@ -5,6 +5,8 @@ import {
   requireAuth,
   validateUUID,
   validatePersonData,
+  assertPersonAccess,
+  isGroupScopedRole,
 } from '@/lib/api';
 import * as People from '@/lib/db/queries/people';
 import * as Progress from '@/lib/db/queries/progress';
@@ -37,17 +39,13 @@ export async function GET(
       return errors.notFound('Person');
     }
     
-    // Check access: 
-    // - superadmin, leadpastor, overseer can view any person
-    // - admin and leader can only view people in their group (and must have a group_id)
-    const restrictedRoles: string[] = [ROLES.LEADER, ROLES.ADMIN];
-    if (restrictedRoles.includes(user!.role)) {
-      if (!user!.group_id) {
+    // Check access: org roles can view any person; leaders/admins locked to month name
+    if (isGroupScopedRole(user!.role)) {
+      if (!user!.group_id && !user!.group_name) {
         return errors.forbidden('You must be assigned to a group to view people');
       }
-      if (person.group_id !== user!.group_id) {
-        return errors.forbidden('You can only view people in your group');
-      }
+      const accessError = assertPersonAccess(user!, person);
+      if (accessError) return accessError;
     }
     
     // Get additional data
@@ -102,12 +100,11 @@ export async function PATCH(
     
     // Admin can only edit people in their group; superadmin can edit anyone
     if (user!.role === ROLES.ADMIN) {
-      if (!user!.group_id) {
+      if (!user!.group_id && !user!.group_name) {
         return errors.forbidden('You must be assigned to a group to edit people');
       }
-      if (existing.group_id !== user!.group_id) {
-        return errors.forbidden('You can only edit people in your group');
-      }
+      const accessError = assertPersonAccess(user!, existing);
+      if (accessError) return accessError;
     }
     
     const body = await request.json();
@@ -160,12 +157,11 @@ export async function DELETE(
     }
 
     if (restrictedRoles.includes(user!.role)) {
-      if (!user!.group_id) {
+      if (!user!.group_id && !user!.group_name) {
         return errors.forbidden('You must be assigned to a group to delete people');
       }
-      if (existing.group_id !== user!.group_id) {
-        return errors.forbidden('You can only delete people in your group');
-      }
+      const accessError = assertPersonAccess(user!, existing);
+      if (accessError) return accessError;
     }
 
     await People.remove(id);

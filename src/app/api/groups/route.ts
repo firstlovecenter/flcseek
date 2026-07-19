@@ -7,6 +7,7 @@ import {
   requireAdmin,
   getQueryParams,
   validateGroupData,
+  isGroupScopedRole,
 } from '@/lib/api';
 import * as Groups from '@/lib/db/queries/groups';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
@@ -46,6 +47,14 @@ export async function GET(request: NextRequest) {
       limit: params.limit,
       offset: params.offset,
     };
+
+    // Leaders/admins only see their month across years (no full directory leak)
+    if (isGroupScopedRole(user!.role)) {
+      if (!user!.group_name) {
+        return success({ groups: [] }, { total: 0, limit: params.limit, offset: params.offset });
+      }
+      filters.nameEquals = user!.group_name;
+    }
     
     const groups = await Groups.findMany(filters);
     const total = await Groups.count(filters);

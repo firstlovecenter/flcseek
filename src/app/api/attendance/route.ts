@@ -6,13 +6,14 @@ import {
   requireAuth,
   getQueryParams,
   resolveGroupScope,
+  assertPersonAccess,
 } from '@/lib/api';
 import * as Attendance from '@/lib/db/queries/attendance';
 import * as People from '@/lib/db/queries/people';
-import { ROLES } from '@/lib/constants';
 import { validateAttendanceDate } from '@/lib/utils/attendance-validation';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -96,6 +97,38 @@ export async function POST(request: NextRequest) {
           return errors.validation(dateError);
         }
       }
+
+      const personIds = [
+        ...new Set(
+          (body.records as { person_id: string }[]).map((r) => r.person_id)
+        ),
+      ];
+      const people = await prisma.newConvert.findMany({
+        where: { id: { in: personIds }, deletedAt: null },
+        select: {
+          id: true,
+          groupId: true,
+          groupName: true,
+          group: { select: { name: true } },
+        },
+      });
+      const byId = new Map(people.map((p) => [p.id, p]));
+
+      for (const personId of personIds) {
+        const person = byId.get(personId);
+        if (!person) {
+          return errors.validation(`No convert found with ID: ${personId}`);
+        }
+        const accessError = assertPersonAccess(
+          user!,
+          {
+            group_id: person.groupId,
+            group_name: person.group?.name || person.groupName,
+          },
+          'You can only record attendance for people in your group'
+        );
+        if (accessError) return accessError;
+      }
       
       // Add recorded_by to each record
       const records = (body.records as { person_id: string; date_attended: string; service_type?: string; notes?: string }[]).map((r) => ({
@@ -146,9 +179,12 @@ export async function POST(request: NextRequest) {
       return errors.validation(`No convert found with ID: ${body.person_id}`);
     }
     
-    if (user!.role === ROLES.LEADER && person.group_id !== user!.group_id) {
-      return errors.forbidden(`You can only record attendance for people in your group. This person (${person.full_name}) belongs to a different group.`);
-    }
+    const accessError = assertPersonAccess(
+      user!,
+      person,
+      `You can only record attendance for people in your group. This person (${person.full_name}) belongs to a different group.`
+    );
+    if (accessError) return accessError;
     
     const record = await Attendance.create({
       person_id: body.person_id,

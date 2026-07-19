@@ -30,6 +30,11 @@ export {
   getQueryParams,
   resolveGroupScope,
   getEffectiveGroupFilter,
+  isGroupScopedRole,
+  canAccessGroup,
+  canAccessPerson,
+  assertPersonAccess,
+  assertGroupAccess,
   type AuthenticatedRequest,
   type GroupScope,
 } from './middleware';

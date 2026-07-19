@@ -61,15 +61,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Verify the signature at the edge. If the secret is unavailable in this
-  // runtime, fall through — requireAuth() in the route handler still verifies.
+  // Verify the signature at the edge. Fail closed in production if the secret
+  // is missing — otherwise forged tokens would reach route handlers.
   const secretKey = getSecretKey();
-  if (secretKey) {
-    try {
-      await jwtVerify(token, secretKey, { algorithms: ['HS256'] });
-    } catch {
+  if (!secretKey) {
+    if (process.env.NODE_ENV === 'production') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    return NextResponse.next();
+  }
+
+  try {
+    await jwtVerify(token, secretKey, { algorithms: ['HS256'] });
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   return NextResponse.next();

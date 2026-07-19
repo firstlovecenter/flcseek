@@ -54,51 +54,60 @@ export function BulkActionsUI({
   token,
 }: BulkActionsUIProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [actionType, setActionType] = useState<'reassignGroup' | 'assignMilestone' | 'delete'>('reassignGroup');
+  const [actionType, setActionType] = useState<'reassignGroup' | 'assignMilestone' | 'delete'>('assignMilestone');
   const [milestoneId, setMilestoneId] = useState('1');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BulkActionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const milestones = Array.from({ length: 10 }, (_, i) => ({
+  const milestones = Array.from({ length: 18 }, (_, i) => ({
     label: `Stage ${i + 1}`,
     value: String(i + 1),
   }));
 
+  const hasSelection = selectedIds.length > 0 || filters.length > 0;
+  const canRun = Boolean(groupId) || hasSelection;
+
   const getPreview = (): ActionPreview => {
-    const targetCount = selectedIds.length || filters.length;
-    const baseDesc = `Target: ${targetCount} convert${targetCount !== 1 ? 's' : ''}`;
+    const targetCount = selectedIds.length || (filters.length > 0 ? filters.length : 0);
+    const scopeLabel = hasSelection
+      ? `Target: ${targetCount || 'filtered'} convert(s)`
+      : `All converts in this group`;
 
     switch (actionType) {
       case 'reassignGroup':
         return {
-          action: 'Reassign Group',
+          action: 'Touch metadata',
           targetCount,
-          description: `${baseDesc} → will touch updatedAt timestamp`,
-          warning: 'This updates the metadata for selected converts.',
+          description: `${scopeLabel} → updates updatedAt timestamp`,
+          warning: 'This updates metadata for matching converts in the group.',
         };
       case 'assignMilestone':
         return {
           action: 'Assign Milestone',
           targetCount,
-          description: `${baseDesc} → Milestone: Stage ${milestoneId}`,
+          description: `${scopeLabel} → Milestone: Stage ${milestoneId}`,
           warning: 'Progress records will be created for converts without this milestone.',
         };
       case 'delete':
         return {
-          action: 'Delete Records',
+          action: 'Soft-delete records',
           targetCount,
-          description: `${baseDesc} will be marked as deleted.`,
-          warning: 'This action is permanent and cannot be undone easily.',
+          description: `${scopeLabel} will be soft-deleted (hidden, not purged).`,
+          warning: 'Records are soft-deleted and hidden from active views.',
         };
       default:
-        return { action: 'Unknown', targetCount, description: baseDesc };
+        return { action: 'Unknown', targetCount, description: scopeLabel };
     }
   };
 
   const handleExecuteAction = async () => {
-    if (!userId || !token) {
+    if (!userId) {
       setError('Authentication required');
+      return;
+    }
+    if (!canRun) {
+      setError('Select converts or open this from a group context');
       return;
     }
 
@@ -109,9 +118,10 @@ export function BulkActionsUI({
     try {
       const response = await fetch('/api/bulk-actions', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-ID': userId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           action: actionType,
@@ -123,11 +133,11 @@ export function BulkActionsUI({
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(`Action failed: ${response.statusText}`);
+        throw new Error(data.error || `Action failed: ${response.statusText}`);
       }
 
-      const data = await response.json();
       setResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Action failed');
@@ -140,13 +150,16 @@ export function BulkActionsUI({
 
   return (
     <>
-      <Button
-        onClick={() => setIsOpen(true)}
-        disabled={selectedIds.length === 0 && filters.length === 0}
-      >
+      <Button onClick={() => setIsOpen(true)} disabled={!canRun}>
         <Bot className="size-4" />
         Bulk Actions
       </Button>
+
+      {!hasSelection && groupId && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          No rows selected — actions will apply to all converts in this group.
+        </p>
+      )}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-2xl">
@@ -171,16 +184,16 @@ export function BulkActionsUI({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="reassignGroup">Reassign Group / Update</SelectItem>
                     <SelectItem value="assignMilestone">Assign Milestone</SelectItem>
-                    <SelectItem value="delete">Delete Records</SelectItem>
+                    <SelectItem value="reassignGroup">Touch metadata</SelectItem>
+                    <SelectItem value="delete">Soft-delete records</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {actionType === 'reassignGroup' && (
                 <p className="text-sm text-muted-foreground">
-                  Updates the metadata timestamp for selected converts.
+                  Updates the metadata timestamp for matching converts.
                 </p>
               )}
 
@@ -206,8 +219,8 @@ export function BulkActionsUI({
                 <div className="flex gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
                   <AlertCircle className="size-4 shrink-0" />
                   <div>
-                    <p className="font-medium">Destructive Action</p>
-                    <p>Selected records will be marked as deleted. This action is permanent.</p>
+                    <p className="font-medium">Soft delete</p>
+                    <p>Selected records will be hidden from active views. Related history is kept.</p>
                   </div>
                 </div>
               )}
@@ -222,8 +235,8 @@ export function BulkActionsUI({
                       <p>{preview.action}</p>
                     </div>
                     <div>
-                      <strong className="text-sm">Target Records:</strong>
-                      <p>{preview.targetCount}</p>
+                      <strong className="text-sm">Scope:</strong>
+                      <p>{hasSelection ? `${preview.targetCount || 'filtered'} selected` : 'Entire group'}</p>
                     </div>
                   </div>
 
@@ -275,7 +288,7 @@ export function BulkActionsUI({
               <p className="mt-1">
                 <strong>Success:</strong> {result.successCount} / {result.targetCount}
               </p>
-              {result.errors.length > 0 && (
+              {result.errors?.length > 0 && (
                 <>
                   <p className="mt-2">
                     <strong>Errors ({result.errors.length}):</strong>

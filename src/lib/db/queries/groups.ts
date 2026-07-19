@@ -33,6 +33,8 @@ export interface GroupFilters {
   leaderId?: string;
   search?: string;
   groupId?: string;
+  /** Exact month-name match (case-insensitive) for scoped roles. */
+  nameEquals?: string;
   limit?: number;
   offset?: number;
 }
@@ -41,7 +43,7 @@ export interface GroupFilters {
  * Get all groups with optional filters
  */
 export async function findMany(filters: GroupFilters = {}): Promise<Group[]> {
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { deletedAt: null };
 
   if (filters.year !== undefined) {
     where.year = filters.year;
@@ -66,6 +68,14 @@ export async function findMany(filters: GroupFilters = {}): Promise<Group[]> {
     };
   }
 
+  /** Optional month-name lock for scoped roles (set by API). */
+  if (filters.nameEquals) {
+    where.name = {
+      equals: filters.nameEquals,
+      mode: 'insensitive',
+    };
+  }
+
   const groups = await prisma.group.findMany({
     where,
     include: {
@@ -78,7 +88,7 @@ export async function findMany(filters: GroupFilters = {}): Promise<Group[]> {
       },
       _count: {
         select: {
-          newConverts: true,
+          newConverts: { where: { deletedAt: null } },
         },
       },
     },
@@ -111,8 +121,8 @@ export async function findMany(filters: GroupFilters = {}): Promise<Group[]> {
  * Get a single group by ID
  */
 export async function findById(id: string): Promise<Group | null> {
-  const group = await prisma.group.findUnique({
-    where: { id },
+  const group = await prisma.group.findFirst({
+    where: { id, deletedAt: null },
     include: {
       leader: {
         select: {
@@ -123,7 +133,7 @@ export async function findById(id: string): Promise<Group | null> {
       },
       _count: {
         select: {
-          newConverts: true,
+          newConverts: { where: { deletedAt: null } },
         },
       },
     },
@@ -260,8 +270,11 @@ export async function update(
  */
 export async function remove(id: string): Promise<boolean> {
   try {
-    await prisma.group.delete({ where: { id } });
-    return true;
+    const result = await prisma.group.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: new Date(), updatedAt: new Date(), archived: true },
+    });
+    return result.count > 0;
   } catch (error) {
     if ((error as { code?: string })?.code === 'P2025') {
       return false;
@@ -274,7 +287,7 @@ export async function remove(id: string): Promise<boolean> {
  * Count groups with filters
  */
 export async function count(filters: GroupFilters = {}): Promise<number> {
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { deletedAt: null };
 
   if (filters.year !== undefined) {
     where.year = filters.year;
@@ -282,6 +295,10 @@ export async function count(filters: GroupFilters = {}): Promise<number> {
 
   if (filters.archived !== undefined) {
     where.archived = filters.archived;
+  }
+
+  if (filters.nameEquals) {
+    where.name = { equals: filters.nameEquals, mode: 'insensitive' };
   }
 
   return prisma.group.count({ where });

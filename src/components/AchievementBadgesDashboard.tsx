@@ -87,6 +87,7 @@ function ProgressRing({ value, color }: { value: number; color: string }) {
 export function AchievementBadgesDashboard({
   groupId,
   userId,
+  token,
 }: AchievementBadgesDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [badges, setBadges] = useState<BadgeItem[]>([]);
@@ -106,17 +107,20 @@ export function AchievementBadgesDashboard({
     setError(null);
 
     try {
-      const badgesRes = await fetch('/api/badges', {
-        headers: { 'X-User-ID': userId },
-      });
+      const authHeaders = {
+        credentials: 'include' as const,
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      };
+
+      const badgesRes = await fetch('/api/badges', authHeaders);
 
       if (!badgesRes.ok) throw new Error('Failed to load badges');
       const badgesData = await badgesRes.json();
       setBadges(badgesData.badges || []);
 
-      const progressRes = await fetch(`/api/badges/${userId}?action=progress`, {
-        headers: { 'X-User-ID': userId },
-      });
+      const progressRes = await fetch(`/api/badges/${userId}?action=progress`, authHeaders);
 
       if (progressRes.ok) {
         const progressData = await progressRes.json();
@@ -125,7 +129,7 @@ export function AchievementBadgesDashboard({
 
       const leaderboardRes = await fetch(
         `/api/badges/leaderboard?${groupId ? `groupId=${groupId}&` : ''}limit=20`,
-        { headers: { 'X-User-ID': userId } }
+        authHeaders
       );
 
       if (leaderboardRes.ok) {

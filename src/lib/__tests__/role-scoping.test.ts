@@ -4,6 +4,8 @@ import {
   hasMinRole,
   resolveGroupScope,
   getQueryParams,
+  canAccessPerson,
+  canAccessGroup,
 } from '@/lib/api/middleware';
 import { ROLES } from '@/lib/constants';
 import type { UserPayload } from '@/lib/auth';
@@ -73,6 +75,30 @@ describe('resolveGroupScope', () => {
       const scope = resolveGroupScope(user({ role }), paramsFor('/api/people'));
       expect(scope.groupName).toBeUndefined();
     }
+  });
+});
+
+describe('canAccessPerson / canAccessGroup', () => {
+  it('allows leaders access by month name across years', () => {
+    const leader = user({ role: 'leader', group_name: 'January', group_id: 'g-2026' });
+    expect(
+      canAccessPerson(leader, { group_id: 'g-2025', group_name: 'January' })
+    ).toBe(true);
+    expect(
+      canAccessGroup(leader, { id: 'g-2025', name: 'January' })
+    ).toBe(true);
+    expect(
+      canAccessPerson(leader, { group_id: 'other', group_name: 'February' })
+    ).toBe(false);
+  });
+
+  it('does not restrict superadmin', () => {
+    expect(
+      canAccessPerson(user({ role: 'superadmin' }), {
+        group_id: 'any',
+        group_name: 'March',
+      })
+    ).toBe(true);
   });
 });
 

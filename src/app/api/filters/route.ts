@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FilterBuilder } from '@/lib/filter-builder';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { requireAuth } from '@/lib/api/middleware';
+import {
+  requireAuth,
+  assertGroupAccess,
+  isGroupScopedRole,
+} from '@/lib/api/middleware';
+import * as Groups from '@/lib/db/queries/groups';
 
 /**
  * GET /api/filters
@@ -84,6 +89,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let effectiveGroupId = groupId as string | undefined;
+    if (isGroupScopedRole(user!.role)) {
+      if (!user!.group_name && !user!.group_id) {
+        return NextResponse.json({ success: false, error: 'Group assignment required' }, { status: 403 });
+      }
+      if (effectiveGroupId) {
+        const group = await Groups.findById(effectiveGroupId);
+        if (!group) {
+          return NextResponse.json({ success: false, error: 'Group not found' }, { status: 404 });
+        }
+        const scopeError = assertGroupAccess(user!, { id: group.id, name: group.name });
+        if (scopeError) return scopeError;
+      } else if (user!.group_id) {
+        effectiveGroupId = user!.group_id;
+      }
+    }
+
     // Validate filters
     const validation = FilterBuilder.validateFilters(filters);
     if (!validation.isValid) {
@@ -103,8 +125,14 @@ export async function POST(request: NextRequest) {
       allFilters = FilterBuilder.applyDateRange(filters, dateRange);
     }
 
-    // Build where clause
-    const where = FilterBuilder.buildWhereClause(allFilters, groupId);
+    // Build where clause — scoped users always constrained
+    const where = FilterBuilder.buildWhereClause(allFilters, effectiveGroupId);
+    if (isGroupScopedRole(user!.role) && user!.group_name) {
+      (where as Record<string, unknown>).group = {
+        name: { equals: user!.group_name, mode: 'insensitive' },
+      };
+    }
+    (where as Record<string, unknown>).deletedAt = null;
     const orderBy = FilterBuilder.buildOrderBy(sort);
 
     // Execute query
