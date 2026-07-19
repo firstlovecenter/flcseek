@@ -121,6 +121,8 @@ export async function create(input: CreateAttendanceInput): Promise<AttendanceRe
     },
   });
 
+  await updateAttendanceMilestones([input]);
+
   return transformAttendanceRecord(record);
 }
 
