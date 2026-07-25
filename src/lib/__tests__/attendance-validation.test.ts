@@ -32,15 +32,17 @@ describe('validateAttendanceDate', () => {
     expect(validateAttendanceDate('2026-07-12', 'leader', SUNDAY)).toBeNull();
   });
 
-  it('rejects an older Sunday for non-superadmins', () => {
+  it('rejects an older Sunday for leaders and other non-admin roles', () => {
     expect(validateAttendanceDate('2026-07-05', 'leader', WEDNESDAY)).toBe(
       'You can only record attendance for the most recent Sunday'
     );
-    expect(validateAttendanceDate('2026-07-05', 'admin', WEDNESDAY)).not.toBeNull();
+    expect(validateAttendanceDate('2026-07-05', 'leadpastor', WEDNESDAY)).not.toBeNull();
   });
 
-  it('allows superadmin to backdate to any past Sunday', () => {
+  it('allows superadmin and admin to backdate to any past Sunday', () => {
     expect(validateAttendanceDate('2026-07-05', 'superadmin', WEDNESDAY)).toBeNull();
     expect(validateAttendanceDate('2025-12-28', 'superadmin', WEDNESDAY)).toBeNull();
+    expect(validateAttendanceDate('2026-07-05', 'admin', WEDNESDAY)).toBeNull();
+    expect(validateAttendanceDate('2025-12-28', 'admin', WEDNESDAY)).toBeNull();
   });
 });

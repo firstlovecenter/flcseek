@@ -77,7 +77,8 @@ function AttendancePageContent() {
 
   const isLeader = user?.role === 'leader'
   const isSuperAdmin = user?.role === 'superadmin'
-  const canSelectPastDates = isSuperAdmin
+  const isAdmin = user?.role === 'admin'
+  const canSelectPastDates = isSuperAdmin || isAdmin
   const isReadOnly =
     user?.role === 'leader' ||
     user?.role === 'overseer' ||
@@ -362,7 +363,7 @@ function AttendancePageContent() {
             />
             {canSelectPastDates && (
               <span className="text-xs text-muted-foreground">
-                (Superadmin: Can select any past Sunday)
+                (Can select any past Sunday)
               </span>
             )}
           </div>
