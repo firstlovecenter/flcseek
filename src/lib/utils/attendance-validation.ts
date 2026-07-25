@@ -1,9 +1,10 @@
 import { ROLES } from '@/lib/constants';
 
 /**
- * Only superadmins may backdate attendance to an earlier Sunday. Everyone
- * else may only record attendance for the most recent Sunday (today, if
- * today is a Sunday). Returns an error message, or null if the date is valid.
+ * Superadmins and admins may backdate attendance to an earlier Sunday.
+ * Everyone else may only record attendance for the most recent Sunday
+ * (today, if today is a Sunday). Returns an error message, or null if
+ * the date is valid.
  *
  * `now` is injectable for tests; defaults to the current time.
  */
@@ -27,7 +28,8 @@ export function validateAttendanceDate(
     return 'Attendance can only be recorded for a Sunday';
   }
 
-  if (role !== ROLES.SUPERADMIN) {
+  const canBackdate = role === ROLES.SUPERADMIN || role === ROLES.ADMIN;
+  if (!canBackdate) {
     const mostRecentSunday = new Date(today);
     mostRecentSunday.setUTCDate(today.getUTCDate() - today.getUTCDay());
     if (date.getTime() !== mostRecentSunday.getTime()) {
