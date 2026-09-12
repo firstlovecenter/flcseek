@@ -83,8 +83,8 @@ export default function TopNav({ title, showBack = false, backUrl }: TopNavProps
   };
 
   const handleLogout = () => {
-    logout();
-    router.push('/');
+    // AuthContext.logout already navigates to /auth
+    void logout();
   };
 
   const handleBack = () => {

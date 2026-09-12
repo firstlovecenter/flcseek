@@ -178,8 +178,18 @@ async function checkDbRateLimitAtomic(
     }
     return null;
   } catch (error) {
-    console.error('[rate-limit] DB check failed (failing open):', error);
-    return null;
+    console.error('[rate-limit] DB check failed (failing closed):', error);
+    return NextResponse.json(
+      {
+        error: 'Service temporarily unavailable. Please try again shortly.',
+      },
+      {
+        status: 503,
+        headers: {
+          'Retry-After': '30',
+        },
+      }
+    );
   }
 }
 

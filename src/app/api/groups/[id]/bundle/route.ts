@@ -5,10 +5,12 @@ import {
   requireAuth,
   validateUUID,
   getQueryParams,
-  resolveGroupScope,
+  assertGroupAccess,
+  assertScopedAssignment,
 } from '@/lib/api';
 import * as Milestones from '@/lib/db/queries/milestones';
 import * as People from '@/lib/db/queries/people';
+import * as Groups from '@/lib/db/queries/groups';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,21 +26,30 @@ export async function GET(
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
+    const assignmentError = assertScopedAssignment(user!);
+    if (assignmentError) return assignmentError;
+
     const { id } = await params;
     const idValidation = validateUUID(id);
     if (!idValidation.valid) {
       return errors.validation('Invalid group ID', idValidation.errors);
     }
 
-    const queryParams = getQueryParams(request);
-    const scope = resolveGroupScope(user!, {
-      ...queryParams,
-      groupId: queryParams.groupId || id,
+    const group = await Groups.findById(id);
+    if (!group) {
+      return errors.notFound('Group');
+    }
+
+    const scopeError = assertGroupAccess(user!, {
+      id: group.id,
+      name: group.name,
     });
+    if (scopeError) return scopeError;
+
+    const queryParams = getQueryParams(request);
 
     const filters: People.PersonFilters = {
-      groupId: scope.groupId ?? id,
-      groupName: scope.groupName,
+      groupId: id,
       year: queryParams.year,
     };
 

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PredictiveAnalyticsService } from '@/lib/predictive-analytics';
 import { logger } from '@/lib/logger';
-import { requireAuth } from '@/lib/api/middleware';
+import {
+  requireAuth,
+  assertPersonAccess,
+  assertScopedAssignment,
+} from '@/lib/api/middleware';
+import * as People from '@/lib/db/queries/people';
 
 type Params = Promise<{ convertId: string }>;
 
@@ -14,15 +19,28 @@ export async function GET(request: NextRequest, context: { params: Params }) {
   try {
     const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
-    const userId = user!.id;
+
+    const assignmentError = assertScopedAssignment(user!);
+    if (assignmentError) return assignmentError;
 
     const params = await context.params;
     const { convertId } = params;
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') || 'full';
 
+    const person = await People.findById(convertId);
+    if (!person) {
+      return NextResponse.json(
+        { success: false, error: 'Convert not found' },
+        { status: 404 }
+      );
+    }
+    const accessError = assertPersonAccess(user!, person);
+    if (accessError) return accessError;
+
     if (type === 'recommendation') {
-      const recommendations = await PredictiveAnalyticsService.getRecommendedActions(convertId);
+      const recommendations =
+        await PredictiveAnalyticsService.getRecommendedActions(convertId);
 
       if (!recommendations) {
         return NextResponse.json(
@@ -40,8 +58,8 @@ export async function GET(request: NextRequest, context: { params: Params }) {
       });
     }
 
-    // Default: full prediction with details
-    const prediction = await PredictiveAnalyticsService.predictCompletionProbability(convertId);
+    const prediction =
+      await PredictiveAnalyticsService.predictCompletionProbability(convertId);
 
     if (!prediction) {
       return NextResponse.json(

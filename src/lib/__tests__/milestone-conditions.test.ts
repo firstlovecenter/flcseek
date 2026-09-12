@@ -40,13 +40,13 @@ describe('evaluateCondition', () => {
       ).toBe(false);
     });
 
-    it('treats a non-numeric value as threshold 0', () => {
+    it('treats a non-numeric value as not met', () => {
       expect(
         evaluateCondition(input({ attendanceCount: 0 }), 2, {
           type: 'attendance_count',
           value: 'abc',
         })
-      ).toBe(true);
+      ).toBe(false);
     });
   });
 

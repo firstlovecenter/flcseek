@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getVerifiedAuthUser } from '@/lib/api/middleware';
 import * as Users from '@/lib/db/queries/users';
 import type { UserRole } from '@/lib/constants';
+import { CURRENT_YEAR } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,12 +76,13 @@ export async function POST(request: NextRequest) {
       group_name: group_name || undefined,
     });
 
-    // If user is a leader with group assignment, update the group's leader_id
+    // If user is a leader with group assignment, attach as leader of that
+    // month for the current year only (not every historical year of the same name).
     if (userRole === 'leader' && group_name) {
       try {
         await prisma.group.updateMany({
-          where: { name: group_name },
-          data: { leaderId: newUser.id }
+          where: { name: group_name, year: CURRENT_YEAR, deletedAt: null },
+          data: { leaderId: newUser.id },
         });
       } catch (error) {
         console.error('Failed to update group leader:', error);

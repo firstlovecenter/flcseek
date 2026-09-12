@@ -56,7 +56,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, filters, newStatus, milestoneId, convertIds, groupId } = body;
+    const {
+      action,
+      filters,
+      newStatus,
+      milestoneId,
+      convertIds,
+      groupId,
+      targetGroupId,
+    } = body;
 
     if (action === 'delete' && user!.role === 'leader') {
       return NextResponse.json(
@@ -86,13 +94,23 @@ export async function POST(request: NextRequest) {
     let result;
 
     switch (action) {
-      case 'reassignGroup':
-        result = await BulkActionsService.bulkUpdateStatus(
+      case 'reassignGroup': {
+        if (!targetGroupId || typeof targetGroupId !== 'string') {
+          return NextResponse.json(
+            { error: 'targetGroupId is required for reassignGroup' },
+            { status: 400 }
+          );
+        }
+        const targetScoped = await resolveScopedGroupId(user!, targetGroupId);
+        if (targetScoped.error) return targetScoped.error;
+        result = await BulkActionsService.bulkReassignGroup(
           filters || [],
-          newStatus || 'active',
-          effectiveGroupId
+          targetGroupId,
+          effectiveGroupId,
+          Array.isArray(convertIds) ? convertIds : undefined
         );
         break;
+      }
 
       case 'assignMilestone':
         result = await BulkActionsService.bulkAssignMilestone(

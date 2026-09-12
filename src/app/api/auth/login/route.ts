@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         first_name: user.firstName,
         last_name: user.lastName,
-        role: user.role,
+        role,
         group_name: groupName,
         group_year: groupYear,
         group_id: groupId,

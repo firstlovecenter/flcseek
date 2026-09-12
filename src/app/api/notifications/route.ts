@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVerifiedAuthUser } from '@/lib/api/middleware';
+import {
+  getVerifiedAuthUser,
+  resolveGroupScope,
+  getQueryParams,
+  isGroupScopedRole,
+} from '@/lib/api/middleware';
 import { 
   getUnreadNotifications, 
   markNotificationsRead,
@@ -23,8 +28,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (isGroupScopedRole(userPayload.role) && !userPayload.group_name?.trim()) {
+      return NextResponse.json(
+        { error: 'You must be assigned to a group to access this data' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
+    const scope = resolveGroupScope(userPayload, getQueryParams(request));
+    const listScope =
+      scope.groupName || scope.groupId
+        ? { groupName: scope.groupName, groupId: scope.groupId }
+        : undefined;
 
     let data: Record<string, unknown> = {};
 
@@ -37,14 +54,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'birthdays' || type === 'all') {
-      data.birthdays = await getBirthdaysThisWeek();
+      data.birthdays = await getBirthdaysThisWeek(listScope);
     }
 
     if (type === 'inactive' || type === 'all') {
       // Only show inactive converts to admins and above
       if (['superadmin', 'leadpastor', 'admin'].includes(userPayload.role)) {
         const weeksInactive = parseInt(searchParams.get('weeks') || '4');
-        data.inactiveConverts = await getInactiveConverts(weeksInactive);
+        data.inactiveConverts = await getInactiveConverts(
+          weeksInactive,
+          listScope
+        );
       }
     }
 

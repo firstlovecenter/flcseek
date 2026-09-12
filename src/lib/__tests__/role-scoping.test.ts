@@ -76,6 +76,14 @@ describe('resolveGroupScope', () => {
       expect(scope.groupName).toBeUndefined();
     }
   });
+
+  it('denies scoped roles with no group assignment', () => {
+    const scope = resolveGroupScope(
+      user({ role: 'leader', group_name: undefined }),
+      paramsFor('/api/people')
+    );
+    expect(scope).toEqual({ denied: true });
+  });
 });
 
 describe('canAccessPerson / canAccessGroup', () => {

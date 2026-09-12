@@ -31,8 +31,9 @@ interface FreshUserRow {
  * Per-instance micro-cache. Serverless instances are short-lived and
  * single-tenant per request burst; a small TTL keeps the added DB cost to at
  * most one lookup per user per TTL window while bounding revocation delay.
+ * Kept short so password/role revocation takes effect quickly.
  */
-const CACHE_TTL_MS = 10_000;
+const CACHE_TTL_MS = 1_000;
 const userCache = new Map<string, { row: FreshUserRow; ts: number }>();
 
 async function fetchUserRow(userId: string): Promise<FreshUserRow | null> {

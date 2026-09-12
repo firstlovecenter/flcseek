@@ -31,6 +31,7 @@ export {
   resolveGroupScope,
   getEffectiveGroupFilter,
   isGroupScopedRole,
+  assertScopedAssignment,
   canAccessGroup,
   canAccessPerson,
   assertPersonAccess,

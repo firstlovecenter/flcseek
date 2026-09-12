@@ -40,6 +40,11 @@ export async function GET(request: NextRequest) {
     
     const params = getQueryParams(request);
     const effectiveFilters = resolveGroupScope(user!, params);
+    if (effectiveFilters.denied) {
+      return errors.forbidden(
+        'You must be assigned to a group to access this data'
+      );
+    }
     const include = params.raw.get('include')?.split(',') || [];
     const month = params.raw.get('month') || undefined;
     
@@ -55,9 +60,8 @@ export async function GET(request: NextRequest) {
     if (params.year !== undefined) {
       const yearGroups = await Groups.findMany({ year: params.year, limit: 500 });
       filters.yearGroupIds = yearGroups.map((g) => g.id);
-      filters.yearGroupNames = [...new Set(yearGroups.map((g) => g.name))];
       delete filters.year;
-      if (!filters.yearGroupIds.length && !filters.yearGroupNames.length) {
+      if (!filters.yearGroupIds.length) {
         filters.yearGroupIds = ['00000000-0000-0000-0000-000000000000'];
       }
     }
