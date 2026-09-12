@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
     
     const params = getQueryParams(request);
     const scope = resolveGroupScope(user!, params);
+    if (scope.denied) {
+      return errors.forbidden(
+        'You must be assigned to a group to access this data'
+      );
+    }
     
     const filters: Attendance.AttendanceFilters = {
       personId: params.raw.get('person_id') || undefined,

@@ -42,14 +42,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
         if (res.ok) {
-          // Cookie is valid — restore user display data from localStorage
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            setUser(JSON.parse(storedUser));
+          const body = await res.json();
+          const payload = body.user as User | undefined;
+          if (payload) {
+            setUser(payload);
+            localStorage.setItem('user', JSON.stringify(payload));
           } else {
-            // Fallback: use the decoded payload from /api/auth/me
-            const { user: payload } = await res.json();
-            if (payload) setUser(payload as User);
+            localStorage.removeItem('user');
+            setUser(null);
           }
           // The real JWT stays in the httpOnly cookie (used for every API call).
           // Set a non-secret session marker so client code that gates work on a
@@ -59,13 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           // Cookie is invalid/expired — purge stale state
           localStorage.removeItem('user');
+          setUser(null);
+          setToken(null);
         }
       } catch {
-        // Network error: fall back to localStorage so the UI doesn't flash
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        }
+        // Network error: do not fake a logged-in session without a verified cookie
+        localStorage.removeItem('user');
+        setUser(null);
+        setToken(null);
       } finally {
         setLoading(false);
       }
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.push('/superadmin');
       } else if (data.user.role === 'leadpastor' || data.user.role === 'overseer') {
         // Leadpastors and overseers go to group selector
-        router.push('/leadpastor');
+        router.push('/');
       } else if (data.user.role === 'admin' || data.user.role === 'leader') {
         // Admin/leader with assigned group goes directly to group
         if (data.user.group_id) {

@@ -167,11 +167,14 @@ export function getQueryParams(request: NextRequest) {
  * Normalized group scope used to constrain queries by the requesting user's role.
  * - `groupName` constrains to a month name across all years (leaders/admins).
  * - `groupId` constrains to a single group instance (superadmin/leadpastor/overseer
- *   filtering via query param). When neither is set, the caller may see all data.
+ *   filtering via query param). When neither is set, unrestricted roles may see all data.
+ * - `denied` is set when a scoped role has no group assignment (fail closed).
  */
 export interface GroupScope {
   groupId?: string;
   groupName?: string;
+  /** True when a leader/admin has no group_name — callers must return 403 / empty. */
+  denied?: boolean;
 }
 
 /**
@@ -180,6 +183,7 @@ export interface GroupScope {
  * endpoint (people, attendance, stats, person detail) to avoid scope drift.
  *
  * - Leaders & Admins: locked to their month name across all years.
+ *   Missing assignment → `{ denied: true }` (fail closed — never unrestricted).
  * - SuperAdmin / LeadPastor / Overseer: unrestricted, may filter by `group_id` param.
  */
 export function resolveGroupScope(
@@ -189,10 +193,26 @@ export function resolveGroupScope(
   const { role, group_name } = user;
 
   if (role === ROLES.LEADER || role === ROLES.ADMIN) {
-    return { groupName: group_name };
+    const name = group_name?.trim();
+    if (!name) {
+      return { denied: true };
+    }
+    return { groupName: name };
   }
 
   return { groupId: params.groupId };
+}
+
+/**
+ * Forbidden response when a scoped role has no group assignment; null when allowed.
+ */
+export function assertScopedAssignment(user: UserPayload) {
+  if (isGroupScopedRole(user.role) && !user.group_name?.trim()) {
+    return errors.forbidden(
+      'You must be assigned to a group to access this data'
+    );
+  }
+  return null;
 }
 
 /**

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PredictiveAnalyticsService } from '@/lib/predictive-analytics';
 import { logger } from '@/lib/logger';
-import { requireAuth } from '@/lib/api/middleware';
+import {
+  requireAuth,
+  assertPersonAccess,
+  assertGroupAccess,
+  assertScopedAssignment,
+} from '@/lib/api/middleware';
+import * as People from '@/lib/db/queries/people';
+import * as Groups from '@/lib/db/queries/groups';
 
 /**
  * GET /api/predictions
@@ -12,7 +19,9 @@ export async function GET(request: NextRequest) {
   try {
     const { user, error: authError } = await requireAuth(request);
     if (authError) return authError;
-    const userId = user!.id;
+
+    const assignmentError = assertScopedAssignment(user!);
+    if (assignmentError) return assignmentError;
 
     const searchParams = request.nextUrl.searchParams;
     const convertId = searchParams.get('convertId');
@@ -20,8 +29,18 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
 
     if (convertId) {
-      // Get prediction for single convert
-      const prediction = await PredictiveAnalyticsService.predictCompletionProbability(convertId);
+      const person = await People.findById(convertId);
+      if (!person) {
+        return NextResponse.json(
+          { success: false, error: 'Convert not found' },
+          { status: 404 }
+        );
+      }
+      const accessError = assertPersonAccess(user!, person);
+      if (accessError) return accessError;
+
+      const prediction =
+        await PredictiveAnalyticsService.predictCompletionProbability(convertId);
 
       if (!prediction) {
         return NextResponse.json(
@@ -40,8 +59,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (groupId && !category) {
-      // Get all predictions for group
-      const outcomes = await PredictiveAnalyticsService.predictGroupOutcomes(groupId);
+      const group = await Groups.findById(groupId);
+      if (!group) {
+        return NextResponse.json(
+          { success: false, error: 'Group not found' },
+          { status: 404 }
+        );
+      }
+      const scopeError = assertGroupAccess(user!, {
+        id: group.id,
+        name: group.name,
+      });
+      if (scopeError) return scopeError;
+
+      const outcomes =
+        await PredictiveAnalyticsService.predictGroupOutcomes(groupId);
 
       return NextResponse.json({
         success: true,
@@ -51,8 +83,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (groupId && category) {
-      // Get predictions by category
-      const categories = await PredictiveAnalyticsService.getConvertsByCategory(groupId);
+      const group = await Groups.findById(groupId);
+      if (!group) {
+        return NextResponse.json(
+          { success: false, error: 'Group not found' },
+          { status: 404 }
+        );
+      }
+      const scopeError = assertGroupAccess(user!, {
+        id: group.id,
+        name: group.name,
+      });
+      if (scopeError) return scopeError;
+
+      const categories =
+        await PredictiveAnalyticsService.getConvertsByCategory(groupId);
 
       const categoryKey = category as keyof typeof categories;
       if (!categoryKey || !categories[categoryKey]) {

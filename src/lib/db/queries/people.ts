@@ -161,8 +161,11 @@ export async function findMany(filters: PersonFilters = {}): Promise<Person[]> {
     };
   }
 
-  // Year filter
-  if (filters.year !== undefined) {
+  // Year filter — prefer resolved group IDs for the year (no denormalized name OR,
+  // which leaked converts from other years sharing a month name).
+  if (filters.yearGroupIds?.length) {
+    where.groupId = { in: filters.yearGroupIds };
+  } else if (filters.year !== undefined) {
     where.group = {
       ...((where.group as Record<string, unknown>) || {}),
       year: filters.year,
@@ -268,22 +271,11 @@ function buildPersonWhere(filters: PersonFilters): Record<string, unknown> {
     };
   }
 
-  if (filters.yearGroupIds?.length || filters.yearGroupNames?.length) {
-    const yearScope: Record<string, unknown>[] = [];
-    if (filters.yearGroupIds?.length) {
-      yearScope.push({ groupId: { in: filters.yearGroupIds } });
-    }
-    if (filters.yearGroupNames?.length) {
-      yearScope.push({
-        groupName: { in: filters.yearGroupNames, mode: 'insensitive' },
-      });
-    }
-    if (yearScope.length === 1) {
-      Object.assign(where, yearScope[0]);
-    } else if (yearScope.length > 1) {
-      const existingOr = (where.OR as Record<string, unknown>[]) || [];
-      where.OR = [...existingOr, ...yearScope];
-    }
+  if (filters.yearGroupIds?.length) {
+    where.groupId = { in: filters.yearGroupIds };
+  } else if (filters.yearGroupNames?.length) {
+    // Legacy callers only — prefer yearGroupIds to avoid cross-year name leaks.
+    where.groupName = { in: filters.yearGroupNames, mode: 'insensitive' };
   } else if (filters.year !== undefined) {
     where.group = {
       ...((where.group as Record<string, unknown>) || {}),
@@ -794,7 +786,9 @@ export async function count(filters: PersonFilters = {}): Promise<number> {
     };
   }
 
-  if (filters.year !== undefined) {
+  if (filters.yearGroupIds?.length) {
+    where.groupId = { in: filters.yearGroupIds };
+  } else if (filters.year !== undefined) {
     where.group = {
       ...((where.group as Record<string, unknown>) || {}),
       year: filters.year,

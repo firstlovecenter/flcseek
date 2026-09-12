@@ -69,6 +69,7 @@ export async function getUnreadNotifications(userId: string): Promise<unknown[]>
       entity_type: n.entityType,
       entity_id: n.entityId,
       is_read: n.isRead,
+      read: n.isRead,
       read_at: n.readAt,
       created_at: n.createdAt,
     }));
@@ -99,7 +100,10 @@ export async function markNotificationsRead(notificationIds: string[]): Promise<
  * Get converts with birthdays this week
  * Note: date_of_birth is stored as DD-MM format
  */
-export async function getBirthdaysThisWeek(): Promise<unknown[]> {
+export async function getBirthdaysThisWeek(scope?: {
+  groupName?: string;
+  groupId?: string;
+}): Promise<unknown[]> {
   try {
     // Get current week's day-month range
     const now = new Date();
@@ -108,17 +112,23 @@ export async function getBirthdaysThisWeek(): Promise<unknown[]> {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
     
-    // Get all converts with birthdays
+    const where: Record<string, unknown> = {
+      dateOfBirth: { not: null },
+      deletedAt: null,
+    };
+    if (scope?.groupId) where.groupId = scope.groupId;
+    if (scope?.groupName) {
+      where.group = { name: scope.groupName };
+    }
+
     const converts = await prisma.newConvert.findMany({
-      where: {
-        dateOfBirth: { not: null },
-      },
+      where,
       include: {
         group: { select: { name: true, year: true } }
       }
     });
     
-    // Filter by week (DD-MM format comparison)
+    // Filter by week (DD-MM string compare — DOB is not an ISO date)
     const weekDays: string[] = [];
     for (let d = new Date(startOfWeek); d <= endOfWeek; d.setDate(d.getDate() + 1)) {
       const day = d.getDate().toString().padStart(2, '0');
@@ -128,10 +138,7 @@ export async function getBirthdaysThisWeek(): Promise<unknown[]> {
     
     const birthdaysThisWeek = converts.filter(c => {
       if (!c.dateOfBirth) return false;
-      const dob = new Date(c.dateOfBirth);
-      const day = dob.getDate().toString().padStart(2, '0');
-      const month = (dob.getMonth() + 1).toString().padStart(2, '0');
-      return weekDays.includes(`${day}-${month}`);
+      return weekDays.includes(c.dateOfBirth.trim());
     });
     
     return birthdaysThisWeek.map(nc => ({
@@ -152,15 +159,25 @@ export async function getBirthdaysThisWeek(): Promise<unknown[]> {
 /**
  * Get converts who haven't attended in X weeks
  */
-export async function getInactiveConverts(weeksInactive: number = 4): Promise<unknown[]> {
+export async function getInactiveConverts(
+  weeksInactive: number = 4,
+  scope?: { groupName?: string; groupId?: string }
+): Promise<unknown[]> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - weeksInactive * 7);
     
+    const where: Record<string, unknown> = {
+      deletedAt: null,
+      group: { archived: false },
+    };
+    if (scope?.groupId) where.groupId = scope.groupId;
+    if (scope?.groupName) {
+      where.group = { archived: false, name: scope.groupName };
+    }
+
     const converts = await prisma.newConvert.findMany({
-      where: {
-        group: { archived: false }
-      },
+      where,
       include: {
         group: { select: { name: true, year: true } },
         attendanceRecords: {

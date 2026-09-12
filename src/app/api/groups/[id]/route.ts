@@ -5,6 +5,8 @@ import {
   requireAuth,
   requireAdmin,
   validateUUID,
+  assertGroupAccess,
+  assertScopedAssignment,
 } from '@/lib/api';
 import * as Groups from '@/lib/db/queries/groups';
 import { ROLES } from '@/lib/constants';
@@ -24,6 +26,9 @@ export async function GET(
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
+    const assignmentError = assertScopedAssignment(user!);
+    if (assignmentError) return assignmentError;
+
     const { id } = await params;
     const idValidation = validateUUID(id);
     if (!idValidation.valid) {
@@ -34,6 +39,12 @@ export async function GET(
     if (!group) {
       return errors.notFound('Group');
     }
+
+    const scopeError = assertGroupAccess(user!, {
+      id: group.id,
+      name: group.name,
+    });
+    if (scopeError) return scopeError;
     
     return success({ group });
   } catch (err) {

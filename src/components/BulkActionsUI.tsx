@@ -56,6 +56,7 @@ export function BulkActionsUI({
   const [isOpen, setIsOpen] = useState(false);
   const [actionType, setActionType] = useState<'reassignGroup' | 'assignMilestone' | 'delete'>('assignMilestone');
   const [milestoneId, setMilestoneId] = useState('1');
+  const [targetGroupId, setTargetGroupId] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BulkActionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,10 +78,10 @@ export function BulkActionsUI({
     switch (actionType) {
       case 'reassignGroup':
         return {
-          action: 'Touch metadata',
+          action: 'Reassign group',
           targetCount,
-          description: `${scopeLabel} → updates updatedAt timestamp`,
-          warning: 'This updates metadata for matching converts in the group.',
+          description: `${scopeLabel} → move to group ${targetGroupId || '(select target)'}`,
+          warning: 'Converts will be moved to the target group.',
         };
       case 'assignMilestone':
         return {
@@ -110,6 +111,10 @@ export function BulkActionsUI({
       setError('Select converts or open this from a group context');
       return;
     }
+    if (actionType === 'reassignGroup' && !targetGroupId.trim()) {
+      setError('Enter a target group ID to reassign');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -126,7 +131,9 @@ export function BulkActionsUI({
         body: JSON.stringify({
           action: actionType,
           filters,
-          newStatus: actionType === 'reassignGroup' ? 'active' : undefined,
+          newStatus: undefined,
+          targetGroupId:
+            actionType === 'reassignGroup' ? targetGroupId.trim() : undefined,
           milestoneId: actionType === 'assignMilestone' ? milestoneId : undefined,
           convertIds: selectedIds,
           groupId,
@@ -185,16 +192,26 @@ export function BulkActionsUI({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="assignMilestone">Assign Milestone</SelectItem>
-                    <SelectItem value="reassignGroup">Touch metadata</SelectItem>
+                    <SelectItem value="reassignGroup">Reassign group</SelectItem>
                     <SelectItem value="delete">Soft-delete records</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {actionType === 'reassignGroup' && (
-                <p className="text-sm text-muted-foreground">
-                  Updates the metadata timestamp for matching converts.
-                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="target-group-id">Target group ID</Label>
+                  <input
+                    id="target-group-id"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    value={targetGroupId}
+                    onChange={(e) => setTargetGroupId(e.target.value)}
+                    placeholder="UUID of destination group"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Moves matching converts into the destination group.
+                  </p>
+                </div>
               )}
 
               {actionType === 'assignMilestone' && (

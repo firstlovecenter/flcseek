@@ -67,12 +67,18 @@ export function evaluateCondition(
 ): boolean {
   switch (condition.type) {
     case 'attendance_count': {
-      const threshold = typeof condition.value === 'number' ? condition.value : 0
+      if (typeof condition.value !== 'number' || Number.isNaN(condition.value)) {
+        return false
+      }
+      const threshold = condition.value
       return compareWithOperator(input.attendanceCount, threshold, condition.operator)
     }
 
     case 'time_elapsed': {
-      const daysThreshold = typeof condition.value === 'number' ? condition.value : 0
+      if (typeof condition.value !== 'number' || Number.isNaN(condition.value)) {
+        return false
+      }
+      const daysThreshold = condition.value
       return compareWithOperator(input.daysSinceRegistration, daysThreshold, condition.operator)
     }
 

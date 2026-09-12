@@ -13,8 +13,74 @@ export interface BulkActionResult {
 
 export class BulkActionsService {
   /**
-   * Apply bulk status update to converts matching filters
-   * Since NewConvert doesn't have a status field, we use lifecycle fields like groupId or deletedAt
+   * Reassign converts matching filters (or optional IDs) to a target group.
+   */
+  static async bulkReassignGroup(
+    filters: SearchFilter[],
+    targetGroupId: string,
+    sourceGroupId?: string,
+    convertIds?: string[]
+  ): Promise<BulkActionResult> {
+    const startTime = Date.now();
+    const errors: string[] = [];
+
+    try {
+      const target = await prisma.group.findFirst({
+        where: { id: targetGroupId, deletedAt: null },
+        select: { id: true, name: true },
+      });
+      if (!target) {
+        throw new Error('Target group not found');
+      }
+
+      const where: Record<string, unknown> = { deletedAt: null };
+      if (sourceGroupId) where.groupId = sourceGroupId;
+      if (convertIds?.length) where.id = { in: convertIds };
+
+      filters.forEach((f) => {
+        const field = f.field.split('.')[0];
+        if (f.operator === 'equals') {
+          where[field] = f.value;
+        } else if (f.operator === 'contains') {
+          where[field] = { contains: f.value, mode: 'insensitive' };
+        }
+      });
+
+      const targetCount = await prisma.newConvert.count({ where });
+
+      const result = await prisma.newConvert.updateMany({
+        where,
+        data: {
+          groupId: target.id,
+          groupName: target.name,
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info('Bulk group reassignment executed', {
+        targetCount,
+        updatedCount: result.count,
+        targetGroupId: target.id,
+      });
+
+      return {
+        action: 'status',
+        targetCount,
+        successCount: result.count,
+        failureCount: targetCount - result.count,
+        errors,
+        duration: Date.now() - startTime,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      errors.push(msg);
+      logger.error('Bulk group reassignment failed', { error: msg });
+      throw error;
+    }
+  }
+
+  /**
+   * @deprecated Prefer bulkReassignGroup. Kept for callers that only need a timestamp touch.
    */
   static async bulkUpdateStatus(
     filters: SearchFilter[],
@@ -25,12 +91,10 @@ export class BulkActionsService {
     const errors: string[] = [];
 
     try {
-      // Build where clause from filters
       const where: Record<string, unknown> = {};
       if (groupId) where.groupId = groupId;
-      where.deletedAt = null; // Only non-deleted records
+      where.deletedAt = null;
 
-      // Apply filters
       filters.forEach((f) => {
         const field = f.field.split('.')[0];
         if (f.operator === 'equals') {
@@ -40,15 +104,11 @@ export class BulkActionsService {
         }
       });
 
-      // Get count of affected records
       const targetCount = await prisma.newConvert.count({ where });
 
-      // Update records - since NewConvert doesn't have status, we update lastAttendanceDate or similar
       const result = await prisma.newConvert.updateMany({
         where,
         data: {
-          // If status represents groupId change, move them
-          // Otherwise, just touch the updatedAt timestamp
           updatedAt: new Date(),
         },
       });

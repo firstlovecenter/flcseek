@@ -46,7 +46,7 @@ export default function LoginPage() {
     if (!loading && user) {
       if (user.role === 'superadmin') router.push('/superadmin')
       else if (user.role === 'leadpastor' || user.role === 'overseer')
-        router.push('/leadpastor')
+        router.push('/')
       else if (user.role === 'admin' || user.role === 'leader')
         router.push(user.group_id ? `/${user.group_id}` : '/')
       else router.push('/')

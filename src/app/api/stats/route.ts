@@ -27,6 +27,11 @@ export async function GET(request: NextRequest) {
 
     const params = getQueryParams(request);
     const scope = resolveGroupScope(user!, params);
+    if (scope.denied) {
+      return errors.forbidden(
+        'You must be assigned to a group to access this data'
+      );
+    }
 
     // Build a NewConvert filter from the resolved scope. This is reused for
     // people / progress / attendance counts so every metric is scoped identically.

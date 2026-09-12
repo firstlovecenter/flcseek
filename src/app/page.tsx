@@ -180,7 +180,13 @@ export default function RootPage() {
         router.push('/superadmin')
         return
       }
-      if (user.group_id) {
+      // Lead pastors / overseers always land on the group selector.
+      // Admins / leaders with a primary group go straight there.
+      if (
+        user.group_id &&
+        user.role !== 'leadpastor' &&
+        user.role !== 'overseer'
+      ) {
         router.push(`/${user.group_id}`)
         return
       }
