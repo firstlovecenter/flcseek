@@ -176,6 +176,11 @@ export default function RootPage() {
         router.push('/auth')
         return
       }
+      // No Seek role → this user only belongs to City Church Group.
+      if (!user.role) {
+        router.push(user.ccg_access ? '/ccg' : '/auth')
+        return
+      }
       if (user.role === 'superadmin') {
         router.push('/superadmin')
         return

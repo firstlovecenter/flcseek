@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVerifiedAuthUser } from '@/lib/api/middleware';
+import { getVerifiedIdentity } from '@/lib/api/middleware';
 
 /**
  * GET /api/auth/me
@@ -10,7 +10,7 @@ import { getVerifiedAuthUser } from '@/lib/api/middleware';
  * rejected here, which signs the client out on its next session validation.
  */
 export async function GET(request: NextRequest) {
-  const user = await getVerifiedAuthUser(request);
+  const user = await getVerifiedIdentity(request);
 
   if (!user) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });

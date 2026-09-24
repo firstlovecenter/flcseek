@@ -21,6 +21,7 @@ export {
 export {
   getAuthUser,
   getVerifiedAuthUser,
+  getVerifiedIdentity,
   requireAuth,
   requireRole,
   requireMinRole,

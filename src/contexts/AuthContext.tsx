@@ -4,11 +4,15 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { clearCache } from '@/hooks/use-fetch';
 import { api } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { landingPathFor } from '@/lib/app-routing';
 
 interface User {
   id: string;
   email: string;
-  role: 'superadmin' | 'leadpastor' | 'overseer' | 'admin' | 'leader';
+  /** Seek role. Absent when the user only has City Church Group access. */
+  role?: 'superadmin' | 'leadpastor' | 'overseer' | 'admin' | 'leader';
+  /** True when the user holds a City Church Group role assignment. */
+  ccg_access?: boolean;
   group_name?: string;
   group_year?: number;
   group_id?: string;
@@ -111,22 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Use setTimeout to ensure localStorage is written before redirect
     setTimeout(() => {
-      if (data.user.role === 'superadmin') {
-        router.push('/superadmin');
-      } else if (data.user.role === 'leadpastor' || data.user.role === 'overseer') {
-        // Leadpastors and overseers go to group selector
-        router.push('/');
-      } else if (data.user.role === 'admin' || data.user.role === 'leader') {
-        // Admin/leader with assigned group goes directly to group
-        if (data.user.group_id) {
-          router.push(`/${data.user.group_id}`);
-        } else {
-          // If no group_id, show group selector
-          router.push('/');
-        }
-      } else {
-        router.push('/auth');
-      }
+      router.push(landingPathFor(data.user));
     }, 100);
   };
 

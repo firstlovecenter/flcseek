@@ -49,6 +49,32 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     message: 'Bulk delete rate limit exceeded. Please wait before retrying.',
     persist: true,
   },
+  // City Church Group public forms: submissions are unauthenticated.
+  '/api/ccg/public/submit': {
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 20,
+    message: 'Too many form submissions. Please try again later.',
+    persist: true,
+  },
+  // "Forgot password" requests (each sends an email).
+  '/api/ccg/public/forgot': {
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 5,
+    message: 'Too many reset requests. Please try again later.',
+    persist: true,
+  },
+  // Setting a password from an invitation link.
+  '/api/ccg/public/invite': {
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many attempts. Please try again later.',
+    persist: true,
+  },
+  '/api/ccg/public/view': {
+    windowMs: 60 * 1000,
+    maxRequests: 60,
+    message: 'Too many requests. Please slow down.',
+  },
   // API default: 100 requests per minute (in-memory best effort only)
   'default': {
     windowMs: 60 * 1000,

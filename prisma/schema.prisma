@@ -13,22 +13,22 @@ datasource db {
 // Users: All system users (superadmin, lead pastor, admin, leader)
 // ============================================================================
 model User {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  username    String    @unique
-  password    String
-  role        String? // 'superadmin', 'leadpastor', 'overseer', 'admin', 'leader'
-  firstName   String?   @map("first_name")
-  lastName    String?   @map("last_name")
-  email       String?
-  groupId     String?   @map("group_id") @db.Uuid
-  groupName   String?   @map("group_name") // Legacy field
-  phoneNumber String?   @map("phone_number") @db.VarChar(20)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username     String    @unique
+  password     String
+  role         String? // Seek role: 'superadmin', 'leadpastor', 'overseer', 'admin', 'leader'. NULL = no Seek access.
+  firstName    String?   @map("first_name")
+  lastName     String?   @map("last_name")
+  email        String?
+  groupId      String?   @map("group_id") @db.Uuid
+  groupName    String?   @map("group_name") // Legacy field
+  phoneNumber  String?   @map("phone_number") @db.VarChar(20)
   // Incremented to invalidate all outstanding JWTs for this user (role change,
   // deactivation, password reset). Tokens carry the version they were minted with.
-  tokenVersion Int      @default(0) @map("token_version")
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tokenVersion Int       @default(0) @map("token_version")
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   // Relations
   group              Group?               @relation("UserToGroupPrimary", fields: [groupId], references: [id], onUpdate: NoAction)
@@ -44,6 +44,9 @@ model User {
   userBadges         UserBadge[]
   reportTemplates    ReportTemplate[]
   acknowledgedAlerts ConvertAlert[]       @relation("AcknowledgedBy")
+  ccgRoleAssignments CcgRoleAssignment[]  @relation("CcgAssignmentUser")
+  ccgPeople          CcgPerson[]          @relation("CcgPersonUser")
+  ccgInvites         CcgInvite[]          @relation("CcgInviteUser")
 
   @@index([role])
   @@index([groupId], map: "idx_users_group")
@@ -454,4 +457,585 @@ model AnalyticsSnapshot {
   @@index([groupId], map: "idx_analytics_snapshots_group_id")
   @@index([snapshotDate, groupId], map: "idx_analytics_snapshots_date_group")
   @@map("analytics_snapshots")
+}
+
+// ============================================================================
+// City Church Group (CCG) app — migration 020. Shares only `users` with Seek.
+// Structure: council → CCG (ccg_groups) → CCF (ccg_families).
+// Audit columns (created_by, run_by, decided_by, …) are plain UUIDs with FKs
+// in SQL; only role assignments carry a Prisma relation to User.
+// ============================================================================
+model CcgSettings {
+  id        Int       @id @default(1) @db.SmallInt
+  config    Json      @default("{}")
+  updatedBy String?   @map("updated_by") @db.Uuid
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("ccg_settings")
+}
+
+model CcgZone {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String    @unique @db.VarChar(10)
+  name      String    @db.VarChar(100)
+  active    Boolean   @default(true)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  groups   CcgGroup[]
+  families CcgFamily[]
+  people   CcgPerson[]
+
+  @@map("ccg_zones")
+}
+
+model CcgStream {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String    @unique @db.VarChar(20)
+  name      String    @db.VarChar(120)
+  status    String    @default("active") @db.VarChar(20)
+  notes     String?
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  councils    CcgCouncil[]
+  assignments CcgRoleAssignment[]
+  people      CcgPerson[]
+  formLinks   CcgFormLink[]
+
+  @@map("ccg_streams")
+}
+
+model CcgCouncil {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  streamId  String?   @map("stream_id") @db.Uuid
+  code      String    @unique @db.VarChar(20)
+  name      String    @db.VarChar(120)
+  status    String    @default("active") @db.VarChar(20)
+  notes     String?
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  stream      CcgStream?          @relation(fields: [streamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  groups      CcgGroup[]
+  assignments CcgRoleAssignment[]
+
+  @@map("ccg_councils")
+}
+
+model CcgGroup {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  councilId String?   @map("council_id") @db.Uuid
+  code      String    @unique @db.VarChar(20)
+  name      String    @db.VarChar(120)
+  zoneId    String?   @map("zone_id") @db.Uuid
+  audience  String    @default("adult") @db.VarChar(10)
+  status    String    @default("active") @db.VarChar(20)
+  notes     String?
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  council     CcgCouncil?         @relation(fields: [councilId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  zone        CcgZone?            @relation(fields: [zoneId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  families    CcgFamily[]
+  assignments CcgRoleAssignment[]
+  activities  CcgGroupActivity[]
+
+  @@map("ccg_groups")
+}
+
+model CcgFamily {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ccgId            String    @map("ccg_id") @db.Uuid
+  code             String    @unique @db.VarChar(20)
+  name             String    @db.VarChar(120)
+  zoneId           String?   @map("zone_id") @db.Uuid
+  meetingLocation  String?   @map("meeting_location") @db.VarChar(200)
+  meetingDay       String?   @map("meeting_day") @db.VarChar(10)
+  meetingTime      String?   @map("meeting_time") @db.VarChar(5)
+  meetingFrequency String    @default("Weekly") @map("meeting_frequency") @db.VarChar(20)
+  capacity         Int       @default(12)
+  status           String    @default("active") @db.VarChar(20)
+  notes            String?
+  createdBy        String?   @map("created_by") @db.Uuid
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  ccg          CcgGroup            @relation(fields: [ccgId], references: [id], onUpdate: NoAction)
+  zone         CcgZone?            @relation(fields: [zoneId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  members      CcgPerson[]
+  assignments  CcgRoleAssignment[]
+  formLinks    CcgFormLink[]
+  proposedIn   CcgPlacement[]      @relation("CcgPlacementProposed")
+  placedIn     CcgPlacement[]      @relation("CcgPlacementFinal")
+  attendance   CcgAttendance[]
+  transfersOut CcgTransfer[]       @relation("CcgTransferFrom")
+  transfersIn  CcgTransfer[]       @relation("CcgTransferTo")
+
+  @@map("ccg_families")
+}
+
+model CcgRole {
+  key         String    @id @db.VarChar(40)
+  name        String    @db.VarChar(100)
+  description String?
+  scopeLevel  String    @map("scope_level") @db.VarChar(10)
+  permissions String[]  @default([])
+  isSystem    Boolean   @default(false) @map("is_system")
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  assignments CcgRoleAssignment[]
+
+  @@map("ccg_roles")
+}
+
+model CcgRoleAssignment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  roleKey    String    @map("role_key") @db.VarChar(40)
+  streamId   String?   @map("stream_id") @db.Uuid
+  councilId  String?   @map("council_id") @db.Uuid
+  ccgId      String?   @map("ccg_id") @db.Uuid
+  ccfId      String?   @map("ccf_id") @db.Uuid
+  startsOn   DateTime  @default(dbgenerated("CURRENT_DATE")) @map("starts_on") @db.Date
+  endsOn     DateTime? @map("ends_on") @db.Date
+  assignedBy String?   @map("assigned_by") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    User        @relation("CcgAssignmentUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  role    CcgRole     @relation(fields: [roleKey], references: [key], onUpdate: Cascade)
+  stream  CcgStream?  @relation(fields: [streamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  council CcgCouncil? @relation(fields: [councilId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ccg     CcgGroup?   @relation(fields: [ccgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ccf     CcgFamily?  @relation(fields: [ccfId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_ccg_role_assignments_user")
+  @@map("ccg_role_assignments")
+}
+
+model CcgPerson {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind                       String    @db.VarChar(10)
+  refCode                    String?   @unique @map("ref_code") @db.VarChar(20)
+  fullName                   String    @map("full_name") @db.VarChar(150)
+  firstName                  String    @map("first_name") @db.VarChar(80)
+  middleName                 String?   @map("middle_name") @db.VarChar(80)
+  lastName                   String?   @map("last_name") @db.VarChar(80)
+  phone                      String?   @db.VarChar(20)
+  email                      String?   @db.VarChar(254)
+  gender                     String?   @db.VarChar(10)
+  dateOfBirth                DateTime? @map("date_of_birth") @db.Date
+  zoneId                     String?   @map("zone_id") @db.Uuid
+  landmark                   String?   @db.VarChar(150)
+  conversionDate             DateTime? @map("conversion_date") @db.Date
+  ccfId                      String?   @map("ccf_id") @db.Uuid
+  existingConnectionMemberId String?   @map("existing_connection_member_id") @db.Uuid
+  existingConnectionNote     String?   @map("existing_connection_note") @db.VarChar(300)
+  /// Converts: the stream that registered them (matching stays inside it).
+  streamId                   String?   @map("stream_id") @db.Uuid
+  /// Members who lead: their login (leader roles are held by members).
+  userId                     String?   @map("user_id") @db.Uuid
+  possibleDuplicateOfId      String?   @map("possible_duplicate_of_id") @db.Uuid
+  status                     String    @db.VarChar(20)
+  source                     String    @default("staff") @db.VarChar(10)
+  notes                      String?
+  createdBy                  String?   @map("created_by") @db.Uuid
+  createdAt                  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt                  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  zone                CcgZone?                 @relation(fields: [zoneId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  ccf                 CcgFamily?               @relation(fields: [ccfId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  stream              CcgStream?               @relation(fields: [streamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  existingConnection  CcgPerson?               @relation("CcgConnection", fields: [existingConnectionMemberId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  connectedConverts   CcgPerson[]              @relation("CcgConnection")
+  possibleDuplicateOf CcgPerson?               @relation("CcgDuplicate", fields: [possibleDuplicateOfId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  possibleDuplicates  CcgPerson[]              @relation("CcgDuplicate")
+  answers             CcgAnswer[]
+  matchRuns           CcgMatchRun[]
+  placements          CcgPlacement[]
+  formLinks           CcgFormLink[]
+  attendance          CcgAttendance[]
+  prayedFor           CcgGroupActivityPerson[]
+  user                User?                    @relation("CcgPersonUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  transfers           CcgTransfer[]
+  invites             CcgInvite[]
+
+  @@index([kind, status], map: "idx_ccg_people_kind")
+  @@index([ccfId], map: "idx_ccg_people_ccf")
+  @@index([phone], map: "idx_ccg_people_phone")
+  @@map("ccg_people")
+}
+
+model CcgQuestion {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String    @unique @db.VarChar(60)
+  prompt     String    @db.VarChar(300)
+  help       String?   @db.VarChar(500)
+  section    String?   @db.VarChar(60)
+  type       String    @db.VarChar(10)
+  maxChoices Int?      @map("max_choices")
+  audience   String    @default("both") @db.VarChar(10)
+  required   Boolean   @default(false)
+  factor     String    @default("none") @db.VarChar(20)
+  method     String    @default("none") @db.VarChar(20)
+  weight     Decimal   @default(1) @db.Decimal(6, 3)
+  sortOrder  Int       @default(0) @map("sort_order")
+  active     Boolean   @default(true)
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  options CcgQuestionOption[]
+  answers CcgAnswer[]
+
+  @@map("ccg_questions")
+}
+
+model CcgQuestionOption {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  key        String  @db.VarChar(60)
+  label      String  @db.VarChar(150)
+  catchAll   Boolean @default(false) @map("catch_all")
+  signal     Json?
+  sortOrder  Int     @default(0) @map("sort_order")
+  active     Boolean @default(true)
+
+  question CcgQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([questionId, key], map: "ccg_question_options_key")
+  @@map("ccg_question_options")
+}
+
+model CcgAnswer {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId   String    @map("person_id") @db.Uuid
+  questionId String    @map("question_id") @db.Uuid
+  value      Json
+  source     String    @default("staff") @db.VarChar(10)
+  updatedBy  String?   @map("updated_by") @db.Uuid
+  updatedAt  DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  person   CcgPerson   @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  question CcgQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([personId, questionId], map: "ccg_answers_person_question")
+  @@map("ccg_answers")
+}
+
+model CcgFormLink {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind      String    @db.VarChar(20)
+  ccfId     String?   @map("ccf_id") @db.Uuid
+  /// Convert intake links: the stream new converts are registered into.
+  streamId  String?   @map("stream_id") @db.Uuid
+  personId  String?   @map("person_id") @db.Uuid
+  label     String?   @db.VarChar(150)
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  maxUses   Int?      @map("max_uses")
+  uses      Int       @default(0)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ccf         CcgFamily?      @relation(fields: [ccfId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stream      CcgStream?      @relation(fields: [streamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  person      CcgPerson?      @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  submissions CcgSubmission[]
+
+  @@map("ccg_form_links")
+}
+
+model CcgSubmission {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  linkId             String    @map("link_id") @db.Uuid
+  clientSubmissionId String    @unique @map("client_submission_id") @db.Uuid
+  personId           String?   @map("person_id") @db.Uuid
+  ipHash             String?   @map("ip_hash") @db.Char(64)
+  userAgent          String?   @map("user_agent") @db.VarChar(300)
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  link CcgFormLink @relation(fields: [linkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("ccg_submissions")
+}
+
+model CcgMatchRun {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId       String    @map("person_id") @db.Uuid
+  trigger        String    @db.VarChar(20)
+  runBy          String?   @map("run_by") @db.Uuid
+  configSnapshot Json      @map("config_snapshot")
+  results        Json
+  top1CcfId      String?   @map("top1_ccf_id") @db.Uuid
+  top1Score      Decimal?  @map("top1_score") @db.Decimal(5, 2)
+  top2CcfId      String?   @map("top2_ccf_id") @db.Uuid
+  top2Score      Decimal?  @map("top2_score") @db.Decimal(5, 2)
+  top3CcfId      String?   @map("top3_ccf_id") @db.Uuid
+  top3Score      Decimal?  @map("top3_score") @db.Decimal(5, 2)
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  person     CcgPerson      @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  placements CcgPlacement[]
+
+  @@index([personId, createdAt(sort: Desc)], map: "idx_ccg_match_runs_person")
+  @@map("ccg_match_runs")
+}
+
+model CcgPlacement {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId        String    @map("person_id") @db.Uuid
+  matchRunId      String?   @map("match_run_id") @db.Uuid
+  proposedCcfId   String?   @map("proposed_ccf_id") @db.Uuid
+  proposedScore   Decimal?  @map("proposed_score") @db.Decimal(5, 2)
+  finalCcfId      String?   @map("final_ccf_id") @db.Uuid
+  finalScore      Decimal?  @map("final_score") @db.Decimal(5, 2)
+  status          String    @db.VarChar(12)
+  decision        String?   @db.VarChar(10)
+  overrideReason  String?   @map("override_reason")
+  fullCcfOverride Boolean   @default(false) @map("full_ccf_override")
+  holdReason      String?   @map("hold_reason")
+  decidedBy       String?   @map("decided_by") @db.Uuid
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
+  endedAt         DateTime? @map("ended_at") @db.Timestamptz(6)
+  endReason       String?   @map("end_reason")
+  /// graduated (assessment complete) | made_member | ended
+  outcome         String?   @db.VarChar(12)
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  person          CcgPerson           @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matchRun        CcgMatchRun?        @relation(fields: [matchRunId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  proposedCcf     CcgFamily?          @relation("CcgPlacementProposed", fields: [proposedCcfId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  finalCcf        CcgFamily?          @relation("CcgPlacementFinal", fields: [finalCcfId], references: [id], onUpdate: NoAction)
+  progressRecords CcgProgressRecord[]
+  progressItems   CcgProgressItem[]
+  checkIns        CcgCheckIn[]
+  transfers       CcgTransfer[]
+
+  @@index([status, createdAt], map: "idx_ccg_placements_status")
+  @@map("ccg_placements")
+}
+
+model CcgMilestone {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stageNumber      Int       @unique @map("stage_number")
+  name             String    @db.VarChar(120)
+  shortName        String    @map("short_name") @db.VarChar(30)
+  description      String?
+  /// manual | attendance | checklist
+  kind             String    @default("manual") @db.VarChar(12)
+  attendanceEvent  String?   @map("attendance_event") @db.VarChar(30)
+  attendanceTarget Int?      @map("attendance_target")
+  guidance         String?
+  targetDays       Int?      @map("target_days")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  items CcgMilestoneItem[]
+
+  @@map("ccg_milestones")
+}
+
+model CcgMilestoneItem {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  milestoneId String    @map("milestone_id") @db.Uuid
+  key         String    @db.VarChar(60)
+  label       String    @db.VarChar(200)
+  help        String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  milestone CcgMilestone      @relation(fields: [milestoneId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  progress  CcgProgressItem[]
+
+  @@unique([milestoneId, key], map: "ccg_milestone_items_key")
+  @@map("ccg_milestone_items")
+}
+
+/// A row means the checklist item is done for that placement.
+model CcgProgressItem {
+  placementId String    @map("placement_id") @db.Uuid
+  itemId      String    @map("item_id") @db.Uuid
+  doneOn      DateTime  @map("done_on") @db.Date
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  placement CcgPlacement     @relation(fields: [placementId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  item      CcgMilestoneItem @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([placementId, itemId])
+  @@map("ccg_progress_items")
+}
+
+model CcgAttendance {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId  String    @map("person_id") @db.Uuid
+  eventType String    @map("event_type") @db.VarChar(30)
+  eventDate DateTime  @map("event_date") @db.Date
+  ccfId     String?   @map("ccf_id") @db.Uuid
+  markedBy  String?   @map("marked_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  person CcgPerson  @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ccf    CcgFamily? @relation(fields: [ccfId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([personId, eventType, eventDate], map: "ccg_attendance_once")
+  @@index([ccfId, eventDate], map: "idx_ccg_attendance_ccf_date")
+  @@map("ccg_attendance")
+}
+
+model CcgActivityType {
+  key         String    @id @db.VarChar(40)
+  name        String    @db.VarChar(120)
+  /// weekly | monthly | quarterly
+  cadence     String    @db.VarChar(10)
+  schedule    String?   @db.VarChar(120)
+  listsPeople Boolean   @default(false) @map("lists_people")
+  guidance    String?
+  isActive    Boolean   @default(true) @map("is_active")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  activities CcgGroupActivity[]
+
+  @@map("ccg_activity_types")
+}
+
+model CcgGroupActivity {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ccgId         String    @map("ccg_id") @db.Uuid
+  typeKey       String    @map("type_key") @db.VarChar(40)
+  heldOn        DateTime  @map("held_on") @db.Date
+  attendeeCount Int?      @map("attendee_count")
+  notes         String?
+  recordedBy    String?   @map("recorded_by") @db.Uuid
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  ccg    CcgGroup                 @relation(fields: [ccgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  type   CcgActivityType          @relation(fields: [typeKey], references: [key], onUpdate: Cascade)
+  people CcgGroupActivityPerson[]
+
+  @@unique([ccgId, typeKey, heldOn], map: "ccg_group_activities_once")
+  @@index([ccgId, heldOn(sort: Desc)], map: "idx_ccg_group_activities_ccg")
+  @@map("ccg_group_activities")
+}
+
+model CcgGroupActivityPerson {
+  activityId String @map("activity_id") @db.Uuid
+  personId   String @map("person_id") @db.Uuid
+
+  activity CcgGroupActivity @relation(fields: [activityId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  person   CcgPerson        @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([activityId, personId])
+  @@map("ccg_group_activity_people")
+}
+
+model CcgProgressRecord {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  placementId   String    @map("placement_id") @db.Uuid
+  stageNumber   Int       @map("stage_number")
+  isCompleted   Boolean   @default(false) @map("is_completed")
+  dateCompleted DateTime? @map("date_completed") @db.Date
+  notes         String?
+  /// manual | auto (completed by attendance or a checklist)
+  source        String    @default("manual") @db.VarChar(6)
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  updatedAt     DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  placement CcgPlacement @relation(fields: [placementId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([placementId, stageNumber], map: "ccg_progress_placement_stage")
+  @@map("ccg_progress_records")
+}
+
+model CcgCheckIn {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  placementId      String   @map("placement_id") @db.Uuid
+  convertRating    Int?     @map("convert_rating") @db.SmallInt
+  groupRating      Int?     @map("group_rating") @db.SmallInt
+  followUpRequired Boolean  @default(false) @map("follow_up_required")
+  notes            String?
+  recordedBy       String?  @map("recorded_by") @db.Uuid
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  placement CcgPlacement @relation(fields: [placementId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([placementId, recordedAt(sort: Desc)], map: "idx_ccg_check_ins_placement")
+  @@map("ccg_check_ins")
+}
+
+model CcgActivityLog {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?   @map("user_id") @db.Uuid
+  action     String    @db.VarChar(60)
+  entityType String?   @map("entity_type") @db.VarChar(40)
+  entityId   String?   @map("entity_id") @db.Uuid
+  oldValues  Json?     @map("old_values")
+  newValues  Json?     @map("new_values")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([entityType, entityId], map: "idx_ccg_activity_entity")
+  @@index([createdAt(sort: Desc)], map: "idx_ccg_activity_created")
+  @@map("ccg_activity_log")
+}
+
+/// A member or placed convert moved to another CCF.
+model CcgTransfer {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId      String    @map("person_id") @db.Uuid
+  kind          String    @db.VarChar(10)
+  placementId   String?   @map("placement_id") @db.Uuid
+  fromCcfId     String?   @map("from_ccf_id") @db.Uuid
+  toCcfId       String    @map("to_ccf_id") @db.Uuid
+  reason        String
+  overCapacity  Boolean   @default(false) @map("over_capacity")
+  transferredBy String?   @map("transferred_by") @db.Uuid
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  person    CcgPerson     @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  placement CcgPlacement? @relation(fields: [placementId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  fromCcf   CcgFamily?    @relation("CcgTransferFrom", fields: [fromCcfId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  toCcf     CcgFamily     @relation("CcgTransferTo", fields: [toCcfId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([personId, createdAt(sort: Desc)], map: "idx_ccg_transfers_person")
+  @@map("ccg_transfers")
+}
+
+/// One-time link emailed to a member given a role, to set their own password.
+model CcgInvite {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  personId  String?   @map("person_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  /// invite (first password, after being given a role) | reset (forgot password)
+  purpose   String    @default("invite") @db.VarChar(10)
+  sentTo    String    @map("sent_to") @db.VarChar(254)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   User       @relation("CcgInviteUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  person CcgPerson? @relation(fields: [personId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_ccg_invites_user")
+  @@map("ccg_invites")
 }
