@@ -1,0 +1,116 @@
+import { isPermission, type Permission, type ScopeLevel } from './permissions'
+
+/**
+ * What a user may do, and where. Pure: the caller supplies the user's current
+ * role assignments and the stream → council → CCG → CCF hierarchy.
+ *
+ * A grant at a level covers everything beneath it: a stream grant covers its
+ * councils; an Overseer's council grant covers its CCGs and their CCFs; a
+ * Governor's CCG grant covers its CCFs.
+ */
+
+export interface AssignmentGrant {
+  roleKey: string
+  scopeLevel: ScopeLevel
+  permissions: string[]
+  streamId?: string | null
+  councilId: string | null
+  ccgId: string | null
+  ccfId: string | null
+}
+
+export interface Hierarchy {
+  ccfs: Array<{ id: string; ccgId: string }>
+  ccgs: Array<{ id: string; councilId: string | null }>
+  councils?: Array<{ id: string; streamId: string | null }>
+}
+
+export type IdSet = 'all' | string[]
+
+export interface CcgScope {
+  roleKeys: string[]
+  /** Permissions held anywhere (for menus). */
+  anywhere: Set<Permission>
+  /** Held globally. */
+  can(perm: Permission): boolean
+  canOnCcf(perm: Permission, ccfId: string | null | undefined): boolean
+  canOnCcg(perm: Permission, ccgId: string | null | undefined): boolean
+  canOnCouncil(perm: Permission, councilId: string | null | undefined): boolean
+  canOnStream(perm: Permission, streamId: string | null | undefined): boolean
+  /** CCFs where `perm` applies. */
+  ccfIds(perm: Permission): IdSet
+  /** CCGs where `perm` applies (at CCG level or above). */
+  ccgIds(perm: Permission): IdSet
+  /** Councils where `perm` applies (at council level or above). */
+  councilIds(perm: Permission): IdSet
+  /** Streams where `perm` applies (at stream level or globally). */
+  streamIds(perm: Permission): IdSet
+}
+
+type Grants = Map<string, Set<Permission>>
+
+function add(map: Grants, id: string, perms: Permission[]) {
+  const set = map.get(id) ?? new Set<Permission>()
+  perms.forEach((p) => set.add(p))
+  map.set(id, set)
+}
+
+export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hierarchy): CcgScope {
+  const global = new Set<Permission>()
+  const byStream: Grants = new Map()
+  const byCouncil: Grants = new Map()
+  const byCcg: Grants = new Map()
+  const byCcf: Grants = new Map()
+  const anywhere = new Set<Permission>()
+
+  for (const a of assignments) {
+    const perms = a.permissions.filter(isPermission)
+    let granted = true
+    if (a.scopeLevel === 'global') perms.forEach((p) => global.add(p))
+    else if (a.scopeLevel === 'stream' && a.streamId) add(byStream, a.streamId, perms)
+    else if (a.scopeLevel === 'council' && a.councilId) add(byCouncil, a.councilId, perms)
+    else if (a.scopeLevel === 'ccg' && a.ccgId) add(byCcg, a.ccgId, perms)
+    else if (a.scopeLevel === 'ccf' && a.ccfId) add(byCcf, a.ccfId, perms)
+    else granted = false // mis-scoped assignment grants nothing
+    if (granted) perms.forEach((p) => anywhere.add(p))
+  }
+
+  const ccgOfCcf = new Map(hierarchy.ccfs.map((c) => [c.id, c.ccgId]))
+  const councilOfCcg = new Map(hierarchy.ccgs.map((g) => [g.id, g.councilId]))
+  const streamOfCouncil = new Map((hierarchy.councils ?? []).map((c) => [c.id, c.streamId]))
+
+  const canOnStream = (perm: Permission, streamId: string | null | undefined) =>
+    global.has(perm) || (!!streamId && !!byStream.get(streamId)?.has(perm))
+
+  const canOnCouncil = (perm: Permission, councilId: string | null | undefined) =>
+    global.has(perm) ||
+    (!!councilId && (!!byCouncil.get(councilId)?.has(perm) || canOnStream(perm, streamOfCouncil.get(councilId) ?? null)))
+
+  const canOnCcg = (perm: Permission, ccgId: string | null | undefined) =>
+    global.has(perm) ||
+    (!!ccgId && (!!byCcg.get(ccgId)?.has(perm) || canOnCouncil(perm, councilOfCcg.get(ccgId) ?? null)))
+
+  const canOnCcf = (perm: Permission, ccfId: string | null | undefined) =>
+    global.has(perm) ||
+    (!!ccfId && (!!byCcf.get(ccfId)?.has(perm) || canOnCcg(perm, ccgOfCcf.get(ccfId) ?? null)))
+
+  return {
+    roleKeys: [...new Set(assignments.map((a) => a.roleKey))],
+    anywhere,
+    can: (perm) => global.has(perm),
+    canOnCcf,
+    canOnCcg,
+    canOnCouncil,
+    canOnStream,
+    ccfIds: (perm) => (global.has(perm) ? 'all' : hierarchy.ccfs.filter((c) => canOnCcf(perm, c.id)).map((c) => c.id)),
+    ccgIds: (perm) => (global.has(perm) ? 'all' : hierarchy.ccgs.filter((g) => canOnCcg(perm, g.id)).map((g) => g.id)),
+    councilIds: (perm) =>
+      global.has(perm) ? 'all' : (hierarchy.councils ?? []).filter((c) => canOnCouncil(perm, c.id)).map((c) => c.id),
+    streamIds: (perm) => (global.has(perm) ? 'all' : [...byStream].filter(([, ps]) => ps.has(perm)).map(([id]) => id)),
+  }
+}
+
+/** Prisma `in` filter for an IdSet (undefined = no restriction). */
+export function inFilter(ids: IdSet): { in: string[] } | undefined {
+  return ids === 'all' ? undefined : { in: ids }
+}

@@ -23,12 +23,22 @@ const getJwtSecret = (): string => {
   return JWT_SECRET;
 };
 
-export interface UserPayload {
+export type SeekRole = 'superadmin' | 'leadpastor' | 'overseer' | 'admin' | 'leader';
+
+/**
+ * Identity carried in the JWT and returned by /api/auth/me. The users table is
+ * shared by two apps: `role` grants Seek access; `ccg_access` is true when the
+ * user holds a City Church Group role assignment. A user may belong to one app
+ * only. CCG permissions are never carried in the token — they are resolved
+ * fresh per request.
+ */
+export interface TokenPayload {
   id: string;
   userId?: string; // Backward compatibility
   username: string;
   email?: string;  // Optional, for backwards compatibility
-  role: 'superadmin' | 'leadpastor' | 'overseer' | 'admin' | 'leader';
+  role?: SeekRole;
+  ccg_access?: boolean;
   group_name?: string; // deprecated - use group_id
   group_year?: number; // Year of the group (e.g., 2025, 2026)
   group_id?: string;   // Assigned month group (Jan-Dec)
@@ -38,6 +48,11 @@ export interface UserPayload {
    * Tokens minted before this field existed are treated as version 0.
    */
   tv?: number;
+}
+
+/** A Seek user: an identity that holds a Seek role. All Seek routes use this. */
+export interface UserPayload extends TokenPayload {
+  role: SeekRole;
 }
 
 /**
@@ -59,13 +74,13 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   }
 }
 
-export function generateToken(user: UserPayload): string {
+export function generateToken(user: TokenPayload): string {
   return jwt.sign(user, getJwtSecret(), { expiresIn: '7d' });
 }
 
-export function verifyToken(token: string): UserPayload | null {
+export function verifyToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, getJwtSecret()) as UserPayload;
+    return jwt.verify(token, getJwtSecret()) as TokenPayload;
   } catch {
     return null;
   }
@@ -86,7 +101,7 @@ export async function verifySuperAdmin(request: NextRequest): Promise<UserPayloa
   // token utilities (e.g. edge-safe code paths importing types).
   const { resolveFreshUser } = await import('./auth-verify');
 
-  let decoded: UserPayload | null = null;
+  let decoded: TokenPayload | null = null;
 
   // Prefer the httpOnly cookie (XSS-safe)
   const cookieToken = request.cookies.get('auth_token')?.value;
@@ -110,5 +125,5 @@ export async function verifySuperAdmin(request: NextRequest): Promise<UserPayloa
 
   const fresh = await resolveFreshUser(decoded);
   if (!fresh || fresh.role !== 'superadmin') return null;
-  return fresh;
+  return fresh as UserPayload;
 }

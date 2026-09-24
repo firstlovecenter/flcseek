@@ -1,9 +1,17 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BarChart3,
+  CalendarCheck,
+  ClipboardCheck,
   Database,
+  HandHeart,
+  KeyRound,
+  Link2,
+  Network,
+  Sprout,
   FileSpreadsheet,
   Home,
+  LayoutDashboard,
   LineChart,
   ListOrdered,
   ScrollText,
@@ -36,7 +44,7 @@ export function isNavItemActive(item: ShellNavItem, pathname: string): boolean {
   if (item.matches) return item.matches(pathname)
   if (!item.href) return false
   if (pathname === item.href) return true
-  if (item.href === '/superadmin') return false
+  if (item.href === '/superadmin' || item.href === '/ccg') return false
   return pathname.startsWith(item.href)
 }
 
@@ -96,6 +104,43 @@ export function buildSuperAdminMoreNav(): ShellNavItem[] {
 
 export function isSuperAdminMoreActive(pathname: string): boolean {
   return buildSuperAdminMoreNav().some((item) => isNavItemActive(item, pathname))
+}
+
+// ---------------------------------------------------------------------------
+// City Church Group app
+// ---------------------------------------------------------------------------
+
+export function isCcgPath(pathname: string): boolean {
+  return pathname === '/ccg' || pathname.startsWith('/ccg/')
+}
+
+export function buildCcgPrimaryNav(): ShellNavItem[] {
+  return [
+    {
+      id: 'ccg-home',
+      label: 'Home',
+      href: '/ccg',
+      icon: LayoutDashboard,
+      matches: (p) => p === '/ccg',
+    },
+    { id: 'ccg-converts', label: 'Converts', href: '/ccg/converts', icon: Sprout },
+    { id: 'ccg-members', label: 'Members', href: '/ccg/members', icon: Users },
+    { id: 'ccg-approvals', label: 'Approvals', href: '/ccg/approvals', icon: ClipboardCheck },
+  ]
+}
+
+export function buildCcgMoreNav(_user: NavUser): ShellNavItem[] {
+  return [
+    { id: 'ccg-attendance', label: 'Attendance', href: '/ccg/attendance', icon: CalendarCheck },
+    { id: 'ccg-activities', label: 'CCG activities', href: '/ccg/activities', icon: HandHeart },
+    { id: 'ccg-links', label: 'Registration links', href: '/ccg/links', icon: Link2 },
+    { id: 'ccg-groups', label: 'Groups', href: '/ccg/groups', icon: Network },
+    { id: 'ccg-account', label: 'Account', href: '/ccg/account', icon: KeyRound },
+  ]
+}
+
+export function isCcgMoreActive(pathname: string, user: NavUser): boolean {
+  return buildCcgMoreNav(user).some((item) => isNavItemActive(item, pathname))
 }
 
 export function showGroupHome(user: NavUser): boolean {

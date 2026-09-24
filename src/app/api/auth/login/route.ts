@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { verifyPassword, generateToken } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { logAuditEvent, extractRequestInfo } from '@/lib/audit-log';
+import { toSeekRole } from '@/lib/auth-verify';
+import { hasCcgAccess } from '@/lib/ccg/access';
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,17 +87,33 @@ export async function POST(request: NextRequest) {
     const groupYear = user.group?.year || null;
     const groupId = user.groupId || null;
 
-    // Ensure role is valid
-    const validRoles = ['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'] as const;
-    const role = validRoles.includes(user.role as typeof validRoles[number])
-      ? (user.role as typeof validRoles[number])
-      : 'leader'; // Default to 'leader' if role is missing or invalid
+    // The users table is shared by Seek (`role`) and City Church Group
+    // (role assignments). Unknown or missing roles grant nothing — a user must
+    // have access to at least one app to sign in.
+    const role = toSeekRole(user.role);
+    const ccgAccess = await hasCcgAccess(user.id, user.role);
+    if (!role && !ccgAccess) {
+      await logAuditEvent({
+        userId: user.id,
+        action: 'LOGIN_FAILED',
+        entityType: 'user',
+        entityId: user.id,
+        newValues: { reason: 'no_app_role' },
+        ipAddress,
+        userAgent,
+      });
+      return NextResponse.json(
+        { error: 'Your account has no access to any app. Contact an administrator.' },
+        { status: 403 }
+      );
+    }
 
     const token = generateToken({
       id: user.id,
       username: user.username,
       email: user.email || undefined,
       role,
+      ccg_access: ccgAccess || undefined,
       group_name: groupName || undefined,
       group_year: groupYear || undefined,
       group_id: groupId || undefined,
@@ -108,7 +126,7 @@ export async function POST(request: NextRequest) {
       action: 'LOGIN',
       entityType: 'user',
       entityId: user.id,
-      newValues: { role: user.role, group_name: groupName },
+      newValues: { role: user.role, ccg_access: ccgAccess, group_name: groupName },
       ipAddress,
       userAgent,
     });
@@ -121,7 +139,8 @@ export async function POST(request: NextRequest) {
         email: user.email,
         first_name: user.firstName,
         last_name: user.lastName,
-        role,
+        role: role ?? null,
+        ccg_access: ccgAccess,
         group_name: groupName,
         group_year: groupYear,
         group_id: groupId,

@@ -168,7 +168,7 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  if (!user || !['admin', 'superadmin', 'leadpastor'].includes(user.role)) {
+  if (!user?.role || !['admin', 'superadmin', 'leadpastor'].includes(user.role)) {
     return null;
   }
 

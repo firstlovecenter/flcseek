@@ -13,13 +13,15 @@
  */
 
 import { prisma } from './prisma';
-import type { UserPayload } from './auth';
+import type { SeekRole, TokenPayload } from './auth';
+import { hasCcgAccess } from './ccg/access';
 
 interface FreshUserRow {
   id: string;
   username: string;
   email: string | null;
   role: string | null;
+  ccgAccess: boolean;
   groupId: string | null;
   groupName: string | null;
   tokenVersion: number;
@@ -58,8 +60,9 @@ async function fetchUserRow(userId: string): Promise<FreshUserRow | null> {
   });
 
   if (!row) return null;
-  userCache.set(userId, { row, ts: Date.now() });
-  return row;
+  const full: FreshUserRow = { ...row, ccgAccess: await hasCcgAccess(userId, row.role) };
+  userCache.set(userId, { row: full, ts: Date.now() });
+  return full;
 }
 
 /** Test hook — clears the per-instance user cache. */
@@ -67,14 +70,21 @@ export function clearAuthVerifyCache(): void {
   userCache.clear();
 }
 
-const VALID_ROLES = ['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'] as const;
+const VALID_ROLES: readonly SeekRole[] = ['superadmin', 'leadpastor', 'overseer', 'admin', 'leader'];
+
+/** A known Seek role, or undefined. Unknown / NULL roles grant no Seek access. */
+export function toSeekRole(value: string | null | undefined): SeekRole | undefined {
+  return VALID_ROLES.includes(value as SeekRole) ? (value as SeekRole) : undefined;
+}
+
 
 /**
  * Validate a decoded token payload against the database and return a payload
- * rebuilt from *current* DB state (fresh role and group assignment).
- * Returns null if the token has been revoked or the user is gone.
+ * rebuilt from *current* DB state (fresh roles and group assignment).
+ * Returns null if the token has been revoked, the user is gone, or the user
+ * holds no role in either app.
  */
-export async function resolveFreshUser(payload: UserPayload): Promise<UserPayload | null> {
+export async function resolveFreshUser(payload: TokenPayload): Promise<TokenPayload | null> {
   if (!payload?.id) return null;
 
   let row: FreshUserRow | null;
@@ -91,15 +101,15 @@ export async function resolveFreshUser(payload: UserPayload): Promise<UserPayloa
   // Tokens minted before token_version existed carry no `tv` — treat as 0.
   if ((payload.tv ?? 0) !== row.tokenVersion) return null;
 
-  const role = VALID_ROLES.includes(row.role as (typeof VALID_ROLES)[number])
-    ? (row.role as UserPayload['role'])
-    : 'leader';
+  const role = toSeekRole(row.role);
+  if (!role && !row.ccgAccess) return null;
 
   return {
     id: row.id,
     username: row.username,
     email: row.email ?? undefined,
     role,
+    ccg_access: row.ccgAccess || undefined,
     group_id: row.groupId ?? undefined,
     group_name: row.group?.name ?? row.groupName ?? undefined,
     group_year: row.group?.year ?? undefined,

@@ -17,6 +17,7 @@ type IconRailProps = {
   onMoreClick?: () => void
   onLogout?: () => void
   homeHref?: string
+  homeLabel?: string
 }
 
 export function IconRail({
@@ -27,6 +28,7 @@ export function IconRail({
   onMoreClick,
   onLogout,
   homeHref = '/superadmin',
+  homeLabel = 'Seek home',
 }: IconRailProps) {
   return (
     <aside
@@ -35,7 +37,7 @@ export function IconRail({
     >
       <Link
         href={homeHref}
-        aria-label="Seek home"
+        aria-label={homeLabel}
         className="mb-8 flex items-center justify-center"
       >
         <SynagoLogo size={36} surface="auto" />

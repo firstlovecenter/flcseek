@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { SynagoLogo } from '@/components/shell/SynagoLogo'
-import { LogOut, RefreshCw, User, ChevronDown } from 'lucide-react'
+import { LogOut, RefreshCw, User, ChevronDown, LayoutGrid } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import type { GroupApiData } from '@/lib/types/api-responses'
@@ -22,7 +22,12 @@ import { ThemeToggle } from '@/components/shell/ThemeToggle'
 import { TabBar } from '@/components/shell/TabBar'
 import { IconRail } from '@/components/shell/IconRail'
 import { MoreNavSheet } from '@/components/shell/MoreNavSheet'
+import { availableApps } from '@/lib/app-routing'
 import {
+  buildCcgMoreNav,
+  buildCcgPrimaryNav,
+  isCcgMoreActive,
+  isCcgPath,
   buildGroupMoreNav,
   buildGroupPrimaryNav,
   buildSuperAdminMoreNav,
@@ -47,6 +52,7 @@ export default function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     const fetchGroupInfo = async () => {
       if (!user || !token) return
+      if (!user.role || isCcgPath(pathname)) return
       if (user.role === 'superadmin') return
 
       if (user.role === 'leadpastor' || user.role === 'overseer') {
@@ -98,7 +104,10 @@ export default function AppShell({ children }: AppShellProps) {
     setMoreOpen(false)
   }, [pathname])
 
+  const inCcg = isCcgPath(pathname)
+
   const getContextLabel = () => {
+    if (inCcg) return ''
     if (user?.role === 'superadmin') return ''
     if (user?.role === 'leadpastor') {
       if (groupInfo) return `${groupInfo.name} ${groupInfo.year} · Lead Pastor`
@@ -123,41 +132,54 @@ export default function AppShell({ children }: AppShellProps) {
     router.push('/auth')
   }
 
-  if (pathname === '/auth' || !user) {
+  // Self-registration forms are public and stand alone, even for a signed-in user.
+  if (
+    pathname === '/auth' ||
+    pathname === '/forgot-password' ||
+    ['/join/', '/welcome/', '/reset-password/'].some((p) => pathname.startsWith(p)) ||
+    // City Church Group has its own shell (Synago-style sidebar), rendered by its layout.
+    inCcg ||
+    !user
+  ) {
     return <>{children}</>
   }
 
-  const isSuperAdmin = user.role === 'superadmin'
-  const groupId = groupIdFromPath(pathname)
-  const showGroupTabBar = !isSuperAdmin && !!groupId
+  const isSuperAdmin = !inCcg && user.role === 'superadmin'
+  const groupId = inCcg ? null : groupIdFromPath(pathname)
+  const showGroupTabBar = !inCcg && !isSuperAdmin && !!groupId
+  const showRail = inCcg || isSuperAdmin
+  const hasBothApps = availableApps(user).length > 1
 
-  const superPrimary = buildSuperAdminPrimaryNav()
-  const superMore = buildSuperAdminMoreNav()
-  const groupPrimary = groupId ? buildGroupPrimaryNav(groupId, user) : []
-  const groupMore = groupId ? buildGroupMoreNav(groupId, user) : []
+  let primaryItems = groupId ? buildGroupPrimaryNav(groupId, user) : []
+  let moreItems = groupId ? buildGroupMoreNav(groupId, user) : []
+  let moreActive = groupId ? isGroupMoreActive(pathname, groupId, user) : false
+  if (inCcg) {
+    primaryItems = buildCcgPrimaryNav()
+    moreItems = buildCcgMoreNav(user)
+    moreActive = isCcgMoreActive(pathname, user)
+  } else if (isSuperAdmin) {
+    primaryItems = buildSuperAdminPrimaryNav()
+    moreItems = buildSuperAdminMoreNav()
+    moreActive = isSuperAdminMoreActive(pathname)
+  }
 
-  const showMobileTabBar = isSuperAdmin || showGroupTabBar
-  const mobileItems = isSuperAdmin ? superPrimary : groupPrimary
-  const moreItems = isSuperAdmin ? superMore : groupMore
-  const moreActive = isSuperAdmin
-    ? isSuperAdminMoreActive(pathname)
-    : groupId
-      ? isGroupMoreActive(pathname, groupId, user)
-      : false
-
-  const homeHref = isSuperAdmin ? '/superadmin' : '/'
+  const showMobileTabBar = showRail || showGroupTabBar
+  const homeHref = inCcg ? '/ccg' : isSuperAdmin ? '/superadmin' : '/'
+  const appName = inCcg ? 'City Church Group' : 'Seek'
+  const roleLabel = inCcg ? 'City Church Group' : user.role
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {isSuperAdmin && (
+      {showRail && (
         <IconRail
-          items={superPrimary}
+          items={primaryItems}
           pathname={pathname}
           moreActive={moreActive}
           moreOpen={moreOpen}
           onMoreClick={() => setMoreOpen(true)}
           onLogout={handleLogout}
           homeHref={homeHref}
+          homeLabel={`${appName} home`}
         />
       )}
 
@@ -167,7 +189,7 @@ export default function AppShell({ children }: AppShellProps) {
             <Link href={homeHref} className="flex shrink-0 items-center gap-2">
               <SynagoLogo size={28} surface="auto" />
               <span className="hidden font-semibold tracking-tight sm:inline">
-                Seek
+                {appName}
               </span>
             </Link>
 
@@ -212,7 +234,7 @@ export default function AppShell({ children }: AppShellProps) {
                   <div className="flex flex-col gap-0.5">
                     <span className="text-sm font-medium">{displayName}</span>
                     <span className="text-xs text-muted-foreground capitalize">
-                      {user?.role}
+                      {roleLabel}
                     </span>
                   </div>
                 </DropdownMenuLabel>
@@ -221,6 +243,12 @@ export default function AppShell({ children }: AppShellProps) {
                   <User className="size-4" />
                   Profile
                 </DropdownMenuItem>
+                {hasBothApps && (
+                  <DropdownMenuItem onClick={() => router.push('/apps')}>
+                    <LayoutGrid className="size-4" />
+                    Switch app
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-destructive focus:text-destructive"
@@ -247,7 +275,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       {showMobileTabBar && (
         <TabBar
-          items={mobileItems}
+          items={primaryItems}
           pathname={pathname}
           moreActive={moreActive}
           moreOpen={moreOpen}
@@ -262,7 +290,7 @@ export default function AppShell({ children }: AppShellProps) {
         items={moreItems}
         pathname={pathname}
         title="More"
-        desktopBesideRail={isSuperAdmin}
+        desktopBesideRail={showRail}
       />
     </div>
   )

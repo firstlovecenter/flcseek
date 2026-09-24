@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { verifyToken, UserPayload } from '@/lib/auth';
+import { verifyToken, TokenPayload, UserPayload } from '@/lib/auth';
 import { resolveFreshUser } from '@/lib/auth-verify';
 import { errors } from './response';
 import { ROLES, UserRole } from '@/lib/constants';
@@ -20,7 +20,7 @@ export interface AuthenticatedRequest extends NextRequest {
  * stale role/group claims pass. Route handlers must use getVerifiedAuthUser()
  * or the requireAuth/requireRole family instead.
  */
-export function getAuthUser(request: NextRequest): UserPayload | null {
+export function getAuthUser(request: NextRequest): TokenPayload | null {
   // Try httpOnly cookie first (safe from XSS)
   const cookieToken = request.cookies.get('auth_token')?.value;
   if (cookieToken) {
@@ -38,13 +38,24 @@ export function getAuthUser(request: NextRequest): UserPayload | null {
 }
 
 /**
- * Signature check + DB freshness check. Returns a payload rebuilt from current
- * DB state (fresh role/group), or null if the token is invalid or revoked.
+ * Signature check + DB freshness check, app-agnostic. Returns the identity
+ * rebuilt from current DB state (Seek role and/or CCG role), or null if the
+ * token is invalid or revoked. Use for /api/auth/me and the CCG app.
  */
-export async function getVerifiedAuthUser(request: NextRequest): Promise<UserPayload | null> {
+export async function getVerifiedIdentity(request: NextRequest): Promise<TokenPayload | null> {
   const decoded = getAuthUser(request);
   if (!decoded) return null;
   return resolveFreshUser(decoded);
+}
+
+/**
+ * Seek authentication: a verified identity that holds a Seek role. Users who
+ * only have CCG access get null here, so every Seek route rejects them.
+ */
+export async function getVerifiedAuthUser(request: NextRequest): Promise<UserPayload | null> {
+  const identity = await getVerifiedIdentity(request);
+  if (!identity?.role) return null;
+  return identity as UserPayload;
 }
 
 /**

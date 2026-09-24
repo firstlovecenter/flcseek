@@ -42,6 +42,8 @@ export async function middleware(request: NextRequest) {
     '/api/auth/logout',
     '/api/auth/me',
     '/api/health',
+    // City Church Group self-service forms (token-gated, rate-limited per route)
+    '/api/ccg/public/',
     '/api/_next',
   ];
   if (PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix))) {
