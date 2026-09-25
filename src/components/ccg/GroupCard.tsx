@@ -39,6 +39,7 @@ export function GroupList({
   type,
   items,
   addHref,
+  addType,
   extraAdd,
 }: {
   eyebrow: React.ReactNode
@@ -46,6 +47,8 @@ export function GroupList({
   type: GroupType
   items: GroupCardItem[] | null
   addHref?: string
+  /** The level `addHref` adds (defaults to the list's). */
+  addType?: GroupType
   /** Another level that can be added here (the top of the tree: campuses and streams). */
   extraAdd?: { type: GroupType; href: string }
 }) {
@@ -77,7 +80,7 @@ export function GroupList({
                 <Button className="h-10 gap-1.5" asChild>
                   <Link href={addHref}>
                     <Plus className="size-4" />
-                    Add {UNIT_LEVEL[type]}
+                    Add {UNIT_LEVEL[addType ?? type]}
                   </Link>
                 </Button>
               )}

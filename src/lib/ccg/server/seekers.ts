@@ -201,6 +201,28 @@ export async function seekerReport(scope: CcgScope, opts: { streamId: string | n
   }
 }
 
+/** A stream's Sheep Seeking Overseer and Sheep Seekers (with their assignment ids, to stand them down). */
+export async function streamTeam(streamId: string) {
+  const rows = await prisma.ccgRoleAssignment.findMany({
+    where: { streamId, roleKey: { in: ['seeking_overseer', 'sheep_seeker'] }, ...currentAssignmentWhere() },
+    orderBy: { startsOn: 'asc' },
+    select: {
+      id: true,
+      roleKey: true,
+      startsOn: true,
+      user: { select: { ccgPeople: { where: { kind: 'member', deletedAt: null }, select: { id: true, fullName: true }, take: 1 } } },
+    },
+  })
+  const holder = (r: (typeof rows)[number]) => ({
+    assignment_id: r.id,
+    person_id: r.user.ccgPeople[0]?.id ?? null,
+    name: r.user.ccgPeople[0]?.fullName ?? 'Unknown',
+    since: iso(r.startsOn),
+  })
+  const overseer = rows.find((r) => r.roleKey === 'seeking_overseer')
+  return { overseer: overseer ? holder(overseer) : null, seekers: rows.filter((r) => r.roleKey === 'sheep_seeker').map(holder) }
+}
+
 // ---------------------------------------------------------------------------
 // Appointing a Sheep Seeker
 // ---------------------------------------------------------------------------

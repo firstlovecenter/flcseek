@@ -1,10 +1,16 @@
 import type { z } from 'zod'
-import { created } from '@/lib/api/response'
+import { created, success } from '@/lib/api/response'
 import { addSeekerSchema } from '@/lib/ccg/schemas'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { addSeeker } from '@/lib/ccg/server/seekers'
+import { addSeeker, streamTeam } from '@/lib/ccg/server/seekers'
 
 export const dynamic = 'force-dynamic'
+
+/** GET /api/ccg/streams/[id]/seekers — the stream's Sheep Seeking Overseer and Sheep Seekers (anyone who sees the stream). */
+export const GET = withCcg<undefined, { id: string }>({ permission: 'people.view' }, async ({ scope, params }) => {
+  ensure(scope.canOnStream('people.view', params.id), 'You can only see your streams')
+  return success(await streamTeam(params.id))
+})
 
 /**
  * POST /api/ccg/streams/[id]/seekers (roles.manage, or seekers.manage on the stream: its

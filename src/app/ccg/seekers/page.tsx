@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, HeartHandshake } from 'lucide-react'
@@ -13,6 +13,7 @@ import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { useCcgFocus } from '@/components/ccg/CcgFocusProvider'
 import { Initials, StickyHeader } from '@/components/ccg/synago'
+import { StreamSeekers, type SeekerHolder } from '@/components/ccg/StreamSeekers'
 
 interface Counts {
   registered: number
@@ -52,6 +53,15 @@ function SeekerReport() {
   const offset = Math.max(Number(params.get('offset')) || 0, 0)
   const [data, setData] = useState<Report | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The stream's sheep seeking team: its Overseer and Sheep Seekers (appointed here).
+  const [team, setTeam] = useState<{ overseer: SeekerHolder | null; seekers: SeekerHolder[] } | null>(null)
+  const loadTeam = useCallback(() => {
+    if (!stream) return setTeam(null)
+    ccgApi.get<{ overseer: SeekerHolder | null; seekers: SeekerHolder[] }>(`/streams/${stream}/seekers`).then((r) => setTeam(r.ok ? r.data : null))
+  }, [stream])
+  useEffect(() => {
+    loadTeam()
+  }, [loadTeam])
 
   useEffect(() => {
     if (!has('reports.view')) return
@@ -80,7 +90,8 @@ function SeekerReport() {
   }
   if (error) return <ErrorScreen title="Couldn’t load the report" message={error} />
 
-  const streamName = data?.seekers.flatMap((s) => s.streams).find((s) => s.id === stream)?.name
+  const streamName =
+    data?.seekers.flatMap((s) => s.streams).find((s) => s.id === stream)?.name ?? (focus?.type === 'stream' && focus.id === stream ? focus.name : undefined)
 
   return (
     <div className="pb-10">
@@ -124,6 +135,21 @@ function SeekerReport() {
           </div>
         </div>
       </StickyHeader>
+
+      {stream && (
+        <div className="mt-4 rounded-xl border border-border bg-card p-4">
+          <StreamSeekers
+            streamId={stream}
+            streamName={streamName ?? 'this stream'}
+            overseer={team ? team.overseer : undefined}
+            seekers={team ? team.seekers : null}
+            onChanged={loadTeam}
+            reportLink={false}
+          />
+        </div>
+      )}
+
+      <h2 className="mt-6 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Their converts</h2>
 
       {!data ? (
         <Skeleton className="mt-4 h-72 rounded-xl" />

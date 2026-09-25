@@ -42,7 +42,9 @@ export async function ccfIdsIn(type: UnitType, id: string): Promise<string[]> {
   return rows.map((r) => r.id)
 }
 
-export function canSeeUnit(scope: CcgScope, type: UnitType, id: string) {
+/** Group pages belong to City Church Groups: sheep seeking roles don't count here. */
+export function canSeeUnit(full: CcgScope, type: UnitType, id: string) {
+  const scope = full.leadership()
   return type === 'ccf'
     ? scope.canOnCcf('people.view', id)
     : type === 'ccg'
@@ -169,7 +171,8 @@ export async function childGroups(type: UnitType, id: string) {
  * The top of the tree (church-wide focus), newest first: campuses and any
  * streams with no campus; just streams while no campus exists.
  */
-export async function topGroups(scope: CcgScope) {
+export async function topGroups(full: CcgScope) {
+  const scope = full.leadership()
   const [campuses, streams] = await Promise.all([
     prisma.ccgCampus.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' } }),
     prisma.ccgStream.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' } }),

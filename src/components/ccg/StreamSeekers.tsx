@@ -38,12 +38,15 @@ export function StreamSeekers({
   overseer,
   seekers,
   onChanged,
+  reportLink = true,
 }: {
   streamId: string
   streamName: string
   overseer: SeekerHolder | null | undefined
   seekers: SeekerHolder[] | null
   onChanged: () => void
+  /** Off on the Sheep Seekers page itself. */
+  reportLink?: boolean
 }) {
   const { me, hasGlobal, has } = useCcgMe()
   const isAdmin = hasGlobal('roles.manage')
@@ -159,7 +162,7 @@ export function StreamSeekers({
       <SectionLabel
         action={
           <div className="flex items-center gap-1">
-            {has('reports.view') && (
+            {reportLink && has('reports.view') && (
               <Button variant="ghost" size="sm" className="h-8 gap-1" asChild>
                 <Link href={`/ccg/seekers?stream=${streamId}`}>
                   <BarChart3 className="size-4" /> Report
