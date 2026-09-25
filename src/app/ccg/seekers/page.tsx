@@ -129,6 +129,7 @@ function SeekerReport() {
         <Skeleton className="mt-4 h-72 rounded-xl" />
       ) : data.seekers.length === 0 && data.total.registered === 0 && data.total.in_assessment === 0 ? (
         <EmptyState
+          orb
           icon={HeartHandshake}
           title="No Sheep Seekers yet"
           description="Appoint them from a stream’s page. Their converts appear here as they register them."

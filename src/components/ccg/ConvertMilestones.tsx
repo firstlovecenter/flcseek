@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { EmptyState } from '@/components/base/EmptyState'
+import { OrbBurst } from '@/components/base/Orbs'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from './CcgMeProvider'
 import { useCcgFocus } from './CcgFocusProvider'
@@ -119,6 +120,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
   const [pageSize, setPageSize] = useState(20)
   const [mobileShown, setMobileShown] = useState(30)
   const [busy, setBusy] = useState<string | null>(null)
+  const [celebrate, setCelebrate] = useState(0)
   const [data, setData] = useState<{ milestones: MilestoneDef[]; rows: ProgressRow[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const canTick = has('milestones.update')
@@ -165,9 +167,16 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
     if (m.kind !== 'manual' || !canTick || !stage) return open(r.placement_id)
     const key = `${r.placement_id}:${m.stage_number}`
     setBusy(key)
-    const res = await ccgApi.put(`/placements/${r.placement_id}/progress`, { stage_number: m.stage_number, is_completed: stage.state !== 'done' })
+    const res = await ccgApi.put<{ graduated: boolean }>(`/placements/${r.placement_id}/progress`, {
+      stage_number: m.stage_number,
+      is_completed: stage.state !== 'done',
+    })
     setBusy(null)
     if (!res.ok) return message.error(res.error.message)
+    if (res.data.graduated) {
+      setCelebrate((n) => n + 1)
+      message.success(`${r.person.full_name} completed their assessment and is now a member of ${r.ccf?.name ?? 'their CCF'}`)
+    }
     load()
   }
 
@@ -223,6 +232,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
           <Skeleton className="h-64 rounded-xl" />
         ) : rows.length === 0 ? (
           <EmptyState
+            orb
             icon={Sprout}
             title={search ? 'No one matches' : overdueOnly ? 'Nothing overdue' : mine ? 'No converts assigned to you yet' : 'No converts in their assessment year'}
             description={
@@ -380,6 +390,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
         )}
 
         <FollowUpSheet placementId={openId} onClose={() => open(null)} onChanged={load} />
+        <OrbBurst trigger={celebrate} />
       </div>
     </TooltipProvider>
   )

@@ -237,8 +237,17 @@ function Brand({ open }: { open: boolean }) {
   const { portal } = useCcgFocus()
   return (
     <>
-      <div className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg">
-        <SynagoLogo size={28} />
+      <div className="relative flex size-7 shrink-0 items-center justify-center rounded-lg">
+        {/* The portal's colour, glowing behind the logo; it shifts when the portal changes. */}
+        <motion.span
+          aria-hidden
+          className="absolute -inset-2 rounded-full blur-md"
+          animate={{ background: `radial-gradient(circle, hsl(var(--${portal === 'seeking' ? 'members' : 'churches'}) / 0.55), transparent 70%)` }}
+          transition={{ duration: 0.8, ease: 'easeInOut' }}
+        />
+        <span className="relative overflow-hidden rounded-lg">
+          <SynagoLogo size={28} />
+        </span>
       </div>
       <Label open={open}>
         <span className="flex flex-col">
