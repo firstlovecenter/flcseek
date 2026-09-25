@@ -333,7 +333,7 @@ export function PersonSheet({
   )
 }
 
-function TransferDialog({ person, onClose, onDone }: { person: PersonDTO; onClose: () => void; onDone: () => void }) {
+export function TransferDialog({ person, onClose, onDone }: { person: PersonDTO; onClose: () => void; onDone: () => void }) {
   const opts = useCcgOptions()
   const [ccfId, setCcfId] = useState<string | null>(null)
   const [reason, setReason] = useState('')

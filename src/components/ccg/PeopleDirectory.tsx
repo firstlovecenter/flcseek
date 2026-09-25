@@ -16,6 +16,7 @@ import { useCcgMe } from './CcgMeProvider'
 import { useCcgFocus, useSeekingRole } from './CcgFocusProvider'
 import { PersonFormDialog } from './PersonFormDialog'
 import { PersonSheet } from './PersonSheet'
+import { ConvertModal } from './ConvertModal'
 import { PERSON_STATUS, type PersonDTO } from './people-types'
 import { Initials, StickyHeader } from './synago'
 
@@ -109,6 +110,9 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
   // "?person=" (a leader link on a group's page) opens that profile.
   const [openId, setOpenId] = useState<string | null>(params.get('person'))
   const [form, setForm] = useState<{ kind: Kind; personId?: string } | null>(null)
+  // A placed convert opens their convert modal (journey, check-ins, profile); everyone else their profile panel.
+  const [placementId, setPlacementId] = useState<string | null>(null)
+  const openPerson = (p: PersonDTO) => (p.kind === 'convert' && p.placement?.status === 'active' ? setPlacementId(p.placement.id) : setOpenId(p.id))
   const [downloading, setDownloading] = useState(false)
 
   // "?new=1" (quick actions) opens the form straight away.
@@ -277,7 +281,7 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
               <li key={p.id}>
                 <button
                   type="button"
-                  onClick={() => setOpenId(p.id)}
+                  onClick={() => openPerson(p)}
                   className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted"
                 >
                   <Initials name={p.full_name} className="size-10 text-xs" />
@@ -297,7 +301,7 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setOpenId(p.id)}
+                onClick={() => openPerson(p)}
                 className="group flex min-h-44 flex-col items-center gap-3 rounded-xl border border-border bg-card p-4 text-center transition-all hover:-translate-y-0.5 hover:border-members/40 hover:shadow-md active:translate-y-0"
               >
                 <Initials name={p.full_name} className="size-16 text-base" />
@@ -382,6 +386,7 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
         </SheetContent>
       </Sheet>
 
+      <ConvertModal placementId={placementId} onClose={() => setPlacementId(null)} onChanged={load} />
       <PersonSheet personId={openId} onClose={() => setOpenId(null)} onEdit={(p) => setForm({ kind: p.kind, personId: p.id })} onChanged={load} />
       <PersonFormDialog
         mode={form}

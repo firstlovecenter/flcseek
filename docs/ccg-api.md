@@ -262,6 +262,7 @@ Auto-completed milestones are stored as progress records with `source: 'auto'`. 
 | GET | `/attendance?ccf_id=&event_type=&date=` | attendance.mark | The CCF's register: placed converts, `present`, and their running `total`. |
 | PUT | `/attendance` | attendance.mark | `{ ccf_id, event_type, event_date, entries[{person_id, present}] }`. Present people are recorded and absent ones removed. The date can't be in the future. |
 | GET / POST | `/placements/[id]/check-ins` | placements.view / checkins.record | `{ convert_rating?, group_rating?, follow_up_required, notes? }` |
+| GET | `/placements/[id]/journey` | placements.view | For the convert modal: `{ attendance: { [event_type]: [{ date, by }] }, timeline: [{ id, action, text, at, by }] }`. Attendance dates are newest first; the timeline is the convert's history in plain words (registration, matching, placement, milestones, checklist items, check-ins, transfers, graduation), newest first. |
 | GET / POST | `/milestones` | any / settings.manage | `{ stage_number, kind, attendance_event?, attendance_target?, name, short_name, description?, guidance?, target_days?, is_active? }` |
 | PATCH | `/milestones/[id]` | settings.manage | The stage number, kind and event are fixed. Changing the target re-syncs everyone. |
 | POST | `/milestones/[id]/items` | settings.manage | Checklist item: `{ key, label, help?, sort_order?, is_active? }` |

@@ -20,7 +20,7 @@ import { OrbBurst } from '@/components/base/Orbs'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from './CcgMeProvider'
 import { useCcgFocus } from './CcgFocusProvider'
-import { FollowUpSheet } from './FollowUpSheet'
+import { ConvertModal } from './ConvertModal'
 import { ASSESSMENT, STAGE_STATE, type MilestoneDef, type ProgressRow, type Stage } from './progress-types'
 import { Initials } from './synago'
 
@@ -29,7 +29,7 @@ import { Initials } from './synago'
  * laid out like Seek's group page: totals and overall progress, then the
  * converts × milestones grid (cards on phones). Hand-ticked milestones toggle
  * in the grid; attendance and checklist ones, and a convert's name, open
- * their follow-up panel.
+ * their modal.
  *
  * Scope: ?unit=type:id or ?ccf= / ?ccg= / ?council= / ?stream= (links from a
  * group's page), else the role in focus; `mine` = the converts assigned to
@@ -44,7 +44,7 @@ const code = (n: number) => `M${String(n).padStart(2, '0')}`
  * milestones are a switch (as in Seek). Attendance and checklist ones complete
  * themselves when their tracking is done, so they are a status mark, not a
  * control: the count so far (e.g. 7/10) until complete, then a tick. A tap
- * opens the convert's follow-up panel, where the tracking is.
+ * opens the convert's modal, where the tracking is.
  */
 function Cell({
   stage,
@@ -193,7 +193,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
     router.replace(`${pathname}${next.size ? `?${next}` : ''}`, { scroll: false })
   }
 
-  /** Hand-ticked milestones toggle in place (as in Seek); the others open the follow-up panel. */
+  /** Hand-ticked milestones toggle in place (as in Seek); the others open the modal. */
   const tap = async (r: ProgressRow, m: MilestoneDef, stage: Stage | undefined) => {
     if (m.kind !== 'manual' || !canTick || !stage) return open(r.placement_id)
     const key = `${r.placement_id}:${m.stage_number}`
@@ -424,7 +424,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
           </>
         )}
 
-        <FollowUpSheet placementId={openId} onClose={() => open(null)} onChanged={load} />
+        <ConvertModal placementId={openId} onClose={() => open(null)} onChanged={load} />
         <OrbBurst trigger={celebrate} />
       </div>
     </TooltipProvider>
