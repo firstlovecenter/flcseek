@@ -60,7 +60,6 @@ export interface EngineUnit {
   capacity: number
   status: string
   ccgStatus: string
-  audience: 'adult' | 'youth'
 }
 
 export type ChoiceAggregate = { kind: 'choice'; n: number; shares: Record<string, number> }
@@ -113,7 +112,7 @@ export interface FactorResult {
   weight: number
 }
 
-export type IneligibleReason = 'full' | 'reserved' | 'inactive' | 'minor_adult_group' | 'adult_youth_group'
+export type IneligibleReason = 'full' | 'reserved' | 'inactive'
 
 export interface ScoredUnit {
   ccfId: string

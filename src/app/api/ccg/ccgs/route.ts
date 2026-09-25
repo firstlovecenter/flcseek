@@ -38,7 +38,6 @@ export const POST = withCcg<z.infer<typeof ccgSchema>>(
         councilId: body.council_id ?? null,
         code,
         name: body.name,
-        audience: body.audience,
         status: body.status,
         notes: body.notes ?? null,
         createdBy: user.id,

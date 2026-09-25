@@ -122,7 +122,6 @@ export const ccgSchema = z.object({
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
   name: z.string().trim().min(1).max(120),
-  audience: z.enum(['adult', 'youth']).default('adult'),
   status: unitStatus.default('active'),
   notes: text(2000),
 })

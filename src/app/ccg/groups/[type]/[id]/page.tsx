@@ -36,7 +36,6 @@ interface Overview {
     meeting_day?: string | null
     meeting_time?: string | null
     meeting_location?: string | null
-    audience?: 'adult' | 'youth'
     notes: string | null
     created_at: string | null
   }
@@ -197,7 +196,6 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
                 <DetailTile heading="Meets" value={meeting} />
               </>
             )}
-            {u?.audience && <DetailTile heading="Audience" value={u.audience === 'youth' ? 'Youth (under 18)' : 'Adults (18+)'} />}
           </div>
           {u?.notes && <p className="mt-3 text-sm whitespace-pre-line text-muted-foreground">{u.notes}</p>}
         </section>
