@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { cn } from '@/lib/utils'
 import { LoadingScreen } from '@/components/base/LoadingScreen'
-import { CcgFocusProvider } from '@/components/ccg/CcgFocusProvider'
+import { CcgFocusProvider, useSeekingRole } from '@/components/ccg/CcgFocusProvider'
 import { CcgShell } from '@/components/ccg/CcgShell'
 import { CcgMeProvider } from '@/components/ccg/CcgMeProvider'
 import { landingPathFor } from '@/lib/app-routing'
@@ -24,9 +25,17 @@ export default function CcgLayout({ children }: { children: React.ReactNode }) {
     <CcgMeProvider>
       <CcgFocusProvider>
         <CcgShell>
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <Content>{children}</Content>
         </CcgShell>
       </CcgFocusProvider>
     </CcgMeProvider>
   )
+}
+
+/** Pages are capped for reading, except the milestones table (converts, and a sheep seeking role's home), which uses the full width. */
+function Content({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const seeking = useSeekingRole() !== null
+  const wide = pathname === '/ccg/converts' || (pathname === '/ccg' && seeking)
+  return <div className={cn('mx-auto w-full', !wide && 'max-w-6xl')}>{children}</div>
 }
