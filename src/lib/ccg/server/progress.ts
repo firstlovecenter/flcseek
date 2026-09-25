@@ -12,7 +12,7 @@ import {
   type AutoCompletion,
   type MilestoneState,
 } from '../progress'
-import { inFilter, type IdSet } from '../scope'
+import { inFilter, type CcgScope, type IdSet } from '../scope'
 import { dateOnly, getCcgConfig, iso, logCcg, parseDateOnly, userRefs, type Db } from './common'
 import { todayDate } from '../access'
 import { graduateIfComplete } from './graduation'
@@ -173,10 +173,20 @@ function progressRow(
 }
 
 export async function listProgress(
-  ccfIds: IdSet,
-  filter: { ccfId?: string | null; ccgId?: string | null; councilId?: string | null; streamId?: string | null; overdueOnly?: boolean }
+  scope: CcgScope,
+  filter: {
+    ccfId?: string | null
+    ccgId?: string | null
+    councilId?: string | null
+    streamId?: string | null
+    overdueOnly?: boolean
+    /** Only the converts assigned to this Sheep Seeker (their own member id). */
+    seekerPersonId?: string | null
+  }
 ) {
-  const within = inFilter(ccfIds)
+  const within = inFilter(scope.ccfIds('placements.view'))
+  // In scope: CCFs the viewer covers, plus a Sheep Seeker's assigned converts wherever they are placed.
+  const mine = scope.seekerPersonId && scope.canOnAssigned('placements.view', scope.seekerPersonId) ? scope.seekerPersonId : null
   const [milestones, rows, config] = await Promise.all([
     loadMilestones(),
     prisma.ccgPlacement.findMany({
@@ -184,7 +194,8 @@ export async function listProgress(
         status: 'active',
         person: { deletedAt: null },
         AND: [
-          within ? { finalCcfId: within } : {},
+          within ? { OR: [{ finalCcfId: within }, ...(mine ? [{ person: { seekerPersonId: mine } }] : [])] } : {},
+          filter.seekerPersonId ? { person: { seekerPersonId: filter.seekerPersonId } } : {},
           filter.ccfId ? { finalCcfId: filter.ccfId } : {},
           filter.ccgId ? { finalCcf: { ccgId: filter.ccgId } } : {},
           filter.councilId ? { finalCcf: { ccg: { councilId: filter.councilId } } } : {},

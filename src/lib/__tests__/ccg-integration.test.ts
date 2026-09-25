@@ -601,6 +601,120 @@ d('CCG backend against Postgres', () => {
     expect(Number(c.code.slice(4))).toBe(Math.max(Number(a.code.slice(4)), Number(b.code.slice(4))) + 1)
   }, T)
 
+  it('Sheep Seekers need no CCF: a new stream gets seekers straight away; the same email is one person', async () => {
+    const { prisma } = m
+    const fresh = await prisma.ccgStream.create({ data: { code: `N${run}`, name: 'New stream, no CCGs yet' } })
+    const email = `new.seeker.${run}@example.org`.toLowerCase()
+    const added = await m.seekers.addSeeker(fresh.id, { first_name: 'New', last_name: `Seeker ${run}`, phone: '0241212121', email }, ids.admin, 'http://test')
+    expect(added.reused).toBe(false)
+    expect(added.invite).toMatchObject({ sent_to: email })
+    const person = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: added.person_id } })
+    expect(person).toMatchObject({ kind: 'member', ccfId: null, streamId: fresh.id, status: 'active' })
+
+    // Their stream's scope covers them; they are not counted in any CCF's profile.
+    const login = await prisma.user.findFirstOrThrow({ where: { ccgPeople: { some: { id: person.id } } } })
+    const scope = await m.scopeLoader.loadScope(login.id)
+    expect(scope.canOnStream('people.manage', fresh.id)).toBe(true)
+    const row = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: person.id }, include: m.people.personInclude })
+    expect(m.people.canOnPerson(scope, 'people.view', row)).toBe(true)
+
+    // Appointing them again is refused; the same email in another stream reuses the person (one login).
+    await expect(m.seekers.addSeeker(fresh.id, { person_id: person.id }, ids.admin, 'http://test')).rejects.toThrow(/already a Sheep Seeker/)
+    const again = await m.seekers.addSeeker(ids.stream, { first_name: 'Other', last_name: 'Name', phone: '0249999000', email: email.toUpperCase() }, ids.admin, 'http://test')
+    expect(again).toMatchObject({ person_id: person.id, reused: true, invite: null })
+    const roles = await prisma.ccgRoleAssignment.findMany({ where: { userId: login.id, roleKey: 'sheep_seeker', endsOn: null } })
+    expect(roles.map((r) => r.streamId).sort()).toEqual([fresh.id, ids.stream].sort())
+
+    // Converts are assigned to them for looking after: they see and tick those converts' milestones
+    // wherever they are placed, even outside the streams they seek in.
+    const { person: assigned, proposal } = await convertFor({ interests: ['football'], availability: ['weekday_evenings'] })
+    await m.placements.approvePlacement(proposal!.placement.id, ids.admin)
+    await m.people.updatePerson(assigned.id, { seeker_person_id: person.id }, { actorId: ids.admin, source: 'staff' })
+    const seekerScope = await m.scopeLoader.loadScope(login.id)
+    expect(seekerScope.seekerPersonId).toBe(person.id)
+    await expect(m.placementRoutes.authorisePlacement(seekerScope, 'milestones.update', proposal!.placement.id)).resolves.toBeTruthy()
+    const mine = await (await import('@/lib/ccg/server/progress')).listProgress(seekerScope, { seekerPersonId: person.id })
+    expect(mine.rows.map((r) => r.person.id)).toEqual([assigned.id])
+    const otherPlacement = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', person: { seekerPersonId: null } } })
+    const otherInStream = await prisma.ccgPlacement.findFirst({
+      where: { id: otherPlacement.id, finalCcf: { ccg: { council: { streamId: { in: [fresh.id, ids.stream] } } } } },
+    })
+    if (!otherInStream) {
+      await expect(m.placementRoutes.authorisePlacement(seekerScope, 'milestones.update', otherPlacement.id)).rejects.toThrow()
+    }
+
+    // Sheep seeking roles work with converts: they do not see CCF members.
+    const aMember = await prisma.ccgPerson.findFirstOrThrow({ where: { kind: 'member', ccfId: ids.football, deletedAt: null }, include: m.people.personInclude })
+    const oldSeekerLogin = await prisma.user.findFirstOrThrow({ where: { ccgRoleAssignments: { some: { roleKey: 'sheep_seeker', streamId: ids.stream, endsOn: null } } } })
+    const streamSeeker = await m.scopeLoader.loadScope(oldSeekerLogin.id)
+    expect(streamSeeker.canOnStream('people.view', ids.stream)).toBe(true)
+    expect(m.people.canOnPerson(streamSeeker, 'people.view', aMember)).toBe(false)
+    const visibleToSeeker = await prisma.ccgPerson.findMany({ where: { kind: 'member', ccfId: ids.football, AND: [m.people.peopleScopeWhere(streamSeeker, 'people.view')] } })
+    expect(visibleToSeeker).toHaveLength(0)
+    expect(m.people.canOnPerson(await m.scopeLoader.loadScope(ids.coord), 'people.view', aMember)).toBe(true) // their CCF Coordinator does
+
+    // Graduated: in the seeker's Graduated list, and read-only to them.
+    await prisma.ccgPlacement.update({ where: { id: proposal!.placement.id }, data: { status: 'ended', outcome: 'graduated', endedAt: new Date() } })
+    await prisma.ccgPerson.update({ where: { id: assigned.id }, data: { kind: 'member', ccfId: ids.football, status: 'active' } })
+    const grads = await m.seekers.graduatedList(seekerScope, { streamId: null, mine: true, search: null, limit: 50, offset: 0 })
+    expect(grads.graduates.map((g) => g.person.id)).toEqual([assigned.id])
+    expect(grads.counts.this_month).toBe(1)
+    // Graduates are CCF members now: nobody records milestones for them any more.
+    await expect(m.progress.setProgress(proposal!.placement.id, { stage_number: 4, is_completed: true }, ids.admin)).rejects.toThrow(/active placement/)
+    const graduate = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: assigned.id }, include: m.people.personInclude })
+    expect(m.people.canOnPerson(seekerScope, 'people.view', graduate)).toBe(false)
+
+    // Each stream has one Sheep Seeking Overseer: its sheep seeking admin, who appoints its Sheep Seekers.
+    const o1 = await m.seekers.setSeekingOverseer(fresh.id, { first_name: 'First', last_name: `Overseer ${run}`, phone: '0241313131', email: `o1.${run}@example.org` }, ids.admin, 'http://test')
+    const o2 = await m.seekers.setSeekingOverseer(fresh.id, { first_name: 'Second', last_name: `Overseer ${run}`, phone: '0241414141', email: `o2.${run}@example.org` }, ids.admin, 'http://test')
+    const current = await prisma.ccgRoleAssignment.findMany({ where: { roleKey: 'seeking_overseer', streamId: fresh.id, endsOn: null } })
+    expect(current.map((a) => a.id)).toEqual([o2.assignment_id]) // the first stood down
+    expect(o1.assignment_id).not.toBe(o2.assignment_id)
+    const o2Login = await prisma.user.findFirstOrThrow({ where: { ccgPeople: { some: { id: o2.person_id } } } })
+    const o2Scope = await m.scopeLoader.loadScope(o2Login.id)
+    expect(o2Scope.canOnStream('seekers.manage', fresh.id)).toBe(true)
+    expect(o2Scope.canOnStream('seekers.manage', ids.stream)).toBe(false)
+    expect(seekerScope.canOnStream('seekers.manage', fresh.id)).toBe(false) // Sheep Seekers do not appoint
+    await m.seekers.standDownSeeker(fresh.id, added.assignment_id, o2Login.id)
+    expect((await prisma.ccgRoleAssignment.findUniqueOrThrow({ where: { id: added.assignment_id } })).endsOn).not.toBeNull()
+  }, T)
+
+  it('campuses: a Campus Leader runs every stream in their campus, on both sides', async () => {
+    const { prisma } = m
+    const { createWithCode } = await import('@/lib/ccg/server/units')
+    const overview = await import('@/lib/ccg/server/unit-overview')
+    const campus = await createWithCode('campus', undefined, (code) => prisma.ccgCampus.create({ data: { code, name: `Campus ${run}` } }))
+    expect(campus.code).toMatch(/^CMP-\d{4}$/)
+    await prisma.ccgStream.update({ where: { id: ids.stream }, data: { campusId: campus.id } })
+
+    const { person: lead } = await m.people.createPerson({
+      kind: 'member',
+      core: { first_name: 'Campus', last_name: `Leader ${run}`, ccf_id: ids.music, phone: '0241515151', email: `campus.${run}@example.org` },
+      answers: {},
+      source: 'staff',
+      actorId: ids.admin,
+    })
+    await m.roles.setUnitLeader('campus', campus.id, { person_id: lead.id }, ids.admin, 'http://test')
+    const login = await prisma.user.findFirstOrThrow({ where: { ccgPeople: { some: { id: lead.id } } } })
+    const scope = await m.scopeLoader.loadScope(login.id)
+    expect(scope.canOnCampus('reports.view', campus.id)).toBe(true)
+    expect(scope.canOnStream('placements.approve', ids.stream)).toBe(true) // Sheep Seeking side
+    expect(scope.canOnMembersOf('people.view', ids.football)).toBe(true) // City Church Groups side
+    expect(scope.canOnStream('seekers.manage', ids.stream)).toBe(true)
+    expect(scope.can('structure.manage') || scope.can('roles.manage')).toBe(false)
+
+    // The campus page: its leader, and its streams as sub-groups; a stream's breadcrumb starts at the campus.
+    const page = await overview.unitOverview(scope, 'campus', campus.id)
+    expect(page.leaders.map((l) => l.person_id)).toEqual([lead.id])
+    expect(page.children?.items.map((i) => i.id)).toContain(ids.stream)
+    const streamPage = await overview.unitOverview(scope, 'stream', ids.stream)
+    expect(streamPage.breadcrumb[0]).toMatchObject({ type: 'campus', id: campus.id })
+    const top = await overview.topGroups(await m.scopeLoader.loadScope(ids.admin))
+    expect(top.type).toBe('campus')
+    expect(top.items.find((i) => i.id === campus.id)?.type).toBe('campus')
+    expect(top.items.some((i) => i.id === ids.stream)).toBe(false) // shown under its campus
+  }, T)
+
   it('Seek user management does not list CCG-only users', async () => {
     const seek = await m.seekUsers.findMany({ search: `ccgcoord_${run}`, excludeSystemUsers: false })
     expect(seek).toHaveLength(0)

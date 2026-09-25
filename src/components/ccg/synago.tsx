@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LEVEL_LABEL, useCcgFocus, type FocusType } from './CcgFocusProvider'
+import { LEVEL_LABEL, useCcgFocus, type FocusType, PORTAL_LABEL } from './CcgFocusProvider'
 
 /**
  * Building blocks in the admin portal's (Synago) style: the church-in-focus
@@ -12,12 +12,12 @@ import { LEVEL_LABEL, useCcgFocus, type FocusType } from './CcgFocusProvider'
  * timeline.
  */
 
-export const UNIT_LEVEL: Record<Exclude<FocusType, 'global'>, string> = { stream: 'Stream', council: 'Council', ccg: 'CCG', ccf: 'CCF' }
+export const UNIT_LEVEL: Record<Exclude<FocusType, 'global'>, string> = { campus: 'Campus', stream: 'Stream', council: 'Council', ccg: 'CCG', ccf: 'CCF' }
 export const groupHref = (type: string, id: string) => `/ccg/groups/${type}/${id}`
 
-/** "CHURCH IN FOCUS" selector (Synago's ChurchRoleScopePicker). */
+/** "CHURCH IN FOCUS" selector (Synago's ChurchRoleScopePicker): the roles held in the portal in use. */
 export function FocusPicker({ className, variant = 'page' }: { className?: string; variant?: 'page' | 'sidebar' }) {
-  const { options, focus, setFocus } = useCcgFocus()
+  const { portalOptions: options, focus, setFocus } = useCcgFocus()
   if (options.length === 0) return null
   return (
     <div className={cn('space-y-1.5', className)}>
@@ -214,6 +214,36 @@ export function SectionLabel({ children, action }: { children: React.ReactNode; 
     <div className="mb-3 flex items-center justify-between">
       <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{children}</h3>
       {action}
+    </div>
+  )
+}
+
+/** Moves between the Sheep Seeking and City Church Groups portals (shown only to people with roles in both). */
+export function PortalSwitcher({ className, variant = 'page' }: { className?: string; variant?: 'page' | 'sidebar' }) {
+  const { portals, portal, setPortal } = useCcgFocus()
+  if (portals.length < 2) return null
+  return (
+    <div role="group" aria-label="Portal" className={cn('grid grid-cols-2 gap-1 rounded-lg border p-1', variant === 'sidebar' ? 'border-sidebar-border' : 'border-border', className)}>
+      {portals.map((p) => (
+        <button
+          key={p}
+          type="button"
+          aria-pressed={portal === p}
+          onClick={() => setPortal(p)}
+          className={cn(
+            'min-h-9 rounded-md px-2 text-xs leading-tight font-semibold transition-colors',
+            portal === p
+              ? variant === 'sidebar'
+                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                : 'bg-primary text-primary-foreground'
+              : variant === 'sidebar'
+                ? 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          )}
+        >
+          {PORTAL_LABEL[p]}
+        </button>
+      ))}
     </div>
   )
 }

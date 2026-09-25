@@ -51,7 +51,19 @@ const meetingTime = z
 // --------------------------------------------------------------------------
 // Structure
 // --------------------------------------------------------------------------
+/** A campus groups streams; `leader` is its Campus Leader (needs roles.manage). */
+export const campusSchema = z.object({
+  leader: z.object({ person_id: uuid }).nullable().optional(),
+  /** Generated when left out (CMP-0001, …); not shown in the app. */
+  code: code.optional(),
+  name: z.string().trim().min(1).max(120),
+  status: z.enum(['active', 'inactive']).default('active'),
+  notes: text(2000),
+})
+export const campusUpdateSchema = campusSchema.partial()
+
 export const streamSchema = z.object({
+  campus_id: uuid.nullable().optional(),
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
   name: z.string().trim().min(1).max(120),
@@ -59,6 +71,18 @@ export const streamSchema = z.object({
   notes: text(2000),
 })
 export const streamUpdateSchema = streamSchema.partial()
+
+/** Appoint a Sheep Seeker: an existing member, or a new person of the stream (no CCF needed). */
+export const addSeekerSchema = z.union([
+  z.object({ person_id: uuid }),
+  z.object({
+    first_name: z.string().trim().min(1, 'Enter their first name').max(80),
+    middle_name: text(80),
+    last_name: z.string().trim().min(1, 'Enter their last name').max(80),
+    phone: z.string().trim().min(7, 'Enter their phone number').max(20),
+    email: z.string().trim().email('Enter a valid email address').max(254),
+  }),
+])
 
 /**
  * Optional on council / CCG / CCF: the member who leads it (needs roles.manage).
@@ -363,6 +387,7 @@ export const roleUpdateSchema = z.object({
 export const assignmentSchema = z.object({
   person_id: uuid,
   role_key: z.string().min(1),
+  campus_id: uuid.nullable().optional(),
   stream_id: uuid.nullable().optional(),
   council_id: uuid.nullable().optional(),
   ccg_id: uuid.nullable().optional(),

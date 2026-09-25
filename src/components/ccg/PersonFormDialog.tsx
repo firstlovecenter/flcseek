@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { Field, NullableSelect, SearchSelect } from './form-utils'
+import { useCcgMe } from './CcgMeProvider'
 import { OTHER_SUFFIX, QuestionFields, missingRequired, type Answers } from './QuestionFields'
 import { ccfLabel, useCcgOptions, useSeekerOptions, type PersonDTO } from './people-types'
 
@@ -63,6 +64,7 @@ export function PersonFormDialog({
   onSaved: (personId: string) => void
 }) {
   const opts = useCcgOptions()
+  const { me, hasGlobal } = useCcgMe()
   const [core, setCore] = useState<Core>(EMPTY)
   const [answers, setAnswers] = useState<Answers>({})
   const [aiKeys, setAiKeys] = useState<Record<string, string[]>>({})
@@ -116,6 +118,14 @@ export function PersonFormDialog({
     () => (opts?.questions ?? []).filter((q) => q.active && (q.audience === 'both' || q.audience === kind)),
     [opts, kind]
   )
+  // Converts are assigned to Sheep Seekers by the stream's Sheep Seeking Overseer (or an admin).
+  const canAssign =
+    hasGlobal('seekers.manage') ||
+    !!me?.roles.some(
+      (r) =>
+        (r.role.key === 'seeking_overseer' && (!core.stream_id || r.unit?.id === core.stream_id)) ||
+        (r.unit?.type === 'campus' && (!core.stream_id || !!r.unit.streams?.some((s) => s.id === core.stream_id)))
+    )
   const seekers = useSeekerOptions(kind === 'convert' && mode ? core.stream_id : undefined)
   const activeCcfs = (opts?.ccfs ?? []).filter((f) => f.status === 'active' && f.ccg.status === 'active')
   const set = <K extends keyof Core>(k: K, v: Core[K]) => setCore((c) => ({ ...c, [k]: v }))
@@ -129,7 +139,7 @@ export function PersonFormDialog({
     const local: Record<string, string> = {}
     if (!core.first_name.trim()) local.first_name = 'Enter their first name'
     if (!core.last_name.trim()) local.last_name = 'Enter their last name'
-    if (kind === 'member' && !core.ccf_id) local.ccf_id = 'Choose their CCF'
+    if (kind === 'member' && !editing && !core.ccf_id) local.ccf_id = 'Choose their CCF'
     // Members may become leaders: SMS goes to their phone, invitations to their email.
     if (kind === 'member' && !core.phone) local.phone = 'Enter their phone number'
     if (core.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(core.email)) local.email = 'Enter a valid email address'
@@ -281,20 +291,23 @@ export function PersonFormDialog({
                         search="auto"
                       />
                     </Field>
-                    <Field
-                      label="Sheep Seeker"
-                      htmlFor="p-seeker"
-                      error={errors.seeker_person_id}
-                      hint={editing ? 'Who brought them' : 'Who brought them. Leave it to record yourself, if you are one'}
-                    >
-                      <NullableSelect
-                        id="p-seeker"
-                        value={core.seeker_person_id ?? null}
-                        onChange={(v) => set('seeker_person_id', v)}
-                        options={(seekers ?? []).map((sk) => ({ value: sk.person_id, label: sk.name }))}
-                        noneLabel={editing ? 'Not recorded' : 'Me, or not recorded'}
-                      />
-                    </Field>
+                    {canAssign && (
+                      <Field
+                        label="Assigned Sheep Seeker"
+                        htmlFor="p-seeker"
+                        error={errors.seeker_person_id}
+                        hint="Looks after them and ticks their milestones, whatever CCF they are placed in"
+                      >
+                        <SearchSelect
+                          id="p-seeker"
+                          value={core.seeker_person_id ?? null}
+                          onChange={(v) => set('seeker_person_id', v)}
+                          options={(seekers ?? []).map((sk) => ({ value: sk.person_id, label: sk.name, hint: sk.streams.map((x) => x.name).join(', ') }))}
+                          noneLabel={editing ? 'Not assigned' : 'Me, or not assigned'}
+                          placeholder="Not assigned"
+                        />
+                      </Field>
+                    )}
                     <Field label="Date of conversion" htmlFor="p-conv">
                       <Input id="p-conv" type="date" {...text('conversion_date')} />
                     </Field>

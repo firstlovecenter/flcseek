@@ -390,12 +390,13 @@ function TransferDialog({ person, onClose, onDone }: { person: PersonDTO; onClos
 interface RoleOption {
   key: string
   name: string
-  scope_level: 'global' | 'stream' | 'council' | 'ccg' | 'ccf'
+  scope_level: 'global' | 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
   active: boolean
 }
 
 const LEVEL_LABEL: Record<RoleOption['scope_level'], string> = {
   global: 'Everywhere',
+  campus: 'Campus',
   stream: 'Stream',
   council: 'Council',
   ccg: 'CCG',
@@ -413,6 +414,7 @@ function RoleDialog({
 }) {
   const opts = useCcgOptions()
   const [roles, setRoles] = useState<RoleOption[]>([])
+  const [campuses, setCampuses] = useState<Array<{ id: string; name: string }>>([])
   const [councils, setCouncils] = useState<Array<{ id: string; name: string }>>([])
   const [ccgs, setCcgs] = useState<Array<{ id: string; name: string }>>([])
   const [roleKey, setRoleKey] = useState<string | null>(null)
@@ -424,7 +426,9 @@ function RoleDialog({
       ccgApi.get<{ roles: RoleOption[] }>('/roles'),
       ccgApi.get<{ councils: Array<{ id: string; name: string }> }>('/councils'),
       ccgApi.get<{ ccgs: Array<{ id: string; name: string }> }>('/ccgs'),
-    ]).then(([r, c, g]) => {
+      ccgApi.get<{ campuses: Array<{ id: string; name: string }> }>('/campuses'),
+    ]).then(([r, c, g, cp]) => {
+      setCampuses(cp.ok ? cp.data.campuses : [])
       setRoles(r.ok ? r.data.roles.filter((x) => x.active) : [])
       setCouncils(c.ok ? c.data.councils : [])
       setCcgs(g.ok ? g.data.ccgs : [])
@@ -434,7 +438,9 @@ function RoleDialog({
   const role = roles.find((r) => r.key === roleKey)
   const level = role?.scope_level
   const units: Array<{ value: string; label: string; hint?: string }> =
-    level === 'stream'
+    level === 'campus'
+      ? campuses.map((c) => ({ value: c.id, label: c.name }))
+      : level === 'stream'
       ? (opts?.streams ?? []).map((s) => ({ value: s.id, label: s.name }))
       : level === 'council'
         ? councils.map((c) => ({ value: c.id, label: c.name }))

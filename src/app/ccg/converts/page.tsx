@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
+import { useSeekingRole } from '@/components/ccg/CcgFocusProvider'
 import { ConvertMilestones, useConvertScope } from '@/components/ccg/ConvertMilestones'
 import { PeopleDirectory } from '@/components/ccg/PeopleDirectory'
 import { StickyHeader } from '@/components/ccg/synago'
@@ -21,6 +22,8 @@ function Converts() {
   const params = useSearchParams()
   const router = useRouter()
   const { has } = useCcgMe()
+  // A Sheep Seeker sees the converts assigned to them (unless a group's page sent them here).
+  const mine = useSeekingRole() === 'seeker' && !params.get('unit')
   const { name } = useConvertScope()
   const view = params.get('view') === 'all' || params.get('new') === '1' ? 'all' : 'milestones'
 
@@ -68,7 +71,7 @@ function Converts() {
       <StickyHeader className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-2xl leading-tight font-bold tracking-tight text-foreground">
-            {name ? `${name} ` : ''}
+            {mine ? 'My ' : name ? `${name} ` : ''}
             <span className="text-members">Converts</span>
           </h1>
           {has('people.manage') && (
@@ -82,7 +85,7 @@ function Converts() {
         </div>
         {tabs}
       </StickyHeader>
-      <ConvertMilestones />
+      <ConvertMilestones mine={mine} />
     </div>
   )
 }

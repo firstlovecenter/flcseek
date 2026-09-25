@@ -18,6 +18,7 @@ type ScopedPerson = {
   kind: string
   ccfId: string | null
   streamId: string | null
+  seekerPersonId?: string | null
   placements: Array<{ status: string; finalCcfId: string | null; proposedCcfId: string | null }>
 }
 
@@ -30,39 +31,51 @@ export function personCcfIds(p: ScopedPerson): string[] {
     .filter((x): x is string => !!x)
 }
 
+/** People who belong to a stream rather than a CCF: converts it registered, and stream-only members (Sheep Seekers not in any CCF). */
+const byStream = (p: ScopedPerson) => !!p.streamId && (p.kind === 'convert' || !p.ccfId)
+
 /**
- * In scope: global rights; the CCF they are in or proposed for; or, for a
- * convert, the stream that registered them (Sheep Seekers are stream-level).
+ * In scope: global rights; the CCF they are in or proposed for; or the stream
+ * they belong to (converts it registered; Sheep Seekers not in a CCF). A CCF's
+ * members are reached through leadership roles only: sheep seeking roles work
+ * with converts, and a Sheep Seeker's converts once they have graduated into
+ * membership are shown in their Graduated list, not here.
  */
 export function canOnPerson(scope: CcgScope, perm: 'people.view' | 'people.manage', p: ScopedPerson): boolean {
+  if (scope.can(perm)) return true
+  if (p.kind === 'member') return p.ccfId ? scope.canOnMembersOf(perm, p.ccfId) : byStream(p) && scope.canOnStream(perm, p.streamId)
   return (
-    scope.can(perm) ||
     personCcfIds(p).some((id) => scope.canOnCcf(perm, id)) ||
-    (p.kind === 'convert' && !!p.streamId && scope.canOnStream(perm, p.streamId))
+    (byStream(p) && scope.canOnStream(perm, p.streamId)) ||
+    scope.canOnAssigned(perm, p.seekerPersonId)
   )
 }
 
-/** Prisma filter restricting people to the scope. */
+/** Prisma filter restricting people to the scope (see canOnPerson). */
 export function peopleScopeWhere(scope: CcgScope, perm: 'people.view' | 'people.manage'): Prisma.CcgPersonWhereInput {
-  const ids = scope.ccfIds(perm)
-  if (ids === 'all') return {}
-  const within = inFilter(ids)!
+  if (scope.can(perm)) return {}
+  const members = inFilter(scope.memberCcfIds(perm))
+  const within = inFilter(scope.ccfIds(perm))
   const streams = scope.streamIds(perm) as string[]
   return {
     OR: [
-      { kind: 'member', ccfId: within },
-      {
-        kind: 'convert',
-        placements: {
-          some: {
-            OR: [
-              { status: 'active', finalCcfId: within },
-              { status: 'proposed', proposedCcfId: within },
-            ],
-          },
-        },
-      },
-      ...(streams.length ? [{ kind: 'convert', streamId: { in: streams } }] : []),
+      { kind: 'member', ...(members ? { ccfId: members } : { ccfId: { not: null } }) },
+      within
+        ? {
+            kind: 'convert',
+            placements: {
+              some: {
+                OR: [
+                  { status: 'active', finalCcfId: within },
+                  { status: 'proposed', proposedCcfId: within },
+                ],
+              },
+            },
+          }
+        : { kind: 'convert' },
+      ...(streams.length ? [{ kind: 'convert', streamId: { in: streams } }, { kind: 'member', ccfId: null, streamId: { in: streams } }] : []),
+      // A Sheep Seeker's assigned converts, wherever they are placed.
+      ...(scope.seekerPersonId && scope.canOnAssigned(perm, scope.seekerPersonId) ? [{ kind: 'convert', seekerPersonId: scope.seekerPersonId }] : []),
     ],
   }
 }
@@ -221,6 +234,8 @@ function coreData(core: Partial<PersonCore>, kind: 'member' | 'convert') {
   if (core.notes !== undefined) d.notes = core.notes
   if (kind === 'member') {
     if (core.ccf_id !== undefined) d.ccfId = core.ccf_id
+    // Stream-only members: Sheep Seekers who are not in any CCF.
+    if (core.stream_id !== undefined) d.streamId = core.stream_id
   } else {
     if (core.stream_id !== undefined) d.streamId = core.stream_id
     if (core.conversion_date !== undefined) d.conversionDate = parseDateOnly(core.conversion_date)
@@ -257,12 +272,12 @@ export interface CreatePersonArgs {
  */
 export async function createPerson(args: CreatePersonArgs) {
   const bank = args.bank ?? (await loadQuestionBank())
-  if (args.kind === 'member' && !args.core.ccf_id) throw invalid('A member must belong to a CCF')
+  if (args.kind === 'member' && !args.core.ccf_id && !args.core.stream_id) throw invalid('A member must belong to a CCF')
   if (args.kind === 'convert' && args.core.ccf_id) throw invalid('Converts are placed through matching, not assigned a CCF directly')
 
   const person = await ccgTx(async (tx) => {
     await assertCcf(tx, args.core.ccf_id)
-    await assertStream(tx, args.kind === 'convert' ? args.core.stream_id : null)
+    await assertStream(tx, args.core.stream_id)
     await assertConnection(tx, args.core.existing_connection_member_id)
     // Converts belong to the Sheep Seeker who brought them: the one chosen, or
     // the registering user when they are one.
@@ -336,13 +351,15 @@ export async function updatePerson(
   const { answers, status, ...core } = patch
 
   if (kind === 'convert' && core.ccf_id) throw invalid('Converts are placed through matching, not assigned a CCF directly')
-  if (kind === 'member' && core.ccf_id === null) throw invalid('A member must belong to a CCF')
+  if (kind === 'member' && core.ccf_id === null && !(core.stream_id !== undefined ? core.stream_id : before.streamId)) {
+    throw invalid('A member must belong to a CCF')
+  }
   if (status) validateStatusChange(kind, before.status, status)
 
   const previous = (await loadAnswers([id], bank)).get(id) ?? {}
   const result = await ccgTx(async (tx) => {
     await assertCcf(tx, core.ccf_id)
-    await assertStream(tx, kind === 'convert' ? core.stream_id : null)
+    await assertStream(tx, core.stream_id)
     await assertConnection(tx, core.existing_connection_member_id, id)
     if (kind === 'convert' && core.seeker_person_id) {
       await assertSeeker(tx, core.seeker_person_id, core.stream_id !== undefined ? core.stream_id : before.streamId)

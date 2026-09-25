@@ -24,6 +24,7 @@ import {
   Users,
   type LucideIcon,
   HeartHandshake,
+  GraduationCap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Permission } from '@/lib/ccg/permissions'
@@ -43,8 +44,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { SynagoLogo } from '@/components/shell/SynagoLogo'
 import { useTheme } from '@/components/shell/ThemeProvider'
 import { useCcgMe } from './CcgMeProvider'
-import { LEVEL_LABEL, useCcgFocus } from './CcgFocusProvider'
-import { FocusPicker, groupHref } from './synago'
+import { LEVEL_LABEL, useCcgFocus, type Portal } from './CcgFocusProvider'
+import { FocusPicker, PortalSwitcher, groupHref } from './synago'
 
 /**
  * The City Church Group shell, laid out like Synago's: a collapsible labelled
@@ -53,21 +54,28 @@ import { FocusPicker, groupHref } from './synago'
  * floating toggle on mobile.
  */
 
-type NavItem = { href: string; label: string; icon: LucideIcon; accent?: string; perm?: Permission | Permission[]; exact?: boolean }
+/** `portals`: where the item appears (Sheep Seeking, City Church Groups, or both). */
+type NavItem = { href: string; label: string; icon: LucideIcon; accent?: string; perm?: Permission | Permission[]; exact?: boolean; portals: Portal[]; campusOnly?: boolean }
+
+const BOTH: Portal[] = ['seeking', 'ccg']
+const SEEKING: Portal[] = ['seeking']
+const CCG: Portal[] = ['ccg']
 
 const PRIMARY: NavItem[] = [
-  { href: '/ccg', label: 'Home', icon: LayoutDashboard, exact: true, accent: 'text-primary' },
-  { href: '/ccg/converts', label: 'Converts', icon: Sprout, perm: 'people.view', accent: 'text-members' },
-  { href: '/ccg/members', label: 'Members', icon: Users, perm: 'people.view', accent: 'text-members' },
-  { href: '/ccg/approvals', label: 'Approvals', icon: ClipboardCheck, perm: 'placements.view', accent: 'text-primary' },
-  { href: '/ccg/attendance', label: 'Attendance', icon: CalendarCheck, perm: 'attendance.mark', accent: 'text-arrivals' },
+  { href: '/ccg', label: 'Home', icon: LayoutDashboard, exact: true, accent: 'text-primary', portals: BOTH },
+  { href: '/ccg/converts', label: 'Converts', icon: Sprout, perm: 'people.view', accent: 'text-members', portals: BOTH },
+  { href: '/ccg/members', label: 'Members', icon: Users, perm: 'people.view', accent: 'text-members', portals: CCG },
+  { href: '/ccg/approvals', label: 'Approvals', icon: ClipboardCheck, perm: 'placements.view', accent: 'text-primary', portals: SEEKING },
+  { href: '/ccg/attendance', label: 'Attendance', icon: CalendarCheck, perm: 'attendance.mark', accent: 'text-arrivals', portals: BOTH },
+  { href: '/ccg/graduated', label: 'Graduated', icon: GraduationCap, perm: 'reports.view', accent: 'text-success', portals: SEEKING },
 ]
 const SECONDARY: NavItem[] = [
-  { href: '/ccg/groups', label: 'Groups', icon: Network, accent: 'text-churches' },
-  { href: '/ccg/seekers', label: 'Sheep Seekers', icon: HeartHandshake, perm: 'reports.view', accent: 'text-members' },
-  { href: '/ccg/activities', label: 'CCG activities', icon: HandHeart, perm: ['activities.record', 'reports.view'], accent: 'text-campaigns' },
-  { href: '/ccg/links', label: 'Registration links', icon: Link2, perm: ['links.manage', 'links.intake'], accent: 'text-members' },
-  { href: '/ccg/account', label: 'Account', icon: KeyRound },
+  { href: '/ccg/choose', label: 'Choose stream', icon: Building2, accent: 'text-primary', portals: BOTH, campusOnly: true },
+  { href: '/ccg/groups', label: 'Groups', icon: Network, accent: 'text-churches', portals: CCG },
+  { href: '/ccg/seekers', label: 'Sheep Seekers', icon: HeartHandshake, perm: 'reports.view', accent: 'text-members', portals: SEEKING },
+  { href: '/ccg/activities', label: 'CCG activities', icon: HandHeart, perm: ['activities.record', 'reports.view'], accent: 'text-campaigns', portals: CCG },
+  { href: '/ccg/links', label: 'Registration links', icon: Link2, perm: ['links.manage', 'links.intake'], accent: 'text-members', portals: BOTH },
+  { href: '/ccg/account', label: 'Account', icon: KeyRound, portals: BOTH },
 ]
 
 const W_OPEN = 240
@@ -75,9 +83,11 @@ const W_CLOSED = 60
 const T = { duration: 0.2, ease: 'easeInOut' } as const
 
 function useNav() {
-  const { has } = useCcgMe()
+  const { me, has } = useCcgMe()
+  const { portal } = useCcgFocus()
+  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus')
   const pathname = usePathname()
-  const visible = (i: NavItem) => !i.perm || (Array.isArray(i.perm) ? i.perm.some((p) => has(p)) : has(i.perm))
+  const visible = (i: NavItem) => (!i.campusOnly || leadsCampus) && i.portals.includes(portal ?? 'ccg') && (!i.perm || (Array.isArray(i.perm) ? i.perm.some((p) => has(p)) : has(i.perm)))
   const active = (i: NavItem) => (i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(`${i.href}/`))
   return { primary: PRIMARY.filter(visible), secondary: SECONDARY.filter(visible), active }
 }
@@ -224,6 +234,7 @@ function AccountMenu({ open, mobile }: { open: boolean; mobile?: boolean }) {
 }
 
 function Brand({ open }: { open: boolean }) {
+  const { portal } = useCcgFocus()
   return (
     <>
       <div className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg">
@@ -231,7 +242,7 @@ function Brand({ open }: { open: boolean }) {
       </div>
       <Label open={open}>
         <span className="flex flex-col">
-          <span className="text-sm leading-tight font-semibold text-sidebar-foreground">City Church Group</span>
+          <span className="text-sm leading-tight font-semibold text-sidebar-foreground">{portal === 'seeking' ? 'Sheep Seeking' : 'City Church Group'}</span>
           <span className="text-xs text-sidebar-foreground/60">First Love Church</span>
         </span>
       </Label>
@@ -269,6 +280,7 @@ function DesktopSidebar() {
             <Item key={i.href} item={i} open={open} active={active(i)} />
           ))}
           <div className="my-2 h-px bg-sidebar-border" />
+          {open && <PortalSwitcher variant="sidebar" className="mb-2" />}
           {open && <FocusPicker variant="sidebar" className="mb-1" />}
           <FocusItem open={open} />
           {secondary.map((i) => (
@@ -285,6 +297,7 @@ function DesktopSidebar() {
 
 function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { primary, secondary, active } = useNav()
+  const { portal } = useCcgFocus()
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="left" className="ccg-sidebar flex w-72 flex-col border-r border-sidebar-border bg-sidebar p-0">
@@ -293,7 +306,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
             <SynagoLogo size={28} />
           </div>
           <SheetTitle className="text-sm leading-tight font-semibold text-sidebar-foreground">
-            City Church Group
+            {portal === 'seeking' ? 'Sheep Seeking' : 'City Church Group'}
             <span className="block text-xs font-normal text-sidebar-foreground/60">First Love Church</span>
           </SheetTitle>
         </SheetHeader>
@@ -302,6 +315,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
             <Item key={i.href} item={i} open active={active(i)} onNavigate={onClose} mobile />
           ))}
           <div className="my-1.5 h-px bg-sidebar-border" />
+          <PortalSwitcher variant="sidebar" className="mb-2" />
           <FocusPicker variant="sidebar" className="mb-1" />
           <FocusItem open onNavigate={onClose} mobile />
           {secondary.map((i) => (

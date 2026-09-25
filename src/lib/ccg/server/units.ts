@@ -11,6 +11,11 @@ export function serializeCouncil(c: Prisma.CcgCouncilGetPayload<object>, extra: 
   return { id: c.id, stream_id: c.streamId, code: c.code, name: c.name, status: c.status, notes: c.notes, ...extra, created_at: iso(c.createdAt) }
 }
 
+export async function assertCampusExists(id: string | null | undefined) {
+  if (!id) return
+  if (!(await prisma.ccgCampus.findFirst({ where: { id, deletedAt: null } }))) throw invalid('Campus not found')
+}
+
 export async function assertStreamExists(id: string | null | undefined) {
   if (!id) return
   if (!(await prisma.ccgStream.findFirst({ where: { id, deletedAt: null } }))) throw invalid('Stream not found')
@@ -138,14 +143,16 @@ export async function assertCcfEmpty(ccfId: string) {
 // Codes: generated, never typed in
 // ---------------------------------------------------------------------------
 
-const CODE_PREFIX = { stream: 'STR', council: 'CNL', ccg: 'CCG', ccf: 'CCF' } as const
+const CODE_PREFIX = { campus: 'CMP', stream: 'STR', council: 'CNL', ccg: 'CCG', ccf: 'CCF' } as const
 export type CodedUnit = keyof typeof CODE_PREFIX
 
 async function usedCodes(kind: CodedUnit, prefix: string): Promise<string[]> {
   const where = { code: { startsWith: prefix } }
   const select = { code: true }
   const rows =
-    kind === 'stream'
+    kind === 'campus'
+      ? await prisma.ccgCampus.findMany({ where, select })
+      : kind === 'stream'
       ? await prisma.ccgStream.findMany({ where, select })
       : kind === 'council'
         ? await prisma.ccgCouncil.findMany({ where, select })

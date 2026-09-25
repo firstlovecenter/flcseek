@@ -12,14 +12,15 @@ import { ensure } from './handler'
  * history.
  */
 
-export const UNIT_TYPES = ['stream', 'council', 'ccg', 'ccf'] as const
+export const UNIT_TYPES = ['campus', 'stream', 'council', 'ccg', 'ccf'] as const
 export type UnitType = (typeof UNIT_TYPES)[number]
 
 export const isUnitType = (v: unknown): v is UnitType => typeof v === 'string' && (UNIT_TYPES as readonly string[]).includes(v)
 
-/** The role that leads each level (stream: Sheep Seekers, several). */
+/** The role that leads each level (a stream: its Sheep Seeking Overseer). */
 const LEADER_ROLE: Record<UnitType, string> = {
-  stream: 'sheep_seeker',
+  campus: 'campus_leader',
+  stream: 'seeking_overseer',
   council: 'overseer',
   ccg: 'ccg_governor',
   ccf: 'ccf_coordinator',
@@ -34,7 +35,9 @@ export async function ccfIdsIn(type: UnitType, id: string): Promise<string[]> {
         ? { ccgId: id }
         : type === 'council'
           ? { ccg: { councilId: id, deletedAt: null } }
-          : { ccg: { deletedAt: null, council: { streamId: id, deletedAt: null } } }
+          : type === 'stream'
+            ? { ccg: { deletedAt: null, council: { streamId: id, deletedAt: null } } }
+            : { ccg: { deletedAt: null, council: { deletedAt: null, stream: { campusId: id, deletedAt: null } } } }
   const rows = await prisma.ccgFamily.findMany({ where: { ...where, deletedAt: null }, select: { id: true } })
   return rows.map((r) => r.id)
 }
@@ -46,7 +49,9 @@ export function canSeeUnit(scope: CcgScope, type: UnitType, id: string) {
       ? scope.canOnCcg('people.view', id)
       : type === 'council'
         ? scope.canOnCouncil('people.view', id)
-        : scope.canOnStream('people.view', id)
+        : type === 'stream'
+          ? scope.canOnStream('people.view', id)
+          : scope.canOnCampus('people.view', id)
 }
 
 type Crumb = { type: UnitType; id: string; name: string }
@@ -55,11 +60,12 @@ async function loadUnit(type: UnitType, id: string) {
   if (type === 'ccf') {
     const f = await prisma.ccgFamily.findFirst({
       where: { id, deletedAt: null },
-      include: { ccg: { include: { council: { include: { stream: true } } } } },
+      include: { ccg: { include: { council: { include: { stream: { include: { campus: true } } } } } } },
     })
     if (!f) throw notFound('CCF')
     const c = f.ccg.council
     const crumbs: Crumb[] = [
+      ...(c?.stream?.campus ? [{ type: 'campus' as const, id: c.stream.campus.id, name: c.stream.campus.name }] : []),
       ...(c?.stream ? [{ type: 'stream' as const, id: c.stream.id, name: c.stream.name }] : []),
       ...(c ? [{ type: 'council' as const, id: c.id, name: c.name }] : []),
       { type: 'ccg', id: f.ccg.id, name: f.ccg.name },
@@ -83,7 +89,7 @@ async function loadUnit(type: UnitType, id: string) {
     }
   }
   if (type === 'ccg') {
-    const g = await prisma.ccgGroup.findFirst({ where: { id, deletedAt: null }, include: { council: { include: { stream: true } } } })
+    const g = await prisma.ccgGroup.findFirst({ where: { id, deletedAt: null }, include: { council: { include: { stream: { include: { campus: true } } } } } })
     if (!g) throw notFound('CCG')
     const c = g.council
     return {
@@ -98,31 +104,44 @@ async function loadUnit(type: UnitType, id: string) {
         created_at: iso(g.createdAt),
       },
       crumbs: [
+        ...(c?.stream?.campus ? [{ type: 'campus' as const, id: c.stream.campus.id, name: c.stream.campus.name }] : []),
         ...(c?.stream ? [{ type: 'stream' as const, id: c.stream.id, name: c.stream.name }] : []),
         ...(c ? [{ type: 'council' as const, id: c.id, name: c.name }] : []),
       ],
     }
   }
   if (type === 'council') {
-    const c = await prisma.ccgCouncil.findFirst({ where: { id, deletedAt: null }, include: { stream: true } })
+    const c = await prisma.ccgCouncil.findFirst({ where: { id, deletedAt: null }, include: { stream: { include: { campus: true } } } })
     if (!c) throw notFound('Council')
     return {
       unit: { type, id: c.id, code: c.code, name: c.name, status: c.status, notes: c.notes, created_at: iso(c.createdAt) },
-      crumbs: c.stream ? [{ type: 'stream' as const, id: c.stream.id, name: c.stream.name }] : [],
+      crumbs: [
+        ...(c.stream?.campus ? [{ type: 'campus' as const, id: c.stream.campus.id, name: c.stream.campus.name }] : []),
+        ...(c.stream ? [{ type: 'stream' as const, id: c.stream.id, name: c.stream.name }] : []),
+      ],
     }
   }
-  const s = await prisma.ccgStream.findFirst({ where: { id, deletedAt: null } })
-  if (!s) throw notFound('Stream')
-  return { unit: { type, id: s.id, code: s.code, name: s.name, status: s.status, notes: s.notes, created_at: iso(s.createdAt) }, crumbs: [] as Crumb[] }
+  if (type === 'stream') {
+    const s = await prisma.ccgStream.findFirst({ where: { id, deletedAt: null }, include: { campus: true } })
+    if (!s) throw notFound('Stream')
+    return {
+      unit: { type, id: s.id, code: s.code, name: s.name, status: s.status, notes: s.notes, campus_id: s.campusId, created_at: iso(s.createdAt) },
+      crumbs: s.campus ? [{ type: 'campus' as const, id: s.campus.id, name: s.campus.name }] : ([] as Crumb[]),
+    }
+  }
+  const cp = await prisma.ccgCampus.findFirst({ where: { id, deletedAt: null } })
+  if (!cp) throw notFound('Campus')
+  return { unit: { type, id: cp.id, code: cp.code, name: cp.name, status: cp.status, notes: cp.notes, created_at: iso(cp.createdAt) }, crumbs: [] as Crumb[] }
 }
 
 /** Leader names (from their member record) for a set of groups of one level. */
 async function leaderNames(type: UnitType, ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map()
-  const field = type === 'stream' ? 'streamId' : type === 'council' ? 'councilId' : type === 'ccg' ? 'ccgId' : 'ccfId'
+  const field = type === 'campus' ? 'campusId' : type === 'stream' ? 'streamId' : type === 'council' ? 'councilId' : type === 'ccg' ? 'ccgId' : 'ccfId'
   const rows = await prisma.ccgRoleAssignment.findMany({
     where: { roleKey: LEADER_ROLE[type], [field]: { in: ids }, ...currentAssignmentWhere() },
     select: {
+      campusId: true,
       streamId: true,
       councilId: true,
       ccgId: true,
@@ -132,7 +151,7 @@ async function leaderNames(type: UnitType, ids: string[]): Promise<Map<string, s
   })
   const out = new Map<string, string>()
   for (const r of rows) {
-    const unit = r.streamId ?? r.councilId ?? r.ccgId ?? r.ccfId
+    const unit = r.campusId ?? r.streamId ?? r.councilId ?? r.ccgId ?? r.ccfId
     if (unit && !out.has(unit)) out.set(unit, r.user.ccgPeople[0]?.fullName ?? userDisplayName(r.user))
   }
   return out
@@ -146,24 +165,50 @@ export async function childGroups(type: UnitType, id: string) {
   return { type: c.type, items: c.items.map((i) => ({ ...i, leader: leaders.get(i.id) ?? null })) }
 }
 
-/** The top of the tree (church-wide focus): streams the viewer can see, with leaders and counts. */
+/**
+ * The top of the tree (church-wide focus), newest first: campuses and any
+ * streams with no campus; just streams while no campus exists.
+ */
 export async function topGroups(scope: CcgScope) {
-  const rows = await prisma.ccgStream.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' } })
-  const visible = rows.filter((r) => scope.canOnStream('people.view', r.id))
-  const leaders = await leaderNames('stream', visible.map((r) => r.id))
-  return {
-    type: 'stream' as const,
-    items: await Promise.all(
-      visible.map(async (r) => {
-        const ccfIds = await ccfIdsIn('stream', r.id)
-        const [members, placed] = await Promise.all([
-          prisma.ccgPerson.count({ where: { kind: 'member', status: 'active', deletedAt: null, ccfId: { in: ccfIds } } }),
-          prisma.ccgPlacement.count({ where: { status: 'active', finalCcfId: { in: ccfIds }, person: { deletedAt: null } } }),
-        ])
-        return { id: r.id, code: r.code, name: r.name, status: r.status, members, placed, leader: leaders.get(r.id) ?? null }
-      })
-    ),
+  const [campuses, streams] = await Promise.all([
+    prisma.ccgCampus.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' } }),
+    prisma.ccgStream.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' } }),
+  ])
+  const visibleCampuses = campuses.filter((c) => scope.canOnCampus('people.view', c.id))
+  const visibleStreams = streams.filter((s) => (!s.campusId || !visibleCampuses.some((c) => c.id === s.campusId)) && scope.canOnStream('people.view', s.id))
+  const [campusLeaders, streamLeaders] = await Promise.all([
+    leaderNames('campus', visibleCampuses.map((c) => c.id)),
+    leaderNames('stream', visibleStreams.map((s) => s.id)),
+  ])
+  const counts = async (type: 'campus' | 'stream', id: string) => {
+    const ccfIds = await ccfIdsIn(type, id)
+    const [members, placed] = await Promise.all([
+      prisma.ccgPerson.count({ where: { kind: 'member', status: 'active', deletedAt: null, ccfId: { in: ccfIds } } }),
+      prisma.ccgPlacement.count({ where: { status: 'active', finalCcfId: { in: ccfIds }, person: { deletedAt: null } } }),
+    ])
+    return { members, placed }
   }
+  const items = await Promise.all([
+    ...visibleCampuses.map(async (c) => ({
+      type: 'campus' as const,
+      id: c.id,
+      code: c.code,
+      name: c.name,
+      status: c.status,
+      ...(await counts('campus', c.id)),
+      leader: campusLeaders.get(c.id) ?? null,
+    })),
+    ...visibleStreams.map(async (s) => ({
+      type: 'stream' as const,
+      id: s.id,
+      code: s.code,
+      name: s.name,
+      status: s.status,
+      ...(await counts('stream', s.id)),
+      leader: streamLeaders.get(s.id) ?? null,
+    })),
+  ])
+  return { type: campuses.length ? ('campus' as const) : ('stream' as const), items }
 }
 
 /** Sub-units with their member and placed-convert counts. */
@@ -191,6 +236,15 @@ async function children(type: UnitType, id: string) {
       ),
     }
   }
+  if (type === 'campus') {
+    const rows = await prisma.ccgStream.findMany({ where: { campusId: id, deletedAt: null }, orderBy: { createdAt: 'desc' } })
+    return {
+      type: 'stream' as const,
+      items: await Promise.all(
+        rows.map(async (r) => ({ id: r.id, code: r.code, name: r.name, status: r.status, ...(await count(await ccfIdsIn('stream', r.id))) }))
+      ),
+    }
+  }
   if (type === 'stream') {
     const rows = await prisma.ccgCouncil.findMany({ where: { streamId: id, deletedAt: null }, orderBy: { createdAt: 'desc' } })
     return {
@@ -205,7 +259,7 @@ async function children(type: UnitType, id: string) {
 
 /** Role holders at this unit; each is a member (every role is held by a member). */
 async function holders(type: UnitType, id: string) {
-  const field = type === 'stream' ? 'streamId' : type === 'council' ? 'councilId' : type === 'ccg' ? 'ccgId' : 'ccfId'
+  const field = type === 'campus' ? 'campusId' : type === 'stream' ? 'streamId' : type === 'council' ? 'councilId' : type === 'ccg' ? 'ccgId' : 'ccfId'
   const rows = await prisma.ccgRoleAssignment.findMany({
     where: { [field]: id, ...currentAssignmentWhere() },
     include: {
@@ -297,7 +351,7 @@ function sentence(r: LogRow, names: { people: Map<string, string>; units: Map<st
 }
 
 async function history(type: UnitType, id: string, limit = 5) {
-  const unitKey = type === 'ccf' ? 'ccf' : type === 'ccg' ? 'ccg' : type === 'council' ? 'council' : 'stream'
+  const unitKey = type === 'ccf' ? 'ccf' : type === 'ccg' ? 'ccg' : type === 'council' ? 'council' : type === 'stream' ? 'stream' : 'campus'
   const where: Prisma.CcgActivityLogWhereInput = {
     OR: [
       { entityId: id },

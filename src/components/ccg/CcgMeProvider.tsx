@@ -10,7 +10,8 @@ export interface CcgMe {
   roles: Array<{
     assignment_id: string
     role: { key: string; name: string; scope_level: string }
-    unit: { type: string; id: string; name: string } | null
+    /** A campus role also lists the campus's streams (a Campus Leader chooses one). */
+    unit: { type: string; id: string; name: string; streams?: Array<{ id: string; name: string }> } | null
   }>
   permissions: Permission[]
   global_permissions: Permission[]

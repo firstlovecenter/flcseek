@@ -18,6 +18,7 @@ export default function CcgGroupsPage() {
   const { hasGlobal } = useCcgMe()
   const { focus, ready } = useCcgFocus()
   const [items, setItems] = useState<GroupCardItem[] | null>(null)
+  const [topType, setTopType] = useState<'campus' | 'stream'>('stream')
   const [error, setError] = useState<string | null>(null)
   const unit = focus && focus.type !== 'global' && focus.id ? { type: focus.type, id: focus.id } : null
 
@@ -27,7 +28,11 @@ export default function CcgGroupsPage() {
       router.replace(groupHref(unit.type, unit.id))
       return
     }
-    ccgApi.get<{ items: GroupCardItem[] }>('/groups').then((r) => (r.ok ? setItems(r.data.items) : setError(r.error.message)))
+    ccgApi.get<{ type: 'campus' | 'stream'; items: GroupCardItem[] }>('/groups').then((r) => {
+      if (!r.ok) return setError(r.error.message)
+      setTopType(r.data.type)
+      setItems(r.data.items)
+    })
   }, [ready, unit?.type, unit?.id, router]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <ErrorScreen title="Could not load groups" message={error} />
@@ -35,9 +40,9 @@ export default function CcgGroupsPage() {
     <GroupList
       eyebrow="The whole church"
       parentName={null}
-      type="stream"
+      type={topType}
       items={unit ? null : items}
-      addHref={hasGlobal('structure.manage') ? '/ccg/groups/new?type=stream' : undefined}
+      addHref={hasGlobal('structure.manage') ? `/ccg/groups/new?type=${topType}` : undefined}
     />
   )
 }

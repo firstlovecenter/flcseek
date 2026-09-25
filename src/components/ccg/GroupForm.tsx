@@ -19,21 +19,27 @@ import { UNIT_PATH } from './structure-types'
 import { StickyHeader, UNIT_LEVEL, groupHref } from './synago'
 
 /**
- * Add or edit a group (stream, council, CCG or CCF) on its own page, like
+ * Add or edit a group (campus, stream, council, CCG or CCF) on its own page, like
  * Synago's church forms. The leader is chosen from members; one without a
  * login is emailed an invitation to set a password.
  */
 
-export type GroupType = 'stream' | 'council' | 'ccg' | 'ccf'
+export type GroupType = 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
 
 const PARENT: Record<GroupType, { type: GroupType; field: string; label: string; path: string; key: string } | null> = {
-  stream: null,
+  campus: null,
+  stream: { type: 'campus', field: 'campus_id', label: 'Campus', path: '/campuses', key: 'campuses' },
   council: { type: 'stream', field: 'stream_id', label: 'Stream', path: '/streams', key: 'streams' },
   ccg: { type: 'council', field: 'council_id', label: 'Council', path: '/councils', key: 'councils' },
   ccf: { type: 'ccg', field: 'ccg_id', label: 'CCG', path: '/ccgs', key: 'ccgs' },
 }
-const LEADER_LABEL: Record<GroupType, string | null> = { stream: null, council: 'Overseer', ccg: 'City Church Governor', ccf: 'CCF Coordinator' }
+// (A stream's leader, its Sheep Seeking Overseer, is appointed on the stream's page.)
+const LEADER_LABEL: Record<GroupType, string | null> = { campus: 'Campus Leader', stream: null, council: 'Overseer', ccg: 'City Church Governor', ccf: 'CCF Coordinator' }
 const STATUSES: Record<GroupType, Array<{ value: string; label: string }>> = {
+  campus: [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+  ],
   stream: [
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
@@ -108,6 +114,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         meeting_day: str(g.meeting_day),
         meeting_time: str(g.meeting_time),
         meeting_location: str(g.meeting_location),
+        campus_id: str(g.campus_id),
         stream_id: str(g.stream_id),
         council_id: str((g.council as { id?: string } | null)?.id),
         ccg_id: str((g.ccg as { id?: string } | null)?.id),

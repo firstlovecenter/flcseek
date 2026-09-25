@@ -1,9 +1,11 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { currentAssignmentWhere } from '../access'
-import { forbidden } from '../errors'
+import { conflict, forbidden, notFound } from '../errors'
 import type { CcgScope } from '../scope'
 import { iso } from './common'
+import { createPerson } from './people'
+import { assignRoleToMember, endAssignment } from './roles'
 
 /**
  * Sheep Seekers: stream-level members who bring converts in, register them and
@@ -196,5 +198,147 @@ export async function seekerReport(scope: CcgScope, opts: { streamId: string | n
     /** Converts in these streams with no Sheep Seeker recorded. */
     unassigned: unassigned ?? empty(),
     total,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Appointing a Sheep Seeker
+// ---------------------------------------------------------------------------
+
+export type AddSeeker =
+  | { person_id: string }
+  | { first_name: string; middle_name?: string | null; last_name: string; phone: string; email: string }
+
+/**
+ * Make someone a Sheep Seeker of a stream. They need not be in any CCF: new
+ * people are added as members of the stream only. Someone already in the app
+ * with the same email (e.g. a CCF member) is reused, so they keep one login
+ * and switch roles. A person without a login is emailed a link to set their
+ * password.
+ */
+export async function addSeeker(streamId: string, body: AddSeeker, actorId: string, origin: string) {
+  return appointInStream(streamId, 'sheep_seeker', body, actorId, origin)
+}
+
+/**
+ * Make someone the stream's Sheep Seeking Overseer (one per stream: the
+ * current one, if different, stands down).
+ */
+export async function setSeekingOverseer(streamId: string, body: AddSeeker, actorId: string, origin: string) {
+  return appointInStream(streamId, 'seeking_overseer', body, actorId, origin)
+}
+
+/** The person to appoint: an existing member, one with the same email, or someone new of the stream. */
+async function personFor(streamId: string, body: AddSeeker, actorId: string) {
+  if ('person_id' in body) return { personId: body.person_id, reused: false }
+  const email = body.email.trim().toLowerCase()
+  const existing = await prisma.ccgPerson.findFirst({
+    where: { kind: 'member', deletedAt: null, email: { equals: email, mode: 'insensitive' } },
+    select: { id: true, status: true },
+  })
+  if (existing) {
+    if (existing.status !== 'active') throw conflict(`${email} belongs to a member who is not active yet`)
+    return { personId: existing.id, reused: true }
+  }
+  const { person } = await createPerson({
+    kind: 'member',
+    core: { first_name: body.first_name, middle_name: body.middle_name ?? null, last_name: body.last_name, phone: body.phone, email, stream_id: streamId },
+    answers: {},
+    source: 'staff',
+    actorId,
+  })
+  return { personId: person.id, reused: false }
+}
+
+async function appointInStream(streamId: string, roleKey: 'sheep_seeker' | 'seeking_overseer', body: AddSeeker, actorId: string, origin: string) {
+  const stream = await prisma.ccgStream.findFirst({ where: { id: streamId, deletedAt: null } })
+  if (!stream) throw notFound('Stream')
+  const { personId, reused } = await personFor(streamId, body, actorId)
+
+  const current = await prisma.ccgRoleAssignment.findMany({
+    where: { roleKey, streamId, ...currentAssignmentWhere() },
+    select: { id: true, user: { select: { ccgPeople: { where: { deletedAt: null }, select: { id: true } } } } },
+  })
+  const holds = current.find((a) => a.user.ccgPeople.some((p) => p.id === personId))
+  const label = roleKey === 'sheep_seeker' ? 'a Sheep Seeker' : 'the Sheep Seeking Overseer'
+  if (holds) throw conflict(`They are already ${label} for ${stream.name}`)
+  // One Sheep Seeking Overseer per stream.
+  if (roleKey === 'seeking_overseer') for (const a of current) await endAssignment(a.id, actorId)
+  const { assignment, invite } = await assignRoleToMember({ person_id: personId, role_key: roleKey, stream_id: streamId }, actorId, origin)
+  return { person_id: personId, assignment_id: assignment.id, reused, invite }
+}
+
+/** Stand a Sheep Seeker of this stream down (their converts stay assigned to them until reassigned). */
+export async function standDownSeeker(streamId: string, assignmentId: string, actorId: string) {
+  const a = await prisma.ccgRoleAssignment.findFirst({ where: { id: assignmentId, streamId, roleKey: 'sheep_seeker' } })
+  if (!a) throw notFound('Sheep Seeker')
+  await endAssignment(a.id, actorId)
+}
+
+// ---------------------------------------------------------------------------
+// Graduated: converts who completed their assessment and became CCF members
+// ---------------------------------------------------------------------------
+
+/**
+ * The Sheep Seeking side's record of converts who graduated into membership,
+ * for statistics. Read-only: they are CCF members now, followed up in City
+ * Church Groups. A Sheep Seeker sees those assigned to them; an Overseer their
+ * stream's; the central team everyone's.
+ */
+export async function graduatedList(scope: CcgScope, opts: { streamId: string | null; mine: boolean; search: string | null; limit: number; offset: number }) {
+  const streams = scope.streamIds('reports.view')
+  if (opts.streamId && !scope.canOnStream('reports.view', opts.streamId)) throw forbidden('You can only see graduates of your streams')
+  const inStream = (ids: string[]): Prisma.CcgPlacementWhereInput => ({
+    OR: [{ person: { streamId: { in: ids } } }, { finalCcf: { ccg: { council: { streamId: { in: ids } } } } }],
+  })
+  const visible: Prisma.CcgPlacementWhereInput[] = []
+  if (streams === 'all') visible.push({})
+  else if (streams.length) visible.push(inStream(streams))
+  if (scope.seekerPersonId) visible.push({ person: { seekerPersonId: scope.seekerPersonId } })
+  if (visible.length === 0) throw forbidden('Graduates are shown to Sheep Seekers and their Overseers')
+
+  const where: Prisma.CcgPlacementWhereInput = {
+    status: 'ended',
+    outcome: { in: SUCCESS_OUTCOMES },
+    person: { deletedAt: null },
+    AND: [
+      { OR: visible },
+      opts.streamId ? inStream([opts.streamId]) : {},
+      opts.mine ? { person: { seekerPersonId: scope.seekerPersonId ?? '00000000-0000-0000-0000-000000000000' } } : {},
+      opts.search ? { person: { fullName: { contains: opts.search, mode: 'insensitive' } } } : {},
+    ],
+  }
+  const now = new Date()
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1))
+  const [rows, total, thisMonth, thisYear] = await Promise.all([
+    prisma.ccgPlacement.findMany({
+      where,
+      orderBy: { endedAt: 'desc' },
+      take: opts.limit,
+      skip: opts.offset,
+      select: {
+        id: true,
+        decidedAt: true,
+        endedAt: true,
+        person: { select: { id: true, fullName: true, seeker: { select: { id: true, fullName: true } } } },
+        finalCcf: { select: { id: true, name: true, ccg: { select: { name: true } } } },
+      },
+    }),
+    prisma.ccgPlacement.count({ where }),
+    prisma.ccgPlacement.count({ where: { AND: [where, { endedAt: { gte: monthStart } }] } }),
+    prisma.ccgPlacement.count({ where: { AND: [where, { endedAt: { gte: yearStart } }] } }),
+  ])
+  return {
+    counts: { total, this_month: thisMonth, this_year: thisYear },
+    graduates: rows.map((r) => ({
+      placement_id: r.id,
+      person: { id: r.person.id, full_name: r.person.fullName },
+      ccf: r.finalCcf ? { id: r.finalCcf.id, name: r.finalCcf.name, ccg: r.finalCcf.ccg.name } : null,
+      seeker: r.person.seeker ? { id: r.person.seeker.id, full_name: r.person.seeker.fullName } : null,
+      placed_on: iso(r.decidedAt),
+      graduated_on: iso(r.endedAt),
+      days: r.decidedAt && r.endedAt ? Math.round((r.endedAt.getTime() - r.decidedAt.getTime()) / DAY) : null,
+    })),
   }
 }

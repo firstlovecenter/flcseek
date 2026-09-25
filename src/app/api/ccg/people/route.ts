@@ -48,7 +48,7 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ user, scope, 
       ccfId ? inUnit({ id: ccfId }) : {},
       ccgId ? inUnit({ ccgId }) : {},
       councilId ? inUnit({ ccg: { councilId } }) : {},
-      streamId ? { OR: [inUnit({ ccg: { council: { streamId } } }), { kind: 'convert', streamId }] } : {},
+      streamId ? { OR: [inUnit({ ccg: { council: { streamId } } }), { kind: 'convert', streamId }, { kind: 'member', ccfId: null, streamId }] } : {},
       gender === 'Male' || gender === 'Female' ? { gender } : {},
       seekerId === 'none' ? { kind: 'convert', seekerPersonId: null } : seekerId ? { kind: 'convert', seekerPersonId: seekerId } : {},
       search
@@ -84,6 +84,13 @@ export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema:
     if (!body.stream_id && streams.length === 1) body.stream_id = streams[0]
     if (!body.stream_id) throw invalid('Choose the stream this convert is registered into')
     ensure(scope.canOnStream('people.manage', body.stream_id), 'You can only register converts into your stream')
+  }
+  // Assigning to another Sheep Seeker is the Overseer's call; left out, it is the registering seeker.
+  if (body.kind === 'convert' && body.seeker_person_id) {
+    ensure(
+      scope.can('seekers.manage') || scope.canOnStream('seekers.manage', body.stream_id) || body.seeker_person_id === scope.seekerPersonId,
+      'Only the stream’s Sheep Seeking Overseer can assign converts to other Sheep Seekers'
+    )
   }
   const { kind, answers, ...core } = body
   const { person, proposal } = await createPerson({ kind, core, answers, source: 'staff', actorId: user.id })
