@@ -39,12 +39,15 @@ export function GroupList({
   type,
   items,
   addHref,
+  extraAdd,
 }: {
   eyebrow: React.ReactNode
   parentName: string | null
   type: GroupType
   items: GroupCardItem[] | null
   addHref?: string
+  /** Another level that can be added here (the top of the tree: campuses and streams). */
+  extraAdd?: { type: GroupType; href: string }
 }) {
   const [search, setSearch] = useState('')
   const q = search.trim().toLowerCase()
@@ -60,13 +63,25 @@ export function GroupList({
               <span className="text-members">{GROUP_PLURAL[type]}</span>
             </h1>
           </div>
-          {addHref && (
-            <Button className="h-10 shrink-0 gap-1.5" asChild>
-              <Link href={addHref}>
-                <Plus className="size-4" />
-                <span className="hidden sm:inline">Add {UNIT_LEVEL[type]}</span>
-              </Link>
-            </Button>
+          {(addHref || extraAdd) && (
+            <div className="flex shrink-0 gap-2">
+              {extraAdd && (
+                <Button variant="outline" className="h-10 gap-1.5" asChild>
+                  <Link href={extraAdd.href}>
+                    <Plus className="size-4" />
+                    Add {UNIT_LEVEL[extraAdd.type].toLowerCase()}
+                  </Link>
+                </Button>
+              )}
+              {addHref && (
+                <Button className="h-10 gap-1.5" asChild>
+                  <Link href={addHref}>
+                    <Plus className="size-4" />
+                    Add {UNIT_LEVEL[type].toLowerCase()}
+                  </Link>
+                </Button>
+              )}
+            </div>
           )}
         </div>
         <div className="relative">
