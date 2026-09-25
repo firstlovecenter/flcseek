@@ -19,6 +19,7 @@
     "test:ccg-db": "node scripts/ccg-test-db.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@fontsource/outfit": "^5.2.8",
     "@hookform/resolvers": "^3.9.0",
     "@neondatabase/serverless": "^1.0.2",

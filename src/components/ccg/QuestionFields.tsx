@@ -2,6 +2,7 @@
 
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { TraitScale } from '@/components/ccg/TraitScale'
 
@@ -19,11 +20,15 @@ export interface FormQuestion {
   type: 'single' | 'multi' | 'scale5' | 'text' | string
   max_choices: number | null
   required: boolean
-  options: Array<{ key: string; label: string }>
+  /** catch_all: an "Other" option; choosing it asks what they meant. */
+  options: Array<{ key: string; label: string; catch_all?: boolean }>
 }
 
 export type AnswerValue = string | string[] | number
+/** Question key → answer; `<key>__other` holds what was typed after choosing "Other". */
 export type Answers = Record<string, AnswerValue>
+
+export const OTHER_SUFFIX = '__other'
 
 /** "1 = not at all, 5 = very" → ["Not at all", "Very"]. */
 function scaleEnds(help: string | null): [string, string] {
@@ -94,12 +99,20 @@ export function QuestionField({
   onChange,
   error,
   disabled,
+  other,
+  onOtherChange,
+  aiKeys,
 }: {
   q: FormQuestion
   value: AnswerValue | undefined
   onChange: (v: AnswerValue | undefined) => void
   error?: string
   disabled?: boolean
+  /** What they typed after choosing "Other". */
+  other?: string
+  onOtherChange?: (v: string | undefined) => void
+  /** Options the AI added from that text (marked as such). */
+  aiKeys?: string[]
 }) {
   const label = (
     <span>
@@ -127,13 +140,30 @@ export function QuestionField({
   }
   if (q.type === 'single' || q.type === 'multi') {
     const current = Array.isArray(value) ? value : typeof value === 'string' ? [value] : []
+    const otherChosen = q.options.some((o) => o.catch_all && current.includes(o.key))
+    const aiLabels = (aiKeys ?? []).filter((k) => current.includes(k)).map((k) => q.options.find((o) => o.key === k)?.label ?? k)
     control = (
-      <Chips
-        q={q}
-        value={current}
-        disabled={disabled}
-        onChange={(v) => onChange(v.length === 0 ? undefined : q.type === 'single' ? v[0] : v)}
-      />
+      <>
+        <Chips
+          q={q}
+          value={current}
+          disabled={disabled}
+          onChange={(v) => onChange(v.length === 0 ? undefined : q.type === 'single' ? v[0] : v)}
+        />
+        {otherChosen && onOtherChange && (
+          <Input
+            aria-label={`${q.prompt}: tell us more`}
+            placeholder="Tell us more (optional)"
+            maxLength={200}
+            value={other ?? ''}
+            disabled={disabled}
+            onChange={(e) => onOtherChange(e.target.value || undefined)}
+          />
+        )}
+        {aiLabels.length > 0 && (
+          <p className="text-xs text-muted-foreground">Added from what they typed: {aiLabels.join(', ')}</p>
+        )}
+      </>
     )
   } else {
     control = (
@@ -164,12 +194,15 @@ export function QuestionFields({
   onChange,
   errors = {},
   disabled,
+  aiKeys,
 }: {
   questions: FormQuestion[]
   answers: Answers
   onChange: (next: Answers) => void
   errors?: Record<string, string | undefined>
   disabled?: boolean
+  /** Per question, options the AI added from "Other" text. */
+  aiKeys?: Record<string, string[]>
 }) {
   const sections: Array<{ name: string; items: FormQuestion[] }> = []
   for (const q of questions) {
@@ -182,6 +215,10 @@ export function QuestionFields({
     const next = { ...answers }
     if (v === undefined) delete next[key]
     else next[key] = v
+    // "Other" text only while "Other" is chosen.
+    const q = questions.find((x) => x.key === key)
+    const chosen = Array.isArray(v) ? v : typeof v === 'string' ? [v] : []
+    if (q && !q.options.some((o) => o.catch_all && chosen.includes(o.key))) delete next[key + OTHER_SUFFIX]
     onChange(next)
   }
 
@@ -191,7 +228,17 @@ export function QuestionFields({
         <section key={s.name} className="space-y-4">
           <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{s.name}</h3>
           {s.items.map((q) => (
-            <QuestionField key={q.key} q={q} value={answers[q.key]} onChange={(v) => set(q.key, v)} error={errors[q.key]} disabled={disabled} />
+            <QuestionField
+              key={q.key}
+              q={q}
+              value={answers[q.key]}
+              onChange={(v) => set(q.key, v)}
+              other={typeof answers[q.key + OTHER_SUFFIX] === 'string' ? (answers[q.key + OTHER_SUFFIX] as string) : undefined}
+              onOtherChange={(v) => set(q.key + OTHER_SUFFIX, v)}
+              aiKeys={aiKeys?.[q.key]}
+              error={errors[q.key]}
+              disabled={disabled}
+            />
           ))}
         </section>
       ))}

@@ -224,6 +224,7 @@ async function holders(type: UnitType, id: string) {
   return rows.map((a) => {
     const person = a.user.ccgPeople[0]
     return {
+      assignment_id: a.id,
       role_key: a.roleKey,
       role: a.role.name,
       user_id: a.userId,

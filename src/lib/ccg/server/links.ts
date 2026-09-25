@@ -5,7 +5,7 @@ import { questionAppliesTo, type AnswerValue } from '../engine'
 import { CcgError, conflict, invalid, notFound } from '../errors'
 import type { PublicSubmission } from '../schemas'
 import { dateOnly, iso, logCcg } from './common'
-import { createPerson, updatePerson } from './people'
+import { createPerson, seekerSelf, updatePerson } from './people'
 import { loadAnswers, loadQuestionBank } from './questions'
 
 /**
@@ -29,7 +29,7 @@ function hashIp(ip: string): string {
   return createHash('sha256').update(`${ip}:${process.env.JWT_SECRET ?? 'ccg'}`).digest('hex')
 }
 
-type LinkRow = Prisma.CcgFormLinkGetPayload<{ include: { ccf: { include: { ccg: true } }; stream: true; person: true } }>
+type LinkRow = Prisma.CcgFormLinkGetPayload<{ include: typeof linkInclude }>
 
 export function linkState(l: { revokedAt: Date | null; expiresAt: Date | null; maxUses: number | null; uses: number }, now = new Date()) {
   if (l.revokedAt) return 'revoked'
@@ -46,6 +46,8 @@ export function serializeLink(l: LinkRow) {
     ccf: l.ccf ? { id: l.ccf.id, code: l.ccf.code, name: l.ccf.name, ccg: { id: l.ccf.ccg.id, name: l.ccf.ccg.name } } : null,
     stream: l.stream ? { id: l.stream.id, code: l.stream.code, name: l.stream.name } : null,
     person: l.person ? { id: l.person.id, full_name: l.person.fullName } : null,
+    /** Intake links: whose converts these are. */
+    seeker: l.seeker ? { id: l.seeker.id, full_name: l.seeker.fullName } : null,
     state: linkState(l),
     expires_at: iso(l.expiresAt),
     max_uses: l.maxUses,
@@ -55,12 +57,13 @@ export function serializeLink(l: LinkRow) {
   }
 }
 
-export const linkInclude = { ccf: { include: { ccg: true } }, stream: true, person: true } as const
+export const linkInclude = { ccf: { include: { ccg: true } }, stream: true, person: true, seeker: { select: { id: true, fullName: true } } } as const
 
 export async function createLink(args: {
   kind: LinkKind
   ccfId?: string
   streamId?: string | null
+  seekerPersonId?: string | null
   personId?: string
   label?: string | null
   expiresAt?: Date | null
@@ -76,6 +79,13 @@ export async function createLink(args: {
     const s = await prisma.ccgStream.findFirst({ where: { id: args.streamId, deletedAt: null } })
     if (!s) throw notFound('Stream')
   }
+  // Converts from an intake link belong to its Sheep Seeker: the one chosen, or the creator when they are one.
+  const seekerPersonId =
+    args.kind !== 'convert_intake' ? null : args.seekerPersonId ?? (await seekerSelf(prisma, args.actorId, args.streamId))
+  if (args.kind === 'convert_intake' && args.seekerPersonId) {
+    const m = await prisma.ccgPerson.findFirst({ where: { id: args.seekerPersonId, kind: 'member', deletedAt: null }, select: { id: true } })
+    if (!m) throw invalid('Choose a Sheep Seeker')
+  }
   if (args.kind === 'person_update') {
     if (!args.personId) throw invalid('Choose the person this link is for')
     const p = await prisma.ccgPerson.findFirst({ where: { id: args.personId, deletedAt: null } })
@@ -88,6 +98,7 @@ export async function createLink(args: {
       ccfId: args.kind === 'member_ccf' ? args.ccfId! : null,
       streamId: args.kind === 'convert_intake' ? args.streamId ?? null : null,
       personId: args.kind === 'person_update' ? args.personId! : null,
+      seekerPersonId,
       label: args.label ?? null,
       tokenHash: hashToken(token),
       expiresAt: args.expiresAt ?? null,
@@ -208,7 +219,7 @@ export async function getPublicForm(token: string) {
         options: q.options
           .filter((o) => o.active)
           .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((o) => ({ key: o.key, label: o.label })),
+          .map((o) => ({ key: o.key, label: o.label, catch_all: o.catchAll })),
       })),
     ...(prefill ? { prefill } : {}),
   }
@@ -293,8 +304,9 @@ export async function submitPublicForm(
           first_name: body.person.first_name!,
           last_name: body.person.last_name!,
           ccf_id: l.ccfId ?? undefined,
-          // An intake link registers converts into its stream.
+          // An intake link registers converts into its stream, for its Sheep Seeker.
           stream_id: kind === 'convert_intake' ? l.streamId : undefined,
+          seeker_person_id: kind === 'convert_intake' ? l.seekerPersonId : undefined,
         },
         answers: body.answers,
         source: 'self',

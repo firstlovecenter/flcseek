@@ -335,6 +335,27 @@ Links open the public page `/join/[token]`, which needs no login and is shown wi
   - `convert_intake` creates a convert and matches them straight away.
   - `person_update` updates the person's own details and answers.
 
+### Sheep Seekers
+
+Sheep Seekers are stream-level members who bring converts in. Each convert records its seeker (`seeker_person_id` on people, shown as `seeker`). It defaults to the registering user when they are a Sheep Seeker; for converts who register themselves, it comes from the intake link's `seeker_person_id`, which defaults to the link's creator. Appoint and stand seekers down with `POST /assignments` (`role_key: sheep_seeker`, `stream_id`) and `DELETE /assignments/[id]`; the stream's page lists them from `role_holders`, which now carry `assignment_id`.
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET | `/seekers/me` | any | `{ home }`: the signed-in seeker's counts (registered this week, awaiting approval, on hold, in assessment, became members), the converts on hold, follow-ups and recent converts. `home` is null when they are not a Sheep Seeker. |
+| GET | `/seekers?stream_id=&period=week\|month&offset=0` | reports.view on the streams | Per seeker for one week (starting Monday) or calendar month, `offset` periods back: `registered`, `placed`, `became_members`, `dropped`, and `in_assessment` (today). Also returns `unassigned` and `total`. |
+| GET | `/seekers/options?stream_id=` | people.view | Seekers to choose from: `{ person_id, name, streams[] }` |
+
+`GET /people?seeker=me|<person id>|none` filters converts by seeker.
+
+### AI help
+
+Runs only when `ANTHROPIC_API_KEY` is set (`CCG_AI=off` switches it off; `CCG_AI_MODEL` overrides the default `claude-opus-5`). It always runs after the response is sent, and when it fails the app behaves as without it.
+
+- **"Other" text.** Answers may include `<question key>__other` (up to 200 characters) with what the person typed after choosing a catch-all option. The text is kept only while that option is chosen. The AI adds the options it clearly means, never more than `max_choices`. People return this as `answer_notes: { <key>: { other_text, ai_keys } }`. Public form options carry `catch_all`.
+- **Connection note.** For a convert with a note and no linked member, the AI picks the member the note clearly refers to, from members in their stream whose names appear in it. Such links are marked `connection_by_ai`; choosing a member by hand clears the flag.
+- **Re-matching.** When tidying changes anything, a convert who is still waiting is re-matched (trigger `answers_changed`).
+- **Approver summaries.** Each new proposal gets `ai_summary` (one or two sentences on why the CCF fits) and `ai_summary_at`. The approval queue fills in up to 5 missing summaries each time it loads.
+
 ### Settings, roles and users
 
 | Method | Path | Permission | Notes |

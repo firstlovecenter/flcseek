@@ -23,6 +23,7 @@ import {
   Sun,
   Users,
   type LucideIcon,
+  HeartHandshake,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Permission } from '@/lib/ccg/permissions'
@@ -63,6 +64,7 @@ const PRIMARY: NavItem[] = [
 ]
 const SECONDARY: NavItem[] = [
   { href: '/ccg/groups', label: 'Groups', icon: Network, accent: 'text-churches' },
+  { href: '/ccg/seekers', label: 'Sheep Seekers', icon: HeartHandshake, perm: 'reports.view', accent: 'text-members' },
   { href: '/ccg/activities', label: 'CCG activities', icon: HandHeart, perm: ['activities.record', 'reports.view'], accent: 'text-campaigns' },
   { href: '/ccg/links', label: 'Registration links', icon: Link2, perm: ['links.manage', 'links.intake'], accent: 'text-members' },
   { href: '/ccg/account', label: 'Account', icon: KeyRound },

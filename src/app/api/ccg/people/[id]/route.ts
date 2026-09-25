@@ -5,7 +5,7 @@ import { personUpdateSchema, type PersonUpdate } from '@/lib/ccg/schemas'
 import { iso, num } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { canOnPerson, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
-import { loadAnswers, loadQuestionBank } from '@/lib/ccg/server/questions'
+import { loadAnswerNotes, loadAnswers, loadQuestionBank } from '@/lib/ccg/server/questions'
 
 export const dynamic = 'force-dynamic'
 type P = { id: string }
@@ -21,8 +21,9 @@ export const GET = withCcg<undefined, P>({ permission: 'people.view' }, async ({
   const p = await load(params.id)
   ensure(canOnPerson(scope, 'people.view', p), 'You can only view people in your scope')
   const bank = await loadQuestionBank()
-  const [answers, history, transfers] = await Promise.all([
+  const [answers, notes, history, transfers] = await Promise.all([
     loadAnswers([p.id], bank),
+    loadAnswerNotes([p.id], bank),
     prisma.ccgPlacement.findMany({
       where: { personId: p.id },
       include: { proposedCcf: true, finalCcf: true },
@@ -35,7 +36,7 @@ export const GET = withCcg<undefined, P>({ permission: 'people.view' }, async ({
     }),
   ])
   return success({
-    person: serializePerson(p, answers.get(p.id) ?? {}),
+    person: serializePerson(p, answers.get(p.id) ?? {}, notes.get(p.id) ?? {}),
     placements: history.map((h) => ({
       id: h.id,
       status: h.status,

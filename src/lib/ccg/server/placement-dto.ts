@@ -41,6 +41,9 @@ export function serializePlacement(p: Row, opts: { withAlternatives?: boolean } 
     override_reason: p.overrideReason,
     full_ccf_override: p.fullCcfOverride,
     hold_reason: p.holdReason,
+    /** Plain-English "why this CCF" for approvers (AI); null until written or when the AI is off. */
+    ai_summary: p.aiSummary,
+    ai_summary_at: iso(p.aiSummaryAt),
     decided_at: iso(p.decidedAt),
     ended_at: iso(p.endedAt),
     end_reason: p.endReason,

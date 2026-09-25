@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { CHILD_GROUP, GROUP_PLURAL, GroupCard, LEADER_KEY, LEADER_TITLE, isGroupType, type GroupType } from '@/components/ccg/GroupCard'
+import { StreamSeekers } from '@/components/ccg/StreamSeekers'
 import { UNIT_PATH } from '@/components/ccg/structure-types'
 import { Crumbs, DetailTile, LeaderBlock, SectionLabel, StickyHeader, Timeline, UNIT_LEVEL, UnitTitle, groupHref } from '@/components/ccg/synago'
 
@@ -41,7 +42,7 @@ interface Overview {
   }
   breadcrumb: Array<{ type: string; id: string; name: string }>
   leaders: Array<{ role: string; person_id: string | null; name: string }>
-  role_holders: Array<{ role_key: string; role: string; person_id: string | null; name: string; since: string | null }>
+  role_holders: Array<{ assignment_id: string; role_key: string; role: string; person_id: string | null; name: string; since: string | null }>
   stats: {
     members: number
     pending_members: number
@@ -146,11 +147,11 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
       </StickyHeader>
 
       <div className="space-y-8 pt-4">
-        {/* Leader */}
-        {data ? (
+        {/* Leader (a stream's Sheep Seekers have their own section below) */}
+        {type === 'stream' ? null : data ? (
           <LeaderBlock
             title={LEADER_TITLE[type]}
-            name={type === 'stream' ? data.leaders.map((l) => l.name).join(', ') || null : leader?.name ?? null}
+            name={leader?.name ?? null}
             href={leader?.person_id ? `/ccg/members?person=${leader.person_id}` : undefined}
           />
         ) : (
@@ -200,6 +201,15 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
           </div>
           {u?.notes && <p className="mt-3 text-sm whitespace-pre-line text-muted-foreground">{u.notes}</p>}
         </section>
+
+        {type === 'stream' && (
+          <StreamSeekers
+            streamId={id}
+            streamName={u?.name ?? 'this stream'}
+            seekers={data ? data.role_holders.filter((h) => h.role_key === 'sheep_seeker') : null}
+            onChanged={load}
+          />
+        )}
 
         {/* Other role holders */}
         {others.length > 0 && (

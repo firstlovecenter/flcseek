@@ -645,6 +645,10 @@ model CcgPerson {
   /// Members who lead: their login (leader roles are held by members).
   userId                     String?   @map("user_id") @db.Uuid
   possibleDuplicateOfId      String?   @map("possible_duplicate_of_id") @db.Uuid
+  /// Converts: the Sheep Seeker (a member) who brought or registered them.
+  seekerPersonId             String?   @map("seeker_person_id") @db.Uuid
+  /// The existing connection was matched by the AI from the convert's note.
+  connectionByAi             Boolean   @default(false) @map("connection_by_ai")
   status                     String    @db.VarChar(20)
   source                     String    @default("staff") @db.VarChar(10)
   notes                      String?
@@ -668,6 +672,9 @@ model CcgPerson {
   prayedFor           CcgGroupActivityPerson[]
   user                User?                    @relation("CcgPersonUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   transfers           CcgTransfer[]
+  seeker              CcgPerson?               @relation("CcgSeeker", fields: [seekerPersonId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  seekerOf            CcgPerson[]              @relation("CcgSeeker")
+  seekerLinks         CcgFormLink[]            @relation("CcgLinkSeeker")
   invites             CcgInvite[]
 
   @@index([kind, status], map: "idx_ccg_people_kind")
@@ -721,6 +728,10 @@ model CcgAnswer {
   personId   String    @map("person_id") @db.Uuid
   questionId String    @map("question_id") @db.Uuid
   value      Json
+  /// What was typed after choosing "Other".
+  otherText  String?   @map("other_text") @db.VarChar(200)
+  /// Option keys the AI added from other_text.
+  aiKeys     Json?     @map("ai_keys")
   source     String    @default("staff") @db.VarChar(10)
   updatedBy  String?   @map("updated_by") @db.Uuid
   updatedAt  DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -739,6 +750,8 @@ model CcgFormLink {
   /// Convert intake links: the stream new converts are registered into.
   streamId  String?   @map("stream_id") @db.Uuid
   personId  String?   @map("person_id") @db.Uuid
+  /// Convert intake links: the Sheep Seeker whose converts these are.
+  seekerPersonId String? @map("seeker_person_id") @db.Uuid
   label     String?   @db.VarChar(150)
   tokenHash String    @unique @map("token_hash") @db.Char(64)
   expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
@@ -751,6 +764,7 @@ model CcgFormLink {
   ccf         CcgFamily?      @relation(fields: [ccfId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   stream      CcgStream?      @relation(fields: [streamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   person      CcgPerson?      @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  seeker      CcgPerson?      @relation("CcgLinkSeeker", fields: [seekerPersonId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   submissions CcgSubmission[]
 
   @@map("ccg_form_links")
@@ -811,6 +825,9 @@ model CcgPlacement {
   endReason       String?   @map("end_reason")
   /// graduated (assessment complete) | made_member | ended
   outcome         String?   @db.VarChar(12)
+  /// Plain-English "why this CCF" for approvers (AI); ai_summary_at = when it was attempted.
+  aiSummary       String?   @map("ai_summary")
+  aiSummaryAt     DateTime? @map("ai_summary_at") @db.Timestamptz(6)
   createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
 

@@ -9,11 +9,11 @@ import { createPerson, peopleScopeWhere, personInclude, serializePerson } from '
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&council_id=&stream_id=&gender=&search=&duplicates=1&limit=&offset=
+ * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&council_id=&stream_id=&seeker=<person id>|me|none&gender=&search=&duplicates=1&limit=&offset=
  * People the viewer can see: members of CCFs in scope, and converts placed or
  * proposed there. Unplaced converts are visible to global viewers only.
  */
-export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query }) => {
+export const GET = withCcg({ permission: 'people.view' }, async ({ user, scope, query }) => {
   const kind = query.get('kind')
   const status = query.get('status')
   const ccfId = query.get('ccf_id')
@@ -21,6 +21,12 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
   const councilId = query.get('council_id')
   const streamId = query.get('stream_id')
   const gender = query.get('gender')
+  // A Sheep Seeker's converts: a member id, the viewer's own ('me') or none yet.
+  const seeker = query.get('seeker')
+  const seekerId =
+    seeker === 'me'
+      ? (await prisma.ccgPerson.findFirst({ where: { userId: user.id, kind: 'member', deletedAt: null }, select: { id: true } }))?.id ?? '00000000-0000-0000-0000-000000000000'
+      : seeker
   const search = query.get('search')?.trim()
   const limit = Math.min(Number(query.get('limit')) || 50, 200)
   const offset = Math.max(Number(query.get('offset')) || 0, 0)
@@ -44,6 +50,7 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
       councilId ? inUnit({ ccg: { councilId } }) : {},
       streamId ? { OR: [inUnit({ ccg: { council: { streamId } } }), { kind: 'convert', streamId }] } : {},
       gender === 'Male' || gender === 'Female' ? { gender } : {},
+      seekerId === 'none' ? { kind: 'convert', seekerPersonId: null } : seekerId ? { kind: 'convert', seekerPersonId: seekerId } : {},
       search
         ? {
             OR: [

@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { rankUnits, type CcgConfig, type ScoredUnit } from '../engine'
 import { notFound } from '../errors'
+import { runLater, summarisePlacement } from './ai'
 import { ccgTx, getCcgConfig, logCcg, type Tx } from './common'
 import { loadProfiles, toEnginePerson } from './profiles'
 import { loadAnswers, loadQuestionBank } from './questions'
@@ -102,9 +103,11 @@ export async function scoreConvert(personId: string, config?: CcgConfig) {
  * Real-time mapping. Scores the convert, stores the run, and replaces any open
  * proposal with a new one for the #1 eligible CCF — or a 'held' placement when
  * nothing is eligible. Placed / integrated / inactive converts and members are
- * left alone (returns null).
+ * left alone (returns null). A new proposal gets its approver's summary
+ * (AI) after the response, unless `summarise` is false (the caller tidies
+ * the convert's free text first, which summarises when done).
  */
-export async function proposeFor(personId: string, trigger: MatchTrigger, actorId: string | null) {
+export async function proposeFor(personId: string, trigger: MatchTrigger, actorId: string | null, opts: { summarise?: boolean } = {}) {
   const { person, config, result } = await scoreConvert(personId)
   if (person.kind !== 'convert' || !(PROPOSABLE_STATUSES as readonly string[]).includes(person.status)) return null
 
@@ -166,5 +169,9 @@ export async function proposeFor(personId: string, trigger: MatchTrigger, actorI
     )
     return { run, placement }
   })
+  if (out?.placement.status === 'proposed' && opts.summarise !== false) {
+    const id = out.placement.id
+    runLater(() => summarisePlacement(id))
+  }
   return out
 }

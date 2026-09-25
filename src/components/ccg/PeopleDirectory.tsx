@@ -76,7 +76,7 @@ function csv(rows: PersonDTO[]): string {
 }
 
 export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the converts page's view switch */ tabs?: React.ReactNode }) {
-  const { has, loading: meLoading } = useCcgMe()
+  const { me, has, loading: meLoading } = useCcgMe()
   const { focus, options } = useCcgFocus()
   const params = useSearchParams()
   const router = useRouter()
@@ -92,7 +92,12 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
 
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<string | null>(null)
+  const [status, setStatus] = useState<string | null>(params.get('status'))
+  // Sheep Seekers: only the converts they brought (?seeker=me).
+  const isSeeker = kind === 'convert' && !!me?.roles.some((r) => r.role.key === 'sheep_seeker')
+  const [mine, setMine] = useState(params.get('seeker') === 'me')
+  // One seeker's converts (from the Sheep Seekers report).
+  const seekerId = params.get('seeker') !== 'me' ? params.get('seeker') : null
   const [gender, setGender] = useState<string | null>(null)
   const [rows, setRows] = useState<PersonDTO[] | null>(null)
   const [total, setTotal] = useState(0)
@@ -125,9 +130,10 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
       if (status) q.set('status', status)
       if (gender) q.set('gender', gender)
       if (query) q.set('search', query)
+      if (kind === 'convert' && (mine || seekerId)) q.set('seeker', mine ? 'me' : seekerId!)
       return `/people?${q}${scopeQuery ? `&${scopeQuery}` : ''}`
     },
-    [kind, status, gender, query, scopeQuery]
+    [kind, status, gender, query, scopeQuery, mine, seekerId]
   )
 
   const load = useCallback(async () => {
@@ -216,6 +222,11 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
             <span />
           )}
           <div className="ml-auto flex items-center gap-1">
+            {isSeeker && (
+              <Button variant={mine ? 'secondary' : 'ghost'} className="h-11" aria-pressed={mine} onClick={() => setMine((m) => !m)}>
+                My converts
+              </Button>
+            )}
             <Button variant="ghost" className="h-11 gap-1.5" onClick={download} disabled={downloading || !rows?.length} aria-label={`Download ${noun.toLowerCase()} list`}>
               <Download className="size-4" />
               <span className="hidden sm:inline">{downloading ? 'Preparing…' : 'Download'}</span>
