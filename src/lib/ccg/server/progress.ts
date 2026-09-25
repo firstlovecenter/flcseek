@@ -234,6 +234,118 @@ export async function placementProgress(placementId: string) {
   }
 }
 
+type LogValues = Record<string, unknown> | null
+
+/** One history line for a convert, or null for actions the journey does not show. */
+function journeyText(
+  action: string,
+  nv: LogValues,
+  ov: LogValues,
+  ctx: { ccf: (id: unknown) => string; ccfByCode: (code: unknown) => string; milestone: (n: unknown) => string; item: (n: unknown, key: unknown) => string }
+): string | null {
+  const reason = typeof nv?.reason === 'string' && nv.reason ? `: ${nv.reason}` : ''
+  switch (action) {
+    case 'CONVERT_REGISTERED':
+      return nv?.source === 'self' ? 'Registered themselves' : 'Registered'
+    case 'PERSON_UPDATED':
+      return 'Details updated'
+    case 'PLACEMENT_PROPOSED': {
+      const top = Array.isArray(nv?.top) ? (nv.top[0] as { ccf?: string; score?: number } | undefined) : undefined
+      return top ? `Matched to ${ctx.ccfByCode(top.ccf)}${typeof top.score === 'number' ? ` (score ${Math.round(top.score)})` : ''}` : 'Matched'
+    }
+    case 'PLACEMENT_HELD_NO_MATCH':
+      return 'No CCF could be matched yet'
+    case 'PLACEMENT_APPROVED':
+      return `Placement in ${ctx.ccf(nv?.ccf_id)} approved`
+    case 'PLACEMENT_REMAPPED':
+      return `Placed in ${ctx.ccf(nv?.ccf_id)}${ov?.proposed_ccf_id ? ` instead of ${ctx.ccf(ov.proposed_ccf_id)}` : ''}${reason}`
+    case 'PLACEMENT_HELD':
+      return `Put on hold${reason}`
+    case 'PLACEMENT_ENDED':
+      return `Placement ended${reason}`
+    case 'CONVERT_TRANSFERRED':
+      return `Transferred ${ov?.ccf_id ? `from ${ctx.ccf(ov.ccf_id)} ` : ''}to ${ctx.ccf(nv?.ccf_id)}${reason}`
+    case 'CONVERT_GRADUATED':
+      return `Reached every milestone and became a member of ${ctx.ccf(nv?.ccf_id)}`
+    case 'CONVERT_BECAME_MEMBER':
+      return `Became a member of ${ctx.ccf(nv?.ccf_id)}`
+    case 'CONVERT_INTEGRATED':
+      return 'Marked as integrated'
+    case 'MILESTONE_COMPLETED':
+      return `${ctx.milestone(nv?.stage_number)}: done`
+    case 'MILESTONE_UNCHECKED':
+      return `${ctx.milestone(nv?.stage_number)}: unticked`
+    case 'CHECKLIST_ITEM_DONE':
+      return `${ctx.milestone(nv?.stage_number)}: ${ctx.item(nv?.stage_number, nv?.item)}`
+    case 'CHECKLIST_ITEM_UNDONE':
+      return `${ctx.milestone(nv?.stage_number)}: unticked “${ctx.item(nv?.stage_number, nv?.item)}”`
+    case 'CHECK_IN_RECORDED':
+      return nv?.follow_up_required ? 'Check-in recorded, follow-up needed' : 'Check-in recorded'
+    default:
+      return null
+  }
+}
+
+/**
+ * The rest of a convert's story for their modal: the dates they attended each
+ * kind of meeting, and their history (registration, matching, placement,
+ * milestones, check-ins, transfers) in plain words, newest first.
+ */
+export async function placementJourney(placementId: string) {
+  const p = await prisma.ccgPlacement.findUnique({ where: { id: placementId }, select: { personId: true } })
+  if (!p) throw notFound('Placement')
+  const placements = await prisma.ccgPlacement.findMany({ where: { personId: p.personId }, select: { id: true } })
+  const [attendance, log, milestones] = await Promise.all([
+    prisma.ccgAttendance.findMany({
+      where: { personId: p.personId },
+      orderBy: { eventDate: 'desc' },
+      select: { eventType: true, eventDate: true, markedBy: true },
+    }),
+    prisma.ccgActivityLog.findMany({
+      where: {
+        OR: [
+          { entityType: 'ccg_placement', entityId: { in: placements.map((x) => x.id) } },
+          { entityType: 'ccg_person', entityId: p.personId },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    }),
+    loadMilestones(prisma, true),
+  ])
+
+  const values = log.flatMap((r) => [r.newValues, r.oldValues] as LogValues[])
+  const ccfIds = new Set<string>()
+  const codes = new Set<string>()
+  for (const v of values) {
+    for (const k of ['ccf_id', 'proposed_ccf_id']) if (typeof v?.[k] === 'string') ccfIds.add(v[k] as string)
+    if (Array.isArray(v?.top) && typeof (v.top[0] as { ccf?: unknown })?.ccf === 'string') codes.add((v.top[0] as { ccf: string }).ccf)
+  }
+  const [ccfs, users] = await Promise.all([
+    prisma.ccgFamily.findMany({ where: { OR: [{ id: { in: [...ccfIds] } }, { code: { in: [...codes] } }] }, select: { id: true, code: true, name: true } }),
+    userRefs([...log.map((r) => r.userId), ...attendance.map((a) => a.markedBy)]),
+  ])
+  const byStage = new Map(milestones.map((m) => [m.stageNumber, m]))
+  const ctx = {
+    ccf: (id: unknown) => ccfs.find((f) => f.id === id)?.name ?? 'a CCF',
+    ccfByCode: (code: unknown) => ccfs.find((f) => f.code === code)?.name ?? 'a CCF',
+    milestone: (n: unknown) => byStage.get(Number(n))?.name ?? 'A milestone',
+    item: (n: unknown, key: unknown) => byStage.get(Number(n))?.items.find((i) => i.key === key)?.label ?? String(key ?? ''),
+  }
+
+  const byEvent: Record<string, Array<{ date: string; by: string | null }>> = {}
+  for (const a of attendance) {
+    ;(byEvent[a.eventType] ??= []).push({ date: dateOnly(a.eventDate)!, by: a.markedBy ? users.get(a.markedBy)?.name ?? null : null })
+  }
+  return {
+    attendance: byEvent,
+    timeline: log.flatMap((r) => {
+      const text = journeyText(r.action, r.newValues as LogValues, r.oldValues as LogValues, ctx)
+      return text ? [{ id: r.id, action: r.action, text, at: iso(r.createdAt), by: r.userId ? users.get(r.userId)?.name ?? null : null }] : []
+    }),
+  }
+}
+
 /**
  * Recompute attendance and checklist milestones for these placements and store
  * the result (source 'auto'). Completes or un-completes; never touches manual

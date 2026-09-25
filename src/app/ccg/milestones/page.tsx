@@ -287,7 +287,7 @@ function MilestoneDialog({ editing, onClose, onSaved }: { editing: Editing; onCl
           <Field label="Description" htmlFor="m-desc" error={errors.description}>
             <Textarea id="m-desc" rows={2} value={v.description} onChange={(e) => set('description', e.target.value)} />
           </Field>
-          <Field label="Guidance for leaders" htmlFor="m-guide" error={errors.guidance} hint="Shown in the convert’s follow-up panel">
+          <Field label="Guidance for leaders" htmlFor="m-guide" error={errors.guidance} hint="Shown on each milestone in the convert’s modal">
             <Textarea id="m-guide" rows={4} value={v.guidance} onChange={(e) => set('guidance', e.target.value)} />
           </Field>
 
