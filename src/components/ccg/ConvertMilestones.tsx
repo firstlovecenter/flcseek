@@ -324,12 +324,12 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
             {/* Larger screens: the grid */}
             <div className="hidden overflow-hidden rounded-lg border bg-card md:block">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[56rem] table-fixed text-sm">
                   <thead>
                     <tr className="border-b text-left text-xs text-muted-foreground">
                       <th className="sticky left-0 z-20 w-[11rem] bg-card px-3 py-2 font-medium">Name</th>
                       {data.milestones.map((m) => (
-                        <th key={m.id} className="w-14 px-1 py-2 text-center font-medium">
+                        <th key={m.id} className="px-1 py-2 text-center font-medium">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="text-center">
@@ -341,7 +341,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
                           </Tooltip>
                         </th>
                       ))}
-                      <th className="px-3 py-2 font-medium whitespace-nowrap">Year</th>
+                      <th className="w-28 px-3 py-2 font-medium whitespace-nowrap">Year</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
