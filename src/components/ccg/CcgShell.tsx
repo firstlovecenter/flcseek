@@ -25,6 +25,7 @@ import {
   type LucideIcon,
   HeartHandshake,
   GraduationCap,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Permission } from '@/lib/ccg/permissions'
@@ -74,6 +75,7 @@ const SECONDARY: NavItem[] = [
   { href: '/ccg/groups', label: 'Groups', icon: Network, accent: 'text-churches', portals: CCG },
   { href: '/ccg/seekers', label: 'Sheep Seekers', icon: HeartHandshake, perm: 'reports.view', accent: 'text-members', portals: SEEKING },
   { href: '/ccg/activities', label: 'CCG activities', icon: HandHeart, perm: ['activities.record', 'reports.view'], accent: 'text-campaigns', portals: CCG },
+  { href: '/ccg/milestones', label: 'Milestones', icon: Trophy, perm: 'settings.manage', accent: 'text-success', portals: BOTH },
   { href: '/ccg/links', label: 'Registration links', icon: Link2, perm: ['links.manage', 'links.intake'], accent: 'text-members', portals: BOTH },
   { href: '/ccg/account', label: 'Account', icon: KeyRound, portals: BOTH },
 ]

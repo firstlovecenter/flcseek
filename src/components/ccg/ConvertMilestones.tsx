@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Check, ChevronLeft, ChevronRight, Flag, Loader2, Search, Sprout } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Flag, Search, Sprout } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
 import { message } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -39,53 +39,63 @@ import { Initials } from './synago'
 const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id' }
 const code = (n: number) => `M${String(n).padStart(2, '0')}`
 
+/**
+ * One milestone for one convert, as a switch (as in Seek): green when done,
+ * red when not. Hand-ticked milestones toggle; attendance and checklist ones
+ * complete themselves, so their switch is locked and a tap opens the
+ * convert's follow-up panel.
+ */
 function Cell({
   stage,
   def,
-  onClick,
+  onToggle,
+  onOpen,
+  canTick,
   busy,
 }: {
   stage: Stage | undefined
   def: MilestoneDef
-  onClick?: () => void
+  onToggle: () => void
+  onOpen: () => void
+  canTick: boolean
   busy?: boolean
 }) {
   if (!stage) return <span className="text-muted-foreground">—</span>
-  const st = STAGE_STATE[stage.state]
-  const label = `${def.name}: ${stage.state === 'done' ? 'done' : st.label.toLowerCase()}${stage.progress ? ` (${stage.progress.done} of ${stage.progress.total})` : ''}`
-  const body = busy ? (
-    <Loader2 className="size-4 animate-spin" aria-hidden />
-  ) : stage.state === 'done' ? (
-    <Check className="size-4" aria-hidden />
-  ) : stage.progress ? (
-    `${Math.min(stage.progress.done, stage.progress.total)}/${stage.progress.total}`
-  ) : stage.state === 'overdue' ? (
-    '!'
-  ) : (
-    ''
-  )
-  const cls = cn('inline-flex h-8 min-w-10 items-center justify-center rounded-md border px-1.5 text-xs font-medium tabular-nums', st.className)
-  if (!onClick) {
-    return (
-      <span title={label} aria-label={label} className={cls}>
-        {body}
-      </span>
-    )
-  }
+  const done = stage.state === 'done'
+  const auto = def.kind !== 'manual'
+  const detail = stage.progress ? ` (${Math.min(stage.progress.done, stage.progress.total)} of ${stage.progress.total})` : ''
+  const label = `${def.name}: ${done ? 'done' : STAGE_STATE[stage.state].label.toLowerCase()}${detail}${auto ? ', completes itself' : ''}`
+  const toggles = !auto && canTick
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={busy}
-      onClick={(e) => {
-        e.stopPropagation()
-        onClick()
-      }}
-      className={cn(cls, 'transition-transform hover:scale-105 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none')}
-    >
-      {body}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="inline-flex flex-col items-center gap-0.5"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!toggles) onOpen()
+          }}
+        >
+          <Switch
+            checked={done}
+            disabled={!toggles || busy}
+            onCheckedChange={onToggle}
+            aria-label={label}
+            className={cn(
+              'data-[state=checked]:bg-success data-[state=unchecked]:bg-destructive',
+              !toggles && 'cursor-pointer disabled:opacity-100',
+              busy && 'opacity-50'
+            )}
+          />
+          {stage.progress && !done && (
+            <span className="text-[10px] leading-none text-muted-foreground tabular-nums">
+              {Math.min(stage.progress.done, stage.progress.total)}/{stage.progress.total}
+            </span>
+          )}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -272,7 +282,9 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
                             stage={stages.get(m.stage_number)}
                             def={m}
                             busy={busy === `${r.placement_id}:${m.stage_number}`}
-                            onClick={() => tap(r, m, stages.get(m.stage_number))}
+                            canTick={canTick}
+                            onToggle={() => tap(r, m, stages.get(m.stage_number))}
+                            onOpen={() => open(r.placement_id)}
                           />
                           <span className="text-[10px] text-muted-foreground">{code(m.stage_number)}</span>
                         </span>
@@ -337,7 +349,9 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
                                 stage={stages.get(m.stage_number)}
                                 def={m}
                                 busy={busy === `${r.placement_id}:${m.stage_number}`}
-                                onClick={() => tap(r, m, stages.get(m.stage_number))}
+                                canTick={canTick}
+                            onToggle={() => tap(r, m, stages.get(m.stage_number))}
+                            onOpen={() => open(r.placement_id)}
                               />
                             </td>
                           ))}
