@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/base/EmptyState'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
-import { Field, NullableSelect } from '@/components/ccg/form-utils'
+import { Field, NullableSelect, SearchSelect } from '@/components/ccg/form-utils'
 import { ccfLabel, useCcgOptions } from '@/components/ccg/people-types'
 import { EVENT_LABEL, todayIso, type MilestoneDef } from '@/components/ccg/progress-types'
 
@@ -112,12 +112,11 @@ function AttendanceRegister() {
 
       <Card className="grid gap-4 p-4 sm:grid-cols-3">
         <Field label="CCF" htmlFor="a-ccf">
-          <NullableSelect
+          <SearchSelect
             id="a-ccf"
             value={ccfId}
             onChange={setCcfId}
-            options={(opts?.ccfs ?? []).filter((f) => f.status === 'active').map((f) => ({ value: f.id, label: ccfLabel(f) }))}
-            noneLabel="Choose a CCF"
+            options={(opts?.ccfs ?? []).filter((f) => f.status === 'active').map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
             placeholder="Choose a CCF"
           />
         </Field>

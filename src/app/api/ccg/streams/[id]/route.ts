@@ -22,7 +22,7 @@ export const GET = withCcg<undefined, P>({}, async ({ params }) => {
   const councils = await prisma.ccgCouncil.findMany({
     where: { streamId: s.id, deletedAt: null },
     include: { _count: { select: { groups: { where: { deletedAt: null } } } } },
-    orderBy: { code: 'asc' },
+    orderBy: { name: 'asc' },
   })
   return success({
     stream: { id: s.id, code: s.code, name: s.name, status: s.status, notes: s.notes, created_at: iso(s.createdAt) },

@@ -71,7 +71,7 @@ export async function listGroupActivities(ccgIds: IdSet, filter: { ccgId?: strin
       take: Math.min(filter.limit ?? 100, 500),
     }),
     prisma.ccgActivityType.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
-    prisma.ccgGroup.findMany({ where: { ...ccgWhere, status: 'active' }, select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } }),
+    prisma.ccgGroup.findMany({ where: { ...ccgWhere, status: 'active' }, select: { id: true, code: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.ccgGroupActivity.groupBy({ by: ['ccgId', 'typeKey'], where: { ccg: ccgWhere }, _max: { heldOn: true } }),
   ])
   const names = await userRefs(rows.map((r) => r.recordedBy))

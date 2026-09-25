@@ -20,7 +20,7 @@ async function load(id: string) {
 /** GET /api/ccg/councils/[id] — the council and its CCGs. */
 export const GET = withCcg<undefined, P>({}, async ({ params }) => {
   const c = await load(params.id)
-  const ccgs = await prisma.ccgGroup.findMany({ where: { councilId: c.id, deletedAt: null }, include: ccgInclude, orderBy: { code: 'asc' } })
+  const ccgs = await prisma.ccgGroup.findMany({ where: { councilId: c.id, deletedAt: null }, include: ccgInclude, orderBy: { name: 'asc' } })
   return success({ council: serializeCouncil(c), ccgs: ccgs.map((g) => serializeCcg(g)) })
 })
 

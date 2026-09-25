@@ -52,7 +52,8 @@ const meetingTime = z
 // Structure
 // --------------------------------------------------------------------------
 export const streamSchema = z.object({
-  code,
+  /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
+  code: code.optional(),
   name: z.string().trim().min(1).max(120),
   status: z.enum(['active', 'inactive']).default('active'),
   notes: text(2000),
@@ -69,7 +70,8 @@ const leader = z.object({ person_id: uuid }).nullable().optional()
 export const councilSchema = z.object({
   stream_id: uuid.nullable().optional(),
   leader,
-  code,
+  /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
+  code: code.optional(),
   name: z.string().trim().min(1).max(120),
   status: z.enum(['active', 'inactive']).default('active'),
   notes: text(2000),
@@ -79,7 +81,8 @@ export const councilUpdateSchema = councilSchema.partial()
 export const ccgSchema = z.object({
   council_id: uuid.nullable().optional(),
   leader,
-  code,
+  /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
+  code: code.optional(),
   name: z.string().trim().min(1).max(120),
   audience: z.enum(['adult', 'youth']).default('adult'),
   status: unitStatus.default('active'),
@@ -90,7 +93,8 @@ export const ccgUpdateSchema = ccgSchema.partial()
 export const ccfSchema = z.object({
   ccg_id: uuid,
   leader,
-  code,
+  /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
+  code: code.optional(),
   name: z.string().trim().min(1).max(120),
   meeting_location: text(200),
   meeting_day: z.enum(MEETING_DAYS).nullable().optional(),

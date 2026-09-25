@@ -5,7 +5,7 @@ import { councilSchema } from '@/lib/ccg/schemas'
 import { logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
-import { assertStreamExists, serializeCouncil } from '@/lib/ccg/server/units'
+import { assertStreamExists, createWithCode, serializeCouncil } from '@/lib/ccg/server/units'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +15,7 @@ export const GET = withCcg({}, async ({ query }) => {
   const councils = await prisma.ccgCouncil.findMany({
     where: { deletedAt: null, ...(streamId ? { streamId } : {}) },
     include: { _count: { select: { groups: { where: { deletedAt: null } } } } },
-    orderBy: { code: 'asc' },
+    orderBy: { name: 'asc' },
   })
   return success({ councils: councils.map((c) => serializeCouncil(c, { ccg_count: c._count.groups })) })
 })
@@ -27,9 +27,11 @@ export const POST = withCcg<z.infer<typeof councilSchema>>(
     ensure(scope.can('structure.manage'))
     if (body.leader) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
     await assertStreamExists(body.stream_id)
-    const c = await prisma.ccgCouncil.create({
-      data: { streamId: body.stream_id ?? null, code: body.code, name: body.name, status: body.status, notes: body.notes ?? null, createdBy: user.id },
-    })
+    const c = await createWithCode('council', body.code, (code) =>
+      prisma.ccgCouncil.create({
+        data: { streamId: body.stream_id ?? null, code, name: body.name, status: body.status, notes: body.notes ?? null, createdBy: user.id },
+      })
+    )
     await logCcg({ userId: user.id, action: 'COUNCIL_CREATED', entityType: 'ccg_council', entityId: c.id, newValues: body })
     const leader_invite = body.leader ? await setUnitLeader('council', c.id, body.leader, user.id, new URL(request.url).origin) : null
     return created({ id: c.id, leader_invite })

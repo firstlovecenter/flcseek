@@ -197,7 +197,6 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
               </>
             )}
             {u?.audience && <DetailTile heading="Audience" value={u.audience === 'youth' ? 'Youth (under 18)' : 'Adults (18+)'} />}
-            {u && <DetailTile heading="Code" value={u.code} />}
           </div>
           {u?.notes && <p className="mt-3 text-sm whitespace-pre-line text-muted-foreground">{u.notes}</p>}
         </section>
