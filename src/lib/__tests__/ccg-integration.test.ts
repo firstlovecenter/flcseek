@@ -652,6 +652,13 @@ d('CCG backend against Postgres', () => {
     const visibleToSeeker = await prisma.ccgPerson.findMany({ where: { kind: 'member', ccfId: ids.football, AND: [m.people.peopleScopeWhere(streamSeeker, 'people.view')] } })
     expect(visibleToSeeker).toHaveLength(0)
     expect(m.people.canOnPerson(await m.scopeLoader.loadScope(ids.coord), 'people.view', aMember)).toBe(true) // their CCF Coordinator does
+    // Group pages (City Church Groups) are not for sheep seeking roles; their stream's team is.
+    const { canSeeUnit } = await import('@/lib/ccg/server/unit-overview')
+    expect(canSeeUnit(streamSeeker, 'stream', ids.stream)).toBe(false)
+    expect(canSeeUnit(streamSeeker, 'ccf', ids.football)).toBe(false)
+    expect(canSeeUnit(await m.scopeLoader.loadScope(ids.coord), 'ccf', ids.football)).toBe(true)
+    const team = await m.seekers.streamTeam(ids.stream)
+    expect(team.seekers.some((x) => x.name.includes('Seeker'))).toBe(true)
 
     // Graduated: in the seeker's Graduated list, and read-only to them.
     await prisma.ccgPlacement.update({ where: { id: proposal!.placement.id }, data: { status: 'ended', outcome: 'graduated', endedAt: new Date() } })

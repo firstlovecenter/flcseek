@@ -133,9 +133,10 @@ function Item({ item, open, active, onNavigate, mobile }: { item: NavItem; open:
 
 /** The group in focus, as a nav item (Synago's ChurchScopeNavItem). */
 function FocusItem({ open, onNavigate, mobile }: { open: boolean; onNavigate?: () => void; mobile?: boolean }) {
-  const { focus } = useCcgFocus()
+  const { focus, portal } = useCcgFocus()
   const pathname = usePathname()
-  if (!focus?.id || focus.type === 'global') return null
+  // Group pages are City Church Groups; Sheep Seeking has its own pages.
+  if (!focus?.id || focus.type === 'global' || portal === 'seeking') return null
   const href = groupHref(focus.type, focus.id)
   const label = (
     <>

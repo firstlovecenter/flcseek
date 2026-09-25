@@ -46,6 +46,7 @@ export default function CcgGroupsPage() {
       type={topType}
       items={unit ? null : items}
       addHref={builds ? '/ccg/groups/new?type=stream' : undefined}
+      addType="stream"
       extraAdd={builds ? { type: 'campus', href: '/ccg/groups/new?type=campus' } : undefined}
     />
   )

@@ -60,6 +60,8 @@ export interface CcgScope {
   canOnMembersOf(perm: Permission, ccfId: string | null | undefined): boolean
   /** CCFs whose members `perm` reaches (see canOnMembersOf). */
   memberCcfIds(perm: Permission): IdSet
+  /** The same scope counting leadership roles only (City Church Groups side): group pages and structure. */
+  leadership(): CcgScope
 }
 
 /** Roles on the Sheep Seeking side: they work with converts, never with CCF members. */
@@ -127,7 +129,7 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
   const leaders = leading.length === assignments.length ? null : resolveCcgScope(leading, hierarchy)
   const ccfIds = (perm: Permission): IdSet => (global.has(perm) ? 'all' : hierarchy.ccfs.filter((c) => canOnCcf(perm, c.id)).map((c) => c.id))
 
-  return {
+  const scope: CcgScope = {
     roleKeys: [...new Set(assignments.map((a) => a.roleKey))],
     anywhere,
     can: (perm) => global.has(perm),
@@ -153,7 +155,9 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
     canOnAssigned: (perm, assignedSeekerId) => !!seekerPersonId && assignedSeekerId === seekerPersonId && seekerPerms.has(perm),
     canOnMembersOf: (perm, ccfId) => (leaders ? leaders.canOnCcf(perm, ccfId) : canOnCcf(perm, ccfId)),
     memberCcfIds: (perm) => (leaders ? leaders.ccfIds(perm) : ccfIds(perm)),
+    leadership: () => leaders ?? scope,
   }
+  return scope
 }
 
 /** Prisma `in` filter for an IdSet (undefined = no restriction). */
