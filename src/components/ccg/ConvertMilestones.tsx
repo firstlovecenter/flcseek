@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Flag, Search, Sprout } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Flag, Search, Sprout } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
 import { message } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -40,10 +40,11 @@ const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: '
 const code = (n: number) => `M${String(n).padStart(2, '0')}`
 
 /**
- * One milestone for one convert, as a switch (as in Seek): green when done,
- * red when not. Hand-ticked milestones toggle; attendance and checklist ones
- * complete themselves, so their switch is locked and a tap opens the
- * convert's follow-up panel.
+ * One milestone for one convert: green when done, red when not. Hand-ticked
+ * milestones are a switch (as in Seek). Attendance and checklist ones complete
+ * themselves when their tracking is done, so they are a status mark, not a
+ * control: the count so far (e.g. 7/10) until complete, then a tick. A tap
+ * opens the convert's follow-up panel, where the tracking is.
  */
 function Cell({
   stage,
@@ -64,8 +65,33 @@ function Cell({
   const done = stage.state === 'done'
   const auto = def.kind !== 'manual'
   const detail = stage.progress ? ` (${Math.min(stage.progress.done, stage.progress.total)} of ${stage.progress.total})` : ''
-  const label = `${def.name}: ${done ? 'done' : STAGE_STATE[stage.state].label.toLowerCase()}${detail}${auto ? ', completes itself' : ''}`
+  const label = `${def.name}: ${done ? 'done' : STAGE_STATE[stage.state].label.toLowerCase()}${detail}${auto ? `. Completes itself ${def.kind === 'attendance' ? 'when the attendance target is reached' : 'when every checklist item is ticked'}` : ''}`
   const toggles = !auto && canTick
+  if (auto) {
+    const count = stage.progress ? `${Math.min(stage.progress.done, stage.progress.total)}/${stage.progress.total}` : null
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpen()
+            }}
+            className={cn(
+              'inline-flex h-5 min-w-9 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums text-white',
+              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+              done ? 'bg-success' : 'bg-destructive'
+            )}
+          >
+            {done ? <Check className="size-3.5" strokeWidth={3} aria-hidden /> : count}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    )
+  }
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -87,11 +113,6 @@ function Cell({
               busy && 'opacity-50'
             )}
           />
-          {stage.progress && !done && (
-            <span className="text-[10px] leading-none text-muted-foreground tabular-nums">
-              {Math.min(stage.progress.done, stage.progress.total)}/{stage.progress.total}
-            </span>
-          )}
         </span>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
