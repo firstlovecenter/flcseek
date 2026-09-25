@@ -11,7 +11,8 @@ import { groupHref } from '@/components/ccg/synago'
 
 /**
  * Groups: opens the group in focus, as Synago's church pages do. With the
- * whole church in focus it lists the streams.
+ * whole church in focus, or for the central team (who build the structure),
+ * it lists the top of the tree: campuses, and streams not in a campus.
  */
 export default function CcgGroupsPage() {
   const router = useRouter()
@@ -20,7 +21,9 @@ export default function CcgGroupsPage() {
   const [items, setItems] = useState<GroupCardItem[] | null>(null)
   const [topType, setTopType] = useState<'campus' | 'stream'>('stream')
   const [error, setError] = useState<string | null>(null)
-  const unit = focus && focus.type !== 'global' && focus.id ? { type: focus.type, id: focus.id } : null
+  // The central team always gets the list, with Add campus and Add stream.
+  const builds = hasGlobal('structure.manage')
+  const unit = !builds && focus && focus.type !== 'global' && focus.id ? { type: focus.type, id: focus.id } : null
 
   useEffect(() => {
     if (!ready) return
@@ -42,7 +45,8 @@ export default function CcgGroupsPage() {
       parentName={null}
       type={topType}
       items={unit ? null : items}
-      addHref={hasGlobal('structure.manage') ? `/ccg/groups/new?type=${topType}` : undefined}
+      addHref={builds ? '/ccg/groups/new?type=stream' : undefined}
+      extraAdd={builds ? { type: 'campus', href: '/ccg/groups/new?type=campus' } : undefined}
     />
   )
 }
