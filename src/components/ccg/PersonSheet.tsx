@@ -209,6 +209,10 @@ export function PersonSheet({
                       <dt className="text-xs text-muted-foreground">Converted</dt>
                       <dd className="font-medium">{fmtDate(p.conversion_date)}</dd>
                     </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Sheep Seeker</dt>
+                      <dd className="font-medium">{p.seeker?.full_name ?? 'Not recorded'}</dd>
+                    </div>
                   </>
                 )}
                 <div>
@@ -229,10 +233,16 @@ export function PersonSheet({
                     <dd className="font-medium">{roles.map((a) => (a.unit ? `${a.role.name}, ${a.unit.name}` : a.role.name)).join(' · ')}</dd>
                   </div>
                 )}
-                {p.existing_connection_note && (
+                {(p.existing_connection_note || p.existing_connection) && (
                   <div className="col-span-2">
                     <dt className="text-xs text-muted-foreground">Knows someone in church</dt>
-                    <dd>{p.existing_connection_note}</dd>
+                    {p.existing_connection && (
+                      <dd className="font-medium">
+                        {p.existing_connection.full_name}
+                        {p.connection_by_ai && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(matched from their note)</span>}
+                      </dd>
+                    )}
+                    {p.existing_connection_note && <dd className="text-muted-foreground">“{p.existing_connection_note}”</dd>}
                   </div>
                 )}
               </dl>
@@ -245,6 +255,13 @@ export function PersonSheet({
                       <div key={q.key} className="space-y-0.5 px-3 py-2">
                         <dt className="text-xs text-muted-foreground">{q.prompt}</dt>
                         <dd>{answerText(q, p.answers?.[q.key])}</dd>
+                        {p.answer_notes?.[q.key]?.other_text && (
+                          <dd className="text-xs text-muted-foreground">
+                            Other: “{p.answer_notes[q.key].other_text}”
+                            {p.answer_notes[q.key].ai_keys.length > 0 &&
+                              ` · added ${p.answer_notes[q.key].ai_keys.map((k) => q.options.find((o) => o.key === k)?.label ?? k).join(', ')}`}
+                          </dd>
+                        )}
                       </div>
                     ))}
                   </dl>

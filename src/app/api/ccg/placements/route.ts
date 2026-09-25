@@ -3,6 +3,7 @@ import { success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { invalid } from '@/lib/ccg/errors'
 import { withCcg } from '@/lib/ccg/server/handler'
+import { backfillSummaries } from '@/lib/ccg/server/ai'
 import { placementListInclude, placementScopeWhere, serializePlacement } from '@/lib/ccg/server/placement-dto'
 
 export const dynamic = 'force-dynamic'
@@ -43,5 +44,8 @@ export const GET = withCcg({ permission: 'placements.view' }, async ({ scope, qu
     }),
     prisma.ccgPlacement.count({ where }),
   ])
-  return success({ placements: rows.map((r) => serializePlacement(r)) }, { total, limit, offset, hasMore: offset + rows.length < total })
+  const placements = rows.map((r) => serializePlacement(r))
+  // Proposals made before the AI was switched on get their summary now (after the response).
+  backfillSummaries(placements)
+  return success({ placements }, { total, limit, offset, hasMore: offset + rows.length < total })
 })

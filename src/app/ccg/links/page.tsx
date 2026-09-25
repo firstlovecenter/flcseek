@@ -17,7 +17,7 @@ import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { Field, NullableSelect } from '@/components/ccg/form-utils'
-import { ccfLabel, useCcgOptions } from '@/components/ccg/people-types'
+import { ccfLabel, useCcgOptions, useSeekerOptions } from '@/components/ccg/people-types'
 
 interface LinkRow {
   id: string
@@ -26,6 +26,7 @@ interface LinkRow {
   ccf: { id: string; name: string; ccg: { name: string } } | null
   stream: { id: string; name: string } | null
   person: { id: string; full_name: string } | null
+  seeker?: { id: string; full_name: string } | null
   state: 'active' | 'revoked' | 'expired' | 'used_up'
   expires_at: string | null
   max_uses: number | null
@@ -126,7 +127,8 @@ export default function CcgLinksPage() {
                     <Badge variant={STATE[l.state].tone}>{STATE[l.state].label}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {KIND_LABEL[l.kind]} · {linkTarget(l)} · {l.uses}
+                    {KIND_LABEL[l.kind]} · {linkTarget(l)}
+                    {l.seeker && ` · ${l.seeker.full_name}’s converts`} · {l.uses}
                     {l.max_uses ? ` of ${l.max_uses}` : ''} used
                     {l.expires_at && ` · expires ${fmtDate(l.expires_at)}`}
                   </p>
@@ -169,6 +171,8 @@ function CreateLinkDialog({ onClose, onCreated }: { onClose: () => void; onCreat
   const [kind, setKind] = useState<'convert_intake' | 'member_ccf'>(canIntake ? 'convert_intake' : 'member_ccf')
   const [streamId, setStreamId] = useState<string | null>(null)
   const [ccfId, setCcfId] = useState<string | null>(null)
+  const [seekerId, setSeekerId] = useState<string | null>(null)
+  const seekers = useSeekerOptions(kind === 'convert_intake' ? streamId : undefined)
   const [label, setLabel] = useState('')
   const [days, setDays] = useState('')
   const [maxUses, setMaxUses] = useState('')
@@ -185,7 +189,7 @@ function CreateLinkDialog({ onClose, onCreated }: { onClose: () => void; onCreat
     setSaving(true)
     const r = await ccgApi.post<{ link: LinkRow; path: string }>('/links', {
       kind,
-      ...(kind === 'convert_intake' ? { stream_id: streamId } : { ccf_id: ccfId }),
+      ...(kind === 'convert_intake' ? { stream_id: streamId, ...(seekerId ? { seeker_person_id: seekerId } : {}) } : { ccf_id: ccfId }),
       label: label.trim() || null,
       ...(days ? { expires_in_days: Number(days) } : {}),
       ...(maxUses ? { max_uses: Number(maxUses) } : {}),
@@ -220,15 +224,29 @@ function CreateLinkDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           </Field>
 
           {kind === 'convert_intake' ? (
-            <Field label="Stream" htmlFor="l-stream" hint="Converts are registered into this stream and matched with its CCFs">
-              <NullableSelect
-                id="l-stream"
-                value={streamId}
-                onChange={setStreamId}
-                options={(opts?.streams ?? []).map((s) => ({ value: s.id, label: s.name }))}
-                noneLabel={churchWide ? 'Church-wide' : 'Choose a stream'}
-              />
-            </Field>
+            <>
+              <Field label="Stream" htmlFor="l-stream" hint="Converts are registered into this stream and matched with its CCFs">
+                <NullableSelect
+                  id="l-stream"
+                  value={streamId}
+                  onChange={(v) => {
+                    setStreamId(v)
+                    setSeekerId(null)
+                  }}
+                  options={(opts?.streams ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                  noneLabel={churchWide ? 'Church-wide' : 'Choose a stream'}
+                />
+              </Field>
+              <Field label="Sheep Seeker" htmlFor="l-seeker" hint="Converts who register through this link are recorded as theirs">
+                <NullableSelect
+                  id="l-seeker"
+                  value={seekerId}
+                  onChange={setSeekerId}
+                  options={(seekers ?? []).map((sk) => ({ value: sk.person_id, label: sk.name }))}
+                  noneLabel="Me, or not recorded"
+                />
+              </Field>
+            </>
           ) : (
             <Field label="CCF" htmlFor="l-ccf" hint="New members wait for their coordinator to confirm them">
               <NullableSelect

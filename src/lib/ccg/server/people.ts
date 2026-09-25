@@ -6,7 +6,9 @@ import type { PersonCore, PersonUpdate } from '../schemas'
 import { inFilter, type CcgScope } from '../scope'
 import { ccgTx, dateOnly, iso, logCcg, normalizePhone, num, parseDateOnly, type Db } from './common'
 import { proposeFor, PROPOSABLE_STATUSES } from './mapping'
-import { loadAnswers, loadQuestionBank, saveAnswers, type QuestionBank } from './questions'
+import { needsTidy, runLater, tidyPerson } from './ai'
+import { loadAnswers, loadQuestionBank, saveAnswers, type AnswerNotes, type QuestionBank } from './questions'
+import { currentAssignmentWhere } from '../access'
 
 // ---------------------------------------------------------------------------
 // Visibility
@@ -74,6 +76,7 @@ export const personInclude = {
   user: { select: { id: true, username: true } },
   ccf: { include: { ccg: true } },
   existingConnection: { select: { id: true, fullName: true, ccfId: true } },
+  seeker: { select: { id: true, fullName: true } },
   possibleDuplicateOf: { select: { id: true, fullName: true, kind: true } },
   placements: {
     where: { status: { in: ['proposed', 'held', 'active'] } },
@@ -86,7 +89,7 @@ export type PersonRow = Prisma.CcgPersonGetPayload<{ include: typeof personInclu
 const unitRef = (f: { id: string; code: string; name: string; ccg: { id: string; code: string; name: string } } | null) =>
   f ? { id: f.id, code: f.code, name: f.name, ccg: { id: f.ccg.id, code: f.ccg.code, name: f.ccg.name } } : null
 
-export function serializePerson(p: PersonRow, answers?: Record<string, AnswerValue>) {
+export function serializePerson(p: PersonRow, answers?: Record<string, AnswerValue>, answerNotes?: AnswerNotes) {
   const active = p.placements.find((x) => x.status === 'active')
   const open = p.placements.find((x) => x.status === 'proposed' || x.status === 'held')
   return {
@@ -112,6 +115,10 @@ export function serializePerson(p: PersonRow, answers?: Record<string, AnswerVal
       ? { id: p.existingConnection.id, full_name: p.existingConnection.fullName, ccf_id: p.existingConnection.ccfId }
       : null,
     existing_connection_note: p.existingConnectionNote,
+    /** The member above was matched by the AI from the note. */
+    connection_by_ai: p.connectionByAi,
+    /** Converts: the Sheep Seeker who brought or registered them. */
+    seeker: p.seeker ? { id: p.seeker.id, full_name: p.seeker.fullName } : null,
     possible_duplicate_of: p.possibleDuplicateOf
       ? { id: p.possibleDuplicateOf.id, full_name: p.possibleDuplicateOf.fullName, kind: p.possibleDuplicateOf.kind }
       : null,
@@ -132,6 +139,7 @@ export function serializePerson(p: PersonRow, answers?: Record<string, AnswerVal
         }
       : null,
     ...(answers ? { answers } : {}),
+    ...(answerNotes ? { answer_notes: answerNotes } : {}),
     created_at: iso(p.createdAt),
     updated_at: iso(p.updatedAt),
   }
@@ -157,6 +165,29 @@ async function assertStream(db: Db, streamId: string | null | undefined) {
   if (!streamId) return
   const s = await db.ccgStream.findFirst({ where: { id: streamId, deletedAt: null } })
   if (!s) throw invalid('Stream not found')
+}
+
+/** A Sheep Seeker: a live member holding the role (for this stream, when given). */
+async function assertSeeker(db: Db, seekerId: string | null | undefined, streamId: string | null | undefined) {
+  if (!seekerId) return
+  const m = await db.ccgPerson.findFirst({ where: { id: seekerId, kind: 'member', deletedAt: null }, select: { userId: true } })
+  const holds =
+    m?.userId &&
+    (await db.ccgRoleAssignment.count({
+      where: { userId: m.userId, roleKey: 'sheep_seeker', ...(streamId ? { streamId } : {}), ...currentAssignmentWhere() },
+    }))
+  if (!holds) throw invalid(streamId ? 'Choose a Sheep Seeker of this stream' : 'Choose a Sheep Seeker', { seeker_person_id: 'Not a Sheep Seeker' })
+}
+
+/** The acting user's own member record when they are a Sheep Seeker (of this stream, when given): the default owner of converts they register. */
+export async function seekerSelf(db: Db, actorId: string | null, streamId: string | null | undefined): Promise<string | null> {
+  if (!actorId) return null
+  const m = await db.ccgPerson.findFirst({ where: { userId: actorId, kind: 'member', deletedAt: null }, select: { id: true } })
+  if (!m) return null
+  const holds = await db.ccgRoleAssignment.count({
+    where: { userId: actorId, roleKey: 'sheep_seeker', ...(streamId ? { streamId } : {}), ...currentAssignmentWhere() },
+  })
+  return holds ? m.id : null
 }
 
 async function assertConnection(db: Db, memberId: string | null | undefined, selfId?: string) {
@@ -193,7 +224,11 @@ function coreData(core: Partial<PersonCore>, kind: 'member' | 'convert') {
   } else {
     if (core.stream_id !== undefined) d.streamId = core.stream_id
     if (core.conversion_date !== undefined) d.conversionDate = parseDateOnly(core.conversion_date)
-    if (core.existing_connection_member_id !== undefined) d.existingConnectionMemberId = core.existing_connection_member_id
+    if (core.existing_connection_member_id !== undefined) {
+      d.existingConnectionMemberId = core.existing_connection_member_id
+      d.connectionByAi = false
+    }
+    if (core.seeker_person_id !== undefined) d.seekerPersonId = core.seeker_person_id
     if (core.existing_connection_note !== undefined) d.existingConnectionNote = core.existing_connection_note
   }
   return d
@@ -229,6 +264,14 @@ export async function createPerson(args: CreatePersonArgs) {
     await assertCcf(tx, args.core.ccf_id)
     await assertStream(tx, args.kind === 'convert' ? args.core.stream_id : null)
     await assertConnection(tx, args.core.existing_connection_member_id)
+    // Converts belong to the Sheep Seeker who brought them: the one chosen, or
+    // the registering user when they are one.
+    let seekerId: string | null = null
+    if (args.kind === 'convert') {
+      seekerId = args.core.seeker_person_id ?? (await seekerSelf(tx, args.actorId, args.core.stream_id))
+      // (A self-registration keeps its link's seeker even if they have since stepped down.)
+      if (args.core.seeker_person_id && args.source === 'staff') await assertSeeker(tx, seekerId, args.core.stream_id)
+    }
     const phone = normalizePhone(args.core.phone)
     const dup = await findDuplicate(tx, phone)
 
@@ -241,6 +284,7 @@ export async function createPerson(args: CreatePersonArgs) {
         status: args.kind === 'member' ? args.memberStatus ?? 'active' : 'new',
         source: args.source,
         possibleDuplicateOfId: dup?.id ?? null,
+        seekerPersonId: seekerId,
         createdBy: args.actorId,
       },
     })
@@ -266,8 +310,14 @@ export async function createPerson(args: CreatePersonArgs) {
     return created
   })
 
+  // Free text ("Other" answers, who they know) is tidied by the AI after the
+  // response; it re-matches if that changes anything, then summarises.
+  const tidy = await needsTidy(person.id)
   const proposal =
-    args.kind === 'convert' && args.propose !== false ? await proposeFor(person.id, 'registration', args.actorId) : null
+    args.kind === 'convert' && args.propose !== false
+      ? await proposeFor(person.id, 'registration', args.actorId, { summarise: !tidy })
+      : null
+  if (tidy) runLater(() => tidyPerson(person.id))
   return { person, proposal }
 }
 
@@ -294,6 +344,9 @@ export async function updatePerson(
     await assertCcf(tx, core.ccf_id)
     await assertStream(tx, kind === 'convert' ? core.stream_id : null)
     await assertConnection(tx, core.existing_connection_member_id, id)
+    if (kind === 'convert' && core.seeker_person_id) {
+      await assertSeeker(tx, core.seeker_person_id, core.stream_id !== undefined ? core.stream_id : before.streamId)
+    }
 
     const data = coreData(core, kind)
     if (core.first_name !== undefined || core.middle_name !== undefined || core.last_name !== undefined) {
@@ -312,9 +365,9 @@ export async function updatePerson(
     await tx.ccgPerson.update({ where: { id }, data })
 
     let answersChanged = false
+    let otherChanged = false
     if (answers) {
-      answersChanged = (
-        await saveAnswers(tx, {
+      ;({ changed: answersChanged, otherChanged } = await saveAnswers(tx, {
           personId: id,
           kind,
           input: answers,
@@ -323,8 +376,7 @@ export async function updatePerson(
           userId: opts.actorId,
           enforceRequired: false,
           previous,
-        })
-      ).changed
+        }))
     }
     await logCcg(
       {
@@ -336,17 +388,21 @@ export async function updatePerson(
       },
       tx
     )
-    return { answersChanged }
+    return { answersChanged, otherChanged }
   })
 
   const matchingChanged = result.answersChanged || MATCHING_FIELDS.some((f) => core[f] !== undefined) || status === 'new'
+  const tidy =
+    (result.otherChanged || core.existing_connection_note !== undefined || core.existing_connection_member_id !== undefined) &&
+    (await needsTidy(id))
   let proposal = null
   if (kind === 'convert' && matchingChanged) {
     const now = await prisma.ccgPerson.findUnique({ where: { id }, select: { status: true } })
     if (now && (PROPOSABLE_STATUSES as readonly string[]).includes(now.status)) {
-      proposal = await proposeFor(id, status === 'new' ? 'manual' : 'answers_changed', opts.actorId)
+      proposal = await proposeFor(id, status === 'new' ? 'manual' : 'answers_changed', opts.actorId, { summarise: !tidy })
     }
   }
+  if (tidy) runLater(() => tidyPerson(id))
   return { proposal }
 }
 

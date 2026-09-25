@@ -10,8 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { Field, NullableSelect } from './form-utils'
-import { QuestionFields, missingRequired, type Answers } from './QuestionFields'
-import { ccfLabel, useCcgOptions, type PersonDTO } from './people-types'
+import { OTHER_SUFFIX, QuestionFields, missingRequired, type Answers } from './QuestionFields'
+import { ccfLabel, useCcgOptions, useSeekerOptions, type PersonDTO } from './people-types'
 
 type Mode = { kind: 'member' | 'convert'; personId?: string }
 
@@ -29,6 +29,8 @@ interface Core {
   stream_id: string | null
   conversion_date: string | null
   existing_connection_note: string | null
+  /** Converts: their Sheep Seeker; undefined = leave to the server (the registering seeker). */
+  seeker_person_id?: string | null
 }
 
 const EMPTY: Core = {
@@ -63,6 +65,7 @@ export function PersonFormDialog({
   const opts = useCcgOptions()
   const [core, setCore] = useState<Core>(EMPTY)
   const [answers, setAnswers] = useState<Answers>({})
+  const [aiKeys, setAiKeys] = useState<Record<string, string[]>>({})
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -76,6 +79,7 @@ export function PersonFormDialog({
     if (!mode.personId) {
       setCore(EMPTY)
       setAnswers({})
+      setAiKeys({})
       return
     }
     setLoading(true)
@@ -97,8 +101,14 @@ export function PersonFormDialog({
         stream_id: p.stream?.id ?? null,
         conversion_date: p.conversion_date,
         existing_connection_note: p.existing_connection_note,
+        seeker_person_id: p.seeker?.id ?? null,
       })
-      setAnswers(p.answers ?? {})
+      const notes = p.answer_notes ?? {}
+      const others = Object.fromEntries(
+        Object.entries(notes).flatMap(([k, n]) => (n.other_text ? [[k + OTHER_SUFFIX, n.other_text]] : []))
+      )
+      setAnswers({ ...(p.answers ?? {}), ...others })
+      setAiKeys(Object.fromEntries(Object.entries(notes).map(([k, n]) => [k, n.ai_keys])))
     })
   }, [mode])
 
@@ -106,6 +116,7 @@ export function PersonFormDialog({
     () => (opts?.questions ?? []).filter((q) => q.active && (q.audience === 'both' || q.audience === kind)),
     [opts, kind]
   )
+  const seekers = useSeekerOptions(kind === 'convert' && mode ? core.stream_id : undefined)
   const activeCcfs = (opts?.ccfs ?? []).filter((f) => f.status === 'active' && f.ccg.status === 'active')
   const set = <K extends keyof Core>(k: K, v: Core[K]) => setCore((c) => ({ ...c, [k]: v }))
   const text = (k: keyof Core) => ({
@@ -126,10 +137,14 @@ export function PersonFormDialog({
     setErrors(local)
     if (Object.keys(local).length) return
 
-    const { ccf_id, stream_id, conversion_date, existing_connection_note, ...shared } = core
+    const { ccf_id, stream_id, conversion_date, existing_connection_note, seeker_person_id, ...shared } = core
     const body = {
       ...shared,
-      ...(kind === 'member' ? (editing ? {} : { ccf_id }) : { stream_id, conversion_date, existing_connection_note }),
+      ...(kind === 'member'
+        ? editing
+          ? {}
+          : { ccf_id }
+        : { stream_id, conversion_date, existing_connection_note, ...(seeker_person_id !== undefined ? { seeker_person_id } : {}) }),
       answers,
     }
     setSaving(true)
@@ -265,6 +280,20 @@ export function PersonFormDialog({
                         noneLabel="Church-wide"
                       />
                     </Field>
+                    <Field
+                      label="Sheep Seeker"
+                      htmlFor="p-seeker"
+                      error={errors.seeker_person_id}
+                      hint={editing ? 'Who brought them' : 'Who brought them. Leave it to record yourself, if you are one'}
+                    >
+                      <NullableSelect
+                        id="p-seeker"
+                        value={core.seeker_person_id ?? null}
+                        onChange={(v) => set('seeker_person_id', v)}
+                        options={(seekers ?? []).map((sk) => ({ value: sk.person_id, label: sk.name }))}
+                        noneLabel={editing ? 'Not recorded' : 'Me, or not recorded'}
+                      />
+                    </Field>
                     <Field label="Date of conversion" htmlFor="p-conv">
                       <Input id="p-conv" type="date" {...text('conversion_date')} />
                     </Field>
@@ -281,7 +310,7 @@ export function PersonFormDialog({
               {questions.length > 0 && (
                 <div className="space-y-2 border-t pt-4">
                   <h3 className="font-medium">Profile questions</h3>
-                  <QuestionFields questions={questions} answers={answers} onChange={setAnswers} errors={errors} disabled={saving} />
+                  <QuestionFields questions={questions} answers={answers} onChange={setAnswers} errors={errors} disabled={saving} aiKeys={aiKeys} />
                 </div>
               )}
             </>

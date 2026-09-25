@@ -7,8 +7,41 @@
  * which points NEON_DATABASE_URL at CCG_TEST_DATABASE_URL (.env.ccg-test.local).
  * Never runs against the app's own database: both variables must match.
  */
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
+
+// Claude, stood in for: tidying maps "footbal" to football and gym, plus one
+// made-up key that must be ignored; the connection note names Abena; summaries
+// are a fixed line. Only used when a test sets ANTHROPIC_API_KEY.
+const ai = vi.hoisted(() => ({ calls: [] as Array<{ system: string; input: Record<string, unknown> }> }))
+vi.mock('@anthropic-ai/sdk', () => {
+  class APIError extends Error {
+    status = 500
+  }
+  class RateLimitError extends APIError {}
+  class Anthropic {
+    static APIError = APIError
+    static RateLimitError = RateLimitError
+    beta = {
+      messages: {
+        parse: async (req: { system: string; messages: Array<{ content: string }> }) => {
+          const input = JSON.parse(req.messages[0].content)
+          ai.calls.push({ system: req.system, input })
+          if (req.system.includes('register new people')) {
+            const answers = (input.answers ?? []).map((a: { question_key: string; typed: string }) => ({
+              question_key: a.question_key,
+              option_keys: /footbal/i.test(a.typed) ? ['football', 'gym_fitness', 'not_a_key'] : [],
+            }))
+            const hit = input.connection?.candidates.find((c: { name: string }) => c.name.startsWith('Abena'))
+            return { stop_reason: 'end_turn', parsed_output: { answers, connection_member_id: hit?.id ?? null } }
+          }
+          return { stop_reason: 'end_turn', parsed_output: { summary: 'Shares football with its members and meets on Monday evenings.' } }
+        },
+      },
+    }
+  }
+  return { default: Anthropic }
+})
 
 const enabled = !!process.env.CCG_TEST_DATABASE_URL && process.env.NEON_DATABASE_URL === process.env.CCG_TEST_DATABASE_URL
 const d = enabled ? describe : describe.skip
@@ -30,6 +63,8 @@ type Mods = {
   memberLogin: typeof import('@/lib/ccg/server/member-login')
   access: typeof import('@/lib/ccg/access')
   seekUsers: typeof import('@/lib/db/queries/users')
+  ai: typeof import('@/lib/ccg/server/ai')
+  seekers: typeof import('@/lib/ccg/server/seekers')
 }
 let m: Mods
 const run = randomUUID().slice(0, 6).toUpperCase()
@@ -63,6 +98,8 @@ d('CCG backend against Postgres', () => {
       memberLogin: await import('@/lib/ccg/server/member-login'),
       access: await import('@/lib/ccg/access'),
       seekUsers: await import('@/lib/db/queries/users'),
+      ai: await import('@/lib/ccg/server/ai'),
+      seekers: await import('@/lib/ccg/server/seekers'),
     }
     const { prisma } = m
 
@@ -434,6 +471,42 @@ d('CCG backend against Postgres', () => {
     expect(m.people.canOnPerson(scope, 'people.manage', mine!)).toBe(true)
     await expect(m.placementRoutes.authorisePlacement(scope, 'placements.approve', minePlacement.id)).resolves.toBeTruthy()
 
+    // Converts from a Sheep Seeker's link, or registered by them, are theirs.
+    expect(mine?.seekerPersonId).toBe(seeker.id)
+    const staffRegistered = await m.people.createPerson({
+      kind: 'convert',
+      core: { first_name: 'Seeker', last_name: `Brought ${run}`, stream_id: stream.id, date_of_birth: '1998-05-01' },
+      answers: { interests: ['music'], availability: ['weekday_evenings'] },
+      source: 'staff',
+      actorId: login.id,
+    })
+    expect(staffRegistered.person.seekerPersonId).toBe(seeker.id)
+    const byAdmin = await convertFor({ interests: ['music'] }, { stream_id: stream.id })
+    expect(byAdmin.person.seekerPersonId).toBeNull() // registered by the admin, who is not a Sheep Seeker
+    await expect(
+      m.people.createPerson({
+        kind: 'convert',
+        core: { first_name: 'Not', last_name: `A seeker ${run}`, stream_id: stream.id, seeker_person_id: ids.coordMember },
+        answers: {},
+        source: 'staff',
+        actorId: ids.admin,
+      })
+    ).rejects.toThrow(/Sheep Seeker/)
+
+    // Their home screen, and the stream's report by week and month.
+    const home = await m.seekers.seekerHome(login.id)
+    expect(home?.seeker.person_id).toBe(seeker.id)
+    expect(home?.counts.registered_this_week).toBe(2)
+    expect(home?.counts.awaiting_approval).toBe(2)
+    expect(await m.seekers.seekerHome(ids.admin)).toBeNull()
+    const adminScope = await m.scopeLoader.loadScope(ids.admin)
+    const report = await m.seekers.seekerReport(adminScope, { streamId: stream.id, period: 'week', offset: 0 })
+    expect(report.seekers.find((r) => r.person_id === seeker.id)).toMatchObject({ registered: 2, placed: 0 })
+    expect(report.unassigned.registered).toBeGreaterThanOrEqual(1)
+    const lastMonth = await m.seekers.seekerReport(adminScope, { streamId: stream.id, period: 'month', offset: 1 })
+    expect(lastMonth.seekers.find((r) => r.person_id === seeker.id)?.registered).toBe(0)
+    await expect(m.seekers.seekerReport(scope, { streamId: other.id, period: 'week', offset: 0 })).rejects.toThrow()
+
     // Another stream with no CCFs: held with a stream-specific reason, and out of this seeker's reach.
     const theirs = await convertFor({ interests: ['music'] }, { stream_id: other.id })
     expect(theirs.proposal?.placement.status).toBe('held')
@@ -464,6 +537,57 @@ d('CCG backend against Postgres', () => {
     await m.roles.endAssignment(a.id, ids.admin)
     const ended = await m.prisma.ccgRoleAssignment.findUnique({ where: { id: a.id } })
     expect(ended?.endsOn ?? null).not.toBeNull()
+  }, T)
+
+  it('AI: "Other" text becomes options, the connection note a member, and approvers get a summary', async () => {
+    const { prisma } = m
+    const key = process.env.ANTHROPIC_API_KEY
+    delete process.env.ANTHROPIC_API_KEY
+    try {
+      const { person: abena } = await m.people.createPerson({
+        kind: 'member',
+        core: { first_name: 'Abena', last_name: `Tidy${run}`, ccf_id: ids.football, date_of_birth: '1997-01-01' },
+        answers: { interests: ['football'] },
+        source: 'staff',
+        actorId: ids.admin,
+      })
+      // Registered while the AI is off: the text is kept, nothing is inferred.
+      const { person } = await convertFor(
+        { interests: ['other'], interests__other: '  i play footbal n gym  ', availability: ['weekday_evenings'] },
+        { existing_connection_note: `My friend Abena from work` }
+      )
+      const bank = await (await import('@/lib/ccg/server/questions')).loadQuestionBank()
+      const qid = bank.idByKey.get('interests')!
+      const row = () => prisma.ccgAnswer.findUniqueOrThrow({ where: { personId_questionId: { personId: person.id, questionId: qid } } })
+      expect(await row()).toMatchObject({ otherText: 'i play footbal n gym', aiKeys: null, value: ['other'] })
+      expect(await m.ai.needsTidy(person.id)).toBe(false) // off
+
+      process.env.ANTHROPIC_API_KEY = 'test-key'
+      expect(await m.ai.needsTidy(person.id)).toBe(true)
+      await m.ai.tidyPerson(person.id)
+      expect(await row()).toMatchObject({ value: ['other', 'football', 'gym_fitness'], aiKeys: ['football', 'gym_fitness'] })
+      const tidied = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: person.id } })
+      expect(tidied).toMatchObject({ existingConnectionMemberId: abena.id, connectionByAi: true })
+      expect(ai.calls.some((c) => (c.input.connection as { note?: string } | undefined)?.note?.includes('Abena'))).toBe(true)
+      // Re-matched with what the AI found: football now fits best.
+      const proposal = await prisma.ccgPlacement.findFirstOrThrow({ where: { personId: person.id, status: 'proposed' } })
+      expect(proposal.proposedCcfId).toBe(ids.football)
+      await m.ai.summarisePlacement(proposal.id)
+      expect((await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: proposal.id } })).aiSummary).toMatch(/football/)
+      expect(await m.ai.needsTidy(person.id)).toBe(false) // tidied once; not sent again
+
+      // Staff edits: the AI's tags follow what is still chosen; the text goes when "Other" does.
+      await m.people.updatePerson(person.id, { answers: { interests: ['other', 'football'] } }, { actorId: ids.admin, source: 'staff' })
+      expect(await row()).toMatchObject({ otherText: 'i play footbal n gym', aiKeys: ['football'] })
+      await m.people.updatePerson(person.id, { answers: { interests: ['music'] } }, { actorId: ids.admin, source: 'staff' })
+      expect(await row()).toMatchObject({ otherText: null, value: ['music'] })
+      // Choosing a member by hand replaces the AI's match.
+      await m.people.updatePerson(person.id, { existing_connection_member_id: null }, { actorId: ids.admin, source: 'staff' })
+      expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: person.id } })).connectionByAi).toBe(false)
+    } finally {
+      if (key) process.env.ANTHROPIC_API_KEY = key
+      else delete process.env.ANTHROPIC_API_KEY
+    }
   }, T)
 
   it('Seek user management does not list CCG-only users', async () => {

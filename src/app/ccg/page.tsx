@@ -28,6 +28,7 @@ import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { LEVEL_LABEL, focusQuery, useCcgFocus } from '@/components/ccg/CcgFocusProvider'
 import { hourlyGreeting, splitName } from '@/components/ccg/greetings'
 import { FocusPicker, groupHref } from '@/components/ccg/synago'
+import { SeekerHome } from '@/components/ccg/SeekerHome'
 
 interface Dashboard {
   units: { active_ccfs: number; open_spaces: number; members: number }
@@ -97,6 +98,7 @@ export default function CcgHomePage() {
   const loading = !d
   const isUnit = !!focus && focus.type !== 'global'
   const overdue = d?.placements.milestones_overdue ?? 0
+  const isSeeker = !!me?.roles.some((r) => r.role.key === 'sheep_seeker')
 
   const primary = isUnit
     ? { label: 'Converts in their assessment year', value: d?.placements.active ?? 0 }
@@ -186,6 +188,8 @@ export default function CcgHomePage() {
                 ))}
               </div>
             </section>
+
+            {isSeeker && <SeekerHome />}
 
             {/* This week */}
             <section>

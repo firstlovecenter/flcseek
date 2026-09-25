@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
   parseSignal,
@@ -78,9 +78,38 @@ export async function loadAnswers(
   return out
 }
 
+/** Suffix for "what did you mean by Other?" text sent alongside an answer: `interests__other`. */
+export const OTHER_SUFFIX = '__other'
+
+/** Free text typed after "Other", and the options the AI added from it, keyed by question key. */
+export type AnswerNotes = Record<string, { other_text: string | null; ai_keys: string[] }>
+
+export async function loadAnswerNotes(personIds: string[], bank: QuestionBank, db: Db = prisma): Promise<Map<string, AnswerNotes>> {
+  const out = new Map<string, AnswerNotes>(personIds.map((id) => [id, {}]))
+  if (personIds.length === 0) return out
+  const rows = await db.ccgAnswer.findMany({
+    where: { personId: { in: personIds }, OR: [{ otherText: { not: null } }, { aiKeys: { not: Prisma.AnyNull } }] },
+    select: { personId: true, questionId: true, otherText: true, aiKeys: true },
+  })
+  for (const r of rows) {
+    const key = bank.keyById.get(r.questionId)
+    if (!key) continue
+    out.get(r.personId)![key] = { other_text: r.otherText, ai_keys: Array.isArray(r.aiKeys) ? (r.aiKeys as string[]) : [] }
+  }
+  return out
+}
+
+const catchAllKeys = (bank: QuestionBank, key: string) =>
+  new Set(bank.questions.find((q) => q.key === key)?.options.filter((o) => o.catchAll).map((o) => o.key) ?? [])
+const asKeys = (v: AnswerValue | undefined): string[] => (Array.isArray(v) ? v : typeof v === 'string' ? [v] : [])
+
 /**
  * Validate and write answers for one person. Returns whether anything scored
- * changed (so callers know to re-run matching).
+ * changed (so callers know to re-run matching), and whether any "Other" text
+ * changed (so the AI can tidy it).
+ *
+ * `<key>__other` entries carry what was typed after choosing a catch-all
+ * option ("Other"). The text is kept only while that option is chosen.
  */
 export async function saveAnswers(
   db: Db,
@@ -94,13 +123,32 @@ export async function saveAnswers(
     enforceRequired: boolean
     previous?: Record<string, AnswerValue>
   }
-): Promise<{ changed: boolean }> {
+): Promise<{ changed: boolean; otherChanged: boolean }> {
+  const input: Record<string, unknown> = {}
+  const otherInput = new Map<string, string | null>()
+  for (const [k, v] of Object.entries(args.input)) {
+    if (k.endsWith(OTHER_SUFFIX)) {
+      const text = typeof v === 'string' ? v.trim().slice(0, 200) : ''
+      otherInput.set(k.slice(0, -OTHER_SUFFIX.length), text || null)
+    } else input[k] = v
+  }
+
   const opts: ValidateOptions = { kind: args.kind, enforceRequired: args.enforceRequired, previous: args.previous }
-  const v = validateAnswers(args.bank.questions, args.input, opts)
+  const v = validateAnswers(args.bank.questions, input, opts)
   if (!v.ok) throw invalid('Some answers are not valid', { answers: v.errors })
+
+  const existing = new Map(
+    (await db.ccgAnswer.findMany({ where: { personId: args.personId }, select: { questionId: true, otherText: true, aiKeys: true } })).map((r) => [
+      r.questionId,
+      r,
+    ])
+  )
 
   for (const [key, value] of Object.entries(v.set)) {
     const questionId = args.bank.idByKey.get(key)!
+    // Keep the AI's tags on options that are still chosen.
+    const before = existing.get(questionId)
+    const kept = Array.isArray(before?.aiKeys) ? (before.aiKeys as string[]).filter((k) => asKeys(value).includes(k)) : null
     await db.ccgAnswer.upsert({
       where: { personId_questionId: { personId: args.personId, questionId } },
       create: {
@@ -110,7 +158,13 @@ export async function saveAnswers(
         source: args.source,
         updatedBy: args.userId,
       },
-      update: { value: value as Prisma.InputJsonValue, source: args.source, updatedBy: args.userId, updatedAt: new Date() },
+      update: {
+        value: value as Prisma.InputJsonValue,
+        aiKeys: kept ?? Prisma.DbNull,
+        source: args.source,
+        updatedBy: args.userId,
+        updatedAt: new Date(),
+      },
     })
   }
   if (v.cleared.length) {
@@ -118,5 +172,23 @@ export async function saveAnswers(
       where: { personId: args.personId, questionId: { in: v.cleared.map((k) => args.bank.idByKey.get(k)!) } },
     })
   }
-  return { changed: Object.keys(v.set).length + v.cleared.length > 0 }
+
+  // "Other" text: kept only while a catch-all option is chosen.
+  let otherChanged = false
+  for (const key of new Set([...otherInput.keys(), ...Object.keys(v.set)])) {
+    const questionId = args.bank.idByKey.get(key)
+    if (!questionId || v.cleared.includes(key)) continue
+    const current = key in v.set ? v.set[key] : args.previous?.[key]
+    const catchAll = catchAllKeys(args.bank, key)
+    const chosen = asKeys(current).some((k) => catchAll.has(k))
+    const before = existing.get(questionId)?.otherText ?? null
+    const next = !chosen ? null : otherInput.has(key) ? otherInput.get(key)! : before
+    if (next === before) continue
+    const updated = await db.ccgAnswer.updateMany({
+      where: { personId: args.personId, questionId },
+      data: { otherText: next, aiKeys: Prisma.DbNull },
+    })
+    if (updated.count) otherChanged = otherChanged || next !== null
+  }
+  return { changed: Object.keys(v.set).length + v.cleared.length > 0, otherChanged }
 }

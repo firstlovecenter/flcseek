@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ClipboardCheck, Loader2, PauseCircle, RefreshCw, Shuffle, TriangleAlert } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ClipboardCheck, Loader2, PauseCircle, RefreshCw, Shuffle, Sparkles, TriangleAlert } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
 import { FACTOR_LABELS, type Factor } from '@/lib/ccg/engine/config'
 import { message } from '@/lib/toast'
@@ -54,6 +54,8 @@ interface Placement {
   proposed_ccf: UnitRef | null
   proposed_score: number | null
   hold_reason: string | null
+  /** Plain-English "why this CCF" (AI). */
+  ai_summary?: string | null
   waiting_days: number | null
   match: { warnings: string[]; proposed: Scored | null; alternatives?: Scored[] } | null
 }
@@ -322,6 +324,15 @@ export default function CcgApprovalsPage() {
                       </p>
                     ))}
 
+                    {p.ai_summary && tab === 'proposed' && (
+                      <p className="flex gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm">
+                        <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                        <span>
+                          {p.ai_summary}
+                          <span className="sr-only"> (written by AI)</span>
+                        </span>
+                      </p>
+                    )}
                     {scored && <Reasons scored={scored} />}
 
                     {(scored || (p.match?.alternatives?.length ?? 0) > 0) && (

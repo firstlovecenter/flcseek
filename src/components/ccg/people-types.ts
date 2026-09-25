@@ -34,6 +34,10 @@ export interface PersonDTO {
   login: { user_id: string; username: string } | null
   existing_connection: { id: string; full_name: string } | null
   existing_connection_note: string | null
+  /** The connection above was matched by the AI from the note. */
+  connection_by_ai?: boolean
+  /** Converts: the Sheep Seeker who brought or registered them. */
+  seeker?: { id: string; full_name: string } | null
   possible_duplicate_of: { id: string; full_name: string; kind: string } | null
   status: string
   source: string
@@ -41,6 +45,8 @@ export interface PersonDTO {
   placement: { id: string; status: string; ccf: UnitRef | null; decided_at: string | null } | null
   proposal: { id: string; status: string; ccf: UnitRef | null; score: number | null; hold_reason: string | null } | null
   answers?: Record<string, string | string[] | number>
+  /** Per question: what was typed after "Other", and the options the AI added from it. */
+  answer_notes?: Record<string, { other_text: string | null; ai_keys: string[] }>
   created_at: string | null
 }
 
@@ -109,3 +115,23 @@ export function useCcgOptions(): CcgOptions | null {
 }
 
 export const ccfLabel = (f: { name: string; ccg?: { name: string } }) => (f.ccg ? `${f.name} · ${f.ccg.name}` : f.name)
+
+export interface SeekerOption {
+  person_id: string
+  name: string
+  streams: Array<{ id: string; name: string }>
+}
+
+/** Sheep Seekers to choose from, optionally of one stream. */
+export function useSeekerOptions(streamId: string | null | undefined): SeekerOption[] | null {
+  const [list, setList] = useState<SeekerOption[] | null>(null)
+  useEffect(() => {
+    let live = true
+    setList(null)
+    ccgApi.get<{ seekers: SeekerOption[] }>(`/seekers/options${streamId ? `?stream_id=${streamId}` : ''}`).then((r) => live && setList(r.ok ? r.data.seekers : []))
+    return () => {
+      live = false
+    }
+  }, [streamId])
+  return list
+}

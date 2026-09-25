@@ -130,6 +130,8 @@ export const personCoreSchema = z.object({
   conversion_date: isoDate.nullable().optional(),
   existing_connection_member_id: uuid.nullable().optional(),
   existing_connection_note: text(300),
+  /** The Sheep Seeker (a member) who brought them; defaults to the registering Sheep Seeker. */
+  seeker_person_id: uuid.nullable().optional(),
 })
 export type PersonCore = z.infer<typeof personCoreSchema>
 
@@ -380,6 +382,8 @@ export const linkSchema = z.object({
   ccf_id: uuid.optional(),
   /** convert_intake: register converts into this stream (empty = church-wide). */
   stream_id: uuid.nullable().optional(),
+  /** convert_intake: converts who register through it are this Sheep Seeker's (default: the creator, when a Sheep Seeker). */
+  seeker_person_id: uuid.nullable().optional(),
   person_id: uuid.optional(),
   label: text(150),
   expires_at: z.string().datetime().nullable().optional(),
