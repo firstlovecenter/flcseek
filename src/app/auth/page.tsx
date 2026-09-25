@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { LoadingScreen } from '@/components/base/LoadingScreen'
+import { OrbField } from '@/components/base/Orbs'
 import { toast } from '@/lib/toast'
 
 const loginSchema = z.object({
@@ -80,11 +81,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] items-center justify-center bg-background p-4">
+    <div className="relative isolate flex min-h-[100dvh] items-center justify-center overflow-hidden bg-background p-4">
+      <OrbField className="-z-10" />
       <div className="absolute top-4 right-4 z-10 safe-area-top">
         <ThemeToggle />
       </div>
-      <Card className="w-full max-w-md shadow-sm">
+      <Card className="w-full max-w-md bg-card/85 shadow-sm backdrop-blur-sm">
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto flex size-16 items-center justify-center">
             <SynagoLogo size={48} surface="auto" priority />

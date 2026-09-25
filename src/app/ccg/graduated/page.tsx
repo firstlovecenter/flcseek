@@ -122,6 +122,7 @@ export default function CcgGraduatedPage() {
         <Skeleton className="mt-4 h-64 rounded-xl" />
       ) : rows.length === 0 ? (
         <EmptyState
+          orb
           icon={GraduationCap}
           title={query ? 'No one matches' : 'No graduates yet'}
           description={query ? 'Try another name.' : 'Converts appear here when they complete their assessment year.'}

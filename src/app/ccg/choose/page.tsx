@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/base/EmptyState'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { PORTAL_LABEL, useCcgFocus, type Portal } from '@/components/ccg/CcgFocusProvider'
 import { markChosen } from '@/components/ccg/campus-choice'
+import { OrbField } from '@/components/base/Orbs'
 
 /**
  * Where a Campus Leader lands (as Seek's Lead Pastor chooses a group): pick
@@ -48,41 +49,44 @@ export default function CcgChoosePage() {
   )
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 py-8">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Choose a stream</h1>
-        <p className="mt-2 text-muted-foreground">Open a stream’s City Church Groups or its Sheep Seeking. You can switch any time from the sidebar.</p>
-      </div>
-      {campuses.map((c) => (
-        <section key={c.assignment_id} className="space-y-3">
-          <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Building2 className="size-5" />
-              </span>
-              <div>
-                <p className="font-semibold">{c.unit!.name}</p>
-                <p className="text-xs text-muted-foreground">The whole campus · {c.role.name}</p>
+    <div className="relative isolate min-h-[80dvh] overflow-hidden rounded-2xl">
+      <OrbField colors={['churches', 'members']} intensity={0.28} className="-z-10" />
+      <div className="mx-auto max-w-3xl space-y-8 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold tracking-tight">Choose a stream</h1>
+          <p className="mt-2 text-muted-foreground">Open a stream’s City Church Groups or its Sheep Seeking. You can switch any time from the sidebar.</p>
+        </div>
+        {campuses.map((c) => (
+          <section key={c.assignment_id} className="space-y-3">
+            <Card className="flex flex-col gap-3 bg-card/85 p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Building2 className="size-5" />
+                </span>
+                <div>
+                  <p className="font-semibold">{c.unit!.name}</p>
+                  <p className="text-xs text-muted-foreground">The whole campus · {c.role.name}</p>
+                </div>
               </div>
-            </div>
-            {buttons('campus', c.unit!.id, c.role.key)}
-          </Card>
-          {(c.unit!.streams ?? []).length === 0 ? (
-            <p className="px-1 text-sm text-muted-foreground">No streams in this campus yet.</p>
-          ) : (
-            <ul className="space-y-2">
-              {c.unit!.streams!.map((s) => (
-                <li key={s.id}>
-                  <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="font-medium">{s.name}</p>
-                    {buttons('stream', s.id, c.role.key)}
-                  </Card>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
+              {buttons('campus', c.unit!.id, c.role.key)}
+            </Card>
+            {(c.unit!.streams ?? []).length === 0 ? (
+              <p className="px-1 text-sm text-muted-foreground">No streams in this campus yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {c.unit!.streams!.map((s) => (
+                  <li key={s.id}>
+                    <Card className="flex flex-col gap-3 bg-card/85 p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+                      <p className="font-medium">{s.name}</p>
+                      {buttons('stream', s.id, c.role.key)}
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))}
+      </div>
     </div>
   )
 }

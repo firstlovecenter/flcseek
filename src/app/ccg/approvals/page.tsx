@@ -19,6 +19,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
+import { AnimatePresence, motion } from 'motion/react'
+import { ThinkingOrb } from '@/components/base/Orbs'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 
 // ---------------------------------------------------------------------------
@@ -56,6 +58,7 @@ interface Placement {
   hold_reason: string | null
   /** Plain-English "why this CCF" (AI). */
   ai_summary?: string | null
+  ai_summary_at?: string | null
   waiting_days: number | null
   match: { warnings: string[]; proposed: Scored | null; alternatives?: Scored[] } | null
 }
@@ -130,22 +133,42 @@ export default function CcgApprovalsPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [decision, setDecision] = useState<Decision | null>(null)
   const [ccfs, setCcfs] = useState<CcfOption[]>([])
+  const [aiOn, setAiOn] = useState(false)
 
   const canApprove = has('placements.approve')
 
-  const load = useCallback(async () => {
-    setItems(null)
-    setSelected(new Set())
-    const res = await ccgApi.get<{ placements: Placement[] }>(`/placements?status=${tab}&limit=100`)
-    if (!res.ok) return setError(res.error.message)
-    setError(null)
-    setItems(res.data.placements)
-    setTotal(Number(res.meta?.total ?? res.data.placements.length))
-  }, [tab])
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) {
+        setItems(null)
+        setSelected(new Set())
+      }
+      const res = await ccgApi.get<{ placements: Placement[]; ai?: boolean }>(`/placements?status=${tab}&limit=100`)
+      if (!res.ok) return quiet ? undefined : setError(res.error.message)
+      setError(null)
+      setAiOn(!!res.data.ai)
+      setItems(res.data.placements)
+      setTotal(Number(res.meta?.total ?? res.data.placements.length))
+    },
+    [tab]
+  )
 
   useEffect(() => {
     load()
   }, [load])
+
+  // Summaries are written after the proposal is made: check back a few times while any are on their way.
+  const writing = aiOn && tab === 'proposed' && !!items?.some((p) => !p.ai_summary_at)
+  const [polls, setPolls] = useState(0)
+  useEffect(() => setPolls(0), [tab])
+  useEffect(() => {
+    if (!writing || polls >= 6) return
+    const t = setTimeout(() => {
+      setPolls((n) => n + 1)
+      load(true)
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [writing, polls, load])
 
   useEffect(() => {
     ccgApi.get<{ ccfs: CcfOption[] }>('/ccfs').then((r) => r.ok && setCcfs(r.data.ccfs.filter((f) => f.status === 'active')))
@@ -206,7 +229,7 @@ export default function CcgApprovalsPage() {
   if (!meLoading && !has('placements.view')) {
     return <EmptyState icon={ClipboardCheck} title="Approvals" description="You don’t have access to the approval queue." className="mt-12" />
   }
-  if (error) return <ErrorScreen title="Couldn’t load the queue" message={error} onRetry={load} />
+  if (error) return <ErrorScreen title="Couldn’t load the queue" message={error} onRetry={() => load()} />
 
   return (
     <div className="space-y-6">
@@ -324,14 +347,34 @@ export default function CcgApprovalsPage() {
                       </p>
                     ))}
 
-                    {p.ai_summary && tab === 'proposed' && (
-                      <p className="flex gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm">
-                        <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-                        <span>
-                          {p.ai_summary}
-                          <span className="sr-only"> (written by AI)</span>
-                        </span>
-                      </p>
+                    {tab === 'proposed' && (p.ai_summary || (aiOn && !p.ai_summary_at)) && (
+                      <AnimatePresence mode="wait" initial={false}>
+                        {p.ai_summary ? (
+                          <motion.p
+                            key="summary"
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4 }}
+                            className="flex gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm"
+                          >
+                            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                            <span>
+                              {p.ai_summary}
+                              <span className="sr-only"> (written by AI)</span>
+                            </span>
+                          </motion.p>
+                        ) : (
+                          <motion.p
+                            key="writing"
+                            exit={{ opacity: 0 }}
+                            className="flex items-center gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm text-muted-foreground"
+                            role="status"
+                          >
+                            <ThinkingOrb />
+                            Writing a summary…
+                          </motion.p>
+                        )}
+                      </AnimatePresence>
                     )}
                     {scored && <Reasons scored={scored} />}
 
