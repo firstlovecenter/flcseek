@@ -231,17 +231,18 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
           <section>
             <SectionLabel
               action={
-                <div className="flex items-center gap-1">
-                  {hasGlobal('structure.manage') && (
-                    <Button variant="ghost" size="sm" className="h-8 gap-1" asChild>
-                      <Link href={`/ccg/groups/new?type=${child}&parent=${id}`}>
-                        <Plus className="size-4" /> Add
-                      </Link>
-                    </Button>
-                  )}
+                <div className="flex items-center gap-2">
                   {(data?.children?.items.length ?? 0) > 0 && (
                     <Button variant="ghost" size="sm" className="h-8" asChild>
-                      <Link href={`${groupHref(type, id)}/groups`}>View all</Link>
+                      <Link href={`${groupHref(type, id)}/groups`}>View all {GROUP_PLURAL[child]}</Link>
+                    </Button>
+                  )}
+                  {/* Adds under this group: the form already knows the parent. */}
+                  {hasGlobal('structure.manage') && (
+                    <Button variant="outline" size="sm" className="h-8 gap-1" asChild>
+                      <Link href={`/ccg/groups/new?type=${child}&parent=${id}`}>
+                        <Plus className="size-4" /> Add {UNIT_LEVEL[child]}
+                      </Link>
                     </Button>
                   )}
                 </div>

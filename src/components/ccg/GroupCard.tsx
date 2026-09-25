@@ -69,7 +69,7 @@ export function GroupList({
                 <Button variant="outline" className="h-10 gap-1.5" asChild>
                   <Link href={extraAdd.href}>
                     <Plus className="size-4" />
-                    Add {UNIT_LEVEL[extraAdd.type].toLowerCase()}
+                    Add {UNIT_LEVEL[extraAdd.type]}
                   </Link>
                 </Button>
               )}
@@ -77,7 +77,7 @@ export function GroupList({
                 <Button className="h-10 gap-1.5" asChild>
                   <Link href={addHref}>
                     <Plus className="size-4" />
-                    Add {UNIT_LEVEL[type].toLowerCase()}
+                    Add {UNIT_LEVEL[type]}
                   </Link>
                 </Button>
               )}

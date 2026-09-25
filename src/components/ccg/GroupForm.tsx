@@ -166,6 +166,8 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     invites.show(leader?.name ?? 'The leader', r.data.leader_invite, () => router.push(target))
   }
 
+  // Added from a group's page: the parent is that group, fixed (only an edit moves a group).
+  const fixedParent = !editing && parent && parentId ? { label: parent.label, name: parents.find((p) => p.value === parentId)?.label ?? null } : null
   const title = editing ? `Edit ${values.name ?? ''}` : `New ${UNIT_LEVEL[type]}`
 
   return (
@@ -174,6 +176,12 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Groups</p>
         <h1 className="truncate text-2xl font-bold tracking-tight text-foreground lg:text-3xl">
           {title} {editing && <span className="text-members">{UNIT_LEVEL[type]}</span>}
+          {fixedParent?.name && (
+            <span className="text-muted-foreground">
+              {' '}
+              in <span className="text-members">{fixedParent.name}</span>
+            </span>
+          )}
         </h1>
       </StickyHeader>
 
@@ -184,7 +192,12 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
           <Card>
             <CardContent className="pt-6">
               <form onSubmit={submit} className="space-y-5" noValidate>
-                {parent && full && (
+                {fixedParent ? (
+                  <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">{fixedParent.label}: </span>
+                    <span className="font-medium">{fixedParent.name ?? '…'}</span>
+                  </p>
+                ) : parent && full && (
                   <Field label={`${parent.label}${type === 'ccf' ? ' *' : ''}`} htmlFor="g-parent" error={errors[parent.field]}>
                     <SearchSelect
                       id="g-parent"
