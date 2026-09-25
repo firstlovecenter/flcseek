@@ -26,6 +26,8 @@ import {
   HeartHandshake,
   GraduationCap,
   Trophy,
+  UserCog,
+  UsersRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Permission } from '@/lib/ccg/permissions'
@@ -56,7 +58,7 @@ import { FocusPicker, PortalSwitcher, groupHref } from './synago'
  */
 
 /** `portals`: where the item appears (Sheep Seeking, City Church Groups, or both). */
-type NavItem = { href: string; label: string; icon: LucideIcon; accent?: string; perm?: Permission | Permission[]; exact?: boolean; portals: Portal[]; campusOnly?: boolean }
+type NavItem = { href: string; label: string; icon: LucideIcon; accent?: string; perm?: Permission | Permission[]; exact?: boolean; portals: Portal[]; campusOnly?: boolean; ownerOnly?: boolean }
 
 const BOTH: Portal[] = ['seeking', 'ccg']
 const SEEKING: Portal[] = ['seeking']
@@ -73,10 +75,12 @@ const PRIMARY: NavItem[] = [
 const SECONDARY: NavItem[] = [
   { href: '/ccg/choose', label: 'Choose stream', icon: Building2, accent: 'text-primary', portals: BOTH, campusOnly: true },
   { href: '/ccg/groups', label: 'Groups', icon: Network, accent: 'text-churches', portals: CCG },
+  { href: '/ccg/seeking-groups', label: 'Seeking groups', icon: UsersRound, perm: 'people.view', accent: 'text-members', portals: SEEKING },
   { href: '/ccg/seekers', label: 'Sheep Seekers', icon: HeartHandshake, perm: 'reports.view', accent: 'text-members', portals: SEEKING },
   { href: '/ccg/activities', label: 'CCG activities', icon: HandHeart, perm: ['activities.record', 'reports.view'], accent: 'text-campaigns', portals: CCG },
   { href: '/ccg/milestones', label: 'Milestones', icon: Trophy, perm: 'settings.manage', accent: 'text-success', portals: BOTH },
   { href: '/ccg/links', label: 'Registration links', icon: Link2, perm: ['links.manage', 'links.intake'], accent: 'text-members', portals: BOTH },
+  { href: '/ccg/users', label: 'Users & roles', icon: UserCog, accent: 'text-primary', portals: BOTH, ownerOnly: true },
   { href: '/ccg/account', label: 'Account', icon: KeyRound, portals: BOTH },
 ]
 
@@ -89,7 +93,7 @@ function useNav() {
   const { portal } = useCcgFocus()
   const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus')
   const pathname = usePathname()
-  const visible = (i: NavItem) => (!i.campusOnly || leadsCampus) && i.portals.includes(portal ?? 'ccg') && (!i.perm || (Array.isArray(i.perm) ? i.perm.some((p) => has(p)) : has(i.perm)))
+  const visible = (i: NavItem) => (!i.ownerOnly || !!me?.is_superadmin) && (!i.campusOnly || leadsCampus) && i.portals.includes(portal ?? 'ccg') && (!i.perm || (Array.isArray(i.perm) ? i.perm.some((p) => has(p)) : has(i.perm)))
   const active = (i: NavItem) => (i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(`${i.href}/`))
   return { primary: PRIMARY.filter(visible), secondary: SECONDARY.filter(visible), active }
 }

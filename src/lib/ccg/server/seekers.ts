@@ -59,7 +59,9 @@ export async function seekerHome(userId: string) {
   if (streams.length === 0) return null
 
   const now = new Date()
-  const mine: Prisma.CcgPersonWhereInput = { kind: 'convert', seekerPersonId: me.id, deletedAt: null }
+  // Their converts: those in their sheep seeking groups.
+  const groups = (await prisma.ccgSeekingGroupSeeker.findMany({ where: { userId, group: { deletedAt: null } }, select: { groupId: true } })).map((g) => g.groupId)
+  const mine: Prisma.CcgPersonWhereInput = { kind: 'convert', seekingGroupId: { in: groups }, deletedAt: null }
   const [registeredThisWeek, awaiting, held, placed, succeeded, heldList, followUps, recent] = await Promise.all([
     prisma.ccgPerson.count({ where: { ...mine, createdAt: { gte: startOfWeek(now) } } }),
     prisma.ccgPerson.count({ where: { ...mine, status: 'proposed' } }),
@@ -210,11 +212,13 @@ export async function streamTeam(streamId: string) {
       id: true,
       roleKey: true,
       startsOn: true,
+      userId: true,
       user: { select: { ccgPeople: { where: { kind: 'member', deletedAt: null }, select: { id: true, fullName: true }, take: 1 } } },
     },
   })
   const holder = (r: (typeof rows)[number]) => ({
     assignment_id: r.id,
+    user_id: r.userId,
     person_id: r.user.ccgPeople[0]?.id ?? null,
     name: r.user.ccgPeople[0]?.fullName ?? 'Unknown',
     since: iso(r.startsOn),
@@ -290,11 +294,12 @@ async function appointInStream(streamId: string, roleKey: 'sheep_seeker' | 'seek
   return { person_id: personId, assignment_id: assignment.id, reused, invite }
 }
 
-/** Stand a Sheep Seeker of this stream down (their converts stay assigned to them until reassigned). */
+/** Stand a Sheep Seeker of this stream down: they also come off the stream's sheep seeking groups. */
 export async function standDownSeeker(streamId: string, assignmentId: string, actorId: string) {
   const a = await prisma.ccgRoleAssignment.findFirst({ where: { id: assignmentId, streamId, roleKey: 'sheep_seeker' } })
   if (!a) throw notFound('Sheep Seeker')
   await endAssignment(a.id, actorId)
+  await prisma.ccgSeekingGroupSeeker.deleteMany({ where: { userId: a.userId, group: { streamId } } })
 }
 
 // ---------------------------------------------------------------------------
@@ -316,7 +321,7 @@ export async function graduatedList(scope: CcgScope, opts: { streamId: string | 
   const visible: Prisma.CcgPlacementWhereInput[] = []
   if (streams === 'all') visible.push({})
   else if (streams.length) visible.push(inStream(streams))
-  if (scope.seekerPersonId) visible.push({ person: { seekerPersonId: scope.seekerPersonId } })
+  if (scope.seekingGroupIds.length) visible.push({ person: { seekingGroupId: { in: scope.seekingGroupIds } } })
   if (visible.length === 0) throw forbidden('Graduates are shown to Sheep Seekers and their Overseers')
 
   const where: Prisma.CcgPlacementWhereInput = {
@@ -326,7 +331,7 @@ export async function graduatedList(scope: CcgScope, opts: { streamId: string | 
     AND: [
       { OR: visible },
       opts.streamId ? inStream([opts.streamId]) : {},
-      opts.mine ? { person: { seekerPersonId: scope.seekerPersonId ?? '00000000-0000-0000-0000-000000000000' } } : {},
+      opts.mine ? { person: { seekingGroupId: { in: scope.seekingGroupIds } } } : {},
       opts.search ? { person: { fullName: { contains: opts.search, mode: 'insensitive' } } } : {},
     ],
   }

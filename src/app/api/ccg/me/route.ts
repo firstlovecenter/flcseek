@@ -1,6 +1,6 @@
 import { success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
-import { currentAssignmentWhere, isSeekSuperadmin } from '@/lib/ccg/access'
+import { currentAssignmentWhere } from '@/lib/ccg/access'
 import { PERMISSION_KEYS } from '@/lib/ccg/permissions'
 import { dateOnly, userDisplayName } from '@/lib/ccg/server/common'
 import { withCcg } from '@/lib/ccg/server/handler'
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 /** GET /api/ccg/me — who I am in CCG: roles (with units) and permissions. */
 export const GET = withCcg({}, async ({ user, scope }) => {
   const [u, assignments] = await Promise.all([
-    prisma.user.findUnique({ where: { id: user.id }, select: { id: true, username: true, firstName: true, lastName: true, role: true } }),
+    prisma.user.findUnique({ where: { id: user.id }, select: { id: true, username: true, firstName: true, lastName: true, ccgOwner: { select: { userId: true } } } }),
     prisma.ccgRoleAssignment.findMany({
       where: { userId: user.id, ...currentAssignmentWhere() },
       include: {
@@ -26,8 +26,8 @@ export const GET = withCcg({}, async ({ user, scope }) => {
   ])
   return success({
     user: { id: user.id, username: u?.username ?? user.username, name: u ? userDisplayName(u) : user.username },
-    /** Seek superadmins have every CCG permission everywhere, without an assignment. */
-    is_superadmin: isSeekSuperadmin(u?.role),
+    /** The CCG owner ("super superadmin") has every CCG permission everywhere, without an assignment. */
+    is_superadmin: !!u?.ccgOwner,
     roles: assignments.map((a) => ({
       assignment_id: a.id,
       role: { key: a.role.key, name: a.role.name, scope_level: a.role.scopeLevel },

@@ -183,7 +183,7 @@ export const focusQuery = (f: FocusOption | null) => (f && f.type !== 'global' &
 
 /**
  * In the Sheep Seeking portal: 'seeker' (a Sheep Seeker, who sees the converts
- * assigned to them) or 'overseer' (a Sheep Seeking Overseer or the central
+ * in their groups) or 'overseer' (a Sheep Seeking Overseer or the central
  * team, who see the stream's or the whole church's). Null in City Church Groups.
  */
 export function useSeekingRole(): 'seeker' | 'overseer' | null {

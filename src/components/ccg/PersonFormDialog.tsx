@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Field, NullableSelect, SearchSelect } from './form-utils'
 import { useCcgMe } from './CcgMeProvider'
 import { OTHER_SUFFIX, QuestionFields, missingRequired, type Answers } from './QuestionFields'
-import { ccfLabel, useCcgOptions, useSeekerOptions, type PersonDTO } from './people-types'
+import { ccfLabel, useCcgOptions, useSeekingGroupOptions, type PersonDTO } from './people-types'
 
 type Mode = { kind: 'member' | 'convert'; personId?: string }
 
@@ -31,7 +31,8 @@ interface Core {
   conversion_date: string | null
   existing_connection_note: string | null
   /** Converts: their Sheep Seeker; undefined = leave to the server (the registering seeker). */
-  seeker_person_id?: string | null
+  /** Converts: their sheep seeking group; undefined = leave to the server (the registering seeker's group). */
+  seeking_group_id?: string | null
 }
 
 const EMPTY: Core = {
@@ -103,7 +104,7 @@ export function PersonFormDialog({
         stream_id: p.stream?.id ?? null,
         conversion_date: p.conversion_date,
         existing_connection_note: p.existing_connection_note,
-        seeker_person_id: p.seeker?.id ?? null,
+        seeking_group_id: p.seeking_group?.id ?? null,
       })
       const notes = p.answer_notes ?? {}
       const others = Object.fromEntries(
@@ -126,7 +127,7 @@ export function PersonFormDialog({
         (r.role.key === 'seeking_overseer' && (!core.stream_id || r.unit?.id === core.stream_id)) ||
         (r.unit?.type === 'campus' && (!core.stream_id || !!r.unit.streams?.some((s) => s.id === core.stream_id)))
     )
-  const seekers = useSeekerOptions(kind === 'convert' && mode ? core.stream_id : undefined)
+  const groups = useSeekingGroupOptions(kind === 'convert' && mode ? core.stream_id : undefined)
   const activeCcfs = (opts?.ccfs ?? []).filter((f) => f.status === 'active' && f.ccg.status === 'active')
   const set = <K extends keyof Core>(k: K, v: Core[K]) => setCore((c) => ({ ...c, [k]: v }))
   const text = (k: keyof Core) => ({
@@ -147,14 +148,14 @@ export function PersonFormDialog({
     setErrors(local)
     if (Object.keys(local).length) return
 
-    const { ccf_id, stream_id, conversion_date, existing_connection_note, seeker_person_id, ...shared } = core
+    const { ccf_id, stream_id, conversion_date, existing_connection_note, seeking_group_id, ...shared } = core
     const body = {
       ...shared,
       ...(kind === 'member'
         ? editing
           ? {}
           : { ccf_id }
-        : { stream_id, conversion_date, existing_connection_note, ...(seeker_person_id !== undefined ? { seeker_person_id } : {}) }),
+        : { stream_id, conversion_date, existing_connection_note, ...(seeking_group_id !== undefined ? { seeking_group_id } : {}) }),
       answers,
     }
     setSaving(true)
@@ -293,18 +294,19 @@ export function PersonFormDialog({
                     </Field>
                     {canAssign && (
                       <Field
-                        label="Assigned Sheep Seeker"
-                        htmlFor="p-seeker"
-                        error={errors.seeker_person_id}
-                        hint="Looks after them and ticks their milestones, whatever CCF they are placed in"
+                        label="Sheep seeking group"
+                        htmlFor="p-group"
+                        error={errors.seeking_group_id}
+                        hint={core.stream_id ? 'Its Sheep Seekers look after them, whatever CCF they are placed in' : 'Choose their stream first'}
                       >
                         <SearchSelect
-                          id="p-seeker"
-                          value={core.seeker_person_id ?? null}
-                          onChange={(v) => set('seeker_person_id', v)}
-                          options={(seekers ?? []).map((sk) => ({ value: sk.person_id, label: sk.name, hint: sk.streams.map((x) => x.name).join(', ') }))}
-                          noneLabel={editing ? 'Not assigned' : 'Me, or not assigned'}
-                          placeholder="Not assigned"
+                          id="p-group"
+                          value={core.seeking_group_id ?? null}
+                          onChange={(v) => set('seeking_group_id', v)}
+                          options={(groups ?? []).map((g) => ({ value: g.id, label: g.name }))}
+                          noneLabel="No group yet"
+                          placeholder="No group yet"
+                          disabled={!core.stream_id}
                         />
                       </Field>
                     )}

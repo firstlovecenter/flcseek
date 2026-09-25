@@ -107,6 +107,7 @@ d('CCG backend against Postgres', () => {
     const mk = (username: string, role: string | null) =>
       prisma.user.create({ data: { username, password: 'x'.repeat(60), role, firstName: username } })
     ids.admin = (await mk(`ccgadmin_${run}`, 'superadmin')).id
+    await prisma.ccgOwner.create({ data: { userId: ids.admin } })
     ids.coord = (await mk(`ccgcoord_${run}`, null)).id
 
     // Structure: stream → council → CCG → two CCFs meeting weekday evenings. Converts are matched
@@ -493,6 +494,24 @@ d('CCG backend against Postgres', () => {
       })
     ).rejects.toThrow(/Sheep Seeker/)
 
+    // Their converts are those in their sheep seeking groups: a group of the stream, the seeker assigned to it,
+    // and the converts put in it (a convert they register goes straight into their only group).
+    const sg = await import('@/lib/ccg/server/seeking-groups')
+    const ownerScope = await m.scopeLoader.loadScope(ids.admin)
+    const group = await sg.createSeekingGroup(ownerScope, { stream_id: stream.id, name: `Group ${run}` }, ids.admin)
+    await sg.addGroupSeeker(ownerScope, group.id, login.id, ids.admin)
+    await sg.addGroupConverts(ownerScope, group.id, [mine!.id, staffRegistered.person.id], ids.admin)
+    const third = await m.people.createPerson({
+      kind: 'convert',
+      core: { first_name: 'Grouped', last_name: `Convert ${run}`, stream_id: stream.id },
+      answers: {},
+      source: 'staff',
+      actorId: login.id,
+    })
+    expect(third.person.seekingGroupId).toBe(group.id)
+    await m.people.removePerson(third.person.id, ids.admin)
+    await expect(sg.addGroupSeeker(ownerScope, group.id, ids.coord, ids.admin)).rejects.toThrow(/Sheep Seekers of this stream/)
+
     // Their home screen, and the stream's report by week and month.
     const home = await m.seekers.seekerHome(login.id)
     expect(home?.seeker.person_id).toBe(seeker.id)
@@ -527,7 +546,10 @@ d('CCG backend against Postgres', () => {
     expect(admin.can('roles.manage')).toBe(true)
     // The Seek superadmin holds every permission, including the milestone ones.
     for (const p of m.permissionKeys) expect(admin.can(p)).toBe(true)
-    expect(await m.access.hasCcgAccess(ids.admin, 'superadmin')).toBe(true)
+    expect(await m.access.hasCcgAccess(ids.admin, 'superadmin')).toBe(true) // the CCG owner
+    // Another Seek superadmin, not an owner and with no CCG role, does not get in.
+    const plainSuper = await m.prisma.user.create({ data: { username: `plainsuper_${run}`, password: 'x'.repeat(60), role: 'superadmin', firstName: 'Plain' } })
+    expect(await m.access.hasCcgAccess(plainSuper.id, 'superadmin')).toBe(false)
     expect(await m.access.hasCcgAccess(ids.coord, null)).toBe(true)
   }, T)
 
@@ -625,17 +647,23 @@ d('CCG backend against Postgres', () => {
     const roles = await prisma.ccgRoleAssignment.findMany({ where: { userId: login.id, roleKey: 'sheep_seeker', endsOn: null } })
     expect(roles.map((r) => r.streamId).sort()).toEqual([fresh.id, ids.stream].sort())
 
-    // Converts are assigned to them for looking after: they see and tick those converts' milestones
-    // wherever they are placed, even outside the streams they seek in.
+    // Converts in their sheep seeking group: they see and tick those converts' milestones wherever they are placed.
+    const sg = await import('@/lib/ccg/server/seeking-groups')
+    const ownerScope = await m.scopeLoader.loadScope(ids.admin)
+    const group = await sg.createSeekingGroup(ownerScope, { stream_id: ids.stream, name: `Care ${run}` }, ids.admin)
+    await sg.addGroupSeeker(ownerScope, group.id, login.id, ids.admin)
     const { person: assigned, proposal } = await convertFor({ interests: ['football'], availability: ['weekday_evenings'] })
     await m.placements.approvePlacement(proposal!.placement.id, ids.admin)
-    await m.people.updatePerson(assigned.id, { seeker_person_id: person.id }, { actorId: ids.admin, source: 'staff' })
+    await sg.addGroupConverts(ownerScope, group.id, [assigned.id], ids.admin)
     const seekerScope = await m.scopeLoader.loadScope(login.id)
-    expect(seekerScope.seekerPersonId).toBe(person.id)
+    expect(seekerScope.seekingGroupIds).toContain(group.id)
     await expect(m.placementRoutes.authorisePlacement(seekerScope, 'milestones.update', proposal!.placement.id)).resolves.toBeTruthy()
-    const mine = await (await import('@/lib/ccg/server/progress')).listProgress(seekerScope, { seekerPersonId: person.id })
+    const mine = await (await import('@/lib/ccg/server/progress')).listProgress(seekerScope, { seekingGroupIds: [group.id] })
     expect(mine.rows.map((r) => r.person.id)).toEqual([assigned.id])
-    const otherPlacement = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', person: { seekerPersonId: null } } })
+    const detail = await sg.seekingGroupDetail(seekerScope, group.id)
+    expect(detail.can_manage).toBe(false)
+    expect(detail.converts.map((c) => c.id)).toEqual([assigned.id])
+    const otherPlacement = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', person: { seekingGroupId: null } } })
     const otherInStream = await prisma.ccgPlacement.findFirst({
       where: { id: otherPlacement.id, finalCcf: { ccg: { council: { streamId: { in: [fresh.id, ids.stream] } } } } },
     })

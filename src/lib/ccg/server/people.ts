@@ -18,7 +18,7 @@ type ScopedPerson = {
   kind: string
   ccfId: string | null
   streamId: string | null
-  seekerPersonId?: string | null
+  seekingGroupId?: string | null
   placements: Array<{ status: string; finalCcfId: string | null; proposedCcfId: string | null }>
 }
 
@@ -47,7 +47,7 @@ export function canOnPerson(scope: CcgScope, perm: 'people.view' | 'people.manag
   return (
     personCcfIds(p).some((id) => scope.canOnCcf(perm, id)) ||
     (byStream(p) && scope.canOnStream(perm, p.streamId)) ||
-    scope.canOnAssigned(perm, p.seekerPersonId)
+    scope.canOnSeekingGroup(perm, p.seekingGroupId)
   )
 }
 
@@ -74,8 +74,8 @@ export function peopleScopeWhere(scope: CcgScope, perm: 'people.view' | 'people.
           }
         : { kind: 'convert' },
       ...(streams.length ? [{ kind: 'convert', streamId: { in: streams } }, { kind: 'member', ccfId: null, streamId: { in: streams } }] : []),
-      // A Sheep Seeker's assigned converts, wherever they are placed.
-      ...(scope.seekerPersonId && scope.canOnAssigned(perm, scope.seekerPersonId) ? [{ kind: 'convert', seekerPersonId: scope.seekerPersonId }] : []),
+      // The converts in a Sheep Seeker's groups, wherever they are placed.
+      ...(scope.seekingGroupIds.length && scope.canOnSeekingGroup(perm, scope.seekingGroupIds[0]) ? [{ kind: 'convert', seekingGroupId: { in: scope.seekingGroupIds } }] : []),
     ],
   }
 }
@@ -90,6 +90,7 @@ export const personInclude = {
   ccf: { include: { ccg: true } },
   existingConnection: { select: { id: true, fullName: true, ccfId: true } },
   seeker: { select: { id: true, fullName: true } },
+  seekingGroup: { select: { id: true, name: true } },
   possibleDuplicateOf: { select: { id: true, fullName: true, kind: true } },
   placements: {
     where: { status: { in: ['proposed', 'held', 'active'] } },
@@ -130,8 +131,10 @@ export function serializePerson(p: PersonRow, answers?: Record<string, AnswerVal
     existing_connection_note: p.existingConnectionNote,
     /** The member above was matched by the AI from the note. */
     connection_by_ai: p.connectionByAi,
-    /** Converts: the Sheep Seeker who brought or registered them. */
+    /** Converts: the Sheep Seeker who registered them. */
     seeker: p.seeker ? { id: p.seeker.id, full_name: p.seeker.fullName } : null,
+    /** Converts: their sheep seeking group. */
+    seeking_group: p.seekingGroup ? { id: p.seekingGroup.id, name: p.seekingGroup.name } : null,
     possible_duplicate_of: p.possibleDuplicateOf
       ? { id: p.possibleDuplicateOf.id, full_name: p.possibleDuplicateOf.fullName, kind: p.possibleDuplicateOf.kind }
       : null,
@@ -203,6 +206,29 @@ export async function seekerSelf(db: Db, actorId: string | null, streamId: strin
   return holds ? m.id : null
 }
 
+/** A live sheep seeking group of the convert's stream. */
+async function assertSeekingGroup(db: Db, groupId: string | null | undefined, streamId: string | null | undefined) {
+  if (!groupId) return
+  const g = await db.ccgSeekingGroup.findFirst({ where: { id: groupId, deletedAt: null }, select: { streamId: true } })
+  if (!g) throw invalid('Sheep seeking group not found', { seeking_group_id: 'Not found' })
+  if (streamId && g.streamId !== streamId) throw invalid('That group belongs to another stream', { seeking_group_id: 'Another stream' })
+}
+
+/** The one sheep seeking group (of this stream) a Sheep Seeker is in, if exactly one: where their converts go by default. */
+async function onlyGroupOf(db: Db, seekerPersonId: string | null, actorId: string | null, streamId: string | null | undefined): Promise<string | null> {
+  if (!streamId) return null
+  const userId = seekerPersonId
+    ? (await db.ccgPerson.findUnique({ where: { id: seekerPersonId }, select: { userId: true } }))?.userId ?? null
+    : actorId
+  if (!userId) return null
+  const groups = await db.ccgSeekingGroupSeeker.findMany({
+    where: { userId, group: { streamId, deletedAt: null, status: 'active' } },
+    select: { groupId: true },
+    take: 2,
+  })
+  return groups.length === 1 ? groups[0].groupId : null
+}
+
 async function assertConnection(db: Db, memberId: string | null | undefined, selfId?: string) {
   if (!memberId) return
   if (memberId === selfId) throw invalid('A person cannot be their own connection')
@@ -244,6 +270,7 @@ function coreData(core: Partial<PersonCore>, kind: 'member' | 'convert') {
       d.connectionByAi = false
     }
     if (core.seeker_person_id !== undefined) d.seekerPersonId = core.seeker_person_id
+    if (core.seeking_group_id !== undefined) d.seekingGroupId = core.seeking_group_id
     if (core.existing_connection_note !== undefined) d.existingConnectionNote = core.existing_connection_note
   }
   return d
@@ -279,13 +306,17 @@ export async function createPerson(args: CreatePersonArgs) {
     await assertCcf(tx, args.core.ccf_id)
     await assertStream(tx, args.core.stream_id)
     await assertConnection(tx, args.core.existing_connection_member_id)
-    // Converts belong to the Sheep Seeker who brought them: the one chosen, or
-    // the registering user when they are one.
+    // Converts record the Sheep Seeker who registered them (the one chosen, or the
+    // registering user when they are one), and go into a sheep seeking group: the one
+    // chosen, or that seeker's when they are in exactly one group of the stream.
     let seekerId: string | null = null
+    let groupId: string | null = null
     if (args.kind === 'convert') {
       seekerId = args.core.seeker_person_id ?? (await seekerSelf(tx, args.actorId, args.core.stream_id))
       // (A self-registration keeps its link's seeker even if they have since stepped down.)
       if (args.core.seeker_person_id && args.source === 'staff') await assertSeeker(tx, seekerId, args.core.stream_id)
+      groupId = args.core.seeking_group_id ?? (await onlyGroupOf(tx, seekerId, args.actorId, args.core.stream_id))
+      await assertSeekingGroup(tx, groupId, args.core.stream_id)
     }
     const phone = normalizePhone(args.core.phone)
     const dup = await findDuplicate(tx, phone)
@@ -300,6 +331,7 @@ export async function createPerson(args: CreatePersonArgs) {
         source: args.source,
         possibleDuplicateOfId: dup?.id ?? null,
         seekerPersonId: seekerId,
+        seekingGroupId: groupId,
         createdBy: args.actorId,
       },
     })
@@ -361,6 +393,9 @@ export async function updatePerson(
     await assertCcf(tx, core.ccf_id)
     await assertStream(tx, core.stream_id)
     await assertConnection(tx, core.existing_connection_member_id, id)
+    if (kind === 'convert' && core.seeking_group_id) {
+      await assertSeekingGroup(tx, core.seeking_group_id, core.stream_id !== undefined ? core.stream_id : before.streamId)
+    }
     if (kind === 'convert' && core.seeker_person_id) {
       await assertSeeker(tx, core.seeker_person_id, core.stream_id !== undefined ? core.stream_id : before.streamId)
     }

@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { currentAssignmentWhere, SEEK_SUPERADMIN, todayDate } from '../access'
+import { currentAssignmentWhere, todayDate } from '../access'
 import { conflict, invalid, notFound } from '../errors'
 import type { ScopeLevel } from '../permissions'
 import { ccgTx, dateOnly, iso, logCcg, userDisplayName, type Db } from './common'
@@ -65,8 +65,8 @@ export function serializeRole(r: Prisma.CcgRoleGetPayload<object>, extra: { assi
 export async function withRolesManageKept<T>(mutate: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return ccgTx(async (tx) => {
     const out = await mutate(tx)
-    const superadmins = await tx.user.count({ where: { role: SEEK_SUPERADMIN, deletedAt: null } })
-    if (superadmins > 0) return out
+    const owners = await tx.ccgOwner.count({ where: { user: { deletedAt: null } } })
+    if (owners > 0) return out
     const holders = await tx.ccgRoleAssignment.count({
       where: {
         ...currentAssignmentWhere(),
@@ -82,7 +82,9 @@ export async function withRolesManageKept<T>(mutate: (tx: Prisma.TransactionClie
 export async function createAssignment(
   body: { user_id: string; role_key: string; campus_id?: string | null; stream_id?: string | null; council_id?: string | null; ccg_id?: string | null; ccf_id?: string | null; starts_on?: string },
   actorId: string,
-  db: Db = prisma
+  db: Db = prisma,
+  /** The CCG owner may give a Seek user a role on their Seek login, with no CCG profile. */
+  opts: { linkOnly?: boolean } = {}
 ) {
   const role = await db.ccgRole.findUnique({ where: { key: body.role_key } })
   if (!role || !role.active) throw invalid('Role not found or inactive')
@@ -110,7 +112,7 @@ export async function createAssignment(
   }
   // Every role is held by a member: the login must belong to an active member.
   const member = await db.ccgPerson.findFirst({ where: { userId: user.id, kind: 'member', status: 'active', deletedAt: null } })
-  if (!member) {
+  if (!member && !opts.linkOnly) {
     throw invalid(`Roles are given to members: ${userDisplayName(user)} is not an active member`, { reason: 'not_a_member' })
   }
 

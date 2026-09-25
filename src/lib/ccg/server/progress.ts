@@ -180,13 +180,13 @@ export async function listProgress(
     councilId?: string | null
     streamId?: string | null
     overdueOnly?: boolean
-    /** Only the converts assigned to this Sheep Seeker (their own member id). */
-    seekerPersonId?: string | null
+    /** Only the converts in these sheep seeking groups (a Sheep Seeker's own). */
+    seekingGroupIds?: string[] | null
   }
 ) {
   const within = inFilter(scope.ccfIds('placements.view'))
-  // In scope: CCFs the viewer covers, plus a Sheep Seeker's assigned converts wherever they are placed.
-  const mine = scope.seekerPersonId && scope.canOnAssigned('placements.view', scope.seekerPersonId) ? scope.seekerPersonId : null
+  // In scope: CCFs the viewer covers, plus the converts in a Sheep Seeker's groups wherever they are placed.
+  const mine = scope.seekingGroupIds.length && scope.canOnSeekingGroup('placements.view', scope.seekingGroupIds[0]) ? scope.seekingGroupIds : null
   const [milestones, rows, config] = await Promise.all([
     loadMilestones(),
     prisma.ccgPlacement.findMany({
@@ -194,8 +194,8 @@ export async function listProgress(
         status: 'active',
         person: { deletedAt: null },
         AND: [
-          within ? { OR: [{ finalCcfId: within }, ...(mine ? [{ person: { seekerPersonId: mine } }] : [])] } : {},
-          filter.seekerPersonId ? { person: { seekerPersonId: filter.seekerPersonId } } : {},
+          within ? { OR: [{ finalCcfId: within }, ...(mine ? [{ person: { seekingGroupId: { in: mine } } }] : [])] } : {},
+          filter.seekingGroupIds ? { person: { seekingGroupId: { in: filter.seekingGroupIds } } } : {},
           filter.ccfId ? { finalCcfId: filter.ccfId } : {},
           filter.ccgId ? { finalCcf: { ccgId: filter.ccgId } } : {},
           filter.councilId ? { finalCcf: { ccg: { councilId: filter.councilId } } } : {},

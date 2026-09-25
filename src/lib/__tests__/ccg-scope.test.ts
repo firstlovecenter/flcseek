@@ -140,13 +140,14 @@ describe('campuses and sheep seeking roles', () => {
   })
 
   it('Sheep seeking roles reach a stream’s converts but not its CCF members', () => {
-    const s = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view', 'milestones.update'])], tree, { memberId: 'P1' })
+    const s = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view', 'milestones.update'])], tree, { seekingGroupIds: ['SG1'] })
     expect(s.canOnCcf('people.view', 'F1')).toBe(true) // converts placed there
     expect(s.canOnMembersOf('people.view', 'F1')).toBe(false)
     expect(s.memberCcfIds('people.view')).toEqual([])
-    expect(s.seekerPersonId).toBe('P1')
-    expect(s.canOnAssigned('milestones.update', 'P1')).toBe(true)
-    expect(s.canOnAssigned('milestones.update', 'P2')).toBe(false)
+    expect(s.seekingGroupIds).toEqual(['SG1'])
+    expect(s.canOnSeekingGroup('milestones.update', 'SG1')).toBe(true) // converts in their groups
+    expect(s.canOnSeekingGroup('milestones.update', 'SG2')).toBe(false)
+    expect(s.canOnSeekingGroup('structure.manage', 'SG1')).toBe(false)
     // Also a CCF Coordinator: members of their own CCF only.
     const both = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view']), grant('ccf_coordinator', 'F2')], tree)
     expect(both.canOnMembersOf('people.view', 'F2')).toBe(true)

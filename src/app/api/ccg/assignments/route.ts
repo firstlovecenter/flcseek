@@ -4,7 +4,9 @@ import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { assignmentSchema } from '@/lib/ccg/schemas'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { assignRoleToMember, assignmentInclude, serializeAssignment } from '@/lib/ccg/server/roles'
+import { assignRoleToMember, assignmentInclude, createAssignment, serializeAssignment } from '@/lib/ccg/server/roles'
+import { isCcgOwner } from '@/lib/ccg/access'
+import { invalid } from '@/lib/ccg/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +43,15 @@ export const POST = withCcg<z.infer<typeof assignmentSchema>>(
   { permission: 'roles.manage', schema: assignmentSchema },
   async ({ request, user, scope, body }) => {
     ensure(scope.can('roles.manage'))
-    const { assignment, invite } = await assignRoleToMember(body, user.id, new URL(request.url).origin)
+    const { person_id, user_id, ...rest } = body
+    if (user_id) {
+      // Any user, including Seek users with no CCG profile: the owner's call only.
+      ensure(await isCcgOwner(user.id), 'Only the CCG owner can give roles to users who are not members')
+      const assignment = await createAssignment({ ...rest, user_id }, user.id, undefined, { linkOnly: true })
+      return created({ assignment: serializeAssignment(assignment), invite: null })
+    }
+    if (!person_id) throw invalid('Choose a member or a user')
+    const { assignment, invite } = await assignRoleToMember({ ...rest, person_id }, user.id, new URL(request.url).origin)
     return created({ assignment: serializeAssignment(assignment), invite })
   }
 )

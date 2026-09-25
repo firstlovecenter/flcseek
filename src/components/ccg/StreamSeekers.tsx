@@ -102,7 +102,7 @@ export function StreamSeekers({
   const remove = async (s: SeekerHolder) => {
     const ok = await confirm({
       title: `Stand ${s.name} down?`,
-      description: `They stop being a Sheep Seeker for ${streamName}. Converts assigned to them stay with them until you reassign them.`,
+      description: `They stop being a Sheep Seeker for ${streamName}. They come off the sheep seeking groups they looked after.`,
       confirmLabel: 'Stand down',
       destructive: true,
     })
@@ -182,7 +182,7 @@ export function StreamSeekers({
 
       {seekers === null ? null : seekers.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No Sheep Seekers yet.{canManage ? ' Add the people who will register converts and look after the ones assigned to them.' : ''}
+          No Sheep Seekers yet.{canManage ? ' Add the people who will register converts and look after the sheep seeking groups you give them.' : ''}
         </p>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -209,7 +209,7 @@ export function StreamSeekers({
             <DialogDescription>
               {adding === 'overseer'
                 ? `The Sheep Seeking Overseer is ${streamName}’s sheep seeking admin: they appoint its Sheep Seekers, assign converts to them, and oversee registration, approvals and milestones.${overseer ? ` ${overseer.name} stands down.` : ''}`
-                : `Sheep Seekers register ${streamName}’s converts and look after the ones assigned to them, ticking their milestones in whatever CCF they are placed.`}{' '}
+                : `Sheep Seekers register ${streamName}’s converts and look after the sheep seeking groups they are given, ticking those converts’ milestones in whatever CCF they are placed.`}{' '}
               They don’t need to be in a CCF, and are emailed a link to set their own password.
             </DialogDescription>
           </DialogHeader>

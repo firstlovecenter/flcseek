@@ -22,7 +22,7 @@ function Converts() {
   const params = useSearchParams()
   const router = useRouter()
   const { has } = useCcgMe()
-  // A Sheep Seeker sees the converts assigned to them (unless a group's page sent them here).
+  // A Sheep Seeker sees the converts in their groups (unless a group's page sent them here).
   const mine = useSeekingRole() === 'seeker' && !params.get('unit')
   const { name } = useConvertScope()
   const view = params.get('view') === 'all' || params.get('new') === '1' ? 'all' : 'milestones'

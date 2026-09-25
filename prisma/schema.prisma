@@ -47,6 +47,8 @@ model User {
   ccgRoleAssignments CcgRoleAssignment[]  @relation("CcgAssignmentUser")
   ccgPeople          CcgPerson[]          @relation("CcgPersonUser")
   ccgInvites         CcgInvite[]          @relation("CcgInviteUser")
+  ccgOwner           CcgOwner?
+  ccgSeekingGroups   CcgSeekingGroupSeeker[] @relation("CcgSeekingGroupSeeker")
 
   @@index([role])
   @@index([groupId], map: "idx_users_group")
@@ -488,6 +490,49 @@ model CcgZone {
   @@map("ccg_zones")
 }
 
+/// The only Seek logins with full access to the CCG app (other Seek superadmins have none by default).
+model CcgOwner {
+  userId    String    @id @map("user_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("ccg_owners")
+}
+
+/// A stream's sheep seeking group: its converts are looked after by the Sheep Seekers assigned to it.
+model CcgSeekingGroup {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  streamId  String    @map("stream_id") @db.Uuid
+  code      String    @unique @db.VarChar(20)
+  name      String    @db.VarChar(120)
+  status    String    @default("active") @db.VarChar(20)
+  notes     String?
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  stream   CcgStream               @relation(fields: [streamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  converts CcgPerson[]             @relation("CcgPersonSeekingGroup")
+  seekers  CcgSeekingGroupSeeker[]
+
+  @@map("ccg_seeking_groups")
+}
+
+model CcgSeekingGroupSeeker {
+  groupId    String    @map("group_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  assignedBy String?   @map("assigned_by") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  group CcgSeekingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user  User            @relation("CcgSeekingGroupSeeker", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([groupId, userId])
+  @@map("ccg_seeking_group_seekers")
+}
+
 /// A campus groups streams; its Campus Leader runs everything in them (like Seek's Lead Pastor).
 model CcgCampus {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -519,6 +564,7 @@ model CcgStream {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   campus      CcgCampus?          @relation(fields: [campusId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  seekingGroups CcgSeekingGroup[]
   councils    CcgCouncil[]
   assignments CcgRoleAssignment[]
   people      CcgPerson[]
@@ -667,8 +713,10 @@ model CcgPerson {
   /// Members who lead: their login (leader roles are held by members).
   userId                     String?   @map("user_id") @db.Uuid
   possibleDuplicateOfId      String?   @map("possible_duplicate_of_id") @db.Uuid
-  /// Converts: the Sheep Seeker (a member) who brought or registered them.
+  /// Converts: the Sheep Seeker (a member) who registered them.
   seekerPersonId             String?   @map("seeker_person_id") @db.Uuid
+  /// Converts: their sheep seeking group (its Sheep Seekers look after them).
+  seekingGroupId             String?   @map("seeking_group_id") @db.Uuid
   /// The existing connection was matched by the AI from the convert's note.
   connectionByAi             Boolean   @default(false) @map("connection_by_ai")
   status                     String    @db.VarChar(20)
@@ -694,6 +742,7 @@ model CcgPerson {
   prayedFor           CcgGroupActivityPerson[]
   user                User?                    @relation("CcgPersonUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   transfers           CcgTransfer[]
+  seekingGroup        CcgSeekingGroup?         @relation("CcgPersonSeekingGroup", fields: [seekingGroupId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   seeker              CcgPerson?               @relation("CcgSeeker", fields: [seekerPersonId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   seekerOf            CcgPerson[]              @relation("CcgSeeker")
   seekerLinks         CcgFormLink[]            @relation("CcgLinkSeeker")
