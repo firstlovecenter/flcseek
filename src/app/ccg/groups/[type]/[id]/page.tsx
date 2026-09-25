@@ -91,7 +91,8 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
   const canClose = hasGlobal('structure.manage')
   const child = CHILD_GROUP[type]
   const leader = data?.leaders[0]
-  const others = data?.role_holders.filter((h) => h.role_key !== LEADER_KEY[type]) ?? []
+  // (A stream's Sheep Seekers have their own section.)
+  const others = data?.role_holders.filter((h) => h.role_key !== LEADER_KEY[type] && !(type === 'stream' && h.role_key === 'sheep_seeker')) ?? []
 
   const closeDown = async () => {
     if (!u) return
@@ -205,6 +206,7 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
           <StreamSeekers
             streamId={id}
             streamName={u?.name ?? 'this stream'}
+            overseer={data ? data.role_holders.find((h) => h.role_key === 'seeking_overseer') ?? null : undefined}
             seekers={data ? data.role_holders.filter((h) => h.role_key === 'sheep_seeker') : null}
             onChanged={load}
           />

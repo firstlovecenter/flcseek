@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
@@ -25,10 +25,12 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
-import { LEVEL_LABEL, focusQuery, useCcgFocus } from '@/components/ccg/CcgFocusProvider'
+import { LEVEL_LABEL, focusQuery, useCcgFocus, useSeekingRole } from '@/components/ccg/CcgFocusProvider'
+import { ConvertMilestones } from '@/components/ccg/ConvertMilestones'
 import { hourlyGreeting, splitName } from '@/components/ccg/greetings'
 import { FocusPicker, groupHref } from '@/components/ccg/synago'
 import { SeekerHome } from '@/components/ccg/SeekerHome'
+import { hasChosen } from '@/components/ccg/campus-choice'
 
 interface Dashboard {
   units: { active_ccfs: number; open_spaces: number; members: number }
@@ -79,18 +81,26 @@ export default function CcgHomePage() {
   const [trend, setTrend] = useState<Trend | null>(null)
   const q = focusQuery(focus)
   const waitingForFocus = options.length > 0 && !focus
+  // A Campus Leader chooses a stream and portal when they sign in (as Seek's Lead Pastor chooses a group).
+  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus')
+  useEffect(() => {
+    if (leadsCampus && !hasChosen()) router.replace('/ccg/choose')
+  }, [leadsCampus, router])
+  // With the Sheep Seeker role in focus, home is the stream's converts against their milestones (as in Seek).
+  const seekingRole = useSeekingRole()
+  const seeker = seekingRole !== null
 
   useEffect(() => {
-    if (!has('reports.view') || waitingForFocus) return
+    if (!has('reports.view') || waitingForFocus || seeker) return
     setD(null)
     ccgApi.get<Dashboard>(`/dashboard${q ? `?${q}` : ''}`).then((r) => r.ok && setD(r.data))
-  }, [has, q, waitingForFocus])
+  }, [has, q, waitingForFocus, seeker])
 
   useEffect(() => {
-    if (!has('reports.view') || waitingForFocus) return
+    if (!has('reports.view') || waitingForFocus || seeker) return
     setTrend(null)
     ccgApi.get<Trend>(`/trends?series=${series}&offset=${page}${q ? `&${q}` : ''}`).then((r) => r.ok && setTrend(r.data))
-  }, [has, q, series, page, waitingForFocus])
+  }, [has, q, series, page, waitingForFocus, seeker])
 
   const firstName = me?.user.name.split(' ')[0] ?? ''
   const greeting = useMemo(() => hourlyGreeting(firstName, me?.user.id ?? ''), [firstName, me?.user.id])
@@ -98,7 +108,6 @@ export default function CcgHomePage() {
   const loading = !d
   const isUnit = !!focus && focus.type !== 'global'
   const overdue = d?.placements.milestones_overdue ?? 0
-  const isSeeker = !!me?.roles.some((r) => r.role.key === 'sheep_seeker')
 
   const primary = isUnit
     ? { label: 'Converts in their assessment year', value: d?.placements.active ?? 0 }
@@ -156,7 +165,29 @@ export default function CcgHomePage() {
         <FocusPicker className="w-full shrink-0 sm:w-72" />
       </motion.header>
 
-      {has('reports.view') && (
+      {seeker && (
+        <motion.div variants={fadeUp} className="mt-8 space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              {seekingRole === 'seeker' ? 'My' : focus?.name} <span className="text-members">Converts</span>
+            </h2>
+            {has('people.manage') && (
+              <Button variant="outline" className="h-10 gap-1.5" asChild>
+                <Link href="/ccg/converts?view=all&new=1">
+                  <UserPlus className="size-4" />
+                  <span className="hidden sm:inline">Register convert</span>
+                </Link>
+              </Button>
+            )}
+          </div>
+          <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
+            <ConvertMilestones mine={seekingRole === 'seeker'} />
+          </Suspense>
+          {seekingRole === 'seeker' && <SeekerHome />}
+        </motion.div>
+      )}
+
+      {!seeker && has('reports.view') && (
         <motion.div variants={stagger} className="mt-8 flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_360px] lg:items-start">
           {/* Primary column */}
           <motion.div variants={fadeUp} className="min-w-0 space-y-6">
@@ -188,8 +219,6 @@ export default function CcgHomePage() {
                 ))}
               </div>
             </section>
-
-            {isSeeker && <SeekerHome />}
 
             {/* This week */}
             <section>

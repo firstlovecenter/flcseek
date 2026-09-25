@@ -13,7 +13,14 @@ export const GET = withCcg({}, async ({ user, scope }) => {
     prisma.user.findUnique({ where: { id: user.id }, select: { id: true, username: true, firstName: true, lastName: true, role: true } }),
     prisma.ccgRoleAssignment.findMany({
       where: { userId: user.id, ...currentAssignmentWhere() },
-      include: { role: true, stream: true, council: true, ccg: true, ccf: true },
+      include: {
+        role: true,
+        campus: { include: { streams: { where: { deletedAt: null, status: 'active' }, select: { id: true, name: true }, orderBy: { name: 'asc' } } } },
+        stream: true,
+        council: true,
+        ccg: true,
+        ccf: true,
+      },
       orderBy: { role: { sortOrder: 'asc' } },
     }),
   ])
@@ -24,7 +31,9 @@ export const GET = withCcg({}, async ({ user, scope }) => {
     roles: assignments.map((a) => ({
       assignment_id: a.id,
       role: { key: a.role.key, name: a.role.name, scope_level: a.role.scopeLevel },
-      unit: a.stream
+      unit: a.campus
+        ? { type: 'campus', id: a.campus.id, name: a.campus.name, streams: a.campus.streams }
+        : a.stream
         ? { type: 'stream', id: a.stream.id, name: a.stream.name }
         : a.council
         ? { type: 'council', id: a.council.id, name: a.council.name }

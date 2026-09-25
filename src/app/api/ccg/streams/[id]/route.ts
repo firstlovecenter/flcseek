@@ -5,7 +5,7 @@ import { conflict, notFound } from '@/lib/ccg/errors'
 import { streamUpdateSchema } from '@/lib/ccg/schemas'
 import { iso, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { serializeCouncil } from '@/lib/ccg/server/units'
+import { assertCampusExists, serializeCouncil } from '@/lib/ccg/server/units'
 
 export const dynamic = 'force-dynamic'
 type P = { id: string }
@@ -25,7 +25,7 @@ export const GET = withCcg<undefined, P>({}, async ({ params }) => {
     orderBy: { name: 'asc' },
   })
   return success({
-    stream: { id: s.id, code: s.code, name: s.name, status: s.status, notes: s.notes, created_at: iso(s.createdAt) },
+    stream: { id: s.id, campus_id: s.campusId, code: s.code, name: s.name, status: s.status, notes: s.notes, created_at: iso(s.createdAt) },
     councils: councils.map((c) => serializeCouncil(c, { ccg_count: c._count.groups })),
   })
 })
@@ -36,7 +36,12 @@ export const PATCH = withCcg<z.infer<typeof streamUpdateSchema>, P>(
   async ({ user, scope, body, params }) => {
     ensure(scope.can('structure.manage'))
     const before = await load(params.id)
-    await prisma.ccgStream.update({ where: { id: params.id }, data: { ...body, updatedAt: new Date() } })
+    await assertCampusExists(body.campus_id)
+    const { campus_id, ...rest } = body
+    await prisma.ccgStream.update({
+      where: { id: params.id },
+      data: { ...rest, ...(campus_id !== undefined ? { campusId: campus_id } : {}), updatedAt: new Date() },
+    })
     await logCcg({ userId: user.id, action: 'STREAM_UPDATED', entityType: 'ccg_stream', entityId: params.id, oldValues: before, newValues: body })
     return success({ id: params.id })
   }

@@ -337,7 +337,19 @@ Links open the public page `/join/[token]`, which needs no login and is shown wi
 
 ### Sheep Seekers
 
-Sheep Seekers are stream-level members who bring converts in. Each convert records its seeker (`seeker_person_id` on people, shown as `seeker`). It defaults to the registering user when they are a Sheep Seeker; for converts who register themselves, it comes from the intake link's `seeker_person_id`, which defaults to the link's creator. Appoint and stand seekers down with `POST /assignments` (`role_key: sheep_seeker`, `stream_id`) and `DELETE /assignments/[id]`; the stream's page lists them from `role_holders`, which now carry `assignment_id`.
+Sheep seeking has its own portal, over the same data as City Church Groups (see **Portals** below).
+
+- **Sheep Seekers** belong to a stream. They don't need to be in a CCF; new people are added as members of the stream only. Converts are **assigned** to them (`seeker_person_id` on people, shown as `seeker`). A seeker sees and ticks the milestones of their assigned converts in whatever CCF those converts are placed. A convert a seeker registers, or who registers through a seeker's intake link, is assigned to that seeker. Only the stream's Sheep Seeking Overseer, a Campus Leader or an admin (`seekers.manage`) can assign a convert to a different seeker.
+- **Sheep Seeking Overseer** (`seeking_overseer`, one per stream): the stream's sheep seeking admin, and the stream's leader on its page. A central admin (`roles.manage`) appoints them. They appoint and stand down the stream's Sheep Seekers.
+- **Members:** sheep seeking roles never reach CCF members (`canOnMembersOf` counts only leadership roles). Their converts who graduate appear, read-only, in the Graduated list.
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| POST | `/streams/[id]/seekers` | roles.manage, or seekers.manage on the stream | Appoint a Sheep Seeker: `{ person_id }` or `{ first_name, middle_name?, last_name, phone, email }`. An email that already belongs to a member reuses that person, so they keep one login. Returns `{ person_id, assignment_id, reused, invite }`. |
+| DELETE | `/streams/[id]/seekers/[assignmentId]` | same | Stand a Sheep Seeker down. Their converts stay assigned to them until reassigned. |
+| PUT | `/streams/[id]/overseer` | roles.manage | Appoint the Sheep Seeking Overseer (same body). The previous one stands down. |
+| GET | `/seekers/graduated?stream_id=&seeker=me&search=&limit=&offset=` | reports.view | Converts who completed their assessment and became CCF members. Returns `{ counts{total,this_month,this_year}, graduates[] }`. A seeker sees their own, an Overseer their stream's. |
+| GET | `/progress?seeker=me` | placements.view | The milestone grid for the signed-in seeker's assigned converts. |
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
@@ -355,6 +367,24 @@ Runs only when `ANTHROPIC_API_KEY` is set (`CCG_AI=off` switches it off; `CCG_AI
 - **Connection note.** For a convert with a note and no linked member, the AI picks the member the note clearly refers to, from members in their stream whose names appear in it. Such links are marked `connection_by_ai`; choosing a member by hand clears the flag.
 - **Re-matching.** When tidying changes anything, a convert who is still waiting is re-matched (trigger `answers_changed`).
 - **Approver summaries.** Each new proposal gets `ai_summary` (one or two sentences on why the CCF fits) and `ai_summary_at`. The approval queue fills in up to 5 missing summaries each time it loads.
+
+### Portals and campuses
+
+One login and one system, with two portals:
+
+- **Sheep Seeking:** for `sheep_seeker` and `seeking_overseer` roles.
+- **City Church Groups:** for every other role.
+
+The central team and superadmins have both, church-wide or per stream. The client groups a person's roles by portal. The portal switcher moves between portals, and the role switcher moves within one.
+
+- **Campuses** sit above streams: campus → stream → council → CCG → CCF.
+  - A campus grant covers its streams and everything under them. Streams without a campus keep working.
+  - `GET/POST /campuses` and `GET/PATCH/DELETE /campuses/[id]` need structure.manage. A `leader` (the Campus Leader) also needs roles.manage.
+  - Streams take `campus_id`.
+  - `GET /groups` returns campuses, plus any streams without a campus, with each item's `type`.
+- **Campus Leader** (`campus_leader`, campus-level, like Seek's Lead Pastor): runs everything in the campus's streams on both portals. They don't manage the structure, roles or settings.
+  - `GET /me` lists a campus role's `unit.streams`.
+  - The app sends them to `/ccg/choose` once per session, to pick a stream (or the whole campus) and a portal.
 
 ### Settings, roles and users
 

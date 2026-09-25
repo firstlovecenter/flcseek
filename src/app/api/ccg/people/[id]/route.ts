@@ -80,6 +80,13 @@ export const PATCH = withCcg<PersonUpdate, P>({ permission: 'people.manage', sch
       'You can only move converts into your stream'
     )
   }
+  // Converts are assigned to Sheep Seekers by the stream's Sheep Seeking Overseer (or an admin).
+  if (body.seeker_person_id !== undefined && body.seeker_person_id !== p.seekerPersonId) {
+    ensure(
+      scope.can('seekers.manage') || scope.canOnStream('seekers.manage', body.stream_id ?? p.streamId),
+      'Only the stream’s Sheep Seeking Overseer can assign converts to Sheep Seekers'
+    )
+  }
   const { proposal } = await updatePerson(p.id, body, { actorId: user.id, source: 'staff' })
   return success({
     id: p.id,

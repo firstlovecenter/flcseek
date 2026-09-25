@@ -91,13 +91,15 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
     })
     schedule = 'Intercession on Wednesday morning; an outing over food each quarter.'
   } else {
-    // Stream or church-wide: the front of the process (Sheep Seekers, central team).
+    // Campus, stream or church-wide: the front of the process (Sheep Seekers, central team).
     const where =
       focus?.type === 'stream'
         ? { person: { deletedAt: null, streamId: focus.id } }
-        : focus?.type === 'council'
-          ? { person: { deletedAt: null }, proposedCcf: { ccg: { councilId: focus.id } } }
-          : { person: { deletedAt: null } }
+        : focus?.type === 'campus'
+          ? { person: { deletedAt: null, stream: { campusId: focus.id } } }
+          : focus?.type === 'council'
+            ? { person: { deletedAt: null }, proposedCcf: { ccg: { councilId: focus.id } } }
+            : { person: { deletedAt: null } }
     const [proposed, held] = await Promise.all([
       prisma.ccgPlacement.count({ where: { status: 'proposed', ...where } }),
       prisma.ccgPlacement.count({ where: { status: 'held', ...where } }),

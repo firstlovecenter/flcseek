@@ -3,7 +3,7 @@ import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { streamSchema } from '@/lib/ccg/schemas'
 import { iso, logCcg } from '@/lib/ccg/server/common'
-import { createWithCode } from '@/lib/ccg/server/units'
+import { assertCampusExists, createWithCode } from '@/lib/ccg/server/units'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 
 export const dynamic = 'force-dynamic'
@@ -18,6 +18,7 @@ export const GET = withCcg({}, async () => {
   return success({
     streams: streams.map((s) => ({
       id: s.id,
+      campus_id: s.campusId,
       code: s.code,
       name: s.name,
       status: s.status,
@@ -33,8 +34,9 @@ export const POST = withCcg<z.infer<typeof streamSchema>>(
   { permission: 'structure.manage', schema: streamSchema },
   async ({ user, scope, body }) => {
     ensure(scope.can('structure.manage'))
+    await assertCampusExists(body.campus_id)
     const s = await createWithCode('stream', body.code, (code) =>
-      prisma.ccgStream.create({ data: { code, name: body.name, status: body.status, notes: body.notes ?? null, createdBy: user.id } })
+      prisma.ccgStream.create({ data: { code, campusId: body.campus_id ?? null, name: body.name, status: body.status, notes: body.notes ?? null, createdBy: user.id } })
     )
     await logCcg({ userId: user.id, action: 'STREAM_CREATED', entityType: 'ccg_stream', entityId: s.id, newValues: body })
     return created({ id: s.id })

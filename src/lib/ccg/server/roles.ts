@@ -8,6 +8,7 @@ import { sendInvite, userForMember, type InviteResult } from './member-login'
 
 export const assignmentInclude = {
   role: true,
+  campus: { select: { id: true, code: true, name: true } },
   stream: { select: { id: true, code: true, name: true } },
   user: { select: { id: true, username: true, firstName: true, lastName: true, role: true, deletedAt: true } },
   council: { select: { id: true, code: true, name: true } },
@@ -19,7 +20,9 @@ type AssignmentRow = Prisma.CcgRoleAssignmentGetPayload<{ include: typeof assign
 
 export function serializeAssignment(a: AssignmentRow) {
   const today = todayDate()
-  const unit = a.stream
+  const unit = a.campus
+    ? { type: 'campus', ...a.campus }
+    : a.stream
     ? { type: 'stream', ...a.stream }
     : a.council
     ? { type: 'council', ...a.council }
@@ -77,7 +80,7 @@ export async function withRolesManageKept<T>(mutate: (tx: Prisma.TransactionClie
 }
 
 export async function createAssignment(
-  body: { user_id: string; role_key: string; stream_id?: string | null; council_id?: string | null; ccg_id?: string | null; ccf_id?: string | null; starts_on?: string },
+  body: { user_id: string; role_key: string; campus_id?: string | null; stream_id?: string | null; council_id?: string | null; ccg_id?: string | null; ccf_id?: string | null; starts_on?: string },
   actorId: string,
   db: Db = prisma
 ) {
@@ -87,14 +90,16 @@ export async function createAssignment(
   if (!user) throw invalid('User not found')
 
   const level = role.scopeLevel as ScopeLevel
-  const unitIds = { stream: body.stream_id ?? null, council: body.council_id ?? null, ccg: body.ccg_id ?? null, ccf: body.ccf_id ?? null }
+  const unitIds = { campus: body.campus_id ?? null, stream: body.stream_id ?? null, council: body.council_id ?? null, ccg: body.ccg_id ?? null, ccf: body.ccf_id ?? null }
   const given = Object.entries(unitIds).filter(([, v]) => v)
   if (level === 'global' && given.length) throw invalid(`${role.name} applies everywhere; do not choose a unit`)
   if (level !== 'global') {
     if (given.length !== 1 || given[0][0] !== level) throw invalid(`${role.name} is assigned to one ${level.toUpperCase()}`)
     const id = given[0][1]!
     const exists =
-      level === 'stream'
+      level === 'campus'
+        ? await db.ccgCampus.findFirst({ where: { id, deletedAt: null } })
+        : level === 'stream'
         ? await db.ccgStream.findFirst({ where: { id, deletedAt: null } })
         : level === 'council'
         ? await db.ccgCouncil.findFirst({ where: { id, deletedAt: null } })
@@ -113,6 +118,7 @@ export async function createAssignment(
     data: {
       userId: user.id,
       roleKey: role.key,
+      campusId: unitIds.campus,
       streamId: unitIds.stream,
       councilId: unitIds.council,
       ccgId: unitIds.ccg,
@@ -137,6 +143,7 @@ export async function assignRoleToMember(
   body: {
     person_id: string
     role_key: string
+    campus_id?: string | null
     stream_id?: string | null
     council_id?: string | null
     ccg_id?: string | null
@@ -158,10 +165,11 @@ export async function assignRoleToMember(
   return { assignment, invite }
 }
 
-const unitName = (a: AssignmentRow) => (a.ccf ?? a.ccg ?? a.council ?? a.stream)?.name ?? null
+const unitName = (a: AssignmentRow) => (a.ccf ?? a.ccg ?? a.council ?? a.stream ?? a.campus)?.name ?? null
 
 /** The role that makes someone a unit's leader, per level. */
 export const LEADER_ROLE = {
+  campus: 'campus_leader',
   council: 'overseer',
   ccg: 'ccg_governor',
   ccf: 'ccf_coordinator',
@@ -181,7 +189,7 @@ export async function setUnitLeader(
   origin: string
 ): Promise<InviteResult | null> {
   const roleKey = LEADER_ROLE[level]
-  const unitField = level === 'council' ? 'councilId' : level === 'ccg' ? 'ccgId' : 'ccfId'
+  const unitField = level === 'campus' ? 'campusId' : level === 'council' ? 'councilId' : level === 'ccg' ? 'ccgId' : 'ccfId'
   const current = await prisma.ccgRoleAssignment.findMany({
     where: { roleKey, [unitField]: unitId, ...currentAssignmentWhere() },
     select: { id: true, userId: true },

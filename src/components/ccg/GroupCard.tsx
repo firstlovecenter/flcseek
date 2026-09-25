@@ -9,16 +9,18 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Initials, StickyHeader, UNIT_LEVEL, groupHref } from './synago'
 
-export type GroupType = 'stream' | 'council' | 'ccg' | 'ccf'
+export type GroupType = 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
 
-export const GROUP_PLURAL: Record<GroupType, string> = { stream: 'Streams', council: 'Councils', ccg: 'CCGs', ccf: 'CCFs' }
-export const CHILD_GROUP: Record<GroupType, GroupType | null> = { stream: 'council', council: 'ccg', ccg: 'ccf', ccf: null }
-export const LEADER_TITLE: Record<GroupType, string> = { stream: 'Sheep Seeker', council: 'Overseer', ccg: 'City Church Governor', ccf: 'CCF Coordinator' }
-export const LEADER_KEY: Record<GroupType, string> = { stream: 'sheep_seeker', council: 'overseer', ccg: 'ccg_governor', ccf: 'ccf_coordinator' }
+export const GROUP_PLURAL: Record<GroupType, string> = { campus: 'Campuses', stream: 'Streams', council: 'Councils', ccg: 'CCGs', ccf: 'CCFs' }
+export const CHILD_GROUP: Record<GroupType, GroupType | null> = { campus: 'stream', stream: 'council', council: 'ccg', ccg: 'ccf', ccf: null }
+export const LEADER_TITLE: Record<GroupType, string> = { campus: 'Campus Leader', stream: 'Sheep Seeking Overseer', council: 'Overseer', ccg: 'City Church Governor', ccf: 'CCF Coordinator' }
+export const LEADER_KEY: Record<GroupType, string> = { campus: 'campus_leader', stream: 'seeking_overseer', council: 'overseer', ccg: 'ccg_governor', ccf: 'ccf_coordinator' }
 
 export const isGroupType = (v: string): v is GroupType => v in GROUP_PLURAL
 
 export interface GroupCardItem {
+  /** When a list mixes levels (campuses and streams with no campus). */
+  type?: GroupType
   id: string
   name: string
   status: string
@@ -92,7 +94,7 @@ export function GroupList({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((i) => (
-              <GroupCard key={i.id} type={type} item={i} />
+              <GroupCard key={i.id} type={i.type ?? type} item={i} />
             ))}
           </div>
         )}

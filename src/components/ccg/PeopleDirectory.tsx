@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from './CcgMeProvider'
-import { useCcgFocus } from './CcgFocusProvider'
+import { useCcgFocus, useSeekingRole } from './CcgFocusProvider'
 import { PersonFormDialog } from './PersonFormDialog'
 import { PersonSheet } from './PersonSheet'
 import { PERSON_STATUS, type PersonDTO } from './people-types'
@@ -95,7 +95,9 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
   const [status, setStatus] = useState<string | null>(params.get('status'))
   // Sheep Seekers: only the converts they brought (?seeker=me).
   const isSeeker = kind === 'convert' && !!me?.roles.some((r) => r.role.key === 'sheep_seeker')
-  const [mine, setMine] = useState(params.get('seeker') === 'me')
+  // With the Sheep Seeker role in focus, start from the converts assigned to them.
+  const seekingRole = useSeekingRole()
+  const [mine, setMine] = useState(params.get('seeker') === 'me' || (seekingRole === 'seeker' && !params.get('unit') && !params.get('seeker')))
   // One seeker's converts (from the Sheep Seekers report).
   const seekerId = params.get('seeker') !== 'me' ? params.get('seeker') : null
   const [gender, setGender] = useState<string | null>(null)

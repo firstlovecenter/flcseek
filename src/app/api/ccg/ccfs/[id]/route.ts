@@ -52,7 +52,8 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   return success({
     ccf: serializeCcf(f),
     profile: p ? serializeProfile(p, bank) : null,
-    members: members.map((m) => serializePerson(m)),
+    // Members are for the CCF's leaders; sheep seeking roles see its converts only.
+    members: scope.canOnMembersOf('people.view', f.id) ? members.map((m) => serializePerson(m)) : [],
     placed_converts: placed.map((c) => serializePerson(c)),
     incoming_proposals: proposed.map((c) => serializePerson(c)),
   })

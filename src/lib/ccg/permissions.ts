@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   'reports.view': 'See dashboards and reports for units in scope',
   'settings.manage': 'Matching settings, question bank, zones and milestones',
   'roles.manage': 'Create roles and assign them to users',
+  'seekers.manage': 'Appoint and stand down Sheep Seekers, and assign converts to them, in scope',
 } as const
 
 export type Permission = keyof typeof PERMISSIONS
@@ -29,5 +30,5 @@ export function isPermission(v: unknown): v is Permission {
   return typeof v === 'string' && v in PERMISSIONS
 }
 
-export const SCOPE_LEVELS = ['global', 'stream', 'council', 'ccg', 'ccf'] as const
+export const SCOPE_LEVELS = ['global', 'campus', 'stream', 'council', 'ccg', 'ccf'] as const
 export type ScopeLevel = (typeof SCOPE_LEVELS)[number]
