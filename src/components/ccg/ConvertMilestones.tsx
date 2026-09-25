@@ -116,7 +116,7 @@ export function useConvertScope() {
   return { query, waiting, name }
 }
 
-/** `mine`: only the converts assigned to the signed-in Sheep Seeker, wherever they are placed. */
+/** `mine`: only the converts in the signed-in Sheep Seeker's groups, wherever they are placed. */
 export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
   const { has, loading: meLoading } = useCcgMe()
   const router = useRouter()
@@ -244,14 +244,14 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
           <EmptyState
             orb
             icon={Sprout}
-            title={search ? 'No one matches' : overdueOnly ? 'Nothing overdue' : mine ? 'No converts assigned to you yet' : 'No converts in their assessment year'}
+            title={search ? 'No one matches' : overdueOnly ? 'Nothing overdue' : mine ? 'No converts in your groups yet' : 'No converts in their assessment year'}
             description={
               search
                 ? 'Try another name or number.'
                 : overdueOnly
                   ? 'Every convert is on track.'
                   : mine
-                    ? 'Converts your Sheep Seeking Overseer assigns to you appear here once they are placed in a CCF.'
+                    ? 'Converts in the sheep seeking groups you look after appear here once they are placed in a CCF.'
                     : 'Converts appear here once their placement is approved.'
             }
           />

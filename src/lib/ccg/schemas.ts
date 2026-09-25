@@ -72,6 +72,20 @@ export const streamSchema = z.object({
 })
 export const streamUpdateSchema = streamSchema.partial()
 
+/** A stream's sheep seeking group. */
+export const seekingGroupSchema = z.object({
+  stream_id: uuid,
+  name: z.string().trim().min(1, 'Give the group a name').max(120),
+  notes: text(2000),
+})
+export const seekingGroupUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  notes: text(2000),
+  status: z.enum(['active', 'inactive']).optional(),
+})
+export const groupSeekerSchema = z.object({ user_id: uuid })
+export const groupConvertsSchema = z.object({ person_ids: z.array(uuid).min(1).max(500) })
+
 /** Appoint a Sheep Seeker: an existing member, or a new person of the stream (no CCF needed). */
 export const addSeekerSchema = z.union([
   z.object({ person_id: uuid }),
@@ -158,8 +172,10 @@ export const personCoreSchema = z.object({
   conversion_date: isoDate.nullable().optional(),
   existing_connection_member_id: uuid.nullable().optional(),
   existing_connection_note: text(300),
-  /** The Sheep Seeker (a member) who brought them; defaults to the registering Sheep Seeker. */
+  /** The Sheep Seeker (a member) who registered them; defaults to the registering Sheep Seeker. */
   seeker_person_id: uuid.nullable().optional(),
+  /** Converts: their sheep seeking group (its Sheep Seekers look after them). */
+  seeking_group_id: uuid.nullable().optional(),
 })
 export type PersonCore = z.infer<typeof personCoreSchema>
 
@@ -385,7 +401,10 @@ export const roleUpdateSchema = z.object({
 
 /** Roles are given to members; one without a login is emailed an invitation to set a password. */
 export const assignmentSchema = z.object({
-  person_id: uuid,
+  /** A member (every role is held by a member)… */
+  person_id: uuid.optional(),
+  /** …or, for the CCG owner, any user: a Seek user is linked on their Seek login. */
+  user_id: uuid.optional(),
   role_key: z.string().min(1),
   campus_id: uuid.nullable().optional(),
   stream_id: uuid.nullable().optional(),

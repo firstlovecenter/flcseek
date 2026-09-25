@@ -210,8 +210,12 @@ export function PersonSheet({
                       <dd className="font-medium">{fmtDate(p.conversion_date)}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-muted-foreground">Sheep Seeker</dt>
-                      <dd className="font-medium">{p.seeker?.full_name ?? 'Not recorded'}</dd>
+                      <dt className="text-xs text-muted-foreground">Sheep seeking group</dt>
+                      <dd className="font-medium">{p.seeking_group?.name ?? 'None yet'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Registered by</dt>
+                      <dd className="font-medium">{p.seeker?.full_name ?? '—'}</dd>
                     </div>
                   </>
                 )}

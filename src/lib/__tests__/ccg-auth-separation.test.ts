@@ -25,7 +25,7 @@ import { getVerifiedAuthUser, getVerifiedIdentity } from '@/lib/api/middleware'
 import { withApiHandler } from '@/lib/api/handler'
 import { success } from '@/lib/api/response'
 import { withCcg } from '@/lib/ccg/server/handler'
-import { SEEK_SUPERADMIN_GRANT } from '@/lib/ccg/server/scope-loader'
+import { OWNER_GRANT } from '@/lib/ccg/server/scope-loader'
 import { isSeekSuperadmin } from '@/lib/ccg/access'
 
 const base = { id: '00000000-0000-0000-0000-000000000009', username: 'u', tv: 0 }
@@ -74,24 +74,24 @@ describe('Seek and CCG share users but not access', () => {
     expect((await call(approveRoute, state.fresh)).status).toBe(403)
   })
 
-  it('a Seek superadmin reaches both apps with every CCG permission', async () => {
+  it('the CCG owner (a Seek superadmin) reaches both apps with every CCG permission', async () => {
     state.fresh = { ...base, role: 'superadmin', ccg_access: true }
-    state.grants = [SEEK_SUPERADMIN_GRANT]
+    state.grants = [OWNER_GRANT]
     expect((await call(seekRoute as never, state.fresh)).status).toBe(200)
     expect((await call(ccgRoute, state.fresh)).status).toBe(200)
     expect((await call(approveRoute, state.fresh)).status).toBe(200)
   })
 })
 
-describe('Seek superadmin → CCG super-administrator', () => {
-  it('is recognised from the Seek role only', () => {
+describe('CCG owner (super superadmin)', () => {
+  it('Seek superadmin is recognised from the Seek role only (it no longer grants CCG access by itself)', () => {
     expect(isSeekSuperadmin('superadmin')).toBe(true)
     expect(isSeekSuperadmin('leadpastor')).toBe(false)
     expect(isSeekSuperadmin(null)).toBe(false)
   })
 
   it('holds every permission on every unit', () => {
-    const s = resolveCcgScope([SEEK_SUPERADMIN_GRANT], { ccfs: [{ id: 'F1', ccgId: 'G1' }], ccgs: [{ id: 'G1', councilId: 'K1' }] })
+    const s = resolveCcgScope([OWNER_GRANT], { ccfs: [{ id: 'F1', ccgId: 'G1' }], ccgs: [{ id: 'G1', councilId: 'K1' }] })
     for (const p of PERMISSION_KEYS) {
       expect(s.can(p)).toBe(true)
       expect(s.canOnCcf(p, 'F1')).toBe(true)

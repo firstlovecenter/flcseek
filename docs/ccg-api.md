@@ -368,6 +368,30 @@ Runs only when `ANTHROPIC_API_KEY` is set (`CCG_AI=off` switches it off; `CCG_AI
 - **Re-matching.** When tidying changes anything, a convert who is still waiting is re-matched (trigger `answers_changed`).
 - **Approver summaries.** Each new proposal gets `ai_summary` (one or two sentences on why the CCF fits) and `ai_summary_at`. The approval queue fills in up to 5 missing summaries each time it loads.
 
+### Owner, users and sheep seeking groups
+
+**The CCG owner** (`ccg_owners`) is the only kind of Seek login with full CCG access; the production owner is skaduteye. A Seek superadmin with no CCG role no longer gets into the CCG app.
+- `GET /users?all=1` (owner only) lists every user, Seek users included, with their Seek role and current CCG roles (`assignments[]`).
+- `POST /assignments` with `user_id` (owner only) gives any user a CCG role on their existing login, with no CCG profile. With `person_id` it gives the role to a member, as before.
+
+**Sheep seeking groups** belong to a stream. Each convert is in one group (`seeking_group_id`). Sheep Seekers are assigned to groups by login, and look after every convert in their groups, in whatever CCF those converts are placed. This replaces assigning converts to one seeker each; `seeker_person_id` now just records who registered the convert.
+- A convert a seeker registers goes into that seeker's group automatically when they're in exactly one group of the stream.
+- Standing a seeker down also takes them off the stream's groups.
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET | `/seeking-groups?stream_id=` | people.view | A stream's groups; a Sheep Seeker sees their own. |
+| POST | `/seeking-groups` | seekers.manage on the stream | `{ stream_id, name, notes? }` |
+| GET / PATCH / DELETE | `/seeking-groups/[id]` | people.view / seekers.manage | GET returns `{ group, can_manage, seekers[], converts[] }`. DELETE needs an empty group. |
+| POST | `/seeking-groups/[id]/seekers` | seekers.manage | `{ user_id }`; they must be a Sheep Seeker of the stream. |
+| DELETE | `/seeking-groups/[id]/seekers/[userId]` | seekers.manage | |
+| POST | `/seeking-groups/[id]/converts` | seekers.manage | `{ person_ids[] }`, converts of the stream (moved from any other group). |
+| DELETE | `/seeking-groups/[id]/converts/[personId]` | seekers.manage | |
+
+`GET /people?seeker=me` returns the converts in your groups; `?group=<id>` returns one group's converts.
+
+**Milestones** are managed on the Milestones page (settings.manage), through `GET/POST /milestones`, `PATCH /milestones/[id]` and the checklist item endpoints.
+
 ### Portals and campuses
 
 One login and one system, with two portals:

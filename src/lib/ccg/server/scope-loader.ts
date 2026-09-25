@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/prisma'
-import { currentAssignmentWhere, isSeekSuperadmin } from '../access'
+import { currentAssignmentWhere } from '../access'
 import { PERMISSION_KEYS, type ScopeLevel } from '../permissions'
 import { resolveCcgScope, type AssignmentGrant, type CcgScope, type Hierarchy } from '../scope'
 
-/** Seek superadmins hold every CCG permission everywhere (not stored as an assignment). */
-export const SEEK_SUPERADMIN_GRANT: AssignmentGrant = {
-  roleKey: 'seek_superadmin',
+/** CCG owners (ccg_owners) hold every CCG permission everywhere (not stored as an assignment). */
+export const OWNER_GRANT: AssignmentGrant = {
+  roleKey: 'ccg_owner',
   scopeLevel: 'global',
   permissions: [...PERMISSION_KEYS],
   campusId: null,
@@ -28,9 +28,9 @@ export async function loadHierarchy(): Promise<Hierarchy> {
 
 /** Resolve what a user may do, from their current role assignments. */
 export async function loadScope(userId: string): Promise<CcgScope> {
-  const [user, member, assignments, hierarchy] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { role: true, deletedAt: true } }),
-    prisma.ccgPerson.findFirst({ where: { userId, kind: 'member', deletedAt: null }, select: { id: true } }),
+  const [user, groups, assignments, hierarchy] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true, ccgOwner: { select: { userId: true } } } }),
+    prisma.ccgSeekingGroupSeeker.findMany({ where: { userId, group: { deletedAt: null, status: 'active' } }, select: { groupId: true } }),
     prisma.ccgRoleAssignment.findMany({
       where: { userId, ...currentAssignmentWhere() },
       include: { role: true },
@@ -47,6 +47,6 @@ export async function loadScope(userId: string): Promise<CcgScope> {
     ccgId: a.ccgId,
     ccfId: a.ccfId,
   }))
-  if (user && !user.deletedAt && isSeekSuperadmin(user.role)) grants.unshift(SEEK_SUPERADMIN_GRANT)
-  return resolveCcgScope(grants, hierarchy, { memberId: member?.id ?? null })
+  if (user && !user.deletedAt && user.ccgOwner) grants.unshift(OWNER_GRANT)
+  return resolveCcgScope(grants, hierarchy, { seekingGroupIds: groups.map((g) => g.groupId) })
 }

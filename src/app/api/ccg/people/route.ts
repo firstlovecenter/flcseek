@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
  * People the viewer can see: members of CCFs in scope, and converts placed or
  * proposed there. Unplaced converts are visible to global viewers only.
  */
-export const GET = withCcg({ permission: 'people.view' }, async ({ user, scope, query }) => {
+export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query }) => {
   const kind = query.get('kind')
   const status = query.get('status')
   const ccfId = query.get('ccf_id')
@@ -21,12 +21,12 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ user, scope, 
   const councilId = query.get('council_id')
   const streamId = query.get('stream_id')
   const gender = query.get('gender')
-  // A Sheep Seeker's converts: a member id, the viewer's own ('me') or none yet.
+  // seeker=me: the converts in the viewer's sheep seeking groups. seeker=<member id>: registered by
+  // that Sheep Seeker (the report). seeker=none: registered by no Sheep Seeker. group=<id>: one group.
   const seeker = query.get('seeker')
-  const seekerId =
-    seeker === 'me'
-      ? (await prisma.ccgPerson.findFirst({ where: { userId: user.id, kind: 'member', deletedAt: null }, select: { id: true } }))?.id ?? '00000000-0000-0000-0000-000000000000'
-      : seeker
+  const mineOnly = seeker === 'me'
+  const seekerId = mineOnly ? null : seeker
+  const groupId = query.get('group')
   const search = query.get('search')?.trim()
   const limit = Math.min(Number(query.get('limit')) || 50, 200)
   const offset = Math.max(Number(query.get('offset')) || 0, 0)
@@ -51,6 +51,8 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ user, scope, 
       streamId ? { OR: [inUnit({ ccg: { council: { streamId } } }), { kind: 'convert', streamId }, { kind: 'member', ccfId: null, streamId }] } : {},
       gender === 'Male' || gender === 'Female' ? { gender } : {},
       seekerId === 'none' ? { kind: 'convert', seekerPersonId: null } : seekerId ? { kind: 'convert', seekerPersonId: seekerId } : {},
+      mineOnly ? { kind: 'convert', seekingGroupId: { in: scope.seekingGroupIds } } : {},
+      groupId ? { kind: 'convert', seekingGroupId: groupId } : {},
       search
         ? {
             OR: [
@@ -85,11 +87,12 @@ export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema:
     if (!body.stream_id) throw invalid('Choose the stream this convert is registered into')
     ensure(scope.canOnStream('people.manage', body.stream_id), 'You can only register converts into your stream')
   }
-  // Assigning to another Sheep Seeker is the Overseer's call; left out, it is the registering seeker.
-  if (body.kind === 'convert' && body.seeker_person_id) {
+  // Putting a convert in a sheep seeking group is the Overseer's call, or a seeker's for their own group
+  // (left out, a seeker in one group of the stream registers into it).
+  if (body.kind === 'convert' && body.seeking_group_id) {
     ensure(
-      scope.can('seekers.manage') || scope.canOnStream('seekers.manage', body.stream_id) || body.seeker_person_id === scope.seekerPersonId,
-      'Only the stream’s Sheep Seeking Overseer can assign converts to other Sheep Seekers'
+      scope.can('seekers.manage') || scope.canOnStream('seekers.manage', body.stream_id) || scope.seekingGroupIds.includes(body.seeking_group_id),
+      'Only the stream’s Sheep Seeking Overseer can put converts in other groups'
     )
   }
   const { kind, answers, ...core } = body

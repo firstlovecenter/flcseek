@@ -143,14 +143,16 @@ export async function assertCcfEmpty(ccfId: string) {
 // Codes: generated, never typed in
 // ---------------------------------------------------------------------------
 
-const CODE_PREFIX = { campus: 'CMP', stream: 'STR', council: 'CNL', ccg: 'CCG', ccf: 'CCF' } as const
+const CODE_PREFIX = { seeking_group: 'SSG', campus: 'CMP', stream: 'STR', council: 'CNL', ccg: 'CCG', ccf: 'CCF' } as const
 export type CodedUnit = keyof typeof CODE_PREFIX
 
 async function usedCodes(kind: CodedUnit, prefix: string): Promise<string[]> {
   const where = { code: { startsWith: prefix } }
   const select = { code: true }
   const rows =
-    kind === 'campus'
+    kind === 'seeking_group'
+      ? await prisma.ccgSeekingGroup.findMany({ where, select })
+      : kind === 'campus'
       ? await prisma.ccgCampus.findMany({ where, select })
       : kind === 'stream'
       ? await prisma.ccgStream.findMany({ where, select })

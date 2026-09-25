@@ -95,7 +95,7 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
   const [status, setStatus] = useState<string | null>(params.get('status'))
   // Sheep Seekers: only the converts they brought (?seeker=me).
   const isSeeker = kind === 'convert' && !!me?.roles.some((r) => r.role.key === 'sheep_seeker')
-  // With the Sheep Seeker role in focus, start from the converts assigned to them.
+  // With the Sheep Seeker role in focus, start from the converts in their groups.
   const seekingRole = useSeekingRole()
   const [mine, setMine] = useState(params.get('seeker') === 'me' || (seekingRole === 'seeker' && !params.get('unit') && !params.get('seeker')))
   // One seeker's converts (from the Sheep Seekers report).

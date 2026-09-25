@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 /**
  * GET /api/ccg/progress?ccf_id=&ccg_id=&council_id=&stream_id=&seeker=me&overdue=1 — the milestone grid:
  * every active placement in scope x active milestones, with derived status.
- * seeker=me: only the converts assigned to the signed-in Sheep Seeker.
+ * seeker=me: only the converts in the signed-in Sheep Seeker's groups.
  */
 export const GET = withCcg({ permission: 'placements.view' }, async ({ scope, query }) =>
   success(
@@ -17,8 +17,7 @@ export const GET = withCcg({ permission: 'placements.view' }, async ({ scope, qu
       councilId: query.get('council_id'),
       streamId: query.get('stream_id'),
       overdueOnly: query.get('overdue') === '1',
-      // (no seeker record: an id that matches nothing)
-      seekerPersonId: query.get('seeker') === 'me' ? scope.seekerPersonId ?? '00000000-0000-0000-0000-000000000000' : null,
+      seekingGroupIds: query.get('seeker') === 'me' ? scope.seekingGroupIds : null,
     })
   )
 )
