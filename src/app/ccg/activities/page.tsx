@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
-import { Field, NullableSelect } from '@/components/ccg/form-utils'
+import { Field, NullableSelect, SearchSelect } from '@/components/ccg/form-utils'
 import { fmtDate, todayIso, type ProgressRow } from '@/components/ccg/progress-types'
 
 interface ActivityType {
@@ -248,7 +248,7 @@ function LogDialog({
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="CCG" htmlFor="g-ccg">
-              <NullableSelect id="g-ccg" value={ccgId} onChange={setCcgId} options={ccgs.map((g) => ({ value: g.id, label: g.name }))} noneLabel="Choose a CCG" />
+              <SearchSelect id="g-ccg" value={ccgId} onChange={setCcgId} options={ccgs.map((g) => ({ value: g.id, label: g.name }))} placeholder="Choose a CCG" />
             </Field>
             <Field label="Activity" htmlFor="g-type" hint={type?.schedule ?? undefined}>
               <NullableSelect id="g-type" value={typeKey} onChange={setTypeKey} options={types.map((t) => ({ value: t.key, label: t.name }))} noneLabel="Choose" />

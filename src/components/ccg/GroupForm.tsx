@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useCcgMe } from './CcgMeProvider'
-import { Field, NullableSelect } from './form-utils'
+import { Field, NullableSelect, SearchSelect } from './form-utils'
 import { useInviteNotice, type InviteResult } from './InviteNotice'
 import { MemberPicker, type PickedMember } from './MemberPicker'
 import { UNIT_PATH } from './structure-types'
@@ -101,7 +101,6 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
       const str = (v: unknown) => (v === null || v === undefined ? null : String(v))
       setValues({
         name: str(g.name),
-        code: str(g.code),
         status: str(g.status),
         notes: str(g.notes),
         audience: str(g.audience),
@@ -126,7 +125,6 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     e.preventDefault()
     const local: Record<string, string> = {}
     if (!values.name?.trim()) local.name = 'Enter a name'
-    if (full && !values.code?.trim()) local.code = 'Enter a short code'
     if (full && type === 'ccf' && !values.ccg_id) local.ccg_id = 'Choose its CCG'
     if (type === 'ccf' && !(Number(values.capacity) > 0)) local.capacity = 'How many people it can hold'
     setErrors(local)
@@ -135,7 +133,6 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     const txt = (k: string) => (values[k]?.trim() ? values[k]!.trim() : null)
     const body: Record<string, unknown> = { name: txt('name'), notes: txt('notes') }
     if (full) {
-      body.code = txt('code')
       body.status = values.status ?? 'active'
       if (parent) body[parent.field] = values[parent.field] ?? null
     }
@@ -182,7 +179,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
               <form onSubmit={submit} className="space-y-5" noValidate>
                 {parent && full && (
                   <Field label={`${parent.label}${type === 'ccf' ? ' *' : ''}`} htmlFor="g-parent" error={errors[parent.field]}>
-                    <NullableSelect
+                    <SearchSelect
                       id="g-parent"
                       value={values[parent.field] ?? null}
                       onChange={(v) => set(parent.field, v)}
@@ -192,16 +189,9 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                     />
                   </Field>
                 )}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Name *" htmlFor="g-name" error={errors.name}>
-                    <Input id="g-name" value={values.name ?? ''} onChange={(e) => set('name', e.target.value)} aria-invalid={!!errors.name} />
-                  </Field>
-                  {full && (
-                    <Field label="Code *" htmlFor="g-code" error={errors.code} hint="Short unique ID, e.g. ACC-01">
-                      <Input id="g-code" value={values.code ?? ''} onChange={(e) => set('code', e.target.value)} aria-invalid={!!errors.code} />
-                    </Field>
-                  )}
-                </div>
+                <Field label="Name *" htmlFor="g-name" error={errors.name}>
+                  <Input id="g-name" value={values.name ?? ''} onChange={(e) => set('name', e.target.value)} aria-invalid={!!errors.name} />
+                </Field>
 
                 {canLead && (
                   <Field

@@ -133,3 +133,46 @@ export async function assertCcfEmpty(ccfId: string) {
   ])
   if (members + placements > 0) throw conflict('Move or remove everyone in this CCF (members, placements and proposals) first')
 }
+
+// ---------------------------------------------------------------------------
+// Codes: generated, never typed in
+// ---------------------------------------------------------------------------
+
+const CODE_PREFIX = { stream: 'STR', council: 'CNL', ccg: 'CCG', ccf: 'CCF' } as const
+export type CodedUnit = keyof typeof CODE_PREFIX
+
+async function usedCodes(kind: CodedUnit, prefix: string): Promise<string[]> {
+  const where = { code: { startsWith: prefix } }
+  const select = { code: true }
+  const rows =
+    kind === 'stream'
+      ? await prisma.ccgStream.findMany({ where, select })
+      : kind === 'council'
+        ? await prisma.ccgCouncil.findMany({ where, select })
+        : kind === 'ccg'
+          ? await prisma.ccgGroup.findMany({ where, select })
+          : await prisma.ccgFamily.findMany({ where, select })
+  return rows.map((r) => r.code)
+}
+
+/**
+ * Create a stream, council, CCG or CCF with the next free code for its level
+ * (CCF-0001, CCF-0002, …) unless one was given. Retries when two are created
+ * at the same moment and pick the same code.
+ */
+export async function createWithCode<T>(kind: CodedUnit, given: string | undefined, create: (code: string) => Promise<T>): Promise<T> {
+  if (given) return create(given)
+  const prefix = `${CODE_PREFIX[kind]}-`
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const taken = await usedCodes(kind, prefix)
+    const highest = taken.reduce((n, c) => Math.max(n, Number(c.slice(prefix.length)) || 0), 0)
+    const code = `${prefix}${String(highest + 1 + attempt).padStart(4, '0')}`
+    try {
+      return await create(code)
+    } catch (err) {
+      const isClash = (err as { code?: string })?.code === 'P2002' && JSON.stringify((err as { meta?: unknown }).meta ?? '').includes('code')
+      if (!isClash) throw err
+    }
+  }
+  throw conflict('Could not choose a code; try again')
+}

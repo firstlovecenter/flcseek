@@ -8,7 +8,7 @@ import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { loadProfiles } from '@/lib/ccg/server/profiles'
 import { loadQuestionBank } from '@/lib/ccg/server/questions'
-import { assertCcgExists, ccfInclude, serializeCcf, serializeProfile } from '@/lib/ccg/server/units'
+import { assertCcgExists, ccfInclude, createWithCode, serializeCcf, serializeProfile } from '@/lib/ccg/server/units'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +28,7 @@ export const GET = withCcg({}, async ({ scope, query }) => {
       ...(ccgId ? { ccgId } : {}),
     },
     include: ccfInclude,
-    orderBy: [{ ccg: { code: 'asc' } }, { code: 'asc' }],
+    orderBy: { name: 'asc' },
   })
   if (query.get('with_profile') !== '1' || ccfs.length === 0) {
     return success({ ccfs: ccfs.map((f) => serializeCcf(f)) })
@@ -50,10 +50,10 @@ export const POST = withCcg<z.infer<typeof ccfSchema>>(
     ensure(scope.can('structure.manage'))
     if (body.leader) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
     await assertCcgExists(body.ccg_id)
-    const f = await prisma.ccgFamily.create({
+    const f = await createWithCode('ccf', body.code, (code) => prisma.ccgFamily.create({
       data: {
         ccgId: body.ccg_id,
-        code: body.code,
+        code,
         name: body.name,
         meetingLocation: body.meeting_location ?? null,
         meetingDay: body.meeting_day ?? null,
@@ -64,7 +64,7 @@ export const POST = withCcg<z.infer<typeof ccfSchema>>(
         notes: body.notes ?? null,
         createdBy: user.id,
       },
-    })
+    }))
     await logCcg({ userId: user.id, action: 'CCF_CREATED', entityType: 'ccg_family', entityId: f.id, newValues: body })
     const leader_invite = body.leader ? await setUnitLeader('ccf', f.id, body.leader, user.id, new URL(request.url).origin) : null
     return created({ id: f.id, leader_invite })

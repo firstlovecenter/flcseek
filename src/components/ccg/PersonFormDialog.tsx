@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import { Field, NullableSelect } from './form-utils'
+import { Field, NullableSelect, SearchSelect } from './form-utils'
 import { OTHER_SUFFIX, QuestionFields, missingRequired, type Answers } from './QuestionFields'
 import { ccfLabel, useCcgOptions, useSeekerOptions, type PersonDTO } from './people-types'
 
@@ -254,13 +254,13 @@ export function PersonFormDialog({
 
                 {kind === 'member' && !editing && (
                   <Field label="CCF *" htmlFor="p-ccf" error={errors.ccf_id}>
-                    <NullableSelect
+                    <SearchSelect
                       id="p-ccf"
                       value={core.ccf_id}
                       onChange={(v) => set('ccf_id', v)}
-                      options={activeCcfs.map((f) => ({ value: f.id, label: ccfLabel(f) }))}
+                      options={activeCcfs.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
                       placeholder="Choose a CCF"
-                      noneLabel="Choose a CCF"
+                      invalid={!!errors.ccf_id}
                     />
                   </Field>
                 )}
@@ -272,12 +272,13 @@ export function PersonFormDialog({
                       error={errors.stream_id}
                       hint="They are matched only with CCFs in this stream"
                     >
-                      <NullableSelect
+                      <SearchSelect
                         id="p-stream"
                         value={core.stream_id}
                         onChange={(v) => set('stream_id', v)}
                         options={opts.streams.map((s) => ({ value: s.id, label: s.name }))}
                         noneLabel="Church-wide"
+                        search="auto"
                       />
                     </Field>
                     <Field

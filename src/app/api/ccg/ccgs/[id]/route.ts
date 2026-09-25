@@ -34,7 +34,7 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   const [bank, config, ccfs] = await Promise.all([
     loadQuestionBank(),
     getCcgConfig(),
-    prisma.ccgFamily.findMany({ where: { ccgId: g.id, deletedAt: null }, include: ccfInclude, orderBy: { code: 'asc' } }),
+    prisma.ccgFamily.findMany({ where: { ccgId: g.id, deletedAt: null }, include: ccfInclude, orderBy: { name: 'asc' } }),
   ])
   const { byCcf, ccgAggregates } = await loadProfiles({ bank, config, ccfIds: ccfs.map((f) => f.id) })
   const agg = ccgAggregates.get(g.id)

@@ -590,6 +590,17 @@ d('CCG backend against Postgres', () => {
     }
   }, T)
 
+  it('codes are generated when none is given, the next free one per level', async () => {
+    const { createWithCode } = await import('@/lib/ccg/server/units')
+    const make = () => createWithCode('council', undefined, (code) => m.prisma.ccgCouncil.create({ data: { code, name: `Coded ${run}` } }))
+    const [a, b] = await Promise.all([make(), make()])
+    expect(a.code).toMatch(/^CNL-\d{4}$/)
+    expect(b.code).toMatch(/^CNL-\d{4}$/)
+    expect(a.code).not.toBe(b.code)
+    const c = await make()
+    expect(Number(c.code.slice(4))).toBe(Math.max(Number(a.code.slice(4)), Number(b.code.slice(4))) + 1)
+  }, T)
+
   it('Seek user management does not list CCG-only users', async () => {
     const seek = await m.seekUsers.findMany({ search: `ccgcoord_${run}`, excludeSystemUsers: false })
     expect(seek).toHaveLength(0)

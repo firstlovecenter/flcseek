@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
-import { Field, NullableSelect } from '@/components/ccg/form-utils'
+import { Field, NullableSelect, SearchSelect } from '@/components/ccg/form-utils'
 import { ccfLabel, useCcgOptions, useSeekerOptions } from '@/components/ccg/people-types'
 
 interface LinkRow {
@@ -226,7 +226,8 @@ function CreateLinkDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           {kind === 'convert_intake' ? (
             <>
               <Field label="Stream" htmlFor="l-stream" hint="Converts are registered into this stream and matched with its CCFs">
-                <NullableSelect
+                <SearchSelect
+                  search="auto"
                   id="l-stream"
                   value={streamId}
                   onChange={(v) => {
@@ -249,12 +250,12 @@ function CreateLinkDialog({ onClose, onCreated }: { onClose: () => void; onCreat
             </>
           ) : (
             <Field label="CCF" htmlFor="l-ccf" hint="New members wait for their coordinator to confirm them">
-              <NullableSelect
+              <SearchSelect
                 id="l-ccf"
                 value={ccfId}
                 onChange={setCcfId}
-                options={(opts?.ccfs ?? []).filter((f) => f.status === 'active').map((f) => ({ value: f.id, label: ccfLabel(f) }))}
-                noneLabel="Choose a CCF"
+                options={(opts?.ccfs ?? []).filter((f) => f.status === 'active').map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
+                placeholder="Choose a CCF"
               />
             </Field>
           )}

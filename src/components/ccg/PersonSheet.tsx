@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useCcgMe } from './CcgMeProvider'
 import { useInviteNotice, type InviteResult } from './InviteNotice'
-import { Field, NullableSelect } from './form-utils'
+import { Field, NullableSelect, SearchSelect } from './form-utils'
 import { PERSON_STATUS, ccfLabel, useCcgOptions, type BankQuestion, type PersonDTO } from './people-types'
 
 interface Detail {
@@ -361,13 +361,12 @@ function TransferDialog({ person, onClose, onDone }: { person: PersonDTO; onClos
             </DialogDescription>
           </DialogHeader>
           <Field label="New CCF" htmlFor="t-ccf">
-            <NullableSelect
+            <SearchSelect
               id="t-ccf"
               value={ccfId}
               onChange={setCcfId}
-              options={choices.map((f) => ({ value: f.id, label: ccfLabel(f) }))}
+              options={choices.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
               placeholder="Choose a CCF"
-              noneLabel="Choose a CCF"
             />
           </Field>
           <Field label="Why?" htmlFor="t-reason">
@@ -434,7 +433,7 @@ function RoleDialog({
 
   const role = roles.find((r) => r.key === roleKey)
   const level = role?.scope_level
-  const units: Array<{ value: string; label: string }> =
+  const units: Array<{ value: string; label: string; hint?: string }> =
     level === 'stream'
       ? (opts?.streams ?? []).map((s) => ({ value: s.id, label: s.name }))
       : level === 'council'
@@ -442,7 +441,7 @@ function RoleDialog({
         : level === 'ccg'
           ? ccgs.map((g) => ({ value: g.id, label: g.name }))
           : level === 'ccf'
-            ? (opts?.ccfs ?? []).map((f) => ({ value: f.id, label: ccfLabel(f) }))
+            ? (opts?.ccfs ?? []).map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))
             : []
 
   const submit = async (e: React.FormEvent) => {
@@ -488,12 +487,11 @@ function RoleDialog({
           </Field>
           {level && level !== 'global' && (
             <Field label={LEVEL_LABEL[level]} htmlFor="r-unit">
-              <NullableSelect
+              <SearchSelect
                 id="r-unit"
                 value={unitId}
                 onChange={setUnitId}
                 options={units}
-                noneLabel={`Choose a ${LEVEL_LABEL[level].toLowerCase()}`}
                 placeholder={`Choose a ${LEVEL_LABEL[level].toLowerCase()}`}
               />
             </Field>

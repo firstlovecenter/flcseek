@@ -148,7 +148,7 @@ export async function childGroups(type: UnitType, id: string) {
 
 /** The top of the tree (church-wide focus): streams the viewer can see, with leaders and counts. */
 export async function topGroups(scope: CcgScope) {
-  const rows = await prisma.ccgStream.findMany({ where: { deletedAt: null }, orderBy: { code: 'asc' } })
+  const rows = await prisma.ccgStream.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' } })
   const visible = rows.filter((r) => scope.canOnStream('people.view', r.id))
   const leaders = await leaderNames('stream', visible.map((r) => r.id))
   return {
@@ -176,14 +176,14 @@ async function children(type: UnitType, id: string) {
     return { members, placed }
   }
   if (type === 'ccg') {
-    const rows = await prisma.ccgFamily.findMany({ where: { ccgId: id, deletedAt: null }, orderBy: { code: 'asc' } })
+    const rows = await prisma.ccgFamily.findMany({ where: { ccgId: id, deletedAt: null }, orderBy: { createdAt: 'desc' } })
     return {
       type: 'ccf' as const,
       items: await Promise.all(rows.map(async (r) => ({ id: r.id, code: r.code, name: r.name, status: r.status, ...(await count([r.id])) }))),
     }
   }
   if (type === 'council') {
-    const rows = await prisma.ccgGroup.findMany({ where: { councilId: id, deletedAt: null }, orderBy: { code: 'asc' } })
+    const rows = await prisma.ccgGroup.findMany({ where: { councilId: id, deletedAt: null }, orderBy: { createdAt: 'desc' } })
     return {
       type: 'ccg' as const,
       items: await Promise.all(
@@ -192,7 +192,7 @@ async function children(type: UnitType, id: string) {
     }
   }
   if (type === 'stream') {
-    const rows = await prisma.ccgCouncil.findMany({ where: { streamId: id, deletedAt: null }, orderBy: { code: 'asc' } })
+    const rows = await prisma.ccgCouncil.findMany({ where: { streamId: id, deletedAt: null }, orderBy: { createdAt: 'desc' } })
     return {
       type: 'council' as const,
       items: await Promise.all(

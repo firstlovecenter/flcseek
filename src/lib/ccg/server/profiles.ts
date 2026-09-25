@@ -75,7 +75,7 @@ export async function loadProfiles(opts: {
   const units = await db.ccgFamily.findMany({
     where: { ...liveUnit, ...(opts.ccfIds ? { id: { in: opts.ccfIds } } : {}) },
     include: unitInclude,
-    orderBy: { code: 'asc' },
+    orderBy: { name: 'asc' },
   })
   if (units.length === 0) return { profiles: [], byCcf: new Map(), ccgAggregates: new Map() }
 
