@@ -128,7 +128,7 @@ Create and edit each level through its own collection:
 | POST | `/councils` | structure.manage | `{ code, name, status?, notes? }` |
 | GET / PATCH / DELETE | `/councils/[id]` | any / structure.manage | GET returns the council's CCGs. DELETE requires it to have no CCGs. |
 | GET | `/ccgs?council_id=` | any (filtered to scope) | Includes `ccf_count`. |
-| POST | `/ccgs` | structure.manage | `{ code, name, council_id?, leader?, audience: adult\|youth, status?, notes? }` |
+| POST | `/ccgs` | structure.manage | `{ code, name, council_id?, leader?, status?, notes? }` |
 | GET | `/ccgs/[id]` | people.view on the CCG | The CCG, its combined `profile`, and `ccfs[]` each with its `profile`. |
 | PATCH / DELETE | `/ccgs/[id]` | structure.manage | DELETE requires it to have no CCFs. |
 | GET | `/ccfs?ccg_id=&council_id=&with_profile=1` | any (filtered to scope) | |

@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { ADULT_AGE, ageOn } from '../engine'
 import { CcgError, conflict, invalid, notFound } from '../errors'
 import { ccgTx, getCcgConfig, logCcg, type Tx } from './common'
 import { lockRow, proposeFor, PROPOSABLE_STATUSES, type StoredMatchResults } from './mapping'
@@ -36,14 +35,6 @@ async function checkSeat(
   if (!unit || unit.deletedAt || unit.ccg.deletedAt) throw notFound('CCF')
   if (unit.status !== 'active' || unit.ccg.status !== 'active') {
     throw conflict(`${unit.name} or its CCG is no longer active. Rescore to propose another CCF.`)
-  }
-
-  const age = ageOn(person.dateOfBirth)
-  if (age !== null && age < ADULT_AGE && unit.ccg.audience === 'adult') {
-    throw conflict('This convert is under 18 and cannot be placed in an adult CCG.')
-  }
-  if (age !== null && age >= ADULT_AGE && unit.ccg.audience === 'youth') {
-    throw conflict('This convert is an adult and cannot be placed in a youth CCG.')
   }
 
   const full = (await occupancy(tx, ccfId)) >= unit.capacity

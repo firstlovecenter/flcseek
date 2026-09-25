@@ -256,7 +256,7 @@ export function PersonFormDialog({
                     ]}
                   />
                 </Field>
-                <Field label="Date of birth" htmlFor="p-dob" error={errors.date_of_birth} hint="Used for age fit and the under-18 safeguard">
+                <Field label="Date of birth" htmlFor="p-dob" error={errors.date_of_birth} hint="Compared with the ages of CCF members">
                   <Input id="p-dob" type="date" {...text('date_of_birth')} />
                 </Field>
                 <Field label="Nearest landmark" htmlFor="p-landmark">

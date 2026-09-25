@@ -598,7 +598,6 @@ model CcgGroup {
   code      String    @unique @db.VarChar(20)
   name      String    @db.VarChar(120)
   zoneId    String?   @map("zone_id") @db.Uuid
-  audience  String    @default("adult") @db.VarChar(10)
   status    String    @default("active") @db.VarChar(20)
   notes     String?
   createdBy String?   @map("created_by") @db.Uuid

@@ -62,7 +62,6 @@ export const PATCH = withCcg<z.infer<typeof ccgUpdateSchema>, P>(
         ...(body.council_id !== undefined ? { councilId: body.council_id } : {}),
         ...(body.code !== undefined ? { code: body.code } : {}),
         ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.audience !== undefined ? { audience: body.audience } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
         updatedAt: new Date(),

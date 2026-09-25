@@ -71,7 +71,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
   const full = hasGlobal('structure.manage') // otherwise a CCG Governor editing a CCF's details
   const canLead = hasGlobal('roles.manage') && !!LEADER_LABEL[type]
 
-  const [values, setValues] = useState<Values>({ status: 'active', ...(type === 'ccg' ? { audience: 'adult' } : {}), ...(type === 'ccf' ? { capacity: '12' } : {}) })
+  const [values, setValues] = useState<Values>({ status: 'active', ...(type === 'ccf' ? { capacity: '12' } : {}) })
   const [leader, setLeader] = useState<PickedMember | null>(null)
   const [initialLeader, setInitialLeader] = useState<string | null>(null)
   const [parents, setParents] = useState<Array<{ value: string; label: string }>>([])
@@ -109,7 +109,6 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         name: str(g.name),
         status: str(g.status),
         notes: str(g.notes),
-        audience: str(g.audience),
         capacity: str(g.capacity),
         meeting_day: str(g.meeting_day),
         meeting_time: str(g.meeting_time),
@@ -143,7 +142,6 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
       body.status = values.status ?? 'active'
       if (parent) body[parent.field] = values[parent.field] ?? null
     }
-    if (type === 'ccg') body.audience = values.audience ?? 'adult'
     if (type === 'ccf') {
       body.capacity = Number(values.capacity)
       body.meeting_day = values.meeting_day
@@ -223,20 +221,6 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                   </Field>
                 )}
 
-                {type === 'ccg' && (
-                  <Field label="Who it is for" htmlFor="g-audience" hint="Under-18 converts only go to youth CCGs">
-                    <NullableSelect
-                      id="g-audience"
-                      value={values.audience ?? 'adult'}
-                      onChange={(v) => set('audience', v ?? 'adult')}
-                      options={[
-                        { value: 'adult', label: 'Adults (18+)' },
-                        { value: 'youth', label: 'Youth (under 18)' },
-                      ]}
-                      noneLabel="Adults (18+)"
-                    />
-                  </Field>
-                )}
 
                 {type === 'ccf' && (
                   <div className="grid gap-4 sm:grid-cols-2">

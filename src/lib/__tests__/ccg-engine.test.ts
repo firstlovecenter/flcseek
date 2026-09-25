@@ -144,11 +144,12 @@ describe('prototype defect regressions', () => {
     expect(factor(scorePair(convert({}, { age: 34 }), mixed, ctx()), 'age')).toBe(20)
   })
 
-  it('under-18s only go to youth CCGs, adults never do', () => {
-    const adult = profile(unit('AD', { audience: 'adult' }), [person()])
-    const youth = profile(unit('YO', { audience: 'youth' }), [person({}, { age: 16 })])
-    expect(rankUnits(convert({}, { age: 17 }), [adult, youth], ctx()).top.map((u) => u.ccfCode)).toEqual(['YO'])
-    expect(rankUnits(convert({}, { age: 25 }), [adult, youth], ctx()).top.map((u) => u.ccfCode)).toEqual(['AD'])
+  it('age is a profile fit, never a rule: a young convert is ranked towards the CCF of people their age', () => {
+    const older = profile(unit('OL'), [person({}, { age: 45 }), person({}, { age: 48 })])
+    const younger = profile(unit('YO'), [person({}, { age: 16 }), person({}, { age: 17 })])
+    const ranked = rankUnits(convert({}, { age: 17 }), [older, younger], ctx())
+    expect(ranked.top.map((u) => u.ccfCode)).toEqual(['YO', 'OL']) // both eligible
+    expect(ranked.ineligible).toHaveLength(0)
   })
 
   it('does not flag an age a year or two outside a narrow range', () => {

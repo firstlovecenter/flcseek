@@ -47,7 +47,6 @@ export function toEngineUnit(f: UnitRow): EngineUnit {
     capacity: f.capacity,
     status: f.status,
     ccgStatus: f.ccg.status,
-    audience: f.ccg.audience === 'youth' ? 'youth' : 'adult',
   }
 }
 

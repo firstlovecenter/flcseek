@@ -1,14 +1,10 @@
 import { scorePair, type ScoreContext } from './score'
 import type { CcfProfile, EnginePerson, IneligibleReason, RankResult, ScoredUnit } from './types'
 
-export const ADULT_AGE = 18
-
 export const INELIGIBLE_LABELS: Record<IneligibleReason, string> = {
   full: 'CCF is full',
   reserved: 'Remaining seats are held by proposals awaiting approval',
   inactive: 'CCF or its CCG is not active',
-  minor_adult_group: 'Under 18 — adult CCG',
-  adult_youth_group: 'Youth CCG — convert is an adult',
 }
 
 export function ineligibleReasons(convert: EnginePerson, profile: CcfProfile): IneligibleReason[] {
@@ -17,10 +13,6 @@ export function ineligibleReasons(convert: EnginePerson, profile: CcfProfile): I
   if (u.status !== 'active' || u.ccgStatus !== 'active') reasons.push('inactive')
   if (profile.occupied >= u.capacity) reasons.push('full')
   else if (profile.occupied + profile.reserved >= u.capacity) reasons.push('reserved')
-  if (convert.age !== null) {
-    if (convert.age < ADULT_AGE && u.audience === 'adult') reasons.push('minor_adult_group')
-    if (convert.age >= ADULT_AGE && u.audience === 'youth') reasons.push('adult_youth_group')
-  }
   return reasons
 }
 
@@ -33,7 +25,7 @@ export function ineligibleReasons(convert: EnginePerson, profile: CcfProfile): I
 export function rankUnits(convert: EnginePerson, profiles: CcfProfile[], ctx: ScoreContext, topN = 3): RankResult {
   const warnings: string[] = []
   if (convert.age === null) {
-    warnings.push('Date of birth is missing — age fit and the under-18 safeguard could not be applied.')
+    warnings.push('Date of birth is missing, so age could not be compared with the CCFs’ members.')
   }
 
   const scored: ScoredUnit[] = profiles.map((p) => {

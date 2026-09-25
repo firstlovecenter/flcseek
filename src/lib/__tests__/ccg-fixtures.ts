@@ -120,7 +120,6 @@ export function unit(code: string, extra: Partial<EngineUnit> = {}): EngineUnit 
     capacity: 10,
     status: 'active',
     ccgStatus: 'active',
-    audience: 'adult',
     ...extra,
   }
 }
