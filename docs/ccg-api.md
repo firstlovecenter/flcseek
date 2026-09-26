@@ -407,7 +407,7 @@ The central team and superadmins have both, church-wide or per stream. The clien
   - `GET/POST /campuses` and `GET/PATCH/DELETE /campuses/[id]` need structure.manage. A `leader` (the Campus Leader) also needs roles.manage.
   - Streams take `campus_id`.
   - `GET /groups` returns campuses, plus any streams without a campus, with each item's `type`.
-- **Campus Leader** (`campus_leader`, campus-level, like Seek's Lead Pastor): runs everything in the campus's streams on both portals. They don't manage the structure, roles or settings.
+- **Campus Leader** (`campus_leader`, campus-level): view only. Sees everything in the campus's streams on both portals (people.view, placements.view, reports.view) and changes nothing.
   - `GET /me` lists a campus role's `unit.streams`.
   - The app sends them to `/ccg/choose` once per session, to pick a stream (or the whole campus) and a portal.
 

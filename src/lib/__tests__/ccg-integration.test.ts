@@ -738,7 +738,7 @@ d('CCG backend against Postgres', () => {
     expect((await prisma.ccgRoleAssignment.findUniqueOrThrow({ where: { id: added.assignment_id } })).endsOn).not.toBeNull()
   }, T)
 
-  it('campuses: a Campus Leader runs every stream in their campus, on both sides', async () => {
+  it('campuses: a Campus Leader sees every stream in their campus, on both sides, and changes nothing', async () => {
     const { prisma } = m
     const { createWithCode } = await import('@/lib/ccg/server/units')
     const overview = await import('@/lib/ccg/server/unit-overview')
@@ -757,9 +757,12 @@ d('CCG backend against Postgres', () => {
     const login = await prisma.user.findFirstOrThrow({ where: { ccgPeople: { some: { id: lead.id } } } })
     const scope = await m.scopeLoader.loadScope(login.id)
     expect(scope.canOnCampus('reports.view', campus.id)).toBe(true)
-    expect(scope.canOnStream('placements.approve', ids.stream)).toBe(true) // Sheep Seeking side
+    expect(scope.sheepSeeking().canOnStream('placements.view', ids.stream)).toBe(true) // Sheep Seeking side
     expect(scope.canOnMembersOf('people.view', ids.football)).toBe(true) // City Church Groups side
-    expect(scope.canOnStream('seekers.manage', ids.stream)).toBe(true)
+    // View only.
+    for (const p of ['people.manage', 'members.confirm', 'placements.approve', 'milestones.update', 'attendance.mark', 'checkins.record', 'activities.record', 'seekers.manage', 'links.intake', 'units.edit'] as const) {
+      expect(scope.anywhere.has(p)).toBe(false)
+    }
     expect(scope.can('structure.manage') || scope.can('roles.manage')).toBe(false)
 
     // The campus page: its leader, and its streams as sub-groups; a stream's breadcrumb starts at the campus.

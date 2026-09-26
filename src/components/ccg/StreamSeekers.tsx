@@ -51,11 +51,7 @@ export function StreamSeekers({
   const { me, hasGlobal, has } = useCcgMe()
   const isAdmin = hasGlobal('roles.manage')
   // The stream's own Sheep Seeking Overseer appoints its Sheep Seekers.
-  const canManage =
-    isAdmin ||
-    !!me?.roles.some(
-      (r) => (r.role.key === 'seeking_overseer' && r.unit?.id === streamId) || (r.unit?.type === 'campus' && r.unit.streams?.some((s) => s.id === streamId))
-    )
+  const canManage = isAdmin || !!me?.roles.some((r) => r.role.key === 'seeking_overseer' && r.unit?.id === streamId)
   const { confirm, ConfirmDialog } = useConfirm()
   const { show, notice } = useInviteNotice()
   const [adding, setAdding] = useState<'seeker' | 'overseer' | null>(null)
