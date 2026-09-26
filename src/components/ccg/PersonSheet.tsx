@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { roleInPortal } from '@/lib/ccg/scope'
 import { useCcgMe } from './CcgMeProvider'
+import { useCcgFocus } from './CcgFocusProvider'
 import { useInviteNotice, type InviteResult } from './InviteNotice'
 import { Field, NullableSelect, SearchSelect } from './form-utils'
 import { PERSON_STATUS, ccfLabel, useCcgOptions, type BankQuestion, type PersonDTO } from './people-types'
@@ -416,6 +418,7 @@ function RoleDialog({
   onDone: (invite: InviteResult | null) => void
 }) {
   const opts = useCcgOptions()
+  const { portal } = useCcgFocus()
   const [roles, setRoles] = useState<RoleOption[]>([])
   const [campuses, setCampuses] = useState<Array<{ id: string; name: string }>>([])
   const [ccgs, setCcgs] = useState<Array<{ id: string; name: string }>>([])
@@ -430,10 +433,11 @@ function RoleDialog({
       ccgApi.get<{ campuses: Array<{ id: string; name: string }> }>('/campuses'),
     ]).then(([r, g, cp]) => {
       setCampuses(cp.ok ? cp.data.campuses : [])
-      setRoles(r.ok ? r.data.roles.filter((x) => x.active) : [])
+      // Each portal hands out its own roles: Sheep Seeking roles only in the Sheep Seeking portal.
+      setRoles(r.ok ? r.data.roles.filter((x) => x.active && roleInPortal(x, portal ?? 'ccg')) : [])
       setCcgs(g.ok ? g.data.ccgs : [])
     })
-  }, [])
+  }, [portal])
 
   const role = roles.find((r) => r.key === roleKey)
   const level = role?.scope_level

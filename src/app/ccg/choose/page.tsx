@@ -32,19 +32,25 @@ export default function CcgChoosePage() {
 
   if (loading) return <Skeleton className="mx-auto mt-10 h-64 max-w-3xl rounded-2xl" />
   if (campuses.length === 0) {
-    return <EmptyState icon={Building2} title="No campus" description="You don’t lead a campus." className="mt-12" />
+    return <EmptyState icon={Building2} title="No campus" description="You don’t have a campus role." className="mt-12" />
   }
 
+  // Only the portals this role works in (a campus Sheep Seeking role: Sheep Seeking only).
+  const has = (portal: Portal, type: 'campus' | 'stream', id: string, roleKey: string) => options.some((o) => o.key === `${portal}:${roleKey}@${type}:${id}`)
   const buttons = (type: 'campus' | 'stream', id: string, roleKey: string) => (
     <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
-      <Button variant="outline" className="h-10 gap-1.5" onClick={() => go('ccg', type, id, roleKey)}>
-        <Network className="size-4 text-churches" />
-        {PORTAL_LABEL.ccg}
-      </Button>
-      <Button variant="outline" className="h-10 gap-1.5" onClick={() => go('seeking', type, id, roleKey)}>
-        <HeartHandshake className="size-4 text-members" />
-        {PORTAL_LABEL.seeking}
-      </Button>
+      {has('ccg', type, id, roleKey) && (
+        <Button variant="outline" className="h-10 gap-1.5" onClick={() => go('ccg', type, id, roleKey)}>
+          <Network className="size-4 text-churches" />
+          {PORTAL_LABEL.ccg}
+        </Button>
+      )}
+      {has('seeking', type, id, roleKey) && (
+        <Button variant="outline" className="h-10 gap-1.5" onClick={() => go('seeking', type, id, roleKey)}>
+          <HeartHandshake className="size-4 text-members" />
+          {PORTAL_LABEL.seeking}
+        </Button>
+      )}
     </div>
   )
 

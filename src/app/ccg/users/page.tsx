@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
+import { useCcgFocus } from '@/components/ccg/CcgFocusProvider'
+import { roleInPortal } from '@/lib/ccg/scope'
 import { Field, NullableSelect, SearchSelect } from '@/components/ccg/form-utils'
 import { Initials, StickyHeader } from '@/components/ccg/synago'
 
@@ -207,7 +209,10 @@ export default function CcgUsersPage() {
 }
 
 function GiveRoleDialog({ user, onClose, onDone }: { user: UserRow; onClose: () => void; onDone: () => void }) {
-  const [roles, setRoles] = useState<RoleOption[]>([])
+  const { portal } = useCcgFocus()
+  const [all, setRoles] = useState<RoleOption[]>([])
+  // Each portal hands out its own roles: Sheep Seeking roles only in the Sheep Seeking portal.
+  const roles = all.filter((r) => roleInPortal(r, portal ?? 'ccg'))
   const [roleKey, setRoleKey] = useState<string | null>(null)
   const [units, setUnits] = useState<Array<{ value: string; label: string }>>([])
   const [unitId, setUnitId] = useState<string | null>(null)

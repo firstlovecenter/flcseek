@@ -96,9 +96,11 @@ export function CcgFocusProvider({ children }: { children: React.ReactNode }) {
     const out: FocusOption[] = []
     for (const r of me.roles) {
       if (!r.unit) continue
-      // A Campus Leader works in both portals, for the whole campus or one of its streams.
+      // A campus role works for the whole campus or one of its streams: a Campus Leader in both
+      // portals, a campus Sheep Seeking role in Sheep Seeking only.
       if (r.unit.type === 'campus') {
-        for (const portal of ['ccg', 'seeking'] as const) {
+        const portals = SEEKING_ROLES.includes(r.role.key) ? (['seeking'] as const) : (['ccg', 'seeking'] as const)
+        for (const portal of portals) {
           const base = { portal, role: r.role.name, roleKey: r.role.key }
           out.push({ ...base, key: `${portal}:${r.role.key}@campus:${r.unit.id}`, type: 'campus', id: r.unit.id, name: r.unit.name })
           for (const s of r.unit.streams ?? []) out.push({ ...base, key: `${portal}:${r.role.key}@stream:${s.id}`, type: 'stream', id: s.id, name: s.name })

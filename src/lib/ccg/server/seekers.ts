@@ -204,10 +204,10 @@ export async function seekerReport(full: CcgScope, opts: { streamId: string | nu
   }
 }
 
-/** A stream's Sheep Seeking Overseer and Sheep Seekers (with their assignment ids, to stand them down). */
+/** A stream's Sheep Seeking Admin, Overseer and Sheep Seekers (with their assignment ids, to stand them down). */
 export async function streamTeam(streamId: string) {
   const rows = await prisma.ccgRoleAssignment.findMany({
-    where: { streamId, roleKey: { in: ['seeking_overseer', 'sheep_seeker'] }, ...currentAssignmentWhere() },
+    where: { streamId, roleKey: { in: ['seeking_admin', 'seeking_overseer', 'sheep_seeker'] }, ...currentAssignmentWhere() },
     orderBy: { startsOn: 'asc' },
     select: {
       id: true,
@@ -224,8 +224,43 @@ export async function streamTeam(streamId: string) {
     name: r.user.ccgPeople[0]?.fullName ?? 'Unknown',
     since: iso(r.startsOn),
   })
-  const overseer = rows.find((r) => r.roleKey === 'seeking_overseer')
-  return { overseer: overseer ? holder(overseer) : null, seekers: rows.filter((r) => r.roleKey === 'sheep_seeker').map(holder) }
+  const one = (key: string) => {
+    const r = rows.find((x) => x.roleKey === key)
+    return r ? holder(r) : null
+  }
+  return { admin: one('seeking_admin'), overseer: one('seeking_overseer'), seekers: rows.filter((r) => r.roleKey === 'sheep_seeker').map(holder) }
+}
+
+/** Each campus's Sheep Seeking Admin and Overseer. */
+export async function campusSeekingTeams(campusIds: string[] | 'all') {
+  const [campuses, rows] = await Promise.all([
+    prisma.ccgCampus.findMany({ where: { deletedAt: null, ...(campusIds === 'all' ? {} : { id: { in: campusIds } }) }, orderBy: { name: 'asc' } }),
+    prisma.ccgRoleAssignment.findMany({
+      where: { roleKey: { in: ['campus_seeking_admin', 'campus_seeking_overseer'] }, ...(campusIds === 'all' ? {} : { campusId: { in: campusIds } }), ...currentAssignmentWhere() },
+      select: {
+        id: true,
+        roleKey: true,
+        campusId: true,
+        startsOn: true,
+        userId: true,
+        user: { select: { ccgPeople: { where: { kind: 'member', deletedAt: null }, select: { id: true, fullName: true }, take: 1 } } },
+      },
+    }),
+  ])
+  const holder = (r: (typeof rows)[number]) => ({
+    assignment_id: r.id,
+    user_id: r.userId,
+    person_id: r.user.ccgPeople[0]?.id ?? null,
+    name: r.user.ccgPeople[0]?.fullName ?? 'Unknown',
+    since: iso(r.startsOn),
+  })
+  return campuses.map((c) => {
+    const find = (key: string) => {
+      const r = rows.find((x) => x.campusId === c.id && x.roleKey === key)
+      return r ? holder(r) : null
+    }
+    return { id: c.id, name: c.name, admin: find('campus_seeking_admin'), overseer: find('campus_seeking_overseer') }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -247,16 +282,41 @@ export async function addSeeker(streamId: string, body: AddSeeker, actorId: stri
   return appointInStream(streamId, 'sheep_seeker', body, actorId, origin)
 }
 
-/**
- * Make someone the stream's Sheep Seeking Overseer (one per stream: the
- * current one, if different, stands down).
- */
-export async function setSeekingOverseer(streamId: string, body: AddSeeker, actorId: string, origin: string) {
-  return appointInStream(streamId, 'seeking_overseer', body, actorId, origin)
+export const STREAM_LEADS = { admin: 'seeking_admin', overseer: 'seeking_overseer' } as const
+export const CAMPUS_LEADS = { admin: 'campus_seeking_admin', overseer: 'campus_seeking_overseer' } as const
+export type SeekingLead = keyof typeof STREAM_LEADS
+
+const LEAD_LABEL: Record<string, string> = {
+  seeking_admin: 'the Sheep Seeking Admin',
+  seeking_overseer: 'the Sheep Seeking Overseer',
+  campus_seeking_admin: 'the Campus Sheep Seeking Admin',
+  campus_seeking_overseer: 'the Campus Sheep Seeking Overseer',
+  sheep_seeker: 'a Sheep Seeker',
 }
 
-/** The person to appoint: an existing member, one with the same email, or someone new of the stream. */
-async function personFor(streamId: string, body: AddSeeker, actorId: string) {
+/** Make someone the stream's Sheep Seeking Admin or Overseer (one of each per stream: the current one stands down). */
+export async function setStreamSeekingLead(streamId: string, lead: SeekingLead, body: AddSeeker, actorId: string, origin: string) {
+  return appointInStream(streamId, STREAM_LEADS[lead], body, actorId, origin)
+}
+
+/** Make someone the campus's Sheep Seeking Admin or Overseer (one of each per campus). */
+export async function setCampusSeekingLead(campusId: string, lead: SeekingLead, body: AddSeeker, actorId: string, origin: string) {
+  const campus = await prisma.ccgCampus.findFirst({ where: { id: campusId, deletedAt: null } })
+  if (!campus) throw notFound('Campus')
+  const roleKey = CAMPUS_LEADS[lead]
+  const { personId, reused } = await personFor(null, body, actorId)
+  const current = await prisma.ccgRoleAssignment.findMany({
+    where: { roleKey, campusId, ...currentAssignmentWhere() },
+    select: { id: true, user: { select: { ccgPeople: { where: { deletedAt: null }, select: { id: true } } } } },
+  })
+  if (current.some((a) => a.user.ccgPeople.some((p) => p.id === personId))) throw conflict(`They are already ${LEAD_LABEL[roleKey]} for ${campus.name}`)
+  for (const a of current) await endAssignment(a.id, actorId)
+  const { assignment, invite } = await assignRoleToMember({ person_id: personId, role_key: roleKey, campus_id: campusId }, actorId, origin)
+  return { person_id: personId, assignment_id: assignment.id, reused, invite }
+}
+
+/** The person to appoint: an existing member, one with the same email, or someone new (of the stream, when there is one). */
+async function personFor(streamId: string | null, body: AddSeeker, actorId: string) {
   if ('person_id' in body) return { personId: body.person_id, reused: false }
   const email = body.email.trim().toLowerCase()
   const existing = await prisma.ccgPerson.findFirst({
@@ -277,7 +337,7 @@ async function personFor(streamId: string, body: AddSeeker, actorId: string) {
   return { personId: person.id, reused: false }
 }
 
-async function appointInStream(streamId: string, roleKey: 'sheep_seeker' | 'seeking_overseer', body: AddSeeker, actorId: string, origin: string) {
+async function appointInStream(streamId: string, roleKey: 'sheep_seeker' | 'seeking_admin' | 'seeking_overseer', body: AddSeeker, actorId: string, origin: string) {
   const stream = await prisma.ccgStream.findFirst({ where: { id: streamId, deletedAt: null } })
   if (!stream) throw notFound('Stream')
   const { personId, reused } = await personFor(streamId, body, actorId)
@@ -287,10 +347,9 @@ async function appointInStream(streamId: string, roleKey: 'sheep_seeker' | 'seek
     select: { id: true, user: { select: { ccgPeople: { where: { deletedAt: null }, select: { id: true } } } } },
   })
   const holds = current.find((a) => a.user.ccgPeople.some((p) => p.id === personId))
-  const label = roleKey === 'sheep_seeker' ? 'a Sheep Seeker' : 'the Sheep Seeking Overseer'
-  if (holds) throw conflict(`They are already ${label} for ${stream.name}`)
-  // One Sheep Seeking Overseer per stream.
-  if (roleKey === 'seeking_overseer') for (const a of current) await endAssignment(a.id, actorId)
+  if (holds) throw conflict(`They are already ${LEAD_LABEL[roleKey]} for ${stream.name}`)
+  // One Sheep Seeking Admin and one Overseer per stream.
+  if (roleKey !== 'sheep_seeker') for (const a of current) await endAssignment(a.id, actorId)
   const { assignment, invite } = await assignRoleToMember({ person_id: personId, role_key: roleKey, stream_id: streamId }, actorId, origin)
   return { person_id: personId, assignment_id: assignment.id, reused, invite }
 }
