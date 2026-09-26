@@ -36,16 +36,15 @@ interface UserRow {
 interface RoleOption {
   key: string
   name: string
-  scope_level: 'global' | 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
+  scope_level: 'global' | 'campus' | 'stream' | 'ccg' | 'ccf'
   active: boolean
 }
 
 const SEEK_ROLE: Record<string, string> = { superadmin: 'Seek superadmin', leadpastor: 'Lead Pastor', overseer: 'Seek overseer', admin: 'Seek admin', leader: 'Seek leader' }
-const LEVEL: Record<RoleOption['scope_level'], string> = { global: 'Everywhere', campus: 'Campus', stream: 'Stream', council: 'Council', ccg: 'CCG', ccf: 'CCF' }
+const LEVEL: Record<RoleOption['scope_level'], string> = { global: 'Everywhere', campus: 'Campus', stream: 'Stream', ccg: 'CCG', ccf: 'CCF' }
 const UNITS: Record<Exclude<RoleOption['scope_level'], 'global'>, { path: string; key: string }> = {
   campus: { path: '/campuses', key: 'campuses' },
   stream: { path: '/streams', key: 'streams' },
-  council: { path: '/councils', key: 'councils' },
   ccg: { path: '/ccgs', key: 'ccgs' },
   ccf: { path: '/ccfs', key: 'ccfs' },
 }

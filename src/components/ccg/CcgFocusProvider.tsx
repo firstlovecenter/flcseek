@@ -10,7 +10,7 @@ import { useCcgMe } from './CcgMeProvider'
  *
  *   Sheep Seeking       Sheep Seekers and Sheep Seeking Overseers: registering
  *                       converts, placing them, following their milestones.
- *   City Church Groups  CCF, CCG and council leaders: members, attendance,
+ *   City Church Groups  CCF Coordinators, Governors and Overseers: members, attendance,
  *                       and the converts placed with them.
  *
  * The portal switcher moves between the portals a person has roles in; inside
@@ -20,7 +20,7 @@ import { useCcgMe } from './CcgMeProvider'
  * device, the last role per portal.
  */
 
-export type FocusType = 'global' | 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
+export type FocusType = 'global' | 'campus' | 'stream' | 'ccg' | 'ccf'
 export type Portal = 'seeking' | 'ccg'
 
 export const PORTAL_LABEL: Record<Portal, string> = { seeking: 'Sheep Seeking', ccg: 'City Church Groups' }
@@ -40,7 +40,6 @@ export const LEVEL_LABEL: Record<FocusType, string> = {
   global: 'Church-wide',
   campus: 'Campus',
   stream: 'Stream',
-  council: 'Council',
   ccg: 'CCG',
   ccf: 'CCF',
 }

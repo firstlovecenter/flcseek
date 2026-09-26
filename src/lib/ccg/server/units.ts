@@ -5,11 +5,7 @@ import { conflict, invalid, notFound } from '../errors'
 import { iso } from './common'
 import type { QuestionBank } from './questions'
 
-/** Council → CCG → CCF serialisation, profiles and structural guards. */
-
-export function serializeCouncil(c: Prisma.CcgCouncilGetPayload<object>, extra: { ccg_count?: number } = {}) {
-  return { id: c.id, stream_id: c.streamId, code: c.code, name: c.name, status: c.status, notes: c.notes, ...extra, created_at: iso(c.createdAt) }
-}
+/** Stream → CCG → CCF serialisation, profiles and structural guards. */
 
 export async function assertCampusExists(id: string | null | undefined) {
   if (!id) return
@@ -21,13 +17,13 @@ export async function assertStreamExists(id: string | null | undefined) {
   if (!(await prisma.ccgStream.findFirst({ where: { id, deletedAt: null } }))) throw invalid('Stream not found')
 }
 
-export const ccgInclude = { council: true } satisfies Prisma.CcgGroupInclude
+export const ccgInclude = { stream: true } satisfies Prisma.CcgGroupInclude
 export function serializeCcg(g: Prisma.CcgGroupGetPayload<{ include: typeof ccgInclude }>, extra: Record<string, unknown> = {}) {
   return {
     id: g.id,
     code: g.code,
     name: g.name,
-    council: g.council ? { id: g.council.id, code: g.council.code, name: g.council.name } : null,
+    stream: { id: g.stream.id, code: g.stream.code, name: g.stream.name },
     status: g.status,
     notes: g.notes,
     ...extra,
@@ -108,11 +104,6 @@ export function serializeAggregate(a: MemberAggregate, bank: QuestionBank) {
 // Guards
 // ---------------------------------------------------------------------------
 
-export async function assertCouncilExists(id: string | null | undefined) {
-  if (!id) return
-  if (!(await prisma.ccgCouncil.findFirst({ where: { id, deletedAt: null } }))) throw invalid('Council not found')
-}
-
 export async function assertCcgExists(id: string) {
   const g = await prisma.ccgGroup.findFirst({ where: { id, deletedAt: null } })
   if (!g) throw notFound('CCG')
@@ -142,7 +133,7 @@ export async function assertCcfEmpty(ccfId: string) {
 // Codes: generated, never typed in
 // ---------------------------------------------------------------------------
 
-const CODE_PREFIX = { seeking_group: 'SSG', campus: 'CMP', stream: 'STR', council: 'CNL', ccg: 'CCG', ccf: 'CCF' } as const
+const CODE_PREFIX = { seeking_group: 'SSG', campus: 'CMP', stream: 'STR', ccg: 'CCG', ccf: 'CCF' } as const
 export type CodedUnit = keyof typeof CODE_PREFIX
 
 async function usedCodes(kind: CodedUnit, prefix: string): Promise<string[]> {
@@ -155,16 +146,14 @@ async function usedCodes(kind: CodedUnit, prefix: string): Promise<string[]> {
       ? await prisma.ccgCampus.findMany({ where, select })
       : kind === 'stream'
       ? await prisma.ccgStream.findMany({ where, select })
-      : kind === 'council'
-        ? await prisma.ccgCouncil.findMany({ where, select })
-        : kind === 'ccg'
-          ? await prisma.ccgGroup.findMany({ where, select })
-          : await prisma.ccgFamily.findMany({ where, select })
+      : kind === 'ccg'
+        ? await prisma.ccgGroup.findMany({ where, select })
+        : await prisma.ccgFamily.findMany({ where, select })
   return rows.map((r) => r.code)
 }
 
 /**
- * Create a stream, council, CCG or CCF with the next free code for its level
+ * Create a campus, stream, CCG or CCF with the next free code for its level
  * (CCF-0001, CCF-0002, …) unless one was given. Retries when two are created
  * at the same moment and pick the same code.
  */

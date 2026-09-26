@@ -17,7 +17,7 @@ vi.mock('@/lib/ccg/server/scope-loader', async (orig) => {
   const actual = await orig<typeof import('@/lib/ccg/server/scope-loader')>()
   return {
     ...actual,
-    loadScope: vi.fn(async () => resolveCcgScope(state.grants, { ccfs: [{ id: 'F1', ccgId: 'G1' }], ccgs: [{ id: 'G1', councilId: null }] })),
+    loadScope: vi.fn(async () => resolveCcgScope(state.grants, { ccfs: [{ id: 'F1', ccgId: 'G1' }], ccgs: [{ id: 'G1', streamId: null }] })),
   }
 })
 
@@ -41,7 +41,6 @@ const coordinatorOfF1: AssignmentGrant = {
   roleKey: 'ccf_coordinator',
   scopeLevel: 'ccf',
   permissions: ['people.view', 'milestones.update'],
-  councilId: null,
   ccgId: null,
   ccfId: 'F1',
 }
@@ -91,7 +90,7 @@ describe('CCG owner (super superadmin)', () => {
   })
 
   it('holds every permission on every unit', () => {
-    const s = resolveCcgScope([OWNER_GRANT], { ccfs: [{ id: 'F1', ccgId: 'G1' }], ccgs: [{ id: 'G1', councilId: 'K1' }] })
+    const s = resolveCcgScope([OWNER_GRANT], { ccfs: [{ id: 'F1', ccgId: 'G1' }], ccgs: [{ id: 'G1', streamId: 'S1' }] })
     for (const p of PERMISSION_KEYS) {
       expect(s.can(p)).toBe(true)
       expect(s.canOnCcf(p, 'F1')).toBe(true)

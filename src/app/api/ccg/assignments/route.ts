@@ -11,7 +11,7 @@ import { invalid } from '@/lib/ccg/errors'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/assignments?user_id=&role_key=&stream_id=&council_id=&ccg_id=&ccf_id=&include_ended=1
+ * GET /api/ccg/assignments?user_id=&role_key=&stream_id=&ccg_id=&ccf_id=&include_ended=1
  * Who holds which role where (roles.manage).
  */
 export const GET = withCcg({ permission: 'roles.manage' }, async ({ scope, query }) => {
@@ -21,7 +21,6 @@ export const GET = withCcg({ permission: 'roles.manage' }, async ({ scope, query
     ...(query.get('user_id') ? { userId: query.get('user_id')! } : {}),
     ...(query.get('role_key') ? { roleKey: query.get('role_key')! } : {}),
     ...(query.get('stream_id') ? { streamId: query.get('stream_id')! } : {}),
-    ...(query.get('council_id') ? { councilId: query.get('council_id')! } : {}),
     ...(query.get('ccg_id') ? { ccgId: query.get('ccg_id')! } : {}),
     ...(query.get('ccf_id') ? { ccfId: query.get('ccf_id')! } : {}),
   }

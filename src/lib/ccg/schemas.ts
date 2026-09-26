@@ -62,8 +62,16 @@ export const campusSchema = z.object({
 })
 export const campusUpdateSchema = campusSchema.partial()
 
+/**
+ * Optional on stream / CCG / CCF: the member who leads it (needs roles.manage).
+ * A member without a login gets one and is emailed a link to set a password.
+ * null clears it.
+ */
+const leader = z.object({ person_id: uuid }).nullable().optional()
+
 export const streamSchema = z.object({
   campus_id: uuid.nullable().optional(),
+  leader,
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
   name: z.string().trim().min(1).max(120),
@@ -98,26 +106,8 @@ export const addSeekerSchema = z.union([
   }),
 ])
 
-/**
- * Optional on council / CCG / CCF: the member who leads it (needs roles.manage).
- * A member without a login gets one and is emailed a link to set a password.
- * null clears it.
- */
-const leader = z.object({ person_id: uuid }).nullable().optional()
-
-export const councilSchema = z.object({
-  stream_id: uuid.nullable().optional(),
-  leader,
-  /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
-  code: code.optional(),
-  name: z.string().trim().min(1).max(120),
-  status: z.enum(['active', 'inactive']).default('active'),
-  notes: text(2000),
-})
-export const councilUpdateSchema = councilSchema.partial()
-
 export const ccgSchema = z.object({
-  council_id: uuid.nullable().optional(),
+  stream_id: uuid,
   leader,
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
@@ -407,7 +397,6 @@ export const assignmentSchema = z.object({
   role_key: z.string().min(1),
   campus_id: uuid.nullable().optional(),
   stream_id: uuid.nullable().optional(),
-  council_id: uuid.nullable().optional(),
   ccg_id: uuid.nullable().optional(),
   ccf_id: uuid.nullable().optional(),
   starts_on: isoDate.optional(),

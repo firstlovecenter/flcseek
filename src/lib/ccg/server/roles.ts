@@ -11,7 +11,6 @@ export const assignmentInclude = {
   campus: { select: { id: true, code: true, name: true } },
   stream: { select: { id: true, code: true, name: true } },
   user: { select: { id: true, username: true, firstName: true, lastName: true, role: true, deletedAt: true } },
-  council: { select: { id: true, code: true, name: true } },
   ccg: { select: { id: true, code: true, name: true } },
   ccf: { select: { id: true, code: true, name: true } },
 } satisfies Prisma.CcgRoleAssignmentInclude
@@ -24,8 +23,6 @@ export function serializeAssignment(a: AssignmentRow) {
     ? { type: 'campus', ...a.campus }
     : a.stream
     ? { type: 'stream', ...a.stream }
-    : a.council
-    ? { type: 'council', ...a.council }
     : a.ccg
       ? { type: 'ccg', ...a.ccg }
       : a.ccf
@@ -80,7 +77,7 @@ export async function withRolesManageKept<T>(mutate: (tx: Prisma.TransactionClie
 }
 
 export async function createAssignment(
-  body: { user_id: string; role_key: string; campus_id?: string | null; stream_id?: string | null; council_id?: string | null; ccg_id?: string | null; ccf_id?: string | null; starts_on?: string },
+  body: { user_id: string; role_key: string; campus_id?: string | null; stream_id?: string | null; ccg_id?: string | null; ccf_id?: string | null; starts_on?: string },
   actorId: string,
   db: Db = prisma,
   /** The CCG owner may give a Seek user a role on their Seek login, with no CCG profile. */
@@ -92,7 +89,7 @@ export async function createAssignment(
   if (!user) throw invalid('User not found')
 
   const level = role.scopeLevel as ScopeLevel
-  const unitIds = { campus: body.campus_id ?? null, stream: body.stream_id ?? null, council: body.council_id ?? null, ccg: body.ccg_id ?? null, ccf: body.ccf_id ?? null }
+  const unitIds = { campus: body.campus_id ?? null, stream: body.stream_id ?? null, ccg: body.ccg_id ?? null, ccf: body.ccf_id ?? null }
   const given = Object.entries(unitIds).filter(([, v]) => v)
   if (level === 'global' && given.length) throw invalid(`${role.name} applies everywhere; do not choose a unit`)
   if (level !== 'global') {
@@ -103,8 +100,6 @@ export async function createAssignment(
         ? await db.ccgCampus.findFirst({ where: { id, deletedAt: null } })
         : level === 'stream'
         ? await db.ccgStream.findFirst({ where: { id, deletedAt: null } })
-        : level === 'council'
-        ? await db.ccgCouncil.findFirst({ where: { id, deletedAt: null } })
         : level === 'ccg'
           ? await db.ccgGroup.findFirst({ where: { id, deletedAt: null } })
           : await db.ccgFamily.findFirst({ where: { id, deletedAt: null } })
@@ -122,7 +117,6 @@ export async function createAssignment(
       roleKey: role.key,
       campusId: unitIds.campus,
       streamId: unitIds.stream,
-      councilId: unitIds.council,
       ccgId: unitIds.ccg,
       ccfId: unitIds.ccf,
       ...(body.starts_on ? { startsOn: new Date(`${body.starts_on}T00:00:00Z`) } : {}),
@@ -147,7 +141,6 @@ export async function assignRoleToMember(
     role_key: string
     campus_id?: string | null
     stream_id?: string | null
-    council_id?: string | null
     ccg_id?: string | null
     ccf_id?: string | null
     starts_on?: string
@@ -167,12 +160,12 @@ export async function assignRoleToMember(
   return { assignment, invite }
 }
 
-const unitName = (a: AssignmentRow) => (a.ccf ?? a.ccg ?? a.council ?? a.stream ?? a.campus)?.name ?? null
+const unitName = (a: AssignmentRow) => (a.ccf ?? a.ccg ?? a.stream ?? a.campus)?.name ?? null
 
 /** The role that makes someone a unit's leader, per level. */
 export const LEADER_ROLE = {
   campus: 'campus_leader',
-  council: 'overseer',
+  stream: 'overseer',
   ccg: 'ccg_governor',
   ccf: 'ccf_coordinator',
 } as const
@@ -191,7 +184,7 @@ export async function setUnitLeader(
   origin: string
 ): Promise<InviteResult | null> {
   const roleKey = LEADER_ROLE[level]
-  const unitField = level === 'campus' ? 'campusId' : level === 'council' ? 'councilId' : level === 'ccg' ? 'ccgId' : 'ccfId'
+  const unitField = level === 'campus' ? 'campusId' : level === 'stream' ? 'streamId' : level === 'ccg' ? 'ccgId' : 'ccfId'
   const current = await prisma.ccgRoleAssignment.findMany({
     where: { roleKey, [unitField]: unitId, ...currentAssignmentWhere() },
     select: { id: true, userId: true },

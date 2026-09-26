@@ -5,7 +5,8 @@ import { conflict, notFound } from '@/lib/ccg/errors'
 import { streamUpdateSchema } from '@/lib/ccg/schemas'
 import { iso, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { assertCampusExists, serializeCouncil } from '@/lib/ccg/server/units'
+import { setUnitLeader } from '@/lib/ccg/server/roles'
+import { assertCampusExists, ccgInclude, serializeCcg } from '@/lib/ccg/server/units'
 
 export const dynamic = 'force-dynamic'
 type P = { id: string }
@@ -16,43 +17,41 @@ async function load(id: string) {
   return s
 }
 
-/** GET /api/ccg/streams/[id] — the stream and its councils. */
+/** GET /api/ccg/streams/[id] — the stream and its CCGs. */
 export const GET = withCcg<undefined, P>({}, async ({ params }) => {
   const s = await load(params.id)
-  const councils = await prisma.ccgCouncil.findMany({
-    where: { streamId: s.id, deletedAt: null },
-    include: { _count: { select: { groups: { where: { deletedAt: null } } } } },
-    orderBy: { name: 'asc' },
-  })
+  const ccgs = await prisma.ccgGroup.findMany({ where: { streamId: s.id, deletedAt: null }, include: ccgInclude, orderBy: { name: 'asc' } })
   return success({
     stream: { id: s.id, campus_id: s.campusId, code: s.code, name: s.name, status: s.status, notes: s.notes, created_at: iso(s.createdAt) },
-    councils: councils.map((c) => serializeCouncil(c, { ccg_count: c._count.groups })),
+    ccgs: ccgs.map((g) => serializeCcg(g)),
   })
 })
 
-/** PATCH /api/ccg/streams/[id] (structure.manage) */
+/** PATCH /api/ccg/streams/[id] (structure.manage; a leader, the Overseer, needs roles.manage) */
 export const PATCH = withCcg<z.infer<typeof streamUpdateSchema>, P>(
   { permission: 'structure.manage', schema: streamUpdateSchema },
-  async ({ user, scope, body, params }) => {
+  async ({ request, user, scope, body, params }) => {
     ensure(scope.can('structure.manage'))
     const before = await load(params.id)
+    if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
     await assertCampusExists(body.campus_id)
-    const { campus_id, ...rest } = body
+    const { campus_id, leader, ...rest } = body
     await prisma.ccgStream.update({
       where: { id: params.id },
       data: { ...rest, ...(campus_id !== undefined ? { campusId: campus_id } : {}), updatedAt: new Date() },
     })
+    const leader_invite = leader !== undefined ? await setUnitLeader('stream', params.id, leader, user.id, new URL(request.url).origin) : null
     await logCcg({ userId: user.id, action: 'STREAM_UPDATED', entityType: 'ccg_stream', entityId: params.id, oldValues: before, newValues: body })
-    return success({ id: params.id })
+    return success({ id: params.id, leader_invite })
   }
 )
 
-/** DELETE /api/ccg/streams/[id] — soft delete; its councils must be moved first. */
+/** DELETE /api/ccg/streams/[id] — soft delete; its CCGs must be moved first. */
 export const DELETE = withCcg<undefined, P>({ permission: 'structure.manage' }, async ({ user, scope, params }) => {
   ensure(scope.can('structure.manage'))
   await load(params.id)
-  if (await prisma.ccgCouncil.count({ where: { streamId: params.id, deletedAt: null } })) {
-    throw conflict('Move this stream’s councils to another stream first')
+  if (await prisma.ccgGroup.count({ where: { streamId: params.id, deletedAt: null } })) {
+    throw conflict('Move this stream’s CCGs to another stream first')
   }
   await prisma.$transaction([
     prisma.ccgRoleAssignment.updateMany({ where: { streamId: params.id, endsOn: null }, data: { endsOn: new Date() } }),

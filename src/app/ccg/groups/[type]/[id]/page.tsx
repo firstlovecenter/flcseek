@@ -20,7 +20,7 @@ import { UNIT_PATH } from '@/components/ccg/structure-types'
 import { Crumbs, DetailTile, LeaderBlock, SectionLabel, StickyHeader, Timeline, UNIT_LEVEL, UnitTitle, groupHref } from '@/components/ccg/synago'
 
 /**
- * A group's page (stream, council, CCG or CCF), laid out like Synago's church
+ * A group's page (campus, stream, CCG or CCF), laid out like Synago's church
  * details page: breadcrumb, title, leader, quick actions, detail tiles,
  * sub-groups and history. Editing is its own page.
  */

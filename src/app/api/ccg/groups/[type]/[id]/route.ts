@@ -6,7 +6,7 @@ import { isUnitType, unitOverview } from '@/lib/ccg/server/unit-overview'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/groups/[type]/[id]?history=5 — a stream, council, CCG or CCF's
+ * GET /api/ccg/groups/[type]/[id]?history=5 — a campus, stream, CCG or CCF's
  * page: breadcrumb, leaders and role holders, stat tiles, sub-groups and history.
  */
 export const GET = withCcg<undefined, { type: string; id: string }>({}, async ({ scope, params, query }) => {

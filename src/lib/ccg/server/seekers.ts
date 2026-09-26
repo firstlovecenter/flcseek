@@ -316,7 +316,7 @@ export async function graduatedList(scope: CcgScope, opts: { streamId: string | 
   const streams = scope.streamIds('reports.view')
   if (opts.streamId && !scope.canOnStream('reports.view', opts.streamId)) throw forbidden('You can only see graduates of your streams')
   const inStream = (ids: string[]): Prisma.CcgPlacementWhereInput => ({
-    OR: [{ person: { streamId: { in: ids } } }, { finalCcf: { ccg: { council: { streamId: { in: ids } } } } }],
+    OR: [{ person: { streamId: { in: ids } } }, { finalCcf: { ccg: { streamId: { in: ids } } } }],
   })
   const visible: Prisma.CcgPlacementWhereInput[] = []
   if (streams === 'all') visible.push({})

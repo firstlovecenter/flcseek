@@ -110,11 +110,10 @@ d('CCG backend against Postgres', () => {
     await prisma.ccgOwner.create({ data: { userId: ids.admin } })
     ids.coord = (await mk(`ccgcoord_${run}`, null)).id
 
-    // Structure: stream → council → CCG → two CCFs meeting weekday evenings. Converts are matched
+    // Structure: stream → CCG → two CCFs meeting weekday evenings. Converts are matched
     // within their stream, which keeps CCFs left over from earlier runs out of these tests.
     ids.stream = (await prisma.ccgStream.create({ data: { code: `S${run}`, name: 'Test stream' } })).id
-    ids.council = (await prisma.ccgCouncil.create({ data: { code: `K${run}`, name: 'Test council', streamId: ids.stream } })).id
-    ids.ccg = (await prisma.ccgGroup.create({ data: { code: `G${run}`, name: 'Test CCG', councilId: ids.council } })).id
+    ids.ccg = (await prisma.ccgGroup.create({ data: { code: `G${run}`, name: 'Test CCG', streamId: ids.stream } })).id
     const ccf = (code: string, capacity = 10) =>
       prisma.ccgFamily.create({ data: { ccgId: ids.ccg, code: `${code}${run}`, name: `CCF ${code}`, meetingDay: 'Monday', meetingTime: '19:00', capacity } })
     ids.football = (await ccf('FB')).id
@@ -614,10 +613,10 @@ d('CCG backend against Postgres', () => {
 
   it('codes are generated when none is given, the next free one per level', async () => {
     const { createWithCode } = await import('@/lib/ccg/server/units')
-    const make = () => createWithCode('council', undefined, (code) => m.prisma.ccgCouncil.create({ data: { code, name: `Coded ${run}` } }))
+    const make = () => createWithCode('campus', undefined, (code) => m.prisma.ccgCampus.create({ data: { code, name: `Coded ${run}` } }))
     const [a, b] = await Promise.all([make(), make()])
-    expect(a.code).toMatch(/^CNL-\d{4}$/)
-    expect(b.code).toMatch(/^CNL-\d{4}$/)
+    expect(a.code).toMatch(/^CMP-\d{4}$/)
+    expect(b.code).toMatch(/^CMP-\d{4}$/)
     expect(a.code).not.toBe(b.code)
     const c = await make()
     expect(Number(c.code.slice(4))).toBe(Math.max(Number(a.code.slice(4)), Number(b.code.slice(4))) + 1)
@@ -665,7 +664,7 @@ d('CCG backend against Postgres', () => {
     expect(detail.converts.map((c) => c.id)).toEqual([assigned.id])
     const otherPlacement = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', person: { seekingGroupId: null } } })
     const otherInStream = await prisma.ccgPlacement.findFirst({
-      where: { id: otherPlacement.id, finalCcf: { ccg: { council: { streamId: { in: [fresh.id, ids.stream] } } } } },
+      where: { id: otherPlacement.id, finalCcf: { ccg: { streamId: { in: [fresh.id, ids.stream] } } } },
     })
     if (!otherInStream) {
       await expect(m.placementRoutes.authorisePlacement(seekerScope, 'milestones.update', otherPlacement.id)).rejects.toThrow()
