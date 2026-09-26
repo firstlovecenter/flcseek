@@ -22,7 +22,8 @@ export const GET = withCcg({ permission: 'attendance.mark' }, async ({ scope, qu
     throw invalid(`event_type must be one of ${ATTENDANCE_EVENTS.join(', ')}`)
   }
   if (!date || !isoDate.safeParse(date).success) throw invalid('date must be YYYY-MM-DD')
-  ensure(scope.canOnCcf('attendance.mark', ccfId))
+  // (canPlaceInto: a stream's Sheep Seekers follow their converts' attendance too — the register lists placed converts only.)
+  ensure(scope.canPlaceInto('attendance.mark', ccfId))
   return success({ register: await attendanceRegister(ccfId, eventType as AttendanceEvent, date) })
 })
 
@@ -33,7 +34,7 @@ export const GET = withCcg({ permission: 'attendance.mark' }, async ({ scope, qu
 export const PUT = withCcg<z.infer<typeof attendanceSchema>>(
   { permission: 'attendance.mark', schema: attendanceSchema },
   async ({ user, scope, body }) => {
-    ensure(scope.canOnCcf('attendance.mark', body.ccf_id))
+    ensure(scope.canPlaceInto('attendance.mark', body.ccf_id))
     const result = await saveAttendance(body, user.id)
     return success({ ...result, register: await attendanceRegister(body.ccf_id, body.event_type, body.event_date) })
   }

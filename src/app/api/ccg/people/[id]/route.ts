@@ -76,7 +76,7 @@ export const PATCH = withCcg<PersonUpdate, P>({ permission: 'people.manage', sch
   }
   if (p.kind === 'convert' && body.stream_id !== undefined && body.stream_id !== p.streamId) {
     ensure(
-      scope.can('people.manage') || (!!body.stream_id && scope.canOnStream('people.manage', body.stream_id)),
+      scope.can('people.manage') || (!!body.stream_id && scope.sheepSeeking().canOnStream('people.manage', body.stream_id)),
       'You can only move converts into your stream'
     )
   }

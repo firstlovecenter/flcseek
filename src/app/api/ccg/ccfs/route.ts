@@ -2,7 +2,6 @@ import type { z } from 'zod'
 import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { ccfSchema } from '@/lib/ccg/schemas'
-import { inFilter } from '@/lib/ccg/scope'
 import { getCcgConfig, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
@@ -14,27 +13,35 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/ccg/ccfs?ccg_id=&stream_id=&with_profile=1
- * CCFs the viewer can see. Profiles are optional (they cost more to build).
+ * CCFs the viewer leads. A stream's sheep seeking roles also get its CCFs (with
+ * their CCG), to place converts into, but never their profiles. Profiles are
+ * optional (they cost more to build).
  */
 export const GET = withCcg({}, async ({ scope, query }) => {
-  const visible = inFilter(scope.ccfIds('people.view'))
+  const led = scope.ccfIds('people.view')
+  const placeStreams = scope.sheepSeeking().streamIds('placements.view')
   const ccgId = query.get('ccg_id')
   const streamId = query.get('stream_id')
+  const visibility =
+    led === 'all' || placeStreams === 'all'
+      ? {}
+      : { OR: [{ id: { in: led } }, ...(placeStreams.length ? [{ ccg: { streamId: { in: placeStreams } } }] : [])] }
   const ccfs = await prisma.ccgFamily.findMany({
     where: {
       deletedAt: null,
       ccg: { deletedAt: null, ...(streamId ? { streamId } : {}) },
-      ...(visible ? { id: visible } : {}),
       ...(ccgId ? { ccgId } : {}),
+      ...visibility,
     },
     include: ccfInclude,
     orderBy: { name: 'asc' },
   })
-  if (query.get('with_profile') !== '1' || ccfs.length === 0) {
+  const profiled = ccfs.filter((f) => scope.canOnCcf('people.view', f.id))
+  if (query.get('with_profile') !== '1' || profiled.length === 0) {
     return success({ ccfs: ccfs.map((f) => serializeCcf(f)) })
   }
   const [bank, config] = await Promise.all([loadQuestionBank(), getCcgConfig()])
-  const { byCcf } = await loadProfiles({ bank, config, ccfIds: ccfs.map((f) => f.id) })
+  const { byCcf } = await loadProfiles({ bank, config, ccfIds: profiled.map((f) => f.id) })
   return success({
     ccfs: ccfs.map((f) => {
       const p = byCcf.get(f.id)

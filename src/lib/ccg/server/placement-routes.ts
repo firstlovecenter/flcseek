@@ -20,7 +20,7 @@ export async function authorisePlacement(scope: CcgScope, perm: Permission, plac
   ensure(
     scope.can(perm) ||
       (!!ccf && scope.canOnCcf(perm, ccf)) ||
-      scope.canOnStream(perm, p.person.streamId) ||
+      scope.sheepSeeking().canOnStream(perm, p.person.streamId) ||
       // (only while the convert is still theirs to follow: graduated converts are CCF members, read-only)
       (p.status !== 'ended' && scope.canOnSeekingGroup(perm, p.person.seekingGroupId))
   )

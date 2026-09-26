@@ -13,7 +13,9 @@ export const dynamic = 'force-dynamic'
  * Logged CCG activities in scope (newest first), and a summary per CCG of
  * whether each activity has been held this week / quarter.
  */
-export const GET = withCcg({}, async ({ scope, query }) => {
+export const GET = withCcg({}, async ({ scope: full, query }) => {
+  // CCG activities belong to City Church Groups: sheep seeking roles don't see them.
+  const scope = full.leadership()
   if (!scope.anywhere.has('activities.record') && !scope.anywhere.has('reports.view')) throw forbidden()
   const a = scope.ccgIds('activities.record')
   const b = scope.ccgIds('reports.view')

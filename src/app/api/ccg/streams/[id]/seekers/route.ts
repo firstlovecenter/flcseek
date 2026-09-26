@@ -6,9 +6,9 @@ import { addSeeker, streamTeam } from '@/lib/ccg/server/seekers'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/streams/[id]/seekers — the stream's Sheep Seeking Overseer and Sheep Seekers (anyone who sees the stream). */
+/** GET /api/ccg/streams/[id]/seekers — the stream's Sheep Seeking Overseer and Sheep Seekers (the stream's Sheep Seeking side). */
 export const GET = withCcg<undefined, { id: string }>({ permission: 'people.view' }, async ({ scope, params }) => {
-  ensure(scope.canOnStream('people.view', params.id), 'You can only see your streams')
+  ensure(scope.sheepSeeking().canOnStream('people.view', params.id), 'You can only see your streams')
   return success(await streamTeam(params.id))
 })
 

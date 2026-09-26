@@ -43,10 +43,12 @@ const byStream = (p: ScopedPerson) => !!p.streamId && (p.kind === 'convert' || !
  */
 export function canOnPerson(scope: CcgScope, perm: 'people.view' | 'people.manage', p: ScopedPerson): boolean {
   if (scope.can(perm)) return true
-  if (p.kind === 'member') return p.ccfId ? scope.canOnMembersOf(perm, p.ccfId) : byStream(p) && scope.canOnStream(perm, p.streamId)
+  // A stream's own people (its registered converts, its Sheep Seekers) belong to the Sheep Seeking side.
+  const onStream = byStream(p) && scope.sheepSeeking().canOnStream(perm, p.streamId)
+  if (p.kind === 'member') return p.ccfId ? scope.canOnMembersOf(perm, p.ccfId) : onStream
   return (
     personCcfIds(p).some((id) => scope.canOnCcf(perm, id)) ||
-    (byStream(p) && scope.canOnStream(perm, p.streamId)) ||
+    onStream ||
     scope.canOnSeekingGroup(perm, p.seekingGroupId)
   )
 }
@@ -56,7 +58,7 @@ export function peopleScopeWhere(scope: CcgScope, perm: 'people.view' | 'people.
   if (scope.can(perm)) return {}
   const members = inFilter(scope.memberCcfIds(perm))
   const within = inFilter(scope.ccfIds(perm))
-  const streams = scope.streamIds(perm) as string[]
+  const streams = scope.sheepSeeking().streamIds(perm) as string[]
   return {
     OR: [
       { kind: 'member', ...(members ? { ccfId: members } : { ccfId: { not: null } }) },

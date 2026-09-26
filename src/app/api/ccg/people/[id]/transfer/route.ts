@@ -20,7 +20,10 @@ export const POST = withCcg<z.infer<typeof transferSchema>, { id: string }>(
     const p = await prisma.ccgPerson.findFirst({ where: { id: params.id, deletedAt: null }, include: personInclude })
     if (!p) throw notFound('Person')
     ensure(canOnPerson(scope, 'people.manage', p), 'You can only transfer people in your scope')
-    ensure(scope.canOnCcf('people.manage', body.ccf_id), 'You can only transfer people into CCFs in your scope')
+    ensure(
+      p.kind === 'member' ? scope.canOnMembersOf('people.manage', body.ccf_id) : scope.canPlaceInto('people.manage', body.ccf_id),
+      'You can only transfer people into CCFs in your scope'
+    )
     const t = await transferPerson(p.id, body.ccf_id, body.reason, user.id)
     return success({ id: t.id, over_capacity: t.overCapacity })
   }

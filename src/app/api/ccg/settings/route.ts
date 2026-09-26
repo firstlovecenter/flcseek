@@ -7,10 +7,11 @@ import { ensure, withCcg } from '@/lib/ccg/server/handler'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/settings — effective matching config, defaults and factor labels. */
-export const GET = withCcg({}, async () =>
-  success({ config: await getCcgConfig(), defaults: DEFAULT_CCG_CONFIG, factor_labels: FACTOR_LABELS })
-)
+/** GET /api/ccg/settings (settings.manage) — effective matching config, defaults and factor labels. */
+export const GET = withCcg({ permission: 'settings.manage' }, async ({ scope }) => {
+  ensure(scope.can('settings.manage'))
+  return success({ config: await getCcgConfig(), defaults: DEFAULT_CCG_CONFIG, factor_labels: FACTOR_LABELS })
+})
 
 /** PUT /api/ccg/settings — replace the matching config (weights must total 100). */
 export const PUT = withCcg<CcgConfig>({ permission: 'settings.manage', schema: ccgConfigSchema }, async ({ user, scope, body }) => {

@@ -21,12 +21,14 @@ async function load(id: string) {
   return g
 }
 
-const canSee = (scope: CcgScope, g: { id: string; streamId: string }) => scope.canOnStream('people.view', g.streamId) || scope.seekingGroupIds.includes(g.id)
-const canManage = (scope: CcgScope, streamId: string) => scope.can('seekers.manage') || scope.canOnStream('seekers.manage', streamId)
+// Sheep Seeking side only: City Church Groups roles (e.g. a stream's Overseer) don't see seeking groups.
+const canSee = (scope: CcgScope, g: { id: string; streamId: string }) =>
+  scope.sheepSeeking().canOnStream('people.view', g.streamId) || scope.seekingGroupIds.includes(g.id)
+const canManage = (scope: CcgScope, streamId: string) => scope.can('seekers.manage') || scope.sheepSeeking().canOnStream('seekers.manage', streamId)
 
 /** A stream's groups (or, for a Sheep Seeker, their own), with how many seekers and converts each has. */
 export async function listSeekingGroups(scope: CcgScope, streamId: string | null) {
-  const streams = scope.streamIds('people.view')
+  const streams = scope.sheepSeeking().streamIds('people.view')
   const where = {
     deletedAt: null,
     ...(streamId ? { streamId } : {}),

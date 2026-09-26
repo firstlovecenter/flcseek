@@ -12,7 +12,7 @@ export const POST = withCcg<z.infer<typeof remapSchema>, { id: string }>(
   { permission: 'placements.approve', schema: remapSchema },
   async ({ user, scope, body, params }) => {
     await authorisePlacement(scope, 'placements.approve', params.id)
-    ensure(scope.canOnCcf('placements.approve', body.ccf_id), 'You cannot place into that CCF')
+    ensure(scope.canPlaceInto('placements.approve', body.ccf_id), 'You cannot place into that CCF')
     const p = await remapPlacement(params.id, body.ccf_id, body.reason, user.id)
     return success({ id: p.id, status: p.status, ccf_id: p.finalCcfId, full_ccf_override: p.fullCcfOverride })
   }

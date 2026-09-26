@@ -14,7 +14,7 @@ export const POST = withCcg<z.infer<typeof bulkApproveSchema>>(
   { permission: 'placements.approve', schema: bulkApproveSchema },
   async ({ user, scope, body }) => {
     const results = await bulkApprove(body.placement_ids, user.id, (ccfId) =>
-      ccfId ? scope.canOnCcf('placements.approve', ccfId) : scope.can('placements.approve')
+      ccfId ? scope.canPlaceInto('placements.approve', ccfId) : scope.can('placements.approve')
     )
     return success({
       approved: results.filter((r) => r.ok).length,

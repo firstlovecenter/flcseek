@@ -136,8 +136,14 @@ describe('campuses and sheep seeking roles', () => {
   })
 
   it('Sheep seeking roles reach a stream’s converts but not its CCF members', () => {
-    const s = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view', 'milestones.update'])], tree, { seekingGroupIds: ['SG1'] })
-    expect(s.canOnCcf('people.view', 'F1')).toBe(true) // converts placed there
+    const s = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view', 'milestones.update', 'placements.approve'])], tree, { seekingGroupIds: ['SG1'] })
+    // CCGs and CCFs are not theirs: they only place converts into the stream's CCFs.
+    expect(s.canOnCcf('people.view', 'F1')).toBe(false)
+    expect(s.canOnCcg('people.view', 'G1')).toBe(false)
+    expect(s.ccfIds('people.view')).toEqual([])
+    expect(s.canPlaceInto('placements.approve', 'F1')).toBe(true)
+    expect(s.canPlaceInto('placements.approve', 'F4')).toBe(false) // another stream
+    expect(s.canOnStream('people.view', 'S1')).toBe(true) // the stream's converts
     expect(s.canOnMembersOf('people.view', 'F1')).toBe(false)
     expect(s.memberCcfIds('people.view')).toEqual([])
     expect(s.seekingGroupIds).toEqual(['SG1'])
@@ -148,5 +154,29 @@ describe('campuses and sheep seeking roles', () => {
     const both = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view']), grant('ccf_coordinator', 'F2')], tree)
     expect(both.canOnMembersOf('people.view', 'F2')).toBe(true)
     expect(both.canOnMembersOf('people.view', 'F1')).toBe(false)
+  })
+
+  it('each side sees only its own: an Overseer never reaches the Sheep Seeking side, a Sheep Seeker never the City Church Groups side', () => {
+    const overseer = resolveCcgScope([grant('overseer', 'S1')], tree)
+    expect(overseer.leadership().canOnStream('people.view', 'S1')).toBe(true)
+    expect(overseer.sheepSeeking().canOnStream('people.view', 'S1')).toBe(false)
+    expect(overseer.sheepSeeking().streamIds('people.view')).toEqual([])
+
+    const seeker = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view'])], tree)
+    expect(seeker.sheepSeeking().canOnStream('people.view', 'S1')).toBe(true)
+    expect(seeker.leadership().canOnStream('people.view', 'S1')).toBe(false)
+    expect(seeker.leadership().ccgIds('people.view')).toEqual([])
+
+    // The stream's Sheep Seeking Overseer approves placements into the stream's CCFs without seeing inside them.
+    const ssOverseer = resolveCcgScope([at('seeking_overseer', 'stream', 'S1', ['people.view', 'placements.view', 'placements.approve'])], tree)
+    expect(ssOverseer.canOnStream('placements.approve', 'S1')).toBe(true)
+    expect(ssOverseer.canPlaceInto('placements.approve', 'F3')).toBe(true)
+    expect(ssOverseer.canPlaceInto('placements.approve', 'F4')).toBe(false)
+    expect(ssOverseer.canOnCcf('people.view', 'F3')).toBe(false)
+
+    // A Campus Leader runs both sides of their campus.
+    const campus = resolveCcgScope([at('campus_leader', 'campus', 'C1', ['people.view'])], tree)
+    expect(campus.sheepSeeking().canOnStream('people.view', 'S1')).toBe(true)
+    expect(campus.leadership().canOnStream('people.view', 'S1')).toBe(true)
   })
 })

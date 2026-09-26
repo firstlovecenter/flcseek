@@ -10,9 +10,9 @@ import { assertStreamExists, ccgInclude, createWithCode, serializeCcg } from '@/
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/ccgs?stream_id= — CCGs the viewer can see, with CCF counts. */
+/** GET /api/ccg/ccgs?stream_id= — CCGs the viewer leads (City Church Groups side), with CCF counts. */
 export const GET = withCcg({}, async ({ scope, query }) => {
-  const visible = scope.ccgIds('people.view')
+  const visible = scope.leadership().ccgIds('people.view')
   const streamId = query.get('stream_id')
   const ccgs = await prisma.ccgGroup.findMany({
     where: {

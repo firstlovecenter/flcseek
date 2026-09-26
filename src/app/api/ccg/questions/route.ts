@@ -8,13 +8,16 @@ import { logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { assertSignalRefs, serializeQuestion } from '@/lib/ccg/server/question-admin'
 import { loadQuestionBank } from '@/lib/ccg/server/questions'
+import { holdsAny } from '@/lib/ccg/server/visibility'
 import { SIGNAL_TYPES } from '@/lib/ccg/engine/signals'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/questions?include_inactive=1 — the question bank with options. */
-export const GET = withCcg({}, async ({ query }) => {
+/** GET /api/ccg/questions?include_inactive=1 — the question bank with options (for people's forms; inactive ones for settings.manage). */
+export const GET = withCcg({}, async ({ scope, query }) => {
+  ensure(holdsAny(scope, 'people.view', 'settings.manage'))
   const includeInactive = query.get('include_inactive') === '1'
+  if (includeInactive) ensure(scope.can('settings.manage'))
   const rows = await prisma.ccgQuestion.findMany({
     where: includeInactive ? {} : { active: true },
     include: { options: includeInactive ? true : { where: { active: true } } },

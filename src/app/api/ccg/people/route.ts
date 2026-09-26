@@ -77,13 +77,15 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
  * one). A new convert is matched immediately; the response includes the proposal.
  */
 export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema: personCreateSchema }, async ({ user, scope, body }) => {
-  if (body.kind === 'member') ensure(scope.canOnCcf('people.manage', body.ccf_id), 'You can only add members to CCFs in your scope')
+  // Members are added by the CCF's leaders only; converts are registered on the Sheep Seeking side.
+  if (body.kind === 'member') ensure(scope.canOnMembersOf('people.manage', body.ccf_id), 'You can only add members to CCFs you lead')
   else if (!scope.can('people.manage')) {
-    const streams = scope.streamIds('people.manage') as string[]
+    const seeking = scope.sheepSeeking()
+    const streams = seeking.streamIds('people.manage') as string[]
     ensure(streams.length > 0, 'Converts are registered by Sheep Seekers or the central team')
     if (!body.stream_id && streams.length === 1) body.stream_id = streams[0]
     if (!body.stream_id) throw invalid('Choose the stream this convert is registered into')
-    ensure(scope.canOnStream('people.manage', body.stream_id), 'You can only register converts into your stream')
+    ensure(seeking.canOnStream('people.manage', body.stream_id), 'You can only register converts into your stream')
   }
   // Putting a convert in a sheep seeking group is the Overseer's call, or a seeker's for their own group
   // (left out, a seeker in one group of the stream registers into it).

@@ -138,7 +138,8 @@ function periodRange(period: ReportPeriod, offset: number, now = new Date()) {
   return { from, to, label: from.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }
 }
 
-export async function seekerReport(scope: CcgScope, opts: { streamId: string | null; period: ReportPeriod; offset: number }) {
+export async function seekerReport(full: CcgScope, opts: { streamId: string | null; period: ReportPeriod; offset: number }) {
+  const scope = full.sheepSeeking()
   const inScope = scope.streamIds('reports.view')
   if (opts.streamId && !scope.canOnStream('reports.view', opts.streamId)) throw forbidden('You can only see reports for your streams')
   const streams: string[] | 'all' = opts.streamId ? [opts.streamId] : inScope
@@ -312,7 +313,8 @@ export async function standDownSeeker(streamId: string, assignmentId: string, ac
  * Church Groups. A Sheep Seeker sees those assigned to them; an Overseer their
  * stream's; the central team everyone's.
  */
-export async function graduatedList(scope: CcgScope, opts: { streamId: string | null; mine: boolean; search: string | null; limit: number; offset: number }) {
+export async function graduatedList(full: CcgScope, opts: { streamId: string | null; mine: boolean; search: string | null; limit: number; offset: number }) {
+  const scope = full.sheepSeeking()
   const streams = scope.streamIds('reports.view')
   if (opts.streamId && !scope.canOnStream('reports.view', opts.streamId)) throw forbidden('You can only see graduates of your streams')
   const inStream = (ids: string[]): Prisma.CcgPlacementWhereInput => ({

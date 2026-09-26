@@ -9,8 +9,9 @@ import { serializeRole } from '@/lib/ccg/server/roles'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/roles — roles with assignment counts, and the permission catalogue. */
-export const GET = withCcg({}, async () => {
+/** GET /api/ccg/roles (roles.manage) — roles with assignment counts, and the permission catalogue. */
+export const GET = withCcg({ permission: 'roles.manage' }, async ({ scope }) => {
+  ensure(scope.can('roles.manage'))
   const roles = await prisma.ccgRole.findMany({
     include: { _count: { select: { assignments: { where: { endsOn: null } } } } },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],

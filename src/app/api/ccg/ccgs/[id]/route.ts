@@ -30,7 +30,7 @@ async function load(id: string) {
 /** GET /api/ccg/ccgs/[id] — the CCG, its combined profile, and each CCF with its profile. */
 export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   const g = await load(params.id)
-  ensure(scope.canOnCcg('people.view', g.id), 'You can only view CCGs in your scope')
+  ensure(scope.leadership().canOnCcg('people.view', g.id), 'You can only view CCGs in your scope')
   const [bank, config, ccfs] = await Promise.all([
     loadQuestionBank(),
     getCcgConfig(),

@@ -22,8 +22,9 @@ export async function dashboard(scope: CcgScope, focus: { type: UnitType; id: st
   const ccfIds = unitIds ? (inScope === 'all' ? unitIds : unitIds.filter((id) => inScope.includes(id))) : inScope
   const within = inFilter(ccfIds)
   // The central team sees the whole queue; a stream's Sheep Seekers see their stream's.
-  const seesQueue = scope.can('placements.view') || (scope.streamIds('placements.view') as string[]).length > 0
-  const scopeStreams = scope.streamIds('people.view')
+  const seeking = scope.sheepSeeking()
+  const seesQueue = scope.can('placements.view') || (seeking.streamIds('placements.view') as string[]).length > 0
+  const scopeStreams = seeking.streamIds('people.view')
   // Converts waiting are counted church-wide or per stream, not per CCF.
   const waitingStreams =
     focus?.type === 'stream'
@@ -53,7 +54,15 @@ export async function dashboard(scope: CcgScope, focus: { type: UnitType; id: st
       where: { decision: { not: null }, ...(within ? { finalCcfId: within } : {}) },
       _count: { _all: true },
     }),
-    prisma.ccgPerson.count({ where: { kind: 'member', status: 'pending', deletedAt: null, ...(within ? { ccfId: within } : {}) } }),
+    // Members are for leadership roles; sheep seeking roles never count them.
+    prisma.ccgPerson.count({
+      where: {
+        kind: 'member',
+        status: 'pending',
+        deletedAt: null,
+        AND: [within ? { ccfId: within } : {}, inFilter(scope.memberCcfIds('reports.view')) ? { ccfId: inFilter(scope.memberCcfIds('reports.view')) } : {}],
+      },
+    }),
     seesQueue
       ? prisma.ccgPlacement.findMany({
           where: {
