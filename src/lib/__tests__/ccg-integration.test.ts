@@ -704,6 +704,9 @@ d('CCG backend against Postgres', () => {
     const visibleToSeeker = await prisma.ccgPerson.findMany({ where: { kind: 'member', ccfId: ids.football, AND: [m.people.peopleScopeWhere(streamSeeker, 'people.view')] } })
     expect(visibleToSeeker).toHaveLength(0)
     expect(m.people.canOnPerson(await m.scopeLoader.loadScope(ids.coord), 'people.view', aMember)).toBe(true) // their CCF Coordinator does
+    // ...but only the CCG Admin or the stream's Stream Admin edits a member's profile.
+    expect(m.people.canEditPerson(await m.scopeLoader.loadScope(ids.coord), aMember)).toBe(false)
+    expect(m.people.canEditPerson(await m.scopeLoader.loadScope(ids.admin), aMember)).toBe(true)
     // Group pages (City Church Groups) are not for sheep seeking roles; their stream's team is.
     const { canSeeUnit } = await import('@/lib/ccg/server/unit-overview')
     expect(canSeeUnit(streamSeeker, 'stream', ids.stream)).toBe(false)

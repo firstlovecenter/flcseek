@@ -18,7 +18,8 @@ const hierarchy: Hierarchy = {
 
 // Mirrors the seeded roles in migration 020.
 const ROLES = {
-  ccg_admin: { level: 'global', perms: ['structure.manage', 'people.view', 'people.manage', 'placements.approve', 'milestones.update', 'settings.manage', 'roles.manage'] },
+  ccg_admin: { level: 'global', perms: ['structure.manage', 'people.view', 'people.manage', 'members.edit', 'placements.approve', 'milestones.update', 'settings.manage', 'roles.manage'] },
+  stream_admin: { level: 'stream', perms: ['people.view', 'people.manage', 'members.confirm', 'members.edit', 'milestones.update'] },
   overseer: { level: 'stream', perms: ['people.view', 'placements.view', 'reports.view'] },
   ccg_governor: { level: 'ccg', perms: ['units.edit', 'people.view', 'people.manage', 'members.confirm', 'links.manage', 'milestones.update'] },
   ccf_coordinator: { level: 'ccf', perms: ['people.view', 'people.manage', 'members.confirm', 'links.manage', 'milestones.update'] },
@@ -62,6 +63,15 @@ describe('resolveCcgScope', () => {
     expect(s.ccgIds('reports.view')).toEqual(['G1', 'G2'])
     expect(s.canOnCcf('people.manage', 'F1')).toBe(false)
     expect(s.canOnCcf('people.view', 'F4')).toBe(false)
+  })
+
+  it('members are edited by the Stream Admin and CCG Admin only, not the CCF’s own leaders', () => {
+    expect(scope(grant('ccf_coordinator', 'F1')).canOnMembersOf('members.edit', 'F1')).toBe(false)
+    expect(scope(grant('ccg_governor', 'G1')).canOnMembersOf('members.edit', 'F1')).toBe(false)
+    const streamAdmin = scope(grant('stream_admin', 'S1'))
+    expect(streamAdmin.canOnMembersOf('members.edit', 'F3')).toBe(true)
+    expect(streamAdmin.canOnMembersOf('members.edit', 'F4')).toBe(false) // another stream
+    expect(scope(grant('ccg_admin')).canOnMembersOf('members.edit', 'F4')).toBe(true)
   })
 
   it('Admin: everything, everywhere', () => {

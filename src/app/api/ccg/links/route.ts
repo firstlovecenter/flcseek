@@ -7,7 +7,7 @@ import { linkSchema } from '@/lib/ccg/schemas'
 import { inFilter } from '@/lib/ccg/scope'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { createLink, linkInclude, serializeLink } from '@/lib/ccg/server/links'
-import { canOnPerson, personInclude } from '@/lib/ccg/server/people'
+import { canEditPerson, personInclude } from '@/lib/ccg/server/people'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +58,7 @@ export const POST = withCcg<z.infer<typeof linkSchema>>({ schema: linkSchema }, 
   else {
     const p = body.person_id ? await prisma.ccgPerson.findFirst({ where: { id: body.person_id, deletedAt: null }, include: personInclude }) : null
     if (!p) throw notFound('Person')
-    ensure(canOnPerson(scope, 'people.manage', p))
+    ensure(canEditPerson(scope, p))
   }
   const expiresAt = body.expires_at
     ? new Date(body.expires_at)

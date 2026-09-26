@@ -4,7 +4,7 @@ import { invalid, notFound } from '@/lib/ccg/errors'
 import { personUpdateSchema, type PersonUpdate } from '@/lib/ccg/schemas'
 import { iso, num } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { canOnPerson, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
+import { canEditPerson, canOnPerson, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
 import { loadAnswerNotes, loadAnswers, loadQuestionBank } from '@/lib/ccg/server/questions'
 
 export const dynamic = 'force-dynamic'
@@ -68,9 +68,9 @@ export const GET = withCcg<undefined, P>({ permission: 'people.view' }, async ({
  * key). A waiting convert whose answers change is re-matched automatically.
  * Moving a member to another CCF needs people.manage on both CCFs.
  */
-export const PATCH = withCcg<PersonUpdate, P>({ permission: 'people.manage', schema: personUpdateSchema }, async ({ user, scope, body, params }) => {
+export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, async ({ user, scope, body, params }) => {
   const p = await load(params.id)
-  ensure(canOnPerson(scope, 'people.manage', p), 'You can only edit people in your scope')
+  ensure(canEditPerson(scope, p), p.kind === 'member' ? 'Only the CCG Admin or the stream’s Admin edits a member’s profile' : 'You can only edit people in your scope')
   if (p.kind === 'member' && body.ccf_id && body.ccf_id !== p.ccfId) {
     throw invalid('Use transfer to move a member to another CCF, so the move is recorded')
   }
@@ -95,9 +95,9 @@ export const PATCH = withCcg<PersonUpdate, P>({ permission: 'people.manage', sch
 })
 
 /** DELETE /api/ccg/people/[id] — soft delete; ends placements and proposals. */
-export const DELETE = withCcg<undefined, P>({ permission: 'people.manage' }, async ({ user, scope, params }) => {
+export const DELETE = withCcg<undefined, P>({}, async ({ user, scope, params }) => {
   const p = await load(params.id)
-  ensure(canOnPerson(scope, 'people.manage', p), 'You can only remove people in your scope')
+  ensure(canEditPerson(scope, p), p.kind === 'member' ? 'Only the CCG Admin or the stream’s Admin removes a member' : 'You can only remove people in your scope')
   await removePerson(p.id, user.id)
   return success({ id: p.id })
 })

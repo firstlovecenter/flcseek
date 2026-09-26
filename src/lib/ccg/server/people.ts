@@ -53,6 +53,16 @@ export function canOnPerson(scope: CcgScope, perm: 'people.view' | 'people.manag
   )
 }
 
+/**
+ * Changing an existing person (edit, transfer, remove, update link): a CCF's
+ * members need members.edit there (the CCG Admin or the stream's Stream Admin,
+ * not the CCF's own leaders); everyone else needs people.manage.
+ */
+export function canEditPerson(scope: CcgScope, p: ScopedPerson): boolean {
+  if (p.kind === 'member' && p.ccfId) return scope.canOnMembersOf('members.edit', p.ccfId)
+  return canOnPerson(scope, 'people.manage', p)
+}
+
 /** Prisma filter restricting people to the scope (see canOnPerson). */
 export function peopleScopeWhere(scope: CcgScope, perm: 'people.view' | 'people.manage'): Prisma.CcgPersonWhereInput {
   if (scope.can(perm)) return {}
