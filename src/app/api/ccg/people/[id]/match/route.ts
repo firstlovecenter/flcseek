@@ -17,7 +17,7 @@ type P = { id: string }
 async function canSeeMatch(scope: CcgScope, perm: 'placements.view' | 'placements.approve', personId: string) {
   if (scope.can(perm)) return true
   const p = await prisma.ccgPerson.findFirst({ where: { id: personId, deletedAt: null }, select: { streamId: true } })
-  return scope.canOnStream(perm, p?.streamId)
+  return scope.sheepSeeking().canOnStream(perm, p?.streamId)
 }
 
 export const GET = withCcg<undefined, P>({ permission: 'placements.view' }, async ({ scope, params, query }) => {

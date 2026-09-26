@@ -72,7 +72,7 @@ export function placementScopeWhere(scope: CcgScope, perm: Permission = 'placeme
   const ids = scope.ccfIds(perm)
   if (ids === 'all') return {}
   const within = inFilter(ids)!
-  const streams = scope.streamIds(perm) as string[]
+  const streams = scope.sheepSeeking().streamIds(perm) as string[]
   return {
     OR: [
       { finalCcfId: within },

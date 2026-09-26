@@ -6,6 +6,7 @@ import { campusUpdateSchema } from '@/lib/ccg/schemas'
 import { iso, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
+import { visibleCampusIds } from '@/lib/ccg/server/visibility'
 
 export const dynamic = 'force-dynamic'
 type P = { id: string }
@@ -17,8 +18,10 @@ async function load(id: string) {
 }
 
 /** GET /api/ccg/campuses/[id] — the campus and its streams. */
-export const GET = withCcg<undefined, P>({}, async ({ params }) => {
+export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   const c = await load(params.id)
+  const visible = await visibleCampusIds(scope)
+  ensure(visible === 'all' || visible.includes(c.id), 'You can only view your campus')
   const streams = await prisma.ccgStream.findMany({ where: { campusId: c.id, deletedAt: null }, orderBy: { name: 'asc' } })
   return success({
     campus: { id: c.id, code: c.code, name: c.name, status: c.status, notes: c.notes, created_at: iso(c.createdAt) },

@@ -7,6 +7,8 @@ import { iso, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { assertCampusExists, ccgInclude, serializeCcg } from '@/lib/ccg/server/units'
+import { visibleStreamIds } from '@/lib/ccg/server/visibility'
+import { inFilter } from '@/lib/ccg/scope'
 
 export const dynamic = 'force-dynamic'
 type P = { id: string }
@@ -17,10 +19,17 @@ async function load(id: string) {
   return s
 }
 
-/** GET /api/ccg/streams/[id] — the stream and its CCGs. */
-export const GET = withCcg<undefined, P>({}, async ({ params }) => {
+/** GET /api/ccg/streams/[id] — the stream and the CCGs in it the viewer leads (City Church Groups side). */
+export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   const s = await load(params.id)
-  const ccgs = await prisma.ccgGroup.findMany({ where: { streamId: s.id, deletedAt: null }, include: ccgInclude, orderBy: { name: 'asc' } })
+  const visible = await visibleStreamIds(scope)
+  ensure(visible === 'all' || visible.includes(s.id), 'You can only view your streams')
+  const ccgIds = inFilter(scope.leadership().ccgIds('people.view'))
+  const ccgs = await prisma.ccgGroup.findMany({
+    where: { streamId: s.id, deletedAt: null, ...(ccgIds ? { id: ccgIds } : {}) },
+    include: ccgInclude,
+    orderBy: { name: 'asc' },
+  })
   return success({
     stream: { id: s.id, campus_id: s.campusId, code: s.code, name: s.name, status: s.status, notes: s.notes, created_at: iso(s.createdAt) },
     ccgs: ccgs.map((g) => serializeCcg(g)),

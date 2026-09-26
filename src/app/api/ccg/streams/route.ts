@@ -6,13 +6,16 @@ import { iso, logCcg } from '@/lib/ccg/server/common'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { assertCampusExists, createWithCode } from '@/lib/ccg/server/units'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { visibleStreamIds } from '@/lib/ccg/server/visibility'
+import { inFilter } from '@/lib/ccg/scope'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/streams — with CCG counts. */
-export const GET = withCcg({}, async () => {
+/** GET /api/ccg/streams — the streams the viewer works in (all, church-wide), with CCG counts. */
+export const GET = withCcg({}, async ({ scope }) => {
+  const visible = inFilter(await visibleStreamIds(scope))
   const streams = await prisma.ccgStream.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, ...(visible ? { id: visible } : {}) },
     include: { _count: { select: { ccgs: { where: { deletedAt: null } } } } },
     orderBy: { name: 'asc' },
   })

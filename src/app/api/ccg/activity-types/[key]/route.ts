@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { notFound } from '@/lib/ccg/errors'
 import { activityTypeUpdateSchema } from '@/lib/ccg/schemas'
 import { logCcg } from '@/lib/ccg/server/common'
-import { withCcg } from '@/lib/ccg/server/handler'
+import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { serializeActivityType } from '@/lib/ccg/server/activities'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic'
 /** PATCH /api/ccg/activity-types/[key] (settings.manage) — keys are fixed; deactivate instead of deleting. */
 export const PATCH = withCcg<z.infer<typeof activityTypeUpdateSchema>, { key: string }>(
   { permission: 'settings.manage', schema: activityTypeUpdateSchema },
-  async ({ user, body, params }) => {
+  async ({ user, scope, body, params }) => {
+    ensure(scope.can('settings.manage'))
     const before = await prisma.ccgActivityType.findUnique({ where: { key: params.key } })
     if (!before) throw notFound('Activity type')
     const t = await prisma.ccgActivityType.update({

@@ -5,12 +5,16 @@ import { milestoneSchema } from '@/lib/ccg/schemas'
 import { logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { loadMilestones, serializeMilestone } from '@/lib/ccg/server/progress'
+import { holdsAny } from '@/lib/ccg/server/visibility'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/milestones?include_inactive=1 — with kind, guidance and checklist items. */
-export const GET = withCcg({}, async ({ query }) => {
-  const rows = await loadMilestones(prisma, query.get('include_inactive') === '1')
+/** GET /api/ccg/milestones?include_inactive=1 — with kind, guidance and checklist items (inactive ones for settings.manage). */
+export const GET = withCcg({}, async ({ scope, query }) => {
+  ensure(holdsAny(scope, 'placements.view', 'settings.manage'))
+  const includeInactive = query.get('include_inactive') === '1'
+  if (includeInactive) ensure(scope.can('settings.manage'))
+  const rows = await loadMilestones(prisma, includeInactive)
   return success({ milestones: rows.map(serializeMilestone) })
 })
 

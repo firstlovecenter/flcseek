@@ -446,7 +446,9 @@ d('CCG backend against Postgres', () => {
       expect(scope.canOnStream(p, other.id)).toBe(false)
       expect(scope.can(p)).toBe(false)
     }
-    expect(scope.canOnCcf('placements.approve', ids.music)).toBe(true)
+    // They place converts into the stream's CCFs, but the CCFs themselves are not theirs.
+    expect(scope.canPlaceInto('placements.approve', ids.music)).toBe(true)
+    expect(scope.canOnCcf('people.view', ids.music)).toBe(false)
     for (const p of ['structure.manage', 'settings.manage', 'roles.manage', 'members.confirm'] as const) {
       expect(scope.canOnStream(p, stream.id)).toBe(false)
     }
