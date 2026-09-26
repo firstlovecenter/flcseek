@@ -10,20 +10,18 @@ export const OWNER_GRANT: AssignmentGrant = {
   permissions: [...PERMISSION_KEYS],
   campusId: null,
   streamId: null,
-  councilId: null,
   ccgId: null,
   ccfId: null,
 }
 
-/** The live stream → council → CCG → CCF tree (soft-deleted units excluded). */
+/** The live campus → stream → CCG → CCF tree (soft-deleted units excluded). */
 export async function loadHierarchy(): Promise<Hierarchy> {
-  const [ccfs, ccgs, councils, streams] = await Promise.all([
+  const [ccfs, ccgs, streams] = await Promise.all([
     prisma.ccgFamily.findMany({ where: { deletedAt: null, ccg: { deletedAt: null } }, select: { id: true, ccgId: true } }),
-    prisma.ccgGroup.findMany({ where: { deletedAt: null }, select: { id: true, councilId: true } }),
-    prisma.ccgCouncil.findMany({ where: { deletedAt: null }, select: { id: true, streamId: true } }),
+    prisma.ccgGroup.findMany({ where: { deletedAt: null }, select: { id: true, streamId: true } }),
     prisma.ccgStream.findMany({ where: { deletedAt: null }, select: { id: true, campusId: true } }),
   ])
-  return { ccfs, ccgs, councils, streams }
+  return { ccfs, ccgs, streams }
 }
 
 /** Resolve what a user may do, from their current role assignments. */
@@ -43,7 +41,6 @@ export async function loadScope(userId: string): Promise<CcgScope> {
     permissions: a.role.permissions,
     campusId: a.campusId,
     streamId: a.streamId,
-    councilId: a.councilId,
     ccgId: a.ccgId,
     ccfId: a.ccfId,
   }))

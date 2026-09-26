@@ -9,7 +9,7 @@ import { createPerson, peopleScopeWhere, personInclude, serializePerson } from '
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&council_id=&stream_id=&seeker=<person id>|me|none&gender=&search=&duplicates=1&limit=&offset=
+ * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&stream_id=&seeker=<person id>|me|none&gender=&search=&duplicates=1&limit=&offset=
  * People the viewer can see: members of CCFs in scope, and converts placed or
  * proposed there. Unplaced converts are visible to global viewers only.
  */
@@ -18,7 +18,6 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
   const status = query.get('status')
   const ccfId = query.get('ccf_id')
   const ccgId = query.get('ccg_id')
-  const councilId = query.get('council_id')
   const streamId = query.get('stream_id')
   const gender = query.get('gender')
   // seeker=me: the converts in the viewer's sheep seeking groups. seeker=<member id>: registered by
@@ -47,8 +46,7 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
       peopleScopeWhere(scope, 'people.view'),
       ccfId ? inUnit({ id: ccfId }) : {},
       ccgId ? inUnit({ ccgId }) : {},
-      councilId ? inUnit({ ccg: { councilId } }) : {},
-      streamId ? { OR: [inUnit({ ccg: { council: { streamId } } }), { kind: 'convert', streamId }, { kind: 'member', ccfId: null, streamId }] } : {},
+      streamId ? { OR: [inUnit({ ccg: { streamId } }), { kind: 'convert', streamId }, { kind: 'member', ccfId: null, streamId }] } : {},
       gender === 'Male' || gender === 'Female' ? { gender } : {},
       seekerId === 'none' ? { kind: 'convert', seekerPersonId: null } : seekerId ? { kind: 'convert', seekerPersonId: seekerId } : {},
       mineOnly ? { kind: 'convert', seekingGroupId: { in: scope.seekingGroupIds } } : {},

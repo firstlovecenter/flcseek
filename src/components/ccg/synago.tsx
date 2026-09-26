@@ -12,7 +12,7 @@ import { LEVEL_LABEL, useCcgFocus, type FocusType, PORTAL_LABEL } from './CcgFoc
  * timeline.
  */
 
-export const UNIT_LEVEL: Record<Exclude<FocusType, 'global'>, string> = { campus: 'Campus', stream: 'Stream', council: 'Council', ccg: 'CCG', ccf: 'CCF' }
+export const UNIT_LEVEL: Record<Exclude<FocusType, 'global'>, string> = { campus: 'Campus', stream: 'Stream', ccg: 'CCG', ccf: 'CCF' }
 export const groupHref = (type: string, id: string) => `/ccg/groups/${type}/${id}`
 
 /** "CHURCH IN FOCUS" selector (Synago's ChurchRoleScopePicker): the roles held in the portal in use. */

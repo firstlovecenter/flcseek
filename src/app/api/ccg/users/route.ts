@@ -50,7 +50,7 @@ export const GET = withCcg({ permission: 'roles.manage' }, async ({ user, scope,
       ccgOwner: { select: { userId: true } },
       ccgRoleAssignments: {
         where: currentAssignmentWhere(),
-        include: { role: true, campus: true, stream: true, council: true, ccg: true, ccf: true },
+        include: { role: true, campus: true, stream: true, ccg: true, ccf: true },
       },
       ccgPeople: {
         where: { kind: 'member', deletedAt: null },
@@ -77,7 +77,7 @@ export const GET = withCcg({ permission: 'roles.manage' }, async ({ user, scope,
       assignments: u.ccgRoleAssignments.map((a) => ({
         id: a.id,
         role: { key: a.role.key, name: a.role.name },
-        unit: (a.ccf ?? a.ccg ?? a.council ?? a.stream ?? a.campus)?.name ?? null,
+        unit: (a.ccf ?? a.ccg ?? a.stream ?? a.campus)?.name ?? null,
       })),
       member: u.ccgPeople[0]
         ? { id: u.ccgPeople[0].id, full_name: u.ccgPeople[0].fullName, status: u.ccgPeople[0].status, ccf: u.ccgPeople[0].ccf }

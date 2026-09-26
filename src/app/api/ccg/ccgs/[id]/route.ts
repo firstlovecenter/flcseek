@@ -9,7 +9,7 @@ import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { loadProfiles } from '@/lib/ccg/server/profiles'
 import { loadQuestionBank } from '@/lib/ccg/server/questions'
 import {
-  assertCouncilExists,
+  assertStreamExists,
   ccfInclude,
   ccgInclude,
   serializeAggregate,
@@ -55,11 +55,11 @@ export const PATCH = withCcg<z.infer<typeof ccgUpdateSchema>, P>(
     ensure(scope.can('structure.manage'))
     const before = await load(params.id)
     if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
-    await assertCouncilExists(body.council_id)
+    await assertStreamExists(body.stream_id)
     await prisma.ccgGroup.update({
       where: { id: params.id },
       data: {
-        ...(body.council_id !== undefined ? { councilId: body.council_id } : {}),
+        ...(body.stream_id !== undefined ? { streamId: body.stream_id } : {}),
         ...(body.code !== undefined ? { code: body.code } : {}),
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),

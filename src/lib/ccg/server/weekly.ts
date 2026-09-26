@@ -97,9 +97,7 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
         ? { person: { deletedAt: null, streamId: focus.id } }
         : focus?.type === 'campus'
           ? { person: { deletedAt: null, stream: { campusId: focus.id } } }
-          : focus?.type === 'council'
-            ? { person: { deletedAt: null }, proposedCcf: { ccg: { councilId: focus.id } } }
-            : { person: { deletedAt: null } }
+          : { person: { deletedAt: null } }
     const [proposed, held] = await Promise.all([
       prisma.ccgPlacement.count({ where: { status: 'proposed', ...where } }),
       prisma.ccgPlacement.count({ where: { status: 'held', ...where } }),

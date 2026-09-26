@@ -63,10 +63,10 @@ export async function lockRow(tx: Tx, table: 'ccg_people' | 'ccg_families', id: 
   else await tx.$queryRaw`SELECT id FROM ccg_families WHERE id = ${id}::uuid FOR UPDATE`
 }
 
-/** CCFs in a stream (stream → council → CCG → CCF). */
+/** CCFs in a stream (stream → CCG → CCF). */
 async function streamCcfIds(streamId: string): Promise<string[]> {
   const rows = await prisma.ccgFamily.findMany({
-    where: { deletedAt: null, ccg: { deletedAt: null, council: { deletedAt: null, streamId } } },
+    where: { deletedAt: null, ccg: { deletedAt: null, streamId } },
     select: { id: true },
   })
   return rows.map((r) => r.id)

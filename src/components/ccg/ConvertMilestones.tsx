@@ -31,12 +31,12 @@ import { Initials } from './synago'
  * in the grid; attendance and checklist ones, and a convert's name, open
  * their modal.
  *
- * Scope: ?unit=type:id or ?ccf= / ?ccg= / ?council= / ?stream= (links from a
+ * Scope: ?unit=type:id or ?ccf= / ?ccg= / ?stream= (links from a
  * group's page), else the role in focus; `mine` = the converts assigned to
  * the signed-in Sheep Seeker. ?placement= opens that convert's panel.
  */
 
-const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id' }
+const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', stream: 'stream_id' }
 const code = (n: number) => `M${String(n).padStart(2, '0')}`
 
 /**
@@ -125,7 +125,7 @@ export function useConvertScope() {
   const params = useSearchParams()
   const { focus, options } = useCcgFocus()
   const unit = params.get('unit')
-  const direct = ['ccf', 'ccg', 'council', 'stream'].map((t) => [t, params.get(t)] as const).find(([, v]) => !!v)
+  const direct = ['ccf', 'ccg', 'stream'].map((t) => [t, params.get(t)] as const).find(([, v]) => !!v)
   let type: string | null = null
   let id: string | null = null
   if (unit?.includes(':')) [type, id] = unit.split(':')

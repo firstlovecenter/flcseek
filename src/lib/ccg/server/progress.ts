@@ -177,7 +177,6 @@ export async function listProgress(
   filter: {
     ccfId?: string | null
     ccgId?: string | null
-    councilId?: string | null
     streamId?: string | null
     overdueOnly?: boolean
     /** Only the converts in these sheep seeking groups (a Sheep Seeker's own). */
@@ -198,8 +197,7 @@ export async function listProgress(
           filter.seekingGroupIds ? { person: { seekingGroupId: { in: filter.seekingGroupIds } } } : {},
           filter.ccfId ? { finalCcfId: filter.ccfId } : {},
           filter.ccgId ? { finalCcf: { ccgId: filter.ccgId } } : {},
-          filter.councilId ? { finalCcf: { ccg: { councilId: filter.councilId } } } : {},
-          filter.streamId ? { finalCcf: { ccg: { council: { streamId: filter.streamId } } } } : {},
+          filter.streamId ? { finalCcf: { ccg: { streamId: filter.streamId } } } : {},
         ],
       },
       include: placementInclude,

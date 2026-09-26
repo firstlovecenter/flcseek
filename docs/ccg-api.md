@@ -34,7 +34,7 @@ The backend contract for the CCG app. The CCG app lives in the same repo as Seek
 
 ## Structure and permissions
 
-**Structure:** council → **CCG** (City Church Group) → **CCF** (City Church Family). Members belong to one CCF. Converts are placed into a CCF, and its CCG follows.
+**Structure:** campus → stream → **CCG** (City Church Group) → **CCF** (City Church Family). Members belong to one CCF. Converts are placed into a CCF, and its CCG follows.
 
 **Roles** are rows in `ccg_roles`, each with a level and a set of permissions. Assigning a role gives a user that role over one unit. A grant covers everything below that unit.
 
@@ -43,7 +43,7 @@ The backend contract for the CCG app. The CCG app lives in the same repo as Seek
 | Seek superadmin | global (implicit) | all |
 | `ccg_admin` CCG Admin | global | all |
 | `sheep_seeker` Sheep Seeker | stream | people.view/manage, links.intake, placements.view/approve, attendance.mark, milestones.update, checkins.record, reports.view. Registers converts into their stream and handles their mapping. |
-| `overseer` Overseer | council | people.view, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
+| `overseer` Overseer | stream (City Church Groups side: every CCG in the stream) | people.view, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
 | `ccg_governor` City Church Governor | CCG | units.edit, people.view/manage, members.confirm, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
 | `ccf_coordinator` City Church Family Coordinator | CCF | people.view/manage, members.confirm, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, reports.view |
 
@@ -113,25 +113,25 @@ A small CCF's profile is blended with its CCG's profile (`config.smoothing`).
 
 ### Groups
 
-Streams, councils, CCGs and CCFs are "groups" (Synago calls them churches). Each group has its own page in the app at `/ccg/groups/[type]/[id]`, with separate add and edit pages.
+Campuses, streams, CCGs and CCFs are "groups" (Synago calls them churches). Each group has its own page in the app at `/ccg/groups/[type]/[id]`, with separate add and edit pages.
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
 | GET | `/groups` | any (filtered to scope) | The streams the viewer can see: `{ type:'stream', items[{ id, code, name, status, members, placed, leader }] }` |
-| GET | `/groups/[type]/[id]?history=5` | people.view on the group | `{ unit, breadcrumb[], leaders[], role_holders[], stats, children{type, items[]}, history[] }`. `type` is stream, council, ccg or ccf. `stats`: members, pending_members, placed_converts, awaiting_approval, graduated, milestones_overdue, open_places (CCF only), ccf_count. |
+| GET | `/groups/[type]/[id]?history=5` | people.view on the group | `{ unit, breadcrumb[], leaders[], role_holders[], stats, children{type, items[]}, history[] }`. `type` is campus, stream, ccg or ccf. `stats`: members, pending_members, placed_converts, awaiting_approval, graduated, milestones_overdue, open_places (CCF only), ccf_count. |
 
 Create and edit each level through its own collection:
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| GET | `/councils` | any | Includes `ccg_count`. |
-| POST | `/councils` | structure.manage | `{ code, name, status?, notes? }` |
-| GET / PATCH / DELETE | `/councils/[id]` | any / structure.manage | GET returns the council's CCGs. DELETE requires it to have no CCGs. |
-| GET | `/ccgs?council_id=` | any (filtered to scope) | Includes `ccf_count`. |
-| POST | `/ccgs` | structure.manage | `{ code, name, council_id?, leader?, status?, notes? }` |
+| GET | `/streams` | any | Includes `ccg_count`. |
+| POST | `/streams` | structure.manage | `{ code?, name, campus_id?, leader?, status?, notes? }`. `leader` is the stream's Overseer (needs roles.manage). |
+| GET / PATCH / DELETE | `/streams/[id]` | any / structure.manage | GET returns the stream's CCGs. DELETE requires it to have no CCGs. |
+| GET | `/ccgs?stream_id=` | any (filtered to scope) | Includes `ccf_count` and `stream`. |
+| POST | `/ccgs` | structure.manage | `{ stream_id, code?, name, leader?, status?, notes? }` |
 | GET | `/ccgs/[id]` | people.view on the CCG | The CCG, its combined `profile`, and `ccfs[]` each with its `profile`. |
 | PATCH / DELETE | `/ccgs/[id]` | structure.manage | DELETE requires it to have no CCFs. |
-| GET | `/ccfs?ccg_id=&council_id=&with_profile=1` | any (filtered to scope) | |
+| GET | `/ccfs?ccg_id=&stream_id=&with_profile=1` | any (filtered to scope) | |
 | POST | `/ccfs` | structure.manage | `{ ccg_id, code, name, capacity, leader?, meeting_day?, meeting_time?, meeting_location?, meeting_frequency?, status?, notes? }` |
 | GET | `/ccfs/[id]` | people.view on the CCF | `ccf`, `profile`, `members[]`, `placed_converts[]`, `incoming_proposals[]` |
 | PATCH | `/ccfs/[id]` | structure.manage, or units.edit for details only | With units.edit you can change only name, meeting details, capacity and notes. Capacity can't go below the number of people already in the CCF. |
@@ -402,7 +402,7 @@ One login and one system, with two portals:
 
 The central team and superadmins have both, church-wide or per stream. The client groups a person's roles by portal. The portal switcher moves between portals, and the role switcher moves within one.
 
-- **Campuses** sit above streams: campus → stream → council → CCG → CCF.
+- **Campuses** sit above streams: campus → stream → CCG → CCF.
   - A campus grant covers its streams and everything under them. Streams without a campus keep working.
   - `GET/POST /campuses` and `GET/PATCH/DELETE /campuses/[id]` need structure.manage. A `leader` (the Campus Leader) also needs roles.manage.
   - Streams take `campus_id`.
@@ -418,7 +418,7 @@ The central team and superadmins have both, church-wide or per stream. The clien
 | GET / PUT | `/settings` | any / settings.manage | The matching config: `weights` (must total 100), `ageBands`, `location`, `sameAnswer`, `availability`, `connection`, `targetShare`, `similarThreshold`, `highTraitThreshold`, `lowTraitThreshold`, `smoothing`, `minMembers`, `allowFullOverride`, `reasonThresholds`. GET also returns `defaults` and `factor_labels`. |
 | GET / POST | `/roles` | any / roles.manage | GET includes the permission catalogue. POST takes `{ key, name, scope_level, permissions[], description?, sort_order? }`. |
 | PATCH | `/roles/[key]` | roles.manage | Changes name, permissions or active. Refused if it would leave nobody able to manage roles; a Seek superadmin always can. |
-| GET / POST | `/assignments?user_id=&role_key=&council_id=&ccg_id=&ccf_id=&include_ended=1` | roles.manage | POST takes `{ person_id, role_key, stream_id? \| council_id? \| ccg_id? \| ccf_id?, starts_on? }`. The unit must match the role's level. The response includes `invite` when a login was created. |
+| GET / POST | `/assignments?user_id=&role_key=&stream_id=&ccg_id=&ccf_id=&include_ended=1` | roles.manage | POST takes `{ person_id, role_key, campus_id? \| stream_id? \| ccg_id? \| ccf_id?, starts_on? }`. The unit must match the role's level. The response includes `invite` when a login was created. |
 | DELETE | `/assignments/[id]` | roles.manage | Ends the assignment today. |
 | GET | `/users?search=&members=1` | roles.manage | With no search, returns users who have CCG access. `members=1` returns only logins linked to active members. |
 | GET | `/activity?entity_type=&entity_id=&action=` | roles.manage | The audit trail. |

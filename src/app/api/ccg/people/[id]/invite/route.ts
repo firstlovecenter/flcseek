@@ -19,13 +19,13 @@ export const POST = withCcg<undefined, { id: string }>({ permission: 'roles.mana
   if (!p.userId) throw invalid('Give them a role first: their login is created then')
   const a = await prisma.ccgRoleAssignment.findFirst({
     where: { userId: p.userId, ...currentAssignmentWhere() },
-    include: { role: true, stream: true, council: true, ccg: true, ccf: true },
+    include: { role: true, stream: true, ccg: true, ccf: true },
     orderBy: { createdAt: 'desc' },
   })
   const invite = await sendInvite({
     personId: p.id,
     role: a?.role.name ?? 'a leader',
-    unit: a ? (a.ccf ?? a.ccg ?? a.council ?? a.stream)?.name ?? null : null,
+    unit: a ? (a.ccf ?? a.ccg ?? a.stream)?.name ?? null : null,
     origin: new URL(request.url).origin,
     actorId: user.id,
   })

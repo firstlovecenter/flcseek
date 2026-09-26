@@ -122,7 +122,7 @@ async function connectionCandidates(note: string, streamId: string | null, selfI
       status: 'active',
       deletedAt: null,
       id: { not: selfId },
-      ...(streamId ? { ccf: { ccg: { council: { streamId } } } } : {}),
+      ...(streamId ? { ccf: { ccg: { streamId } } } : {}),
       OR: words.flatMap((w) => [
         { firstName: { contains: w, mode: 'insensitive' as const } },
         { lastName: { contains: w, mode: 'insensitive' as const } },

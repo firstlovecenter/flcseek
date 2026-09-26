@@ -13,17 +13,17 @@ import { assertCcgExists, ccfInclude, createWithCode, serializeCcf, serializePro
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/ccfs?ccg_id=&council_id=&with_profile=1
+ * GET /api/ccg/ccfs?ccg_id=&stream_id=&with_profile=1
  * CCFs the viewer can see. Profiles are optional (they cost more to build).
  */
 export const GET = withCcg({}, async ({ scope, query }) => {
   const visible = inFilter(scope.ccfIds('people.view'))
   const ccgId = query.get('ccg_id')
-  const councilId = query.get('council_id')
+  const streamId = query.get('stream_id')
   const ccfs = await prisma.ccgFamily.findMany({
     where: {
       deletedAt: null,
-      ccg: { deletedAt: null, ...(councilId ? { councilId } : {}) },
+      ccg: { deletedAt: null, ...(streamId ? { streamId } : {}) },
       ...(visible ? { id: visible } : {}),
       ...(ccgId ? { ccgId } : {}),
     },

@@ -17,7 +17,6 @@ export const GET = withCcg({}, async ({ user, scope }) => {
         role: true,
         campus: { include: { streams: { where: { deletedAt: null, status: 'active' }, select: { id: true, name: true }, orderBy: { name: 'asc' } } } },
         stream: true,
-        council: true,
         ccg: true,
         ccf: true,
       },
@@ -35,8 +34,6 @@ export const GET = withCcg({}, async ({ user, scope }) => {
         ? { type: 'campus', id: a.campus.id, name: a.campus.name, streams: a.campus.streams }
         : a.stream
         ? { type: 'stream', id: a.stream.id, name: a.stream.name }
-        : a.council
-        ? { type: 'council', id: a.council.id, name: a.council.name }
         : a.ccg
           ? { type: 'ccg', id: a.ccg.id, name: a.ccg.name }
           : a.ccf

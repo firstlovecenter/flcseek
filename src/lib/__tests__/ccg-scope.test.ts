@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { resolveCcgScope, type AssignmentGrant, type Hierarchy } from '@/lib/ccg/scope'
 
-// Council K1 → CCGs G1, G2 → CCFs F1, F2 (G1), F3 (G2).  CCG G3 has no council → F4.
+// Stream S1 → CCGs G1, G2 → CCFs F1, F2 (G1), F3 (G2).  CCG G3 is in stream S9 → F4.
 const hierarchy: Hierarchy = {
   ccgs: [
-    { id: 'G1', councilId: 'K1' },
-    { id: 'G2', councilId: 'K1' },
-    { id: 'G3', councilId: null },
+    { id: 'G1', streamId: 'S1' },
+    { id: 'G2', streamId: 'S1' },
+    { id: 'G3', streamId: 'S9' },
   ],
   ccfs: [
     { id: 'F1', ccgId: 'G1' },
@@ -19,7 +19,7 @@ const hierarchy: Hierarchy = {
 // Mirrors the seeded roles in migration 020.
 const ROLES = {
   ccg_admin: { level: 'global', perms: ['structure.manage', 'people.view', 'people.manage', 'placements.approve', 'milestones.update', 'settings.manage', 'roles.manage'] },
-  overseer: { level: 'council', perms: ['people.view', 'placements.view', 'milestones.update', 'checkins.record', 'reports.view'] },
+  overseer: { level: 'stream', perms: ['people.view', 'placements.view', 'milestones.update', 'checkins.record', 'reports.view'] },
   ccg_governor: { level: 'ccg', perms: ['units.edit', 'people.view', 'people.manage', 'members.confirm', 'links.manage', 'milestones.update'] },
   ccf_coordinator: { level: 'ccf', perms: ['people.view', 'people.manage', 'members.confirm', 'links.manage', 'milestones.update'] },
 } as const
@@ -30,7 +30,7 @@ function grant(role: keyof typeof ROLES, unit?: string): AssignmentGrant {
     roleKey: role,
     scopeLevel: r.level,
     permissions: [...r.perms],
-    councilId: r.level === 'council' ? unit ?? null : null,
+    streamId: r.level === 'stream' ? unit ?? null : null,
     ccgId: r.level === 'ccg' ? unit ?? null : null,
     ccfId: r.level === 'ccf' ? unit ?? null : null,
   }
@@ -55,8 +55,8 @@ describe('resolveCcgScope', () => {
     expect(s.canOnCcg('units.edit', 'G1')).toBe(true)
   })
 
-  it('Overseer: every CCG and CCF in the council, read and follow-up only', () => {
-    const s = scope(grant('overseer', 'K1'))
+  it('Overseer: every CCG and CCF in the stream, read and follow-up only', () => {
+    const s = scope(grant('overseer', 'S1'))
     expect(s.ccfIds('people.view')).toEqual(['F1', 'F2', 'F3'])
     expect(s.ccgIds('reports.view')).toEqual(['G1', 'G2'])
     expect(s.canOnCcf('people.manage', 'F1')).toBe(false)
@@ -71,7 +71,7 @@ describe('resolveCcgScope', () => {
   })
 
   it('several roles combine', () => {
-    const s = scope(grant('ccf_coordinator', 'F4'), grant('overseer', 'K1'))
+    const s = scope(grant('ccf_coordinator', 'F4'), grant('overseer', 'S1'))
     expect(s.ccfIds('people.view')).toEqual(['F1', 'F2', 'F3', 'F4'])
     expect(s.ccfIds('people.manage')).toEqual(['F4'])
     expect(s.roleKeys).toEqual(['ccf_coordinator', 'overseer'])
@@ -84,17 +84,15 @@ describe('resolveCcgScope', () => {
     expect(scope({ ...grant('ccf_coordinator', 'F1'), permissions: ['not.a.permission'] }).anywhere.size).toBe(0)
   })
 
-  it('a stream-level role covers every council, CCG and CCF in the stream', () => {
-    const withStreams: Hierarchy = { ...hierarchy, councils: [{ id: 'K1', streamId: 'S1' }] }
+  it('a stream-level role covers every CCG and CCF in the stream', () => {
     const s = resolveCcgScope(
-      [{ roleKey: 'stream_lead', scopeLevel: 'stream', permissions: ['people.view'], streamId: 'S1', councilId: null, ccgId: null, ccfId: null }],
-      withStreams
+      [{ roleKey: 'stream_lead', scopeLevel: 'stream', permissions: ['people.view'], streamId: 'S1', ccgId: null, ccfId: null }],
+      hierarchy
     )
     expect(s.canOnStream('people.view', 'S1')).toBe(true)
-    expect(s.canOnCouncil('people.view', 'K1')).toBe(true)
+    expect(s.ccgIds('people.view')).toEqual(['G1', 'G2'])
     expect(s.ccfIds('people.view')).toEqual(['F1', 'F2', 'F3'])
-    expect(s.canOnCcf('people.view', 'F4')).toBe(false) // G3 has no council, so no stream
-    expect(s.councilIds('people.view')).toEqual(['K1'])
+    expect(s.canOnCcf('people.view', 'F4')).toBe(false) // G3 is in another stream
     expect(s.streamIds('people.view')).toEqual(['S1'])
     expect(s.streamIds('people.manage')).toEqual([])
   })
@@ -107,14 +105,13 @@ describe('resolveCcgScope', () => {
 })
 
 describe('campuses and sheep seeking roles', () => {
-  // Campus C1 → streams S1, S2; S1 → council K1 (→ G1, G2 → F1..F3). S3 has no campus.
+  // Campus C1 → streams S1, S2; S1 → G1, G2 → F1..F3. S9 (G3 → F4) has no campus.
   const tree: Hierarchy = {
     ...hierarchy,
-    councils: [{ id: 'K1', streamId: 'S1' }],
     streams: [
       { id: 'S1', campusId: 'C1' },
       { id: 'S2', campusId: 'C1' },
-      { id: 'S3', campusId: null },
+      { id: 'S9', campusId: null },
     ],
   }
   const at = (roleKey: string, level: 'campus' | 'stream', unit: string, perms: string[]): AssignmentGrant => ({
@@ -123,7 +120,6 @@ describe('campuses and sheep seeking roles', () => {
     permissions: perms,
     campusId: level === 'campus' ? unit : null,
     streamId: level === 'stream' ? unit : null,
-    councilId: null,
     ccgId: null,
     ccfId: null,
   })
@@ -132,7 +128,7 @@ describe('campuses and sheep seeking roles', () => {
     const s = resolveCcgScope([at('campus_leader', 'campus', 'C1', ['people.view', 'seekers.manage'])], tree)
     expect(s.canOnCampus('people.view', 'C1')).toBe(true)
     expect(s.canOnStream('people.view', 'S2')).toBe(true)
-    expect(s.canOnStream('people.view', 'S3')).toBe(false)
+    expect(s.canOnStream('people.view', 'S9')).toBe(false)
     expect(s.canOnCcf('people.view', 'F3')).toBe(true)
     expect(s.canOnMembersOf('people.view', 'F3')).toBe(true)
     expect(s.canOnCcf('people.view', 'F4')).toBe(false)

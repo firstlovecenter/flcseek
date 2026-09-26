@@ -463,7 +463,7 @@ model AnalyticsSnapshot {
 
 // ============================================================================
 // City Church Group (CCG) app — migration 020. Shares only `users` with Seek.
-// Structure: council → CCG (ccg_groups) → CCF (ccg_families).
+// Structure: campus → stream → CCG (ccg_groups) → CCF (ccg_families).
 // Audit columns (created_by, run_by, decided_by, …) are plain UUIDs with FKs
 // in SQL; only role assignments carry a Prisma relation to User.
 // ============================================================================
@@ -565,7 +565,7 @@ model CcgStream {
 
   campus      CcgCampus?          @relation(fields: [campusId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   seekingGroups CcgSeekingGroup[]
-  councils    CcgCouncil[]
+  ccgs        CcgGroup[]
   assignments CcgRoleAssignment[]
   people      CcgPerson[]
   formLinks   CcgFormLink[]
@@ -573,28 +573,9 @@ model CcgStream {
   @@map("ccg_streams")
 }
 
-model CcgCouncil {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  streamId  String?   @map("stream_id") @db.Uuid
-  code      String    @unique @db.VarChar(20)
-  name      String    @db.VarChar(120)
-  status    String    @default("active") @db.VarChar(20)
-  notes     String?
-  createdBy String?   @map("created_by") @db.Uuid
-  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-
-  stream      CcgStream?          @relation(fields: [streamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  groups      CcgGroup[]
-  assignments CcgRoleAssignment[]
-
-  @@map("ccg_councils")
-}
-
 model CcgGroup {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  councilId String?   @map("council_id") @db.Uuid
+  streamId  String    @map("stream_id") @db.Uuid
   code      String    @unique @db.VarChar(20)
   name      String    @db.VarChar(120)
   zoneId    String?   @map("zone_id") @db.Uuid
@@ -605,8 +586,8 @@ model CcgGroup {
   updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  council     CcgCouncil?         @relation(fields: [councilId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  zone        CcgZone?            @relation(fields: [zoneId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  stream      CcgStream           @relation(fields: [streamId], references: [id], onUpdate: NoAction)
+  zone       CcgZone?            @relation(fields: [zoneId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   families    CcgFamily[]
   assignments CcgRoleAssignment[]
   activities  CcgGroupActivity[]
@@ -669,7 +650,6 @@ model CcgRoleAssignment {
   roleKey    String    @map("role_key") @db.VarChar(40)
   campusId   String?   @map("campus_id") @db.Uuid
   streamId   String?   @map("stream_id") @db.Uuid
-  councilId  String?   @map("council_id") @db.Uuid
   ccgId      String?   @map("ccg_id") @db.Uuid
   ccfId      String?   @map("ccf_id") @db.Uuid
   startsOn   DateTime  @default(dbgenerated("CURRENT_DATE")) @map("starts_on") @db.Date
@@ -681,7 +661,6 @@ model CcgRoleAssignment {
   role    CcgRole     @relation(fields: [roleKey], references: [key], onUpdate: Cascade)
   campus  CcgCampus?  @relation(fields: [campusId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   stream  CcgStream?  @relation(fields: [streamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  council CcgCouncil? @relation(fields: [councilId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   ccg     CcgGroup?   @relation(fields: [ccgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   ccf     CcgFamily?  @relation(fields: [ccfId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 

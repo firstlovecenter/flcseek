@@ -4,7 +4,7 @@
  * role is just a new row.
  */
 export const PERMISSIONS = {
-  'structure.manage': 'Create, edit and remove councils, CCGs and CCFs',
+  'structure.manage': 'Create, edit and remove campuses, streams, CCGs and CCFs',
   'units.edit': 'Edit CCFs (details, meeting time, capacity) in scope',
   'people.view': 'See members and converts in scope',
   'people.manage': 'Add and edit members and converts, and their answers, in scope',
@@ -30,5 +30,5 @@ export function isPermission(v: unknown): v is Permission {
   return typeof v === 'string' && v in PERMISSIONS
 }
 
-export const SCOPE_LEVELS = ['global', 'campus', 'stream', 'council', 'ccg', 'ccf'] as const
+export const SCOPE_LEVELS = ['global', 'campus', 'stream', 'ccg', 'ccf'] as const
 export type ScopeLevel = (typeof SCOPE_LEVELS)[number]

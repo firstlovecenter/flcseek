@@ -2,12 +2,11 @@ import { isPermission, type Permission, type ScopeLevel } from './permissions'
 
 /**
  * What a user may do, and where. Pure: the caller supplies the user's current
- * role assignments and the campus → stream → council → CCG → CCF hierarchy.
+ * role assignments and the campus → stream → CCG → CCF hierarchy.
  *
  * A grant at a level covers everything beneath it: a campus grant covers its
- * streams; a stream grant covers its
- * councils; an Overseer's council grant covers its CCGs and their CCFs; a
- * Governor's CCG grant covers its CCFs.
+ * streams; a stream grant (e.g. an Overseer's) covers its CCGs and their CCFs;
+ * a Governor's CCG grant covers its CCFs.
  */
 
 export interface AssignmentGrant {
@@ -16,15 +15,13 @@ export interface AssignmentGrant {
   permissions: string[]
   campusId?: string | null
   streamId?: string | null
-  councilId: string | null
   ccgId: string | null
   ccfId: string | null
 }
 
 export interface Hierarchy {
   ccfs: Array<{ id: string; ccgId: string }>
-  ccgs: Array<{ id: string; councilId: string | null }>
-  councils?: Array<{ id: string; streamId: string | null }>
+  ccgs: Array<{ id: string; streamId: string | null }>
   streams?: Array<{ id: string; campusId: string | null }>
 }
 
@@ -38,15 +35,12 @@ export interface CcgScope {
   can(perm: Permission): boolean
   canOnCcf(perm: Permission, ccfId: string | null | undefined): boolean
   canOnCcg(perm: Permission, ccgId: string | null | undefined): boolean
-  canOnCouncil(perm: Permission, councilId: string | null | undefined): boolean
   canOnStream(perm: Permission, streamId: string | null | undefined): boolean
   canOnCampus(perm: Permission, campusId: string | null | undefined): boolean
   /** CCFs where `perm` applies. */
   ccfIds(perm: Permission): IdSet
   /** CCGs where `perm` applies (at CCG level or above). */
   ccgIds(perm: Permission): IdSet
-  /** Councils where `perm` applies (at council level or above). */
-  councilIds(perm: Permission): IdSet
   /** Streams where `perm` applies (at stream level or globally). */
   streamIds(perm: Permission): IdSet
   /** The sheep seeking groups this Sheep Seeker is assigned to: their converts are in reach wherever they are placed. */
@@ -55,7 +49,7 @@ export interface CcgScope {
   canOnSeekingGroup(perm: Permission, groupId: string | null | undefined): boolean
   /**
    * `perm` on a CCF's members. Sheep seeking roles reach converts only, so
-   * this counts CCF, CCG, council and church-wide leadership roles alone.
+   * this counts CCF, CCG, Overseer and church-wide leadership roles alone.
    */
   canOnMembersOf(perm: Permission, ccfId: string | null | undefined): boolean
   /** CCFs whose members `perm` reaches (see canOnMembersOf). */
@@ -79,7 +73,6 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
   const global = new Set<Permission>()
   const byCampus: Grants = new Map()
   const byStream: Grants = new Map()
-  const byCouncil: Grants = new Map()
   const byCcg: Grants = new Map()
   const byCcf: Grants = new Map()
   const anywhere = new Set<Permission>()
@@ -90,7 +83,6 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
     if (a.scopeLevel === 'global') perms.forEach((p) => global.add(p))
     else if (a.scopeLevel === 'campus' && a.campusId) add(byCampus, a.campusId, perms)
     else if (a.scopeLevel === 'stream' && a.streamId) add(byStream, a.streamId, perms)
-    else if (a.scopeLevel === 'council' && a.councilId) add(byCouncil, a.councilId, perms)
     else if (a.scopeLevel === 'ccg' && a.ccgId) add(byCcg, a.ccgId, perms)
     else if (a.scopeLevel === 'ccf' && a.ccfId) add(byCcf, a.ccfId, perms)
     else granted = false // mis-scoped assignment grants nothing
@@ -98,9 +90,7 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
   }
 
   const ccgOfCcf = new Map(hierarchy.ccfs.map((c) => [c.id, c.ccgId]))
-  const councilOfCcg = new Map(hierarchy.ccgs.map((g) => [g.id, g.councilId]))
-  const streamOfCouncil = new Map((hierarchy.councils ?? []).map((c) => [c.id, c.streamId]))
-
+  const streamOfCcg = new Map(hierarchy.ccgs.map((g) => [g.id, g.streamId]))
   const campusOfStream = new Map((hierarchy.streams ?? []).map((s) => [s.id, s.campusId]))
 
   const canOnCampus = (perm: Permission, campusId: string | null | undefined) => global.has(perm) || (!!campusId && !!byCampus.get(campusId)?.has(perm))
@@ -108,13 +98,9 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
   const canOnStream = (perm: Permission, streamId: string | null | undefined) =>
     global.has(perm) || (!!streamId && (!!byStream.get(streamId)?.has(perm) || canOnCampus(perm, campusOfStream.get(streamId) ?? null)))
 
-  const canOnCouncil = (perm: Permission, councilId: string | null | undefined) =>
-    global.has(perm) ||
-    (!!councilId && (!!byCouncil.get(councilId)?.has(perm) || canOnStream(perm, streamOfCouncil.get(councilId) ?? null)))
-
   const canOnCcg = (perm: Permission, ccgId: string | null | undefined) =>
     global.has(perm) ||
-    (!!ccgId && (!!byCcg.get(ccgId)?.has(perm) || canOnCouncil(perm, councilOfCcg.get(ccgId) ?? null)))
+    (!!ccgId && (!!byCcg.get(ccgId)?.has(perm) || canOnStream(perm, streamOfCcg.get(ccgId) ?? null)))
 
   const canOnCcf = (perm: Permission, ccfId: string | null | undefined) =>
     global.has(perm) ||
@@ -135,13 +121,10 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
     can: (perm) => global.has(perm),
     canOnCcf,
     canOnCcg,
-    canOnCouncil,
     canOnStream,
     canOnCampus,
     ccfIds,
     ccgIds: (perm) => (global.has(perm) ? 'all' : hierarchy.ccgs.filter((g) => canOnCcg(perm, g.id)).map((g) => g.id)),
-    councilIds: (perm) =>
-      global.has(perm) ? 'all' : (hierarchy.councils ?? []).filter((c) => canOnCouncil(perm, c.id)).map((c) => c.id),
     streamIds: (perm) =>
       global.has(perm)
         ? 'all'

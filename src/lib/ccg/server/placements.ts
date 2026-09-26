@@ -290,14 +290,14 @@ export async function transferPerson(personId: string, toCcfId: string, reason: 
     if (fromCcfId === toCcfId) throw invalid('They are already in this CCF')
 
     const { full } = await checkSeat(tx, toCcfId, person, why)
-    const target = await tx.ccgFamily.findUniqueOrThrow({ where: { id: toCcfId }, include: { ccg: { include: { council: true } } } })
+    const target = await tx.ccgFamily.findUniqueOrThrow({ where: { id: toCcfId }, include: { ccg: true } })
 
     if (person.kind === 'member') {
       await tx.ccgPerson.update({ where: { id: person.id }, data: { ccfId: toCcfId, updatedAt: new Date() } })
     } else {
       await tx.ccgPlacement.update({ where: { id: active!.id }, data: { finalCcfId: toCcfId, updatedAt: new Date() } })
-      const toStream = target.ccg.council?.streamId ?? null
-      if (person.streamId && toStream && toStream !== person.streamId) {
+      const toStream = target.ccg.streamId
+      if (person.streamId && toStream !== person.streamId) {
         await tx.ccgPerson.update({ where: { id: person.id }, data: { streamId: toStream, updatedAt: new Date() } })
       }
     }

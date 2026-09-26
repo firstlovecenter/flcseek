@@ -34,7 +34,7 @@ const STATUSES: Record<Kind, string[]> = {
   convert: ['new', 'proposed', 'needs_info', 'placed', 'integrated', 'inactive'],
   member: ['pending', 'active', 'inactive'],
 }
-const UNIT_PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id' }
+const UNIT_PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', stream: 'stream_id' }
 
 function subtitle(p: PersonDTO): string {
   if (p.kind === 'member') return [p.ccf?.name, p.login ? 'Leader' : null].filter(Boolean).join(' · ') || '—'

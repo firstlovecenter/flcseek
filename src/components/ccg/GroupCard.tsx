@@ -9,12 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Initials, StickyHeader, UNIT_LEVEL, groupHref } from './synago'
 
-export type GroupType = 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
+export type GroupType = 'campus' | 'stream' | 'ccg' | 'ccf'
 
-export const GROUP_PLURAL: Record<GroupType, string> = { campus: 'Campuses', stream: 'Streams', council: 'Councils', ccg: 'CCGs', ccf: 'CCFs' }
-export const CHILD_GROUP: Record<GroupType, GroupType | null> = { campus: 'stream', stream: 'council', council: 'ccg', ccg: 'ccf', ccf: null }
-export const LEADER_TITLE: Record<GroupType, string> = { campus: 'Campus Leader', stream: 'Sheep Seeking Overseer', council: 'Overseer', ccg: 'City Church Governor', ccf: 'CCF Coordinator' }
-export const LEADER_KEY: Record<GroupType, string> = { campus: 'campus_leader', stream: 'seeking_overseer', council: 'overseer', ccg: 'ccg_governor', ccf: 'ccf_coordinator' }
+export const GROUP_PLURAL: Record<GroupType, string> = { campus: 'Campuses', stream: 'Streams', ccg: 'CCGs', ccf: 'CCFs' }
+export const CHILD_GROUP: Record<GroupType, GroupType | null> = { campus: 'stream', stream: 'ccg', ccg: 'ccf', ccf: null }
+export const LEADER_TITLE: Record<GroupType, string> = { campus: 'Campus Leader', stream: 'Overseer', ccg: 'City Church Governor', ccf: 'CCF Coordinator' }
+export const LEADER_KEY: Record<GroupType, string> = { campus: 'campus_leader', stream: 'overseer', ccg: 'ccg_governor', ccf: 'ccf_coordinator' }
 
 export const isGroupType = (v: string): v is GroupType => v in GROUP_PLURAL
 
