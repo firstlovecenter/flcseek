@@ -295,6 +295,23 @@ export interface CreatePersonArgs {
   propose?: boolean
 }
 
+/** The CCF registration form makes these compulsory for a new member. */
+const MEMBER_REQUIRED = {
+  phone: 'Enter their phone number',
+  email: 'Enter their email address',
+  gender: 'Choose their gender',
+  date_of_birth: 'Enter their date of birth',
+} as const
+
+/** Throws with per-field errors when a new member is missing a compulsory detail. */
+export function assertMemberDetails(core: Partial<Record<keyof typeof MEMBER_REQUIRED, unknown>>) {
+  const missing = (Object.keys(MEMBER_REQUIRED) as Array<keyof typeof MEMBER_REQUIRED>).filter((k) => !core[k])
+  if (missing.length === 0) return
+  throw invalid('Phone, email, gender and date of birth are required', {
+    fieldErrors: Object.fromEntries(missing.map((k) => [k, [MEMBER_REQUIRED[k]]])),
+  })
+}
+
 /**
  * Register a member or convert with their answers. A new convert is matched
  * immediately and gets a proposal (real-time mapping).

@@ -141,8 +141,14 @@ export function PersonFormDialog({
     if (!core.first_name.trim()) local.first_name = 'Enter their first name'
     if (!core.last_name.trim()) local.last_name = 'Enter their last name'
     if (kind === 'member' && !editing && !core.ccf_id) local.ccf_id = 'Choose their CCF'
-    // Members may become leaders: SMS goes to their phone, invitations to their email.
-    if (kind === 'member' && !core.phone) local.phone = 'Enter their phone number'
+    // Compulsory for members on the CCF registration form. Members may become leaders:
+    // SMS goes to their phone, invitations to their email.
+    if (kind === 'member' && !editing) {
+      if (!core.phone) local.phone = 'Enter their phone number'
+      if (!core.email) local.email = 'Enter their email address'
+      if (!core.gender) local.gender = 'Choose their gender'
+      if (!core.date_of_birth) local.date_of_birth = 'Enter their date of birth'
+    } else if (kind === 'member' && !core.phone) local.phone = 'Enter their phone number'
     if (core.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(core.email)) local.email = 'Enter a valid email address'
     Object.assign(local, missingRequired(questions, answers))
     setErrors(local)
@@ -238,14 +244,14 @@ export function PersonFormDialog({
                   <Input id="p-phone" type="tel" inputMode="tel" autoComplete="off" {...text('phone')} aria-invalid={!!errors.phone} />
                 </Field>
                 <Field
-                  label="Email"
+                  label={kind === 'member' ? 'Email *' : 'Email'}
                   htmlFor="p-email"
                   error={errors.email}
                   hint={kind === 'member' ? 'If they are given a role, their invitation to set a password is sent here' : undefined}
                 >
                   <Input id="p-email" type="email" inputMode="email" autoComplete="off" {...text('email')} aria-invalid={!!errors.email} />
                 </Field>
-                <Field label="Gender" htmlFor="p-gender">
+                <Field label={kind === 'member' ? 'Gender *' : 'Gender'} htmlFor="p-gender" error={errors.gender}>
                   <NullableSelect
                     id="p-gender"
                     value={core.gender}
@@ -256,10 +262,15 @@ export function PersonFormDialog({
                     ]}
                   />
                 </Field>
-                <Field label="Date of birth" htmlFor="p-dob" error={errors.date_of_birth} hint="Compared with the ages of CCF members">
-                  <Input id="p-dob" type="date" {...text('date_of_birth')} />
+                <Field
+                  label={kind === 'member' ? 'Date of birth *' : 'Date of birth'}
+                  htmlFor="p-dob"
+                  error={errors.date_of_birth}
+                  hint="Compared with the ages of CCF members"
+                >
+                  <Input id="p-dob" type="date" {...text('date_of_birth')} aria-invalid={!!errors.date_of_birth} />
                 </Field>
-                <Field label="Nearest landmark" htmlFor="p-landmark">
+                <Field label="Location" htmlFor="p-landmark" error={errors.landmark} hint="Area they live in, or a nearby landmark">
                   <Input id="p-landmark" {...text('landmark')} />
                 </Field>
 

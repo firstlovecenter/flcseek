@@ -70,6 +70,22 @@ let m: Mods
 const run = randomUUID().slice(0, 6).toUpperCase()
 const ids: Record<string, string> = {}
 
+// Every required question on the CCF registration form (036), so self-submissions validate.
+const FORM_ANSWERS = {
+  employment_status: 'employed',
+  job_title: 'Accountant',
+  industry: 'financial_services',
+  activities: ['eating_together'],
+  friendship_prefs: ['age'],
+  trait_new_people: 3,
+  trait_friends_outside_church: 3,
+  trait_group_activity: 3,
+  trait_one_on_one: 3,
+  trait_conversation: 3,
+  trait_hosting: 3,
+  trait_checks_on_friends: 3,
+}
+
 async function convertFor(answers: Record<string, unknown>, extra: Record<string, unknown> = {}) {
   const { person, proposal } = await m.people.createPerson({
     kind: 'convert',
@@ -202,15 +218,22 @@ d('CCG backend against Postgres', () => {
     const { token, link } = await m.links.createLink({ kind: 'member_ccf', ccfId: ids.football, actorId: ids.coord })
     const form = await m.links.getPublicForm(token)
     expect(form.audience).toBe('member')
-    expect(form.questions.some((q) => q.key === 'trait_hosting')).toBe(true) // member-only question shown
+    expect(form.questions.some((q) => q.key === 'industry')).toBe(true)
     expect(form.questions.some((q) => q.key === 'availability')).toBe(false) // convert-only question hidden
+    expect(form.fields.filter((f) => f.required).map((f) => f.key)).toEqual(['first_name', 'last_name', 'phone', 'email', 'gender', 'date_of_birth'])
+
+    const person = { first_name: 'Self', last_name: `Registered ${run}`, phone: '0240000000', email: `self.${run}@example.org` }
+    const client = { ip: '127.0.0.1', userAgent: 'vitest' }
+    // Gender and date of birth are compulsory for members.
+    await expect(
+      m.links.submitPublicForm(token, { client_submission_id: randomUUID(), person, answers: { ...FORM_ANSWERS, interests: ['football'] } }, client)
+    ).rejects.toThrow(/gender and date of birth/)
 
     const submission = {
       client_submission_id: randomUUID(),
-      person: { first_name: 'Self', last_name: `Registered ${run}`, phone: '0240000000', email: `self.${run}@example.org` },
-      answers: { interests: ['football'] },
+      person: { ...person, gender: 'Female' as const, date_of_birth: '1996-03-03' },
+      answers: { ...FORM_ANSWERS, interests: ['football'] },
     }
-    const client = { ip: '127.0.0.1', userAgent: 'vitest' }
     const first = await m.links.submitPublicForm(token, submission, client)
     const again = await m.links.submitPublicForm(token, submission, client)
     expect(again).toMatchObject({ ok: true, duplicate_submission: true, reference: first.reference })
@@ -238,7 +261,7 @@ d('CCG backend against Postgres', () => {
       {
         client_submission_id: randomUUID(),
         person: { first_name: 'Intake', last_name: `Convert ${run}`, phone: '0242222222', date_of_birth: '1999-02-02' },
-        answers: { interests: ['football'], availability: ['weekday_evenings'] },
+        answers: { ...FORM_ANSWERS, interests: ['football'], availability: ['weekday_evenings'] },
       },
       client
     )
@@ -248,7 +271,7 @@ d('CCG backend against Postgres', () => {
     expect(p?.placements[0].proposedCcfId).toBe(ids.football)
 
     await expect(
-      m.links.submitPublicForm(token, { client_submission_id: randomUUID(), person: { first_name: 'Too', last_name: 'Late', phone: '0243333333' }, answers: { interests: ['music'], availability: ['weekday_evenings'] } }, client)
+      m.links.submitPublicForm(token, { client_submission_id: randomUUID(), person: { first_name: 'Too', last_name: 'Late', phone: '0243333333' }, answers: { ...FORM_ANSWERS, interests: ['music'], availability: ['weekday_evenings'] } }, client)
     ).rejects.toThrow(/no longer valid/)
   }, T)
 
@@ -461,7 +484,7 @@ d('CCG backend against Postgres', () => {
       {
         client_submission_id: randomUUID(),
         person: { first_name: 'Stream', last_name: `Intake ${run}`, phone: '0245555555', date_of_birth: '1999-02-02' },
-        answers: { interests: ['music'], availability: ['weekday_evenings'] },
+        answers: { ...FORM_ANSWERS, interests: ['music'], availability: ['weekday_evenings'] },
       },
       { ip: '127.0.0.1', userAgent: 'vitest' }
     )

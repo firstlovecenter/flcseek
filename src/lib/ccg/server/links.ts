@@ -5,7 +5,7 @@ import { questionAppliesTo, type AnswerValue } from '../engine'
 import { CcgError, conflict, invalid, notFound } from '../errors'
 import type { PublicSubmission } from '../schemas'
 import { dateOnly, iso, logCcg } from './common'
-import { createPerson, seekerSelf, updatePerson } from './people'
+import { assertMemberDetails, createPerson, seekerSelf, updatePerson } from './people'
 import { loadAnswers, loadQuestionBank } from './questions'
 
 /**
@@ -145,7 +145,7 @@ const CORE_FIELDS: Record<LinkKind, Array<{ key: string; label: string; type: st
     { key: 'email', label: 'Email', type: 'email', required: false },
     { key: 'gender', label: 'Gender', type: 'gender', required: false },
     { key: 'date_of_birth', label: 'Date of birth', type: 'date', required: false },
-    { key: 'landmark', label: 'Nearest landmark', type: 'text', required: false },
+    { key: 'landmark', label: 'Location', type: 'text', required: false },
     { key: 'existing_connection_note', label: 'Do you already know someone in church? Who?', type: 'text', required: false },
   ],
   member_ccf: [
@@ -154,16 +154,16 @@ const CORE_FIELDS: Record<LinkKind, Array<{ key: string; label: string; type: st
     { key: 'last_name', label: 'Last name', type: 'text', required: true },
     { key: 'phone', label: 'Phone number', type: 'tel', required: true },
     { key: 'email', label: 'Email', type: 'email', required: true },
-    { key: 'gender', label: 'Gender', type: 'gender', required: false },
-    { key: 'date_of_birth', label: 'Date of birth', type: 'date', required: false },
-    { key: 'landmark', label: 'Nearest landmark', type: 'text', required: false },
+    { key: 'gender', label: 'Gender', type: 'gender', required: true },
+    { key: 'date_of_birth', label: 'Date of birth', type: 'date', required: true },
+    { key: 'landmark', label: 'Location', type: 'text', required: false },
   ],
   person_update: [
     { key: 'phone', label: 'Phone number', type: 'tel', required: false },
     { key: 'email', label: 'Email', type: 'email', required: false },
     { key: 'gender', label: 'Gender', type: 'gender', required: false },
     { key: 'date_of_birth', label: 'Date of birth', type: 'date', required: false },
-    { key: 'landmark', label: 'Nearest landmark', type: 'text', required: false },
+    { key: 'landmark', label: 'Location', type: 'text', required: false },
   ],
 }
 
@@ -265,8 +265,8 @@ export async function submitPublicForm(
   if (kind !== 'person_update' && (!body.person.first_name || !body.person.last_name || !body.person.phone)) {
     throw invalid('First name, last name and phone number are required')
   }
-  // Members may be made leaders; their invitation is emailed.
-  if (kind === 'member_ccf' && !body.person.email) throw invalid('Email is required')
+  // Members may be made leaders; their invitation is emailed. The rest follow the CCF registration form.
+  if (kind === 'member_ccf') assertMemberDetails(body.person)
 
   if (!(await consumeUse(l.id))) throw GONE()
   let submissionId: string
