@@ -30,7 +30,7 @@ export async function listSeekingGroups(scope: CcgScope, streamId: string | null
   const where = {
     deletedAt: null,
     ...(streamId ? { streamId } : {}),
-    OR: [...(streams === 'all' ? [{}] : [{ streamId: { in: streams } }]), { id: { in: scope.seekingGroupIds } }],
+    ...(streams === 'all' ? {} : { OR: [{ streamId: { in: streams } }, { id: { in: scope.seekingGroupIds } }] }),
   }
   const rows = await prisma.ccgSeekingGroup.findMany({
     where,
