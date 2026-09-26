@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { personCreateSchema, type PersonCreate } from '@/lib/ccg/schemas'
 import { invalid } from '@/lib/ccg/errors'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { createPerson, peopleScopeWhere, personInclude, serializePerson } from '@/lib/ccg/server/people'
+import { assertMemberDetails, createPerson, peopleScopeWhere, personInclude, serializePerson } from '@/lib/ccg/server/people'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,6 +95,7 @@ export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema:
       'Only the stream’s Sheep Seeking Overseer can put converts in other groups'
     )
   }
+  if (body.kind === 'member') assertMemberDetails(body)
   const { kind, answers, ...core } = body
   const { person, proposal } = await createPerson({ kind, core, answers, source: 'staff', actorId: user.id })
   return created({
