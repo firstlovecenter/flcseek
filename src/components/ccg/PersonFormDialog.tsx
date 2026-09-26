@@ -119,13 +119,13 @@ export function PersonFormDialog({
     () => (opts?.questions ?? []).filter((q) => q.active && (q.audience === 'both' || q.audience === kind)),
     [opts, kind]
   )
-  // Converts are assigned to Sheep Seekers by the stream's Sheep Seeking Overseer (or an admin).
+  // Converts are put in seeking groups by the stream's (or campus's) Sheep Seeking Admin, or the central team.
   const canAssign =
     hasGlobal('seekers.manage') ||
     !!me?.roles.some(
       (r) =>
-        (r.role.key === 'seeking_overseer' && (!core.stream_id || r.unit?.id === core.stream_id)) ||
-        (r.unit?.type === 'campus' && (!core.stream_id || !!r.unit.streams?.some((s) => s.id === core.stream_id)))
+        (r.role.key === 'seeking_admin' && (!core.stream_id || r.unit?.id === core.stream_id)) ||
+        (r.role.key === 'campus_seeking_admin' && (!core.stream_id || !!r.unit?.streams?.some((s) => s.id === core.stream_id)))
     )
   const groups = useSeekingGroupOptions(kind === 'convert' && mode ? core.stream_id : undefined)
   const activeCcfs = (opts?.ccfs ?? []).filter((f) => f.status === 'active' && f.ccg.status === 'active')

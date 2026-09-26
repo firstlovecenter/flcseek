@@ -43,7 +43,10 @@ export default function CcgSeekingGroupsPage() {
   const stream = focus?.type === 'stream' ? focus.id : null
   const canCreate =
     !!stream &&
-    (hasGlobal('seekers.manage') || !!me?.roles.some((r) => r.role.key === 'seeking_overseer' && r.unit?.id === stream))
+    (hasGlobal('seekers.manage') ||
+      !!me?.roles.some(
+        (r) => (r.role.key === 'seeking_admin' && r.unit?.id === stream) || (r.role.key === 'campus_seeking_admin' && r.unit?.streams?.some((s) => s.id === stream))
+      ))
   const [groups, setGroups] = useState<SeekingGroupRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)

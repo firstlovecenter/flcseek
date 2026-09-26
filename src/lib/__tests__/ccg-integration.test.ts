@@ -557,7 +557,7 @@ d('CCG backend against Postgres', () => {
     const tp = await prisma.ccgPerson.findUnique({ where: { id: theirs.person.id }, include: m.people.personInclude })
     expect(m.people.canOnPerson(scope, 'people.view', tp!)).toBe(false)
     await expect(m.placementRoutes.authorisePlacement(scope, 'placements.approve', theirs.proposal!.placement.id)).rejects.toThrow()
-  }, T)
+  }, T * 3) // many round trips to the remote test database
 
   it('scope: a CCF Coordinator sees only their CCF; the Seek superadmin sees everything', async () => {
     const coord = await m.scopeLoader.loadScope(ids.coord)
@@ -723,10 +723,10 @@ d('CCG backend against Postgres', () => {
     const graduate = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: assigned.id }, include: m.people.personInclude })
     expect(m.people.canOnPerson(seekerScope, 'people.view', graduate)).toBe(false)
 
-    // Each stream has one Sheep Seeking Overseer: its sheep seeking admin, who appoints its Sheep Seekers.
-    const o1 = await m.seekers.setSeekingOverseer(fresh.id, { first_name: 'First', last_name: `Overseer ${run}`, phone: '0241313131', email: `o1.${run}@example.org` }, ids.admin, 'http://test')
-    const o2 = await m.seekers.setSeekingOverseer(fresh.id, { first_name: 'Second', last_name: `Overseer ${run}`, phone: '0241414141', email: `o2.${run}@example.org` }, ids.admin, 'http://test')
-    const current = await prisma.ccgRoleAssignment.findMany({ where: { roleKey: 'seeking_overseer', streamId: fresh.id, endsOn: null } })
+    // Each stream has one Sheep Seeking Admin, who appoints its Sheep Seekers.
+    const o1 = await m.seekers.setStreamSeekingLead(fresh.id, 'admin', { first_name: 'First', last_name: `Admin ${run}`, phone: '0241313131', email: `o1.${run}@example.org` }, ids.admin, 'http://test')
+    const o2 = await m.seekers.setStreamSeekingLead(fresh.id, 'admin', { first_name: 'Second', last_name: `Admin ${run}`, phone: '0241414141', email: `o2.${run}@example.org` }, ids.admin, 'http://test')
+    const current = await prisma.ccgRoleAssignment.findMany({ where: { roleKey: 'seeking_admin', streamId: fresh.id, endsOn: null } })
     expect(current.map((a) => a.id)).toEqual([o2.assignment_id]) // the first stood down
     expect(o1.assignment_id).not.toBe(o2.assignment_id)
     const o2Login = await prisma.user.findFirstOrThrow({ where: { ccgPeople: { some: { id: o2.person_id } } } })
@@ -736,7 +736,14 @@ d('CCG backend against Postgres', () => {
     expect(seekerScope.canOnStream('seekers.manage', fresh.id)).toBe(false) // Sheep Seekers do not appoint
     await m.seekers.standDownSeeker(fresh.id, added.assignment_id, o2Login.id)
     expect((await prisma.ccgRoleAssignment.findUniqueOrThrow({ where: { id: added.assignment_id } })).endsOn).not.toBeNull()
-  }, T)
+
+    // Its Sheep Seeking Overseer only sees.
+    const ov = await m.seekers.setStreamSeekingLead(fresh.id, 'overseer', { first_name: 'View', last_name: `Overseer ${run}`, phone: '0241616161', email: `ov.${run}@example.org` }, ids.admin, 'http://test')
+    const ovLogin = await prisma.user.findFirstOrThrow({ where: { ccgPeople: { some: { id: ov.person_id } } } })
+    const ovScope = await m.scopeLoader.loadScope(ovLogin.id)
+    expect(ovScope.canOnStream('people.view', fresh.id)).toBe(true)
+    for (const p of ['people.manage', 'placements.approve', 'seekers.manage', 'milestones.update'] as const) expect(ovScope.anywhere.has(p)).toBe(false)
+  }, T * 3) // many round trips to the remote test database
 
   it('campuses: a Campus Leader sees every stream in their campus, on both sides, and changes nothing', async () => {
     const { prisma } = m

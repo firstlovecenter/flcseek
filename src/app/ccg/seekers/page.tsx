@@ -13,7 +13,7 @@ import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { useCcgFocus } from '@/components/ccg/CcgFocusProvider'
 import { Initials, StickyHeader } from '@/components/ccg/synago'
-import { StreamSeekers, type SeekerHolder } from '@/components/ccg/StreamSeekers'
+import { CampusSeekingTeams, StreamSeekers, type CampusSeekingTeam, type SeekerHolder } from '@/components/ccg/StreamSeekers'
 
 interface Counts {
   registered: number
@@ -53,15 +53,28 @@ function SeekerReport() {
   const offset = Math.max(Number(params.get('offset')) || 0, 0)
   const [data, setData] = useState<Report | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // The stream's sheep seeking team: its Overseer and Sheep Seekers (appointed here).
-  const [team, setTeam] = useState<{ overseer: SeekerHolder | null; seekers: SeekerHolder[] } | null>(null)
+  // The stream's sheep seeking team: its Admin, Overseer and Sheep Seekers (appointed here).
+  const [team, setTeam] = useState<{ admin: SeekerHolder | null; overseer: SeekerHolder | null; seekers: SeekerHolder[] } | null>(null)
   const loadTeam = useCallback(() => {
     if (!stream) return setTeam(null)
-    ccgApi.get<{ overseer: SeekerHolder | null; seekers: SeekerHolder[] }>(`/streams/${stream}/seekers`).then((r) => setTeam(r.ok ? r.data : null))
+    ccgApi
+      .get<{ admin: SeekerHolder | null; overseer: SeekerHolder | null; seekers: SeekerHolder[] }>(`/streams/${stream}/seekers`)
+      .then((r) => setTeam(r.ok ? r.data : null))
   }, [stream])
   useEffect(() => {
     loadTeam()
   }, [loadTeam])
+  // Church-wide or campus in focus: each campus's Sheep Seeking Admin and Overseer.
+  const showCampuses = !stream && (focus?.type === 'global' || focus?.type === 'campus')
+  const [campusTeams, setCampusTeams] = useState<{ campuses: CampusSeekingTeam[]; can_appoint: boolean } | null>(null)
+  const loadCampusTeams = useCallback(() => {
+    if (!showCampuses) return setCampusTeams(null)
+    ccgApi.get<{ campuses: CampusSeekingTeam[]; can_appoint: boolean }>('/campuses/seeking-teams').then((r) => setCampusTeams(r.ok ? r.data : null))
+  }, [showCampuses])
+  useEffect(() => {
+    loadCampusTeams()
+  }, [loadCampusTeams])
+  const campusesShown = campusTeams ? campusTeams.campuses.filter((c) => focus?.type !== 'campus' || c.id === focus.id) : []
 
   useEffect(() => {
     if (!has('reports.view')) return
@@ -141,11 +154,20 @@ function SeekerReport() {
           <StreamSeekers
             streamId={stream}
             streamName={streamName ?? 'this stream'}
+            admin={team ? team.admin : undefined}
             overseer={team ? team.overseer : undefined}
             seekers={team ? team.seekers : null}
             onChanged={loadTeam}
             reportLink={false}
           />
+        </div>
+      )}
+
+      {campusesShown.length > 0 && (
+        <div className="mt-4 rounded-xl border border-border bg-card p-4">
+          <h2 className="mb-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Campus Sheep Seeking</h2>
+          <CampusSeekingTeams campuses={campusesShown} canAppoint={!!campusTeams?.can_appoint} onChanged={loadCampusTeams} />
+          <p className="mt-4 text-xs text-muted-foreground">Choose a stream in the sidebar to appoint its Sheep Seeking Admin, Overseer and Sheep Seekers.</p>
         </div>
       )}
 

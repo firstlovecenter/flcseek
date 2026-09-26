@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveCcgScope, type AssignmentGrant, type Hierarchy } from '@/lib/ccg/scope'
+import { resolveCcgScope, roleInPortal, type AssignmentGrant, type Hierarchy } from '@/lib/ccg/scope'
 
 // Stream S1 → CCGs G1, G2 → CCFs F1, F2 (G1), F3 (G2).  CCG G3 is in stream S9 → F4.
 const hierarchy: Hierarchy = {
@@ -115,6 +115,14 @@ describe('campuses and sheep seeking roles', () => {
       { id: 'S9', campusId: null },
     ],
   }
+  it('each portal hands out its own roles', () => {
+    expect(roleInPortal({ key: 'seeking_admin', scope_level: 'stream' }, 'ccg')).toBe(false)
+    expect(roleInPortal({ key: 'campus_seeking_overseer', scope_level: 'campus' }, 'seeking')).toBe(true)
+    expect(roleInPortal({ key: 'ccf_coordinator', scope_level: 'ccf' }, 'seeking')).toBe(false)
+    expect(roleInPortal({ key: 'campus_leader', scope_level: 'campus' }, 'seeking')).toBe(true)
+    expect(roleInPortal({ key: 'ccg_admin', scope_level: 'global' }, 'ccg')).toBe(true)
+  })
+
   const at = (roleKey: string, level: 'campus' | 'stream', unit: string, perms: string[]): AssignmentGrant => ({
     roleKey,
     scopeLevel: level,
@@ -169,12 +177,23 @@ describe('campuses and sheep seeking roles', () => {
     expect(seeker.leadership().canOnStream('people.view', 'S1')).toBe(false)
     expect(seeker.leadership().ccgIds('people.view')).toEqual([])
 
-    // The stream's Sheep Seeking Overseer approves placements into the stream's CCFs without seeing inside them.
-    const ssOverseer = resolveCcgScope([at('seeking_overseer', 'stream', 'S1', ['people.view', 'placements.view', 'placements.approve'])], tree)
-    expect(ssOverseer.canOnStream('placements.approve', 'S1')).toBe(true)
-    expect(ssOverseer.canPlaceInto('placements.approve', 'F3')).toBe(true)
-    expect(ssOverseer.canPlaceInto('placements.approve', 'F4')).toBe(false)
-    expect(ssOverseer.canOnCcf('people.view', 'F3')).toBe(false)
+    // The stream's Sheep Seeking Admin approves placements into the stream's CCFs without seeing inside them.
+    const ssAdmin = resolveCcgScope([at('seeking_admin', 'stream', 'S1', ['people.view', 'placements.view', 'placements.approve'])], tree)
+    expect(ssAdmin.canOnStream('placements.approve', 'S1')).toBe(true)
+    expect(ssAdmin.canPlaceInto('placements.approve', 'F3')).toBe(true)
+    expect(ssAdmin.canPlaceInto('placements.approve', 'F4')).toBe(false)
+    expect(ssAdmin.canOnCcf('people.view', 'F3')).toBe(false)
+
+    // A Campus Sheep Seeking Admin: every stream in the campus, Sheep Seeking side only.
+    const campusAdmin = resolveCcgScope([at('campus_seeking_admin', 'campus', 'C1', ['people.view', 'placements.approve', 'seekers.manage'])], tree)
+    expect(campusAdmin.canOnStream('placements.approve', 'S2')).toBe(true)
+    expect(campusAdmin.canOnStream('placements.approve', 'S9')).toBe(false)
+    expect(campusAdmin.canPlaceInto('placements.approve', 'F1')).toBe(true)
+    expect(campusAdmin.canOnSeekingCampus('seekers.manage', 'C1')).toBe(true)
+    expect(campusAdmin.canOnCampus('people.view', 'C1')).toBe(false) // no campus group pages
+    expect(campusAdmin.canOnCcf('people.view', 'F1')).toBe(false)
+    expect(campusAdmin.canOnMembersOf('people.view', 'F1')).toBe(false)
+    expect([...(campusAdmin.streamIds('people.view') as string[])].sort()).toEqual(['S1', 'S2'])
 
     // A Campus Leader runs both sides of their campus.
     const campus = resolveCcgScope([at('campus_leader', 'campus', 'C1', ['people.view'])], tree)

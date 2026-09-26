@@ -341,14 +341,21 @@ Links open the public page `/join/[token]`, which needs no login and is shown wi
 Sheep seeking has its own portal, over the same data as City Church Groups (see **Portals** below).
 
 - **Sheep Seekers** belong to a stream. They don't need to be in a CCF; new people are added as members of the stream only. Converts are **assigned** to them (`seeker_person_id` on people, shown as `seeker`). A seeker sees and ticks the milestones of their assigned converts in whatever CCF those converts are placed. A convert a seeker registers, or who registers through a seeker's intake link, is assigned to that seeker. Only the stream's Sheep Seeking Overseer, a Campus Leader or an admin (`seekers.manage`) can assign a convert to a different seeker.
-- **Sheep Seeking Overseer** (`seeking_overseer`, one per stream): the stream's sheep seeking admin, and the stream's leader on its page. A central admin (`roles.manage`) appoints them. They appoint and stand down the stream's Sheep Seekers.
+- **Sheep Seeking roles** are appointed in the Sheep Seeking portal only (role pickers show each portal's own roles):
+  - **Stream Sheep Seeking Admin** (`seeking_admin`, one per stream): acts. Registers converts, approves placements, appoints and stands down the stream's Sheep Seekers, runs its seeking groups.
+  - **Stream Sheep Seeking Overseer** (`seeking_overseer`, one per stream): view only.
+  - **Campus Sheep Seeking Admin** (`campus_seeking_admin`, one per campus): acts across every stream in the campus, and appoints each stream's Admin and Overseer.
+  - **Campus Sheep Seeking Overseer** (`campus_seeking_overseer`, one per campus): view only, across the campus.
+  - A stream's Admin and Overseer are appointed by the central team (`roles.manage`) or the campus's Sheep Seeking Admin; a campus's by the central team.
 - **Members:** sheep seeking roles never reach CCF members (`canOnMembersOf` counts only leadership roles). Their converts who graduate appear, read-only, in the Graduated list.
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
 | POST | `/streams/[id]/seekers` | roles.manage, or seekers.manage on the stream | Appoint a Sheep Seeker: `{ person_id }` or `{ first_name, middle_name?, last_name, phone, email }`. An email that already belongs to a member reuses that person, so they keep one login. Returns `{ person_id, assignment_id, reused, invite }`. |
 | DELETE | `/streams/[id]/seekers/[assignmentId]` | same | Stand a Sheep Seeker down. Their converts stay assigned to them until reassigned. |
-| PUT | `/streams/[id]/overseer` | roles.manage | Appoint the Sheep Seeking Overseer (same body). The previous one stands down. |
+| PUT / DELETE | `/streams/[id]/leads/admin\|overseer` | roles.manage, or the campus's Sheep Seeking Admin | Appoint (same body) or stand down the stream's Sheep Seeking Admin or Overseer. The previous one stands down. |
+| PUT / DELETE | `/campuses/[id]/leads/admin\|overseer` | roles.manage | The campus's Sheep Seeking Admin or Overseer. |
+| GET | `/campuses/seeking-teams` | central team, or campus Sheep Seeking roles (their campus) | `{ campuses[{ id, name, admin, overseer }], can_appoint }` |
 | GET | `/seekers/graduated?stream_id=&seeker=me&search=&limit=&offset=` | reports.view | Converts who completed their assessment and became CCF members. Returns `{ counts{total,this_month,this_year}, graduates[] }`. A seeker sees their own, an Overseer their stream's. |
 | GET | `/progress?seeker=me` | placements.view | The milestone grid for the signed-in seeker's assigned converts. |
 
@@ -397,7 +404,7 @@ Runs only when `ANTHROPIC_API_KEY` is set (`CCG_AI=off` switches it off; `CCG_AI
 
 One login and one system, with two portals:
 
-- **Sheep Seeking:** for `sheep_seeker` and `seeking_overseer` roles.
+- **Sheep Seeking:** for `sheep_seeker`, `seeking_admin`, `seeking_overseer`, `campus_seeking_admin` and `campus_seeking_overseer`.
 - **City Church Groups:** for every other role.
 
 The central team and superadmins have both, church-wide or per stream. The client groups a person's roles by portal. The portal switcher moves between portals, and the role switcher moves within one.
