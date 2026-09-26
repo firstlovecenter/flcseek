@@ -19,7 +19,7 @@ const hierarchy: Hierarchy = {
 // Mirrors the seeded roles in migration 020.
 const ROLES = {
   ccg_admin: { level: 'global', perms: ['structure.manage', 'people.view', 'people.manage', 'placements.approve', 'milestones.update', 'settings.manage', 'roles.manage'] },
-  overseer: { level: 'stream', perms: ['people.view', 'placements.view', 'milestones.update', 'checkins.record', 'reports.view'] },
+  overseer: { level: 'stream', perms: ['people.view', 'placements.view', 'reports.view'] },
   ccg_governor: { level: 'ccg', perms: ['units.edit', 'people.view', 'people.manage', 'members.confirm', 'links.manage', 'milestones.update'] },
   ccf_coordinator: { level: 'ccf', perms: ['people.view', 'people.manage', 'members.confirm', 'links.manage', 'milestones.update'] },
 } as const
@@ -55,8 +55,9 @@ describe('resolveCcgScope', () => {
     expect(s.canOnCcg('units.edit', 'G1')).toBe(true)
   })
 
-  it('Overseer: every CCG and CCF in the stream, read and follow-up only', () => {
+  it('Overseer: every CCG and CCF in the stream, view only', () => {
     const s = scope(grant('overseer', 'S1'))
+    expect(s.canOnCcf('milestones.update', 'F1')).toBe(false)
     expect(s.ccfIds('people.view')).toEqual(['F1', 'F2', 'F3'])
     expect(s.ccgIds('reports.view')).toEqual(['G1', 'G2'])
     expect(s.canOnCcf('people.manage', 'F1')).toBe(false)

@@ -43,7 +43,7 @@ The backend contract for the CCG app. The CCG app lives in the same repo as Seek
 | Seek superadmin | global (implicit) | all |
 | `ccg_admin` CCG Admin | global | all |
 | `sheep_seeker` Sheep Seeker | stream | people.view/manage, links.intake, placements.view/approve, attendance.mark, milestones.update, checkins.record, reports.view. Registers converts into their stream and handles their mapping. |
-| `overseer` Overseer | stream (City Church Groups side: every CCG in the stream) | people.view, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
+| `overseer` Overseer | stream (City Church Groups side: every CCG in the stream) | people.view, placements.view, reports.view (view only) |
 | `ccg_governor` City Church Governor | CCG | units.edit, people.view/manage, members.confirm, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
 | `ccf_coordinator` City Church Family Coordinator | CCF | people.view/manage, members.confirm, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, reports.view |
 
