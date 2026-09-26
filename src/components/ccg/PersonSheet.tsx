@@ -110,7 +110,9 @@ export function PersonSheet({
 
   const p = data?.person
   const status = p ? PERSON_STATUS[p.status] ?? { label: p.status, tone: 'secondary' as const } : null
-  const canTransfer = !!p && has('people.manage') && ((p.kind === 'member' && ['active', 'pending'].includes(p.status)) || !!p.placement)
+  // A CCF's members are edited by the CCG Admin or the stream's Admin (members.edit), not by the CCF's own leaders.
+  const canEdit = !!p && has(p.kind === 'member' && p.ccf ? 'members.edit' : 'people.manage')
+  const canTransfer = canEdit && !!p && ((p.kind === 'member' && ['active', 'pending'].includes(p.status)) || !!p.placement)
   const answered = (opts?.questions ?? []).filter((q) => p?.answers?.[q.key] !== undefined)
 
   return (
@@ -138,7 +140,7 @@ export function PersonSheet({
           {p && data && (
             <>
               <div className="flex flex-wrap gap-2">
-                {has('people.manage') && (
+                {canEdit && (
                   <Button size="sm" variant="outline" onClick={() => onEdit(p)}>
                     <Pencil className="size-4" />
                     Edit
