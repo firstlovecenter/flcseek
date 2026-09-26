@@ -125,14 +125,15 @@ describe('campuses and sheep seeking roles', () => {
   })
 
   it('Campus Leader: every stream in the campus, down to its CCFs and members', () => {
-    const s = resolveCcgScope([at('campus_leader', 'campus', 'C1', ['people.view', 'seekers.manage'])], tree)
+    const s = resolveCcgScope([at('campus_leader', 'campus', 'C1', ['people.view', 'reports.view'])], tree)
     expect(s.canOnCampus('people.view', 'C1')).toBe(true)
     expect(s.canOnStream('people.view', 'S2')).toBe(true)
     expect(s.canOnStream('people.view', 'S9')).toBe(false)
     expect(s.canOnCcf('people.view', 'F3')).toBe(true)
     expect(s.canOnMembersOf('people.view', 'F3')).toBe(true)
     expect(s.canOnCcf('people.view', 'F4')).toBe(false)
-    expect([...(s.streamIds('seekers.manage') as string[])].sort()).toEqual(['S1', 'S2'])
+    expect([...(s.streamIds('reports.view') as string[])].sort()).toEqual(['S1', 'S2'])
+    expect(s.canOnStream('people.manage', 'S1')).toBe(false) // view only
   })
 
   it('Sheep seeking roles reach a stream’s converts but not its CCF members', () => {
