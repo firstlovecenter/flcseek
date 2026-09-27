@@ -816,6 +816,31 @@ d('CCG backend against Postgres', () => {
     expect(page.children?.items.map((i) => i.id)).toContain(ids.stream)
     const streamPage = await overview.unitOverview(scope, 'stream', ids.stream)
     expect(streamPage.breadcrumb[0]).toMatchObject({ type: 'campus', id: campus.id })
+
+    // History names the person, the unit and the position, and records changes.
+    const { person: next } = await m.people.createPerson({
+      kind: 'member',
+      core: { first_name: 'Next', last_name: `Leader ${run}`, ccf_id: ids.music, phone: '0241515152', email: `next.${run}@example.org` },
+      answers: {},
+      source: 'staff',
+      actorId: ids.admin,
+    })
+    await m.roles.setUnitLeader('campus', campus.id, { person_id: next.id }, ids.admin, 'http://test')
+    await prisma.ccgCampus.update({ where: { id: campus.id }, data: { name: `Revival ${run}` } })
+    const { logCcg } = await import('@/lib/ccg/server/common')
+    await logCcg({
+      userId: ids.admin,
+      action: 'CAMPUS_UPDATED',
+      entityType: 'ccg_campus',
+      entityId: campus.id,
+      oldValues: { name: `Campus ${run}`, status: 'active' },
+      newValues: { name: `Revival ${run}`, status: 'active' },
+    })
+    const lines = (await overview.unitOverview(await m.scopeLoader.loadScope(ids.admin), 'campus', campus.id, 20)).history.map((h) => h.text)
+    expect(lines).toContain(`Campus Leader ${run} became Revival ${run} Campus Leader`)
+    expect(lines).toContain(`Campus Leader ${run} is no longer Revival ${run} Campus Leader`)
+    expect(lines).toContain(`Next Leader ${run} became Revival ${run} Campus Leader`)
+    expect(lines).toContain(`Name changed from "Campus ${run}" to "Revival ${run}"`)
     const top = await overview.topGroups(await m.scopeLoader.loadScope(ids.admin))
     expect(top.type).toBe('campus')
     expect(top.items.find((i) => i.id === campus.id)?.type).toBe('campus')
