@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { ageOn } from '../engine'
 import type { Permission } from '../permissions'
 import { inFilter, type CcgScope } from '../scope'
-import { iso, num } from './common'
+import { iso, num, unescapeUnicode } from './common'
 import type { StoredMatchResults } from './mapping'
 
 export const placementListInclude = {
@@ -42,7 +42,7 @@ export function serializePlacement(p: Row, opts: { withAlternatives?: boolean } 
     full_ccf_override: p.fullCcfOverride,
     hold_reason: p.holdReason,
     /** Plain-English "why this CCF" for approvers (AI); null until written or when the AI is off. */
-    ai_summary: p.aiSummary,
+    ai_summary: p.aiSummary ? unescapeUnicode(p.aiSummary) : null,
     ai_summary_at: iso(p.aiSummaryAt),
     decided_at: iso(p.decidedAt),
     ended_at: iso(p.endedAt),

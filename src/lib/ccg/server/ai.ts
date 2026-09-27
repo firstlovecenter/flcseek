@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
 import { ageOn } from '../engine/profile'
 import { formatTime12h } from '../engine/meeting-slot'
-import { logCcg } from './common'
+import { logCcg, unescapeUnicode } from './common'
 import { PROPOSABLE_STATUSES, proposeFor, type StoredMatchResults } from './mapping'
 import { loadAnswers, loadQuestionBank, type QuestionBank } from './questions'
 
@@ -241,10 +241,13 @@ export async function needsTidy(personId: string): Promise<boolean> {
 // Approver summaries
 // ---------------------------------------------------------------------------
 
-const SUMMARY_SYSTEM = `You write a short note for a church leader approving where a new convert is placed. They see the proposed City Church Family (CCF) and must approve it or choose another.
+const SUMMARY_SYSTEM = `You write a short note for a church leader approving where a new convert is placed. The matching engine has already chosen the proposed City Church Family (CCF): it is Option 1. The leader approves it or chooses another.
 
-Write one or two plain sentences, at most 45 words: why this CCF fits this person, using the concrete things they share (interests, when they meet, age, someone they know). If there is a caution, or another CCF is nearly as good, say so briefly. No scores, percentages or jargon; don't invent anything not in the data; don't use the person's name.`
+Write the note in this shape:
+1. One or two plain sentences, at most 40 words, on why Option 1 fits this person, using the concrete things they share (interests, when they meet, age, someone they know). Mention a caution briefly if there is one. Do not name or compare other CCFs here.
+2. Only if alternatives are given, a final sentence listing them as backups by their option number, e.g. "Other options: Option 2, <name> (<what they share, a few words>); Option 3, <name> (<...>)."
 
+Never present the alternatives as competing with or better than Option 1. No scores, percentages or jargon; don't invent anything not in the data; don't use the person's name. Write plain characters (an em dash as —, never an escape code like \\u2014).`
 const SUMMARY_SCHEMA = {
   type: 'object',
   properties: { summary: { type: 'string' } },
@@ -295,7 +298,8 @@ export async function summarisePlacement(placementId: string) {
         answers: describeAnswers(answers, bank),
         knows_someone_in_this_ccf: p.person.existingConnection?.ccfId === f.id,
       },
-      proposed_ccf: {
+      option_1_proposed_ccf: {
+        option: 1,
         name: f.name,
         ccg: f.ccg.name,
         meets: [f.meetingDay, f.meetingTime ? formatTime12h(f.meetingTime) : null].filter(Boolean).join(' ') || null,
@@ -308,7 +312,7 @@ export async function summarisePlacement(placementId: string) {
       alternatives: top
         .filter((u) => u.ccf_id !== p.proposedCcfId)
         .slice(0, 2)
-        .map((u) => ({ name: u.ccf_name, fit_out_of_100: u.overall, reasons: u.reasons })),
+        .map((u, i) => ({ option: i + 2, name: u.ccf_name, fit_out_of_100: u.overall, reasons: u.reasons })),
       warnings: results?.warnings ?? [],
     },
     SUMMARY_SCHEMA,
@@ -316,7 +320,7 @@ export async function summarisePlacement(placementId: string) {
   )
   await prisma.ccgPlacement.updateMany({
     where: { id: placementId, aiSummaryAt: null },
-    data: { aiSummary: out?.summary.trim() || null, aiSummaryAt: new Date() },
+    data: { aiSummary: out ? unescapeUnicode(out.summary.trim()) || null : null, aiSummaryAt: new Date() },
   })
 }
 
