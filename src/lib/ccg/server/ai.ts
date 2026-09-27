@@ -19,14 +19,15 @@ import { loadAnswers, loadQuestionBank, type QuestionBank } from './questions'
  *   summarisePlacement  a short plain-English "why this CCF" for approvers.
  *
  *   ANTHROPIC_API_KEY  required; without it nothing here runs
- *   CCG_AI_MODEL       optional model override (default claude-opus-5)
+ *   CCG_AI_MODEL       optional model override (default claude-haiku-4-5, to keep costs low)
  *   CCG_AI=off         switches it off
  *
  * Everything runs after the response is sent and never throws: when the AI is
  * off or fails, the app works exactly as it does without it.
  */
 
-const MODEL = () => process.env.CCG_AI_MODEL || 'claude-opus-5'
+// Haiku: the cheapest model, and plenty for short notes and tidying answers.
+const MODEL = () => process.env.CCG_AI_MODEL || 'claude-haiku-4-5'
 
 export function aiConfigured(): boolean {
   return !!process.env.ANTHROPIC_API_KEY && process.env.CCG_AI !== 'off'
@@ -48,13 +49,15 @@ export function runLater(task: () => Promise<unknown>) {
 
 /** One structured call. Returns null on refusal, truncation or error. */
 async function ask<T>(system: string, input: unknown, schema: Parameters<typeof jsonSchemaOutputFormat>[0], maxTokens = 2000): Promise<T | null> {
+  const model = MODEL()
+  // Haiku rejects `effort`; and no refusal fallback there, so a decline never re-runs on a pricier model.
+  const haiku = model.includes('haiku')
   try {
     const res = await anthropic().beta.messages.parse({
-      model: MODEL(),
+      model,
       max_tokens: maxTokens,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low', format: jsonSchemaOutputFormat(schema) },
+      ...(haiku ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
+      output_config: haiku ? { format: jsonSchemaOutputFormat(schema) } : { effort: 'low', format: jsonSchemaOutputFormat(schema) },
       system,
       messages: [{ role: 'user', content: JSON.stringify(input) }],
     })
@@ -244,7 +247,7 @@ export async function needsTidy(personId: string): Promise<boolean> {
 const SUMMARY_SYSTEM = `You write a short note for a church leader approving where a new convert is placed. The matching engine has already chosen the proposed City Church Family (CCF): it is Option 1. The leader approves it or chooses another.
 
 Write the note in this shape:
-1. One or two plain sentences, at most 40 words, on why Option 1 fits this person, using the concrete things they share (interests, when they meet, age, someone they know). Mention a caution briefly if there is one. Do not name or compare other CCFs here.
+1. Start with "Option 1, <CCF name>," then, in one or two plain sentences, at most 40 words, say why it fits this person, using the concrete things they share (interests, when they meet, age, someone they know). Mention a caution briefly if there is one. Do not name or compare other CCFs here.
 2. Only if alternatives are given, a final sentence listing them as backups by their option number, e.g. "Other options: Option 2, <name> (<what they share, a few words>); Option 3, <name> (<...>)."
 
 Never present the alternatives as competing with or better than Option 1. No scores, percentages or jargon; don't invent anything not in the data; don't use the person's name. Write plain characters (an em dash as —, never an escape code like \\u2014).`
