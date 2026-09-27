@@ -85,7 +85,7 @@ export type AttendanceEvent = (typeof ATTENDANCE_EVENTS)[number]
 
 export const ATTENDANCE_EVENT_LABELS: Record<AttendanceEvent, string> = {
   sunday_service: 'Sunday service',
-  online_fellowship: 'Wednesday fellowship (online)',
+  online_fellowship: 'Thursday fellowship (online)',
   in_person_fellowship: 'Monthly in-person fellowship',
 }
 
