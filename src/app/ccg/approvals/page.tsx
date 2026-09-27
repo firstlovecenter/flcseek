@@ -395,7 +395,7 @@ export default function CcgApprovalsPage() {
                         {(p.match?.alternatives ?? []).map((a, i) => (
                           <div key={a.ccf_id} className="flex items-center justify-between gap-2 border-t pt-2 text-sm">
                             <span className="min-w-0 truncate">
-                              #{i + 2} {a.ccf_name} <span className="text-xs text-muted-foreground">· {a.ccg_name}</span>
+                              <span className="font-medium">Option {i + 2}:</span> {a.ccf_name} <span className="text-xs text-muted-foreground">· {a.ccg_name}</span>
                             </span>
                             <Score value={a.overall} />
                           </div>

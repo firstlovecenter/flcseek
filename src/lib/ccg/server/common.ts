@@ -24,6 +24,9 @@ export function parseDateOnly(s: string | null | undefined): Date | null {
 }
 
 export const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null)
+
+/** AI text sometimes carries "—" as literal text; show the character. */
+export const unescapeUnicode = (s: string) => s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
 export const num = (d: Prisma.Decimal | number | null | undefined) => (d === null || d === undefined ? null : Number(d))
 
 export function userDisplayName(u: { firstName?: string | null; lastName?: string | null; username: string }): string {
