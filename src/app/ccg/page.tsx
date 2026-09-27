@@ -66,6 +66,7 @@ const TASK_ICON: Record<string, LucideIcon> = {
   sunday_attendance: CalendarCheck,
   fellowship_attendance: Users,
   intercession: HandHeart,
+  fellowship_service: Users,
   fellowship_meal: Soup,
   approvals: ClipboardCheck,
   held: PauseCircle,

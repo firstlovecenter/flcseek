@@ -16,7 +16,7 @@ export const PERMISSIONS = {
   'placements.approve': 'Approve, remap and hold proposed placements',
   'milestones.update': 'Record milestone progress for placed converts in scope',
   'attendance.mark': 'Mark Sunday and fellowship attendance for placed converts in scope',
-  'activities.record': 'Log CCG activities (intercession, fellowship over food) for CCGs in scope',
+  'activities.record': 'Log CCG activities (intercession, the fellowship service, fellowship over food) for CCGs in scope',
   'checkins.record': 'Record check-ins for placed converts in scope',
   'reports.view': 'See dashboards and reports for units in scope',
   'settings.manage': 'Matching settings, question bank, zones and milestones',

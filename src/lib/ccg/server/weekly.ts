@@ -48,18 +48,17 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
   let schedule: string | null = null
 
   if (focus?.type === 'ccf') {
-    const f = await prisma.ccgFamily.findUnique({ where: { id: focus.id }, select: { meetingDay: true } })
+    // Fellowship is the Wednesday evening service: online every week, in person once a month.
     const [sundays, fellowships] = await Promise.all([
       prisma.ccgAttendance.count({ where: { ccfId: focus.id, eventType: 'sunday_service', eventDate: inWeek } }),
       prisma.ccgAttendance.count({ where: { ccfId: focus.id, eventType: { in: ['in_person_fellowship', 'online_fellowship'] }, eventDate: inWeek } }),
     ])
-    const meetingIndex = f?.meetingDay ? DAYS.indexOf(f.meetingDay) : -1
     tasks.push({
       key: 'fellowship_attendance',
       label: 'Mark fellowship attendance',
-      state: stateFor(fellowships > 0, meetingIndex >= 0 ? meetingIndex : 2, todayIndex),
-      detail: f?.meetingDay ?? null,
-      href: `/ccg/attendance?ccf=${focus.id}&event=in_person_fellowship`,
+      state: stateFor(fellowships > 0, 2, todayIndex),
+      detail: 'Wednesday, 7:00–8:00pm',
+      href: `/ccg/attendance?ccf=${focus.id}&event=online_fellowship`,
     })
     tasks.push({
       key: 'sunday_attendance',
@@ -68,11 +67,12 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
       detail: 'Sunday',
       href: `/ccg/attendance?ccf=${focus.id}&event=sunday_service`,
     })
-    schedule = `Fellowship on ${f?.meetingDay ?? 'its meeting day'}, church on Sunday.`
+    schedule = 'Fellowship online on Wednesday, 7:00–8:00pm (in person once a month); church on Sunday.'
   } else if (focus?.type === 'ccg') {
     const quarterStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (now.getUTCMonth() % 3), 1))
-    const [intercession, meal] = await Promise.all([
+    const [intercession, service, meal] = await Promise.all([
       prisma.ccgGroupActivity.count({ where: { ccgId: focus.id, typeKey: 'intercession', heldOn: inWeek } }),
+      prisma.ccgGroupActivity.count({ where: { ccgId: focus.id, typeKey: 'fellowship_service', heldOn: inWeek } }),
       prisma.ccgGroupActivity.count({ where: { ccgId: focus.id, typeKey: 'fellowship_meal', heldOn: { gte: quarterStart } } }),
     ])
     tasks.push({
@@ -83,13 +83,20 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
       href: '/ccg/activities',
     })
     tasks.push({
+      key: 'fellowship_service',
+      label: 'Wednesday fellowship service',
+      state: stateFor(service > 0, 2, todayIndex),
+      detail: 'Wednesday, 7:00–8:00pm, online',
+      href: '/ccg/activities',
+    })
+    tasks.push({
       key: 'fellowship_meal',
       label: 'Fellowship over food',
       state: meal > 0 ? 'done' : 'due',
       detail: 'This quarter',
       href: '/ccg/activities',
     })
-    schedule = 'Intercession on Wednesday morning; an outing over food each quarter.'
+    schedule = 'Intercession on Wednesday morning, the fellowship service on Wednesday evening; an outing over food each quarter.'
   } else {
     // Campus, stream or church-wide: the front of the process (Sheep Seekers, central team).
     const where =
