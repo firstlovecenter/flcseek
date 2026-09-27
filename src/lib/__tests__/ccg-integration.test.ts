@@ -195,6 +195,32 @@ d('CCG backend against Postgres', () => {
     await expect(m.placements.approvePlacement(ids.fbPlacement, ids.admin)).rejects.toThrow(/active/)
   }, T)
 
+  it('texts only CCF Coordinators about new converts, by first name (never under tests)', async () => {
+    const notify = await import('@/lib/ccg/server/notify')
+    await m.prisma.ccgPerson.update({ where: { id: ids.coordMember }, data: { phone: '233241110000' } })
+    const contacts = await notify.ccfCoordinatorContacts([ids.football, ids.music])
+    expect(contacts).toHaveLength(1)
+    expect(contacts[0]).toMatchObject({ userId: ids.coord, phone: '233241110000', ccfIds: [ids.football] })
+
+    const since = new Date(Date.now() - 60_000)
+    await notify.notifyNewConverts(
+      [
+        { ccfId: ids.football, placementId: randomUUID() },
+        { ccfId: ids.football, placementId: randomUUID() },
+        { ccfId: ids.music, placementId: randomUUID() },
+      ],
+      ids.admin,
+      'placed'
+    )
+    const logs = await m.prisma.ccgActivityLog.findMany({ where: { action: { startsWith: 'LEADER_SMS_' }, createdAt: { gte: since } } })
+    const football = logs.find((l) => l.entityId === ids.football)
+    const music = logs.find((l) => l.entityId === ids.music)
+    // SMS is never set up under tests: the coordinator's text is built and logged, not sent.
+    expect(football?.action).toBe('LEADER_SMS_SKIPPED')
+    expect((football?.newValues as { message: string }).message).toMatch(/^Hi \S+, you have 2 new souls in /)
+    expect((music?.newValues as { reason: string }).reason).toMatch(/No CCF Coordinator/)
+  }, T)
+
   it('remap needs a reason and records the decision', async () => {
     const { proposal } = await convertFor({ interests: ['football'], availability: ['weekday_evenings'] })
     await expect(m.placements.remapPlacement(proposal!.placement.id, ids.music, '  ', ids.admin)).rejects.toThrow(/reason/)

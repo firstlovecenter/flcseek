@@ -4,6 +4,7 @@ import { ccgTx, getCcgConfig, logCcg, type Tx } from './common'
 import { lockRow, proposeFor, PROPOSABLE_STATUSES, type StoredMatchResults } from './mapping'
 import { graduateIfComplete } from './graduation'
 import { syncAutoMilestones } from './progress'
+import { queueNewConvertSms } from './notify'
 
 /**
  * Placement lifecycle. Every decision re-checks the CCF under a row lock, so
@@ -66,7 +67,13 @@ async function openPlacement(tx: Tx, placementId: string, allowed: string[]) {
   return { ...fresh, person: p.person }
 }
 
-export async function approvePlacement(placementId: string, actorId: string, overrideReason?: string | null) {
+/** `notify: false` leaves texting the CCF Coordinator to the caller (bulk approval sends one summary). */
+export async function approvePlacement(
+  placementId: string,
+  actorId: string,
+  overrideReason?: string | null,
+  opts: { notify?: boolean } = {}
+) {
   const reason = overrideReason?.trim() || null
   const placed = await ccgTx(async (tx) => {
     const p = await openPlacement(tx, placementId, ['proposed'])
@@ -96,6 +103,7 @@ export async function approvePlacement(placementId: string, actorId: string, ove
     return updated
   })
   await graduateIfComplete([placed.id], actorId)
+  if (opts.notify !== false) queueNewConvertSms([{ ccfId: placed.finalCcfId!, placementId: placed.id }], actorId, 'placed')
   return placed
 }
 
@@ -136,6 +144,7 @@ export async function remapPlacement(placementId: string, ccfId: string, reason:
     return updated
   })
   await graduateIfComplete([placed.id], actorId)
+  queueNewConvertSms([{ ccfId, placementId: placed.id }], actorId, 'placed')
   return placed
 }
 
@@ -164,12 +173,14 @@ export interface BulkResult {
 /** Approve many proposals; each succeeds or fails on its own. */
 export async function bulkApprove(ids: string[], actorId: string, canApprove: (ccfId: string | null) => boolean): Promise<BulkResult[]> {
   const results: BulkResult[] = []
+  const placed: Array<{ ccfId: string; placementId: string }> = []
   for (const id of ids) {
     try {
       const p = await prisma.ccgPlacement.findUnique({ where: { id }, select: { proposedCcfId: true } })
       if (!p) throw notFound('Placement')
       if (!canApprove(p.proposedCcfId)) throw new CcgError('forbidden', 'Not allowed for this CCF')
-      await approvePlacement(id, actorId)
+      const approved = await approvePlacement(id, actorId, null, { notify: false })
+      placed.push({ ccfId: approved.finalCcfId!, placementId: approved.id })
       results.push({ id, ok: true })
     } catch (err) {
       results.push({
@@ -180,6 +191,8 @@ export async function bulkApprove(ids: string[], actorId: string, canApprove: (c
       })
     }
   }
+  // One text per CCF Coordinator for the whole batch.
+  queueNewConvertSms(placed, actorId, 'placed')
   return results
 }
 
@@ -264,7 +277,7 @@ export async function makeMember(placementId: string, actorId: string) {
 export async function transferPerson(personId: string, toCcfId: string, reason: string, actorId: string) {
   const why = reason.trim()
   if (!why) throw invalid('Give a reason for the transfer')
-  return ccgTx(async (tx) => {
+  const t = await ccgTx(async (tx) => {
     await lockRow(tx, 'ccg_people', personId)
     const person = await tx.ccgPerson.findFirst({
       where: { id: personId, deletedAt: null },
@@ -326,4 +339,6 @@ export async function transferPerson(personId: string, toCcfId: string, reason: 
     )
     return t
   })
+  if (t.kind === 'convert' && t.placementId) queueNewConvertSms([{ ccfId: toCcfId, placementId: t.placementId }], actorId, 'transferred')
+  return t
 }
