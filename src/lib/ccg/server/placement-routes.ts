@@ -16,10 +16,10 @@ export async function authorisePlacement(scope: CcgScope, perm: Permission, plac
     select: { id: true, status: true, proposedCcfId: true, finalCcfId: true, personId: true, person: { select: { streamId: true, seekingGroupId: true } } },
   })
   if (!p) throw notFound('Placement')
-  const ccf = p.finalCcfId ?? p.proposedCcfId
+  // A CCF reaches its placements once approved; a proposal only through the Sheep Seeking side.
   ensure(
     scope.can(perm) ||
-      (!!ccf && scope.canOnCcf(perm, ccf)) ||
+      (!!p.finalCcfId && scope.canOnCcf(perm, p.finalCcfId)) ||
       scope.sheepSeeking().canOnStream(perm, p.person.streamId) ||
       // (only while the convert is still theirs to follow: graduated converts are CCF members, read-only)
       (p.status !== 'ended' && scope.canOnSeekingGroup(perm, p.person.seekingGroupId))

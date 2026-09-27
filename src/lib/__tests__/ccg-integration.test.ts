@@ -722,6 +722,28 @@ d('CCG backend against Postgres', () => {
     const detail = await sg.seekingGroupDetail(seekerScope, group.id)
     expect(detail.can_manage).toBe(false)
     expect(detail.converts.map((c) => c.id)).toEqual([assigned.id])
+    // Once placed, a convert's details are fixed, even for their Sheep Seeker; moving them is still theirs.
+    const placedConvert = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: assigned.id }, include: m.people.personInclude })
+    expect(m.people.isPlaced(placedConvert)).toBe(true)
+    expect(m.people.canEditPerson(seekerScope, placedConvert)).toBe(true)
+    expect(m.people.canEditDetails(seekerScope, placedConvert)).toBe(false)
+    expect(m.people.canEditDetails(await m.scopeLoader.loadScope(ids.admin), placedConvert)).toBe(true) // church-wide rights correct mistakes
+    // No City Church Groups leader changes a convert, even one placed in their CCF.
+    const coordScope = await m.scopeLoader.loadScope(ids.coord)
+    const { person: inFootball, proposal: fbProposal } = await convertFor({ ...FORM_ANSWERS, interests: ['football'] })
+    const proposalId = fbProposal!.placement.id
+    await prisma.ccgPlacement.update({ where: { id: proposalId }, data: { status: 'proposed', proposedCcfId: ids.football } })
+    const proposedHere = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: inFootball.id }, include: m.people.personInclude })
+    // A proposal is not the CCF's until approved: its leaders do not see the convert yet.
+    expect(m.people.canOnPerson(coordScope, 'people.view', proposedHere)).toBe(false)
+    await expect(m.placementRoutes.authorisePlacement(coordScope, 'placements.view', proposalId)).rejects.toThrow()
+    const coordPlacements = await prisma.ccgPlacement.findMany({ where: { id: proposalId, AND: [(await import('@/lib/ccg/server/placement-dto')).placementScopeWhere(coordScope)] } })
+    expect(coordPlacements).toHaveLength(0)
+    await m.placements.remapPlacement(proposalId, ids.football, 'test', ids.admin)
+    const fbConvert = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: inFootball.id }, include: m.people.personInclude })
+    expect(m.people.canOnPerson(coordScope, 'people.view', fbConvert)).toBe(true) // once placed
+    expect(m.people.canEditPerson(coordScope, fbConvert)).toBe(false)
+    expect(m.people.canEditDetails(coordScope, fbConvert)).toBe(false)
     const otherPlacement = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', person: { seekingGroupId: null } } })
     const otherInStream = await prisma.ccgPlacement.findFirst({
       where: { id: otherPlacement.id, finalCcf: { ccg: { streamId: { in: [fresh.id, ids.stream] } } } },

@@ -516,11 +516,8 @@ async function history(type: UnitType, id: string, limit = 5) {
       select: { entityId: true, newValues: true },
     }),
     type === 'ccf'
-      ? prisma.ccgPlacement.findMany({
-          where: { OR: [{ finalCcfId: id }, { proposedCcfId: id }] },
-          select: { id: true, personId: true, finalCcfId: true, proposedCcfId: true },
-        })
-      : Promise.resolve([] as Array<{ id: string; personId: string; finalCcfId: string | null; proposedCcfId: string | null }>),
+      ? prisma.ccgPlacement.findMany({ where: { finalCcfId: id }, select: { id: true, personId: true, finalCcfId: true } })
+      : Promise.resolve([] as Array<{ id: string; personId: string; finalCcfId: string | null }>),
     type === 'ccf' ? prisma.ccgPerson.findMany({ where: { ccfId: id }, select: { id: true } }) : Promise.resolve([] as Array<{ id: string }>),
     type === 'stream'
       ? prisma.ccgSeekingGroup.findMany({ where: { streamId: id }, select: { id: true, name: true } })
@@ -547,12 +544,8 @@ async function history(type: UnitType, id: string, limit = 5) {
               action: { in: ['PERSON_UPDATED', 'PERSON_REMOVED', 'MEMBER_CONFIRMED', 'MEMBER_REGISTERED', 'CONVERT_GRADUATED', 'CONVERT_BECAME_MEMBER'] },
             },
             { entityType: 'ccg_placement', action: { in: ['PLACEMENT_APPROVED', 'PLACEMENT_REMAPPED'] }, newValues: { path: ['ccf_id'], equals: id } },
+            // (Proposals are not the CCF's until approved, so a proposal put on hold is not in its history.)
             { entityType: 'ccg_placement', action: { in: ['PLACEMENT_ENDED', 'CONVERT_INTEGRATED'] }, entityId: { in: placedHere.map((p) => p.id) } },
-            {
-              entityType: 'ccg_placement',
-              action: 'PLACEMENT_HELD',
-              entityId: { in: placements.filter((p) => p.proposedCcfId === id).map((p) => p.id) },
-            },
           ]
         : []),
       ...(type === 'stream' ? [{ entityType: 'ccg_seeking_group', entityId: { in: groups.map((g) => g.id) } }] : []),
@@ -655,7 +648,8 @@ export async function unitOverview(scope: CcgScope, type: UnitType, id: string, 
       members,
       pending_members: pending,
       placed_converts: placed,
-      awaiting_approval: proposals,
+      // Proposals are not the unit's until approved: only those who approve placements see them.
+      awaiting_approval: scope.can('placements.approve') ? proposals : 0,
       graduated,
       milestones_overdue: overdue,
       open_places: capacity !== null ? Math.max(0, capacity - members - placed) : null,

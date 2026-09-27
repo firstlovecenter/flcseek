@@ -129,6 +129,8 @@ async function resolveToken(token: string) {
   if (!l || linkState(l) !== 'active') throw GONE()
   if (l.ccf && (l.ccf.deletedAt || l.ccf.ccg.deletedAt)) throw GONE()
   if (l.person && l.person.deletedAt) throw GONE()
+  // A convert's details are fixed once their placement is approved.
+  if (l.person?.kind === 'convert' && (await prisma.ccgPlacement.count({ where: { personId: l.person.id, status: 'active' } }))) throw GONE()
   return l
 }
 
