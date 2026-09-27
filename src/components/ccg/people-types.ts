@@ -27,6 +27,7 @@ export interface PersonDTO {
   gender: string | null
   date_of_birth: string | null
   age: number | null
+  location: string | null
   landmark: string | null
   conversion_date: string | null
   ccf: UnitRef | null

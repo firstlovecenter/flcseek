@@ -86,10 +86,13 @@ const FORM_ANSWERS = {
   trait_checks_on_friends: 3,
 }
 
+/** A made-up, unused phone number (converts must have one). */
+const testPhone = () => `09${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`
+
 async function convertFor(answers: Record<string, unknown>, extra: Record<string, unknown> = {}) {
   const { person, proposal } = await m.people.createPerson({
     kind: 'convert',
-    core: { first_name: 'Convert', last_name: `${randomUUID().slice(0, 4)}`, date_of_birth: '1998-05-01', stream_id: ids.stream, ...extra },
+    core: { first_name: 'Convert', last_name: `${randomUUID().slice(0, 4)}`, phone: testPhone(), date_of_birth: '1998-05-01', stream_id: ids.stream, ...extra },
     answers,
     source: 'staff',
     actorId: ids.admin,
@@ -167,6 +170,12 @@ d('CCG backend against Postgres', () => {
     ids.fbConvert = person.id
     ids.fbPlacement = proposal!.placement.id
   }, T)
+
+  it('needs a phone number for every convert, and keeps it', async () => {
+    await expect(convertFor({}, { phone: null })).rejects.toThrow(/phone number/)
+    const { person } = await convertFor({})
+    await expect(m.people.updatePerson(person.id, { phone: '' }, { actorId: ids.admin, source: 'staff' })).rejects.toThrow(/phone number/)
+  }, 30_000)
 
   it('re-matches when answers change, superseding the old proposal', async () => {
     const { proposal } = await m.people.updatePerson(ids.fbConvert, { answers: { interests: ['music'] } }, { actorId: ids.admin, source: 'staff' })
@@ -500,7 +509,7 @@ d('CCG backend against Postgres', () => {
     expect(mine?.seekerPersonId).toBe(seeker.id)
     const staffRegistered = await m.people.createPerson({
       kind: 'convert',
-      core: { first_name: 'Seeker', last_name: `Brought ${run}`, stream_id: stream.id, date_of_birth: '1998-05-01' },
+      core: { first_name: 'Seeker', last_name: `Brought ${run}`, phone: testPhone(), stream_id: stream.id, date_of_birth: '1998-05-01' },
       answers: { interests: ['music'], availability: ['weekday_evenings'] },
       source: 'staff',
       actorId: login.id,
@@ -511,7 +520,7 @@ d('CCG backend against Postgres', () => {
     await expect(
       m.people.createPerson({
         kind: 'convert',
-        core: { first_name: 'Not', last_name: `A seeker ${run}`, stream_id: stream.id, seeker_person_id: ids.coordMember },
+        core: { first_name: 'Not', last_name: `A seeker ${run}`, phone: testPhone(), stream_id: stream.id, seeker_person_id: ids.coordMember },
         answers: {},
         source: 'staff',
         actorId: ids.admin,
@@ -527,7 +536,7 @@ d('CCG backend against Postgres', () => {
     await sg.addGroupConverts(ownerScope, group.id, [mine!.id, staffRegistered.person.id], ids.admin)
     const third = await m.people.createPerson({
       kind: 'convert',
-      core: { first_name: 'Grouped', last_name: `Convert ${run}`, stream_id: stream.id },
+      core: { first_name: 'Grouped', last_name: `Convert ${run}`, phone: testPhone(), stream_id: stream.id },
       answers: {},
       source: 'staff',
       actorId: login.id,

@@ -194,7 +194,7 @@ Fields and rules:
 **Streams and converts.** A convert carries `stream_id`, the stream that registered them. They are matched **only against CCFs in that stream**, so its Sheep Seekers can approve the proposal. If the stream has no CCFs, the convert is held. A convert with no stream is church-wide. Registering a convert needs people.manage globally, or on the stream (a Sheep Seeker with one stream gets it filled in automatically). Changing a convert's stream needs rights on the new stream, and re-matches them. Rescoring by a Sheep Seeker covers only their streams' converts.
 
 **`POST /people` request:**
-- `kind`, `first_name`, `middle_name?`, `last_name`, `phone?` (the staff form requires it for members), `email?`, `gender?`, `date_of_birth?`, `landmark?`, `notes?`, `ref_code?`
+- `kind`, `first_name`, `middle_name?`, `last_name`, `phone` (required for converts, and for members on the staff form), `email?`, `gender?`, `date_of_birth?`, `location?`, `landmark?`, `notes?`, `ref_code?`
 - `full_name` in responses is built from the three name parts.
 - Members: `ccf_id`
 - Converts: `conversion_date?`, `existing_connection_member_id?`, `existing_connection_note?`

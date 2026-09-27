@@ -24,6 +24,7 @@ interface Core {
   email: string | null
   gender: string | null
   date_of_birth: string | null
+  location: string | null
   landmark: string | null
   notes: string | null
   ccf_id: string | null
@@ -43,6 +44,7 @@ const EMPTY: Core = {
   email: null,
   gender: null,
   date_of_birth: null,
+  location: null,
   landmark: null,
   notes: null,
   ccf_id: null,
@@ -98,6 +100,7 @@ export function PersonFormDialog({
         email: p.email,
         gender: p.gender,
         date_of_birth: p.date_of_birth,
+        location: p.location,
         landmark: p.landmark,
         notes: p.notes,
         ccf_id: p.ccf?.id ?? null,
@@ -240,7 +243,7 @@ export function PersonFormDialog({
                     />
                   </Field>
                 </div>
-                <Field label={kind === 'member' ? 'Phone *' : 'Phone'} htmlFor="p-phone" error={errors.phone}>
+                <Field label="Phone *" htmlFor="p-phone" error={errors.phone}>
                   <Input id="p-phone" type="tel" inputMode="tel" autoComplete="off" {...text('phone')} aria-invalid={!!errors.phone} />
                 </Field>
                 <Field
@@ -270,7 +273,10 @@ export function PersonFormDialog({
                 >
                   <Input id="p-dob" type="date" {...text('date_of_birth')} aria-invalid={!!errors.date_of_birth} />
                 </Field>
-                <Field label="Location" htmlFor="p-landmark" error={errors.landmark} hint="Area they live in, or a nearby landmark">
+                <Field label="Location" htmlFor="p-location" error={errors.location} hint="The area they live in">
+                  <Input id="p-location" {...text('location')} />
+                </Field>
+                <Field label="Landmark" htmlFor="p-landmark" error={errors.landmark} hint="A landmark near where they live">
                   <Input id="p-landmark" {...text('landmark')} />
                 </Field>
 

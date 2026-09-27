@@ -681,8 +681,9 @@ model CcgPerson {
   gender                     String?   @db.VarChar(10)
   dateOfBirth                DateTime? @map("date_of_birth") @db.Date
   zoneId                     String?   @map("zone_id") @db.Uuid
+  location                   String?   @db.VarChar(150)
   landmark                   String?   @db.VarChar(150)
-  conversionDate             DateTime? @map("conversion_date") @db.Date
+  conversionDate           DateTime? @map("conversion_date") @db.Date
   ccfId                      String?   @map("ccf_id") @db.Uuid
   existingConnectionMemberId String?   @map("existing_connection_member_id") @db.Uuid
   existingConnectionNote     String?   @map("existing_connection_note") @db.VarChar(300)
