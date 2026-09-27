@@ -116,6 +116,11 @@ export function blendAggregate(
   return own
 }
 
+/** A CCF may hold at most this many converts per active member (user, 2026-09-27). No override. */
+export const CONVERTS_PER_MEMBER = 2
+
+export const convertLimitFor = (memberCount: number) => CONVERTS_PER_MEMBER * memberCount
+
 export function capacityStatusFor(memberCount: number, occupied: number, capacity: number, minMembers: number): CapacityStatus {
   if (occupied >= capacity) return 'full'
   if (memberCount < minMembers) return 'below_minimum'
@@ -162,6 +167,7 @@ export function buildCcfProfile(input: ProfileInput, questions: EngineQuestion[]
   const socialMean = socialMeans.length ? socialMeans.reduce((a, b) => a + b, 0) / socialMeans.length : null
 
   const occupied = own.memberCount + input.activePlacements
+  const convertLimit = convertLimitFor(own.memberCount)
   return {
     unit: input.unit,
     own,
@@ -172,8 +178,10 @@ export function buildCcfProfile(input: ProfileInput, questions: EngineQuestion[]
     minAge: ages.length ? ages[0] : null,
     maxAge: ages.length ? ages[ages.length - 1] : null,
     occupied,
+    converts: input.activePlacements,
+    convertLimit,
     reserved: input.reserved,
-    availableSpaces: Math.max(0, input.unit.capacity - occupied),
+    availableSpaces: Math.max(0, Math.min(input.unit.capacity - occupied, convertLimit - input.activePlacements)),
     meetingSlotKey: meetingSlotKey(input.unit.meetingDay, input.unit.meetingTime),
     meetingSlotLabel: meetingSlot(input.unit.meetingDay, input.unit.meetingTime),
     capacityStatus: capacityStatusFor(own.memberCount, occupied, input.unit.capacity, config.minMembers),

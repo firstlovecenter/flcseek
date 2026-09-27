@@ -889,6 +889,37 @@ d('CCG backend against Postgres', () => {
     ).rejects.toThrow(/one of its members/)
   }, T)
 
+  it('a CCF takes at most twice its members in converts; its leaders place their own converts directly', async () => {
+    const { prisma } = m
+    // A one-member CCF: room for two converts, then a hard stop for everyone.
+    const small = await prisma.ccgFamily.create({
+      data: { ccgId: ids.ccg, code: `SM${run}`, name: 'CCF Small', meetingDay: 'Monday', meetingTime: '19:00', capacity: 10 },
+    })
+    await m.people.createPerson({
+      kind: 'member',
+      core: { first_name: 'Only', last_name: `Member ${run}`, ccf_id: small.id, date_of_birth: '1997-01-01' },
+      answers: {},
+      source: 'staff',
+      actorId: ids.admin,
+    })
+    const register = async () => (await convertFor({ ...FORM_ANSWERS }, { stream_id: ids.stream })).person
+    // Placed at once, like the route does for a CCF leader: no proposal to approve.
+    const first = await register()
+    const p1 = await m.placements.placeDirectly(first.id, small.id, ids.coord)
+    expect(p1).toMatchObject({ status: 'active', finalCcfId: small.id, decision: 'approved' })
+    expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: first.id } })).status).toBe('placed')
+    expect(await prisma.ccgPlacement.count({ where: { personId: first.id, status: 'proposed' } })).toBe(0)
+    await m.placements.placeDirectly((await register()).id, small.id, ids.coord)
+    // The third is refused, whoever asks and however they place.
+    const third = await register()
+    await expect(m.placements.placeDirectly(third.id, small.id, ids.admin)).rejects.toThrow(/at most 2 converts/)
+    await expect(m.placements.remapPlacement((await prisma.ccgPlacement.findFirstOrThrow({ where: { personId: third.id, status: { in: ['proposed', 'held'] } } })).id, small.id, 'override', ids.admin)).rejects.toThrow(/at most 2 converts/)
+    const placedElsewhere = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', finalCcfId: { in: [ids.football, ids.music] }, person: { deletedAt: null } } })
+    await expect(m.placements.transferPerson(placedElsewhere.personId, small.id, 'move', ids.admin)).rejects.toThrow(/at most 2 converts/)
+    // Members are not converts: a member may still move in.
+    await expect(m.placements.transferPerson(ids.fbMember, small.id, 'move', ids.admin)).resolves.toBeTruthy()
+  }, T)
+
   it('Seek user management does not list CCG-only users', async () => {
     const seek = await m.seekUsers.findMany({ search: `ccgcoord_${run}`, excludeSystemUsers: false })
     expect(seek).toHaveLength(0)

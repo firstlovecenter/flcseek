@@ -219,6 +219,17 @@ describe('capacity and reserved seats', () => {
     expect(r.ineligible[0].ineligibleReasons).toEqual(['reserved'])
   })
 
+  it('a CCF takes at most twice as many converts as it has members', () => {
+    const one = (activePlacements: number, reserved = 0) => profile(unit('ONE'), [person()], { activePlacements, reserved })
+    expect(rankUnits(convert(), [one(1)], ctx()).top.map((u) => u.ccfCode)).toEqual(['ONE'])
+    expect(rankUnits(convert(), [one(2)], ctx()).ineligible[0].ineligibleReasons).toEqual(['convert_limit'])
+    // A waiting proposal holds the second seat.
+    expect(rankUnits(convert(), [one(1, 1)], ctx()).ineligible[0].ineligibleReasons).toEqual(['reserved'])
+    expect(one(1).availableSpaces).toBe(1)
+    // No members, no converts.
+    expect(rankUnits(convert(), [profile(unit('EMPTY'), [])], ctx()).ineligible[0].ineligibleReasons).toEqual(['convert_limit'])
+  })
+
   it('an inactive CCG makes its CCFs ineligible', () => {
     const p = profile(unit('A', { ccgStatus: 'paused' }), [person()])
     expect(rankUnits(convert(), [p], ctx()).ineligible[0].ineligibleReasons).toContain('inactive')

@@ -2,9 +2,12 @@ import type { Prisma } from '@prisma/client'
 import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { personCreateSchema, type PersonCreate } from '@/lib/ccg/schemas'
-import { invalid } from '@/lib/ccg/errors'
+import { invalid, notFound } from '@/lib/ccg/errors'
+import type { CcgScope } from '@/lib/ccg/scope'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { proposeFor } from '@/lib/ccg/server/mapping'
 import { assertMemberDetails, createPerson, peopleScopeWhere, personInclude, serializePerson } from '@/lib/ccg/server/people'
+import { assertConvertRoom, placeDirectly } from '@/lib/ccg/server/placements'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,9 +77,12 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
  * POST /api/ccg/people — register a member (into a CCF in scope) or a convert.
  * Converts are registered by the central team (any stream, or church-wide) or
  * by a stream's Sheep Seekers (into their stream; defaulted when they have
- * one). A new convert is matched immediately; the response includes the proposal.
+ * one), and matched immediately; the response includes the proposal. A CCF's
+ * leaders may register a convert into their own CCF (`ccf_id`): placed there at
+ * once, into the CCF's stream, within the CCF's convert limit.
  */
 export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema: personCreateSchema }, async ({ user, scope, body }) => {
+  if (body.kind === 'convert' && body.ccf_id) return registerIntoCcf(body, user.id, scope)
   // Members are added by the CCF's leaders only; converts are registered on the Sheep Seeking side.
   if (body.kind === 'member') ensure(scope.canOnMembersOf('people.manage', body.ccf_id), 'You can only add members to CCFs you lead')
   else if (!scope.can('people.manage')) {
@@ -106,3 +112,29 @@ export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema:
       : null,
   })
 })
+
+async function registerIntoCcf(body: PersonCreate, actorId: string, scope: CcgScope) {
+  const ccfId = body.ccf_id!
+  ensure(scope.leadership().canOnCcf('people.manage', ccfId), 'You can only register converts into CCFs you lead')
+  const ccf = await prisma.ccgFamily.findFirst({ where: { id: ccfId, deletedAt: null }, include: { ccg: true } })
+  if (!ccf || ccf.ccg.deletedAt) throw notFound('CCF')
+  // Checked again under a lock when placing; this stops a registration that could not be placed.
+  await assertConvertRoom(prisma, ccfId, ccf.name)
+  const { kind, answers, ccf_id: _ccf, seeking_group_id: _group, ...core } = body
+  const { person } = await createPerson({
+    kind,
+    core: { ...core, stream_id: ccf.ccg.streamId },
+    answers,
+    source: 'staff',
+    actorId,
+    propose: false,
+  })
+  try {
+    const placement = await placeDirectly(person.id, ccfId, actorId)
+    return created({ id: person.id, possible_duplicate_of: person.possibleDuplicateOfId, placement: { placement_id: placement.id, status: placement.status, ccf_id: ccfId }, proposal: null })
+  } catch (err) {
+    // The CCF filled up meanwhile: the convert is kept and matched like any other.
+    await proposeFor(person.id, 'registration', actorId)
+    throw err
+  }
+}

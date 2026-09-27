@@ -75,6 +75,9 @@ export function serializeProfile(p: CcfProfile, bank: QuestionBank) {
   return {
     member_count: p.own.memberCount,
     occupied: p.occupied,
+    converts: p.converts,
+    /** Most converts it may hold (twice its active members). */
+    convert_limit: p.convertLimit,
     reserved: p.reserved,
     available_spaces: p.availableSpaces,
     capacity_status: p.capacityStatus,
