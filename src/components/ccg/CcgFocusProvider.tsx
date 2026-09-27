@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { ccgApi } from '@/lib/ccg/client'
 import { SEEKING_ROLES } from '@/lib/ccg/scope'
 import { useCcgMe } from './CcgMeProvider'
 
@@ -15,9 +14,10 @@ import { useCcgMe } from './CcgMeProvider'
  *
  * The portal switcher moves between the portals a person has roles in; inside
  * a portal, the role switcher ("church in focus", as in the admin portal)
- * moves between their roles there. The central team and Seek superadmins have
- * both portals, church-wide or for any stream. Choices are remembered on this
- * device, the last role per portal.
+ * moves between their roles there: only the roles they are directly assigned,
+ * at the unit they are assigned to, never the units below it. The central
+ * team and Seek superadmins have both portals, church-wide. Choices are
+ * remembered on this device, the last role per portal.
  */
 
 export type FocusType = 'global' | 'campus' | 'stream' | 'ccg' | 'ccf'
@@ -79,31 +79,21 @@ function write(k: string, v: string) {
 
 export function CcgFocusProvider({ children }: { children: React.ReactNode }) {
   const { me, loading } = useCcgMe()
-  const [streams, setStreams] = useState<Array<{ id: string; name: string }>>([])
   const [key, setKey] = useState<string | null>(null)
 
   const churchWide = !!me && (me.is_superadmin || me.roles.some((r) => !r.unit))
-
-  useEffect(() => {
-    if (!churchWide) return
-    ccgApi.get<{ streams: Array<{ id: string; name: string; status: string }> }>('/streams').then((r) => {
-      if (r.ok) setStreams(r.data.streams.filter((s) => s.status === 'active'))
-    })
-  }, [churchWide])
 
   const options = useMemo<FocusOption[]>(() => {
     if (!me) return []
     const out: FocusOption[] = []
     for (const r of me.roles) {
       if (!r.unit) continue
-      // A campus role works for the whole campus or one of its streams: a Campus Leader in both
-      // portals, a campus Sheep Seeking role in Sheep Seeking only.
+      // A campus role is for the whole campus: a Campus Leader in both portals,
+      // a campus Sheep Seeking role in Sheep Seeking only.
       if (r.unit.type === 'campus') {
         const portals = SEEKING_ROLES.includes(r.role.key) ? (['seeking'] as const) : (['ccg', 'seeking'] as const)
         for (const portal of portals) {
-          const base = { portal, role: r.role.name, roleKey: r.role.key }
-          out.push({ ...base, key: `${portal}:${r.role.key}@campus:${r.unit.id}`, type: 'campus', id: r.unit.id, name: r.unit.name })
-          for (const s of r.unit.streams ?? []) out.push({ ...base, key: `${portal}:${r.role.key}@stream:${s.id}`, type: 'stream', id: s.id, name: s.name })
+          out.push({ key: `${portal}:${r.role.key}@campus:${r.unit.id}`, portal, type: 'campus', id: r.unit.id, name: r.unit.name, role: r.role.name, roleKey: r.role.key })
         }
         continue
       }
@@ -124,11 +114,10 @@ export function CcgFocusProvider({ children }: { children: React.ReactNode }) {
       const roleKey = me.is_superadmin ? 'admin' : me.roles.find((r) => !r.unit)?.role.key ?? 'admin'
       for (const portal of ['ccg', 'seeking'] as const) {
         out.push({ key: `${portal}:${roleKey}@global`, portal, type: 'global', id: null, name: 'City Church Group', role, roleKey })
-        for (const s of streams) out.push({ key: `${portal}:${roleKey}@stream:${s.id}`, portal, type: 'stream', id: s.id, name: s.name, role, roleKey })
       }
     }
     return out
-  }, [me, churchWide, streams])
+  }, [me, churchWide])
 
   const portals = useMemo(() => (['seeking', 'ccg'] as const).filter((p) => options.some((o) => o.portal === p)), [options])
 
