@@ -5,6 +5,7 @@ import { lockRow, proposeFor, PROPOSABLE_STATUSES, type StoredMatchResults } fro
 import { graduateIfComplete } from './graduation'
 import { syncAutoMilestones } from './progress'
 import { queueNewConvertSms } from './notify'
+import { convertLimitFor } from '../engine/profile'
 
 /**
  * Placement lifecycle. Every decision re-checks the CCF under a row lock, so
@@ -24,11 +25,29 @@ async function occupancy(tx: Tx, ccfId: string): Promise<number> {
   return members + placed
 }
 
+/**
+ * A CCF holds at most CONVERTS_PER_MEMBER converts per active member. This is
+ * a hard limit: nobody can place past it, whatever their rights.
+ */
+export async function assertConvertRoom(tx: Tx, ccfId: string, unitName: string) {
+  const [members, converts] = await Promise.all([
+    tx.ccgPerson.count({ where: { kind: 'member', status: 'active', deletedAt: null, ccfId } }),
+    tx.ccgPlacement.count({ where: { status: 'active', finalCcfId: ccfId, person: { deletedAt: null } } }),
+  ])
+  const limit = convertLimitFor(members)
+  if (converts >= limit) {
+    throw conflict(
+      `${unitName} has ${members} member${members === 1 ? '' : 's'}, so it can take at most ${limit} convert${limit === 1 ? '' : 's'} and already has ${converts}. Choose another CCF.`,
+      { reason: 'convert_limit' }
+    )
+  }
+}
+
 /** Lock the CCF and check it can take one more person. Returns whether it overfills. */
 async function checkSeat(
   tx: Tx,
   ccfId: string,
-  person: { dateOfBirth: Date | null },
+  person: { dateOfBirth: Date | null; kind?: string },
   overrideReason: string | null
 ): Promise<{ full: boolean }> {
   await lockRow(tx, 'ccg_families', ccfId)
@@ -37,6 +56,7 @@ async function checkSeat(
   if (unit.status !== 'active' || unit.ccg.status !== 'active') {
     throw conflict(`${unit.name} or its CCG is no longer active. Rescore to propose another CCF.`)
   }
+  if (person.kind !== 'member') await assertConvertRoom(tx, ccfId, unit.name)
 
   const full = (await occupancy(tx, ccfId)) >= unit.capacity
   if (full) {
@@ -104,6 +124,42 @@ export async function approvePlacement(
   })
   await graduateIfComplete([placed.id], actorId)
   if (opts.notify !== false) queueNewConvertSms([{ ccfId: placed.finalCcfId!, placementId: placed.id }], actorId, 'placed')
+  return placed
+}
+
+/**
+ * A CCF's leader registered this convert into their own CCF: placed there at
+ * once, with no proposal to approve (user, 2026-09-27). The convert limit and
+ * capacity still apply. From here they follow milestones like any placed convert.
+ */
+export async function placeDirectly(personId: string, ccfId: string, actorId: string) {
+  const placed = await ccgTx(async (tx) => {
+    await lockRow(tx, 'ccg_people', personId)
+    const person = await tx.ccgPerson.findFirst({ where: { id: personId, deletedAt: null } })
+    if (!person || person.kind !== 'convert') throw notFound('Convert')
+    await checkSeat(tx, ccfId, person, null)
+    // Anything the matcher proposed meanwhile gives way.
+    await tx.ccgPlacement.updateMany({ where: { personId, status: { in: ['proposed', 'held'] } }, data: { status: 'superseded', updatedAt: new Date() } })
+    const created = await tx.ccgPlacement.create({
+      data: {
+        personId,
+        proposedCcfId: ccfId,
+        finalCcfId: ccfId,
+        status: 'active',
+        decision: 'approved',
+        decidedBy: actorId,
+        decidedAt: new Date(),
+      },
+    })
+    await tx.ccgPerson.update({ where: { id: personId }, data: { status: 'placed', updatedAt: new Date() } })
+    await logCcg(
+      { userId: actorId, action: 'PLACEMENT_APPROVED', entityType: 'ccg_placement', entityId: created.id, newValues: { ccf_id: ccfId, registered_by_ccf: true } },
+      tx
+    )
+    await syncAutoMilestones([created.id], tx)
+    return created
+  })
+  await graduateIfComplete([placed.id], actorId)
   return placed
 }
 

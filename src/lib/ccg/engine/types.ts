@@ -94,6 +94,10 @@ export interface CcfProfile {
   maxAge: number | null
   /** Active members + active placements. */
   occupied: number
+  /** Converts with an active placement here. */
+  converts: number
+  /** Most converts it may hold: CONVERTS_PER_MEMBER × its active members. */
+  convertLimit: number
   /** Open proposals awaiting approval. */
   reserved: number
   availableSpaces: number
@@ -112,7 +116,7 @@ export interface FactorResult {
   weight: number
 }
 
-export type IneligibleReason = 'full' | 'reserved' | 'inactive'
+export type IneligibleReason = 'full' | 'convert_limit' | 'reserved' | 'inactive'
 
 export interface ScoredUnit {
   ccfId: string

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { Field, NullableSelect, SearchSelect } from './form-utils'
+import { useCcgFocus } from './CcgFocusProvider'
 import { useCcgMe } from './CcgMeProvider'
 import { OTHER_SUFFIX, QuestionFields, missingRequired, type Answers } from './QuestionFields'
 import { ccfLabel, useCcgOptions, useSeekingGroupOptions, type PersonDTO } from './people-types'
@@ -132,6 +133,15 @@ export function PersonFormDialog({
     )
   const groups = useSeekingGroupOptions(kind === 'convert' && mode ? core.stream_id : undefined)
   const activeCcfs = (opts?.ccfs ?? []).filter((f) => f.status === 'active' && f.ccg.status === 'active')
+  // In the City Church Groups portal, a CCF's leaders register converts straight into their own CCF.
+  const { portal } = useCcgFocus()
+  const ledCcfs = activeCcfs.filter((f) =>
+    me?.roles.some((r) => (r.role.key === 'ccf_coordinator' && r.unit?.id === f.id) || (r.role.key === 'ccg_governor' && r.unit?.id === f.ccg.id))
+  )
+  const intoCcf = kind === 'convert' && !editing && portal === 'ccg' && !hasGlobal('people.manage')
+  useEffect(() => {
+    if (intoCcf && ledCcfs.length === 1 && !core.ccf_id) setCore((c) => ({ ...c, ccf_id: ledCcfs[0].id }))
+  }, [intoCcf, ledCcfs, core.ccf_id])
   const set = <K extends keyof Core>(k: K, v: Core[K]) => setCore((c) => ({ ...c, [k]: v }))
   const text = (k: keyof Core) => ({
     value: (core[k] as string | null) ?? '',
@@ -143,7 +153,8 @@ export function PersonFormDialog({
     const local: Record<string, string> = {}
     if (!core.first_name.trim()) local.first_name = 'Enter their first name'
     if (!core.last_name.trim()) local.last_name = 'Enter their last name'
-    if (kind === 'member' && !editing && !core.ccf_id) local.ccf_id = 'Choose their CCF'
+    if ((kind === 'member' || intoCcf) && !editing && !core.ccf_id) local.ccf_id = 'Choose their CCF'
+    if (kind === 'convert' && !core.phone) local.phone = 'Enter their phone number'
     // Compulsory for members on the CCF registration form. Members may become leaders:
     // SMS goes to their phone, invitations to their email.
     if (kind === 'member' && !editing) {
@@ -164,13 +175,19 @@ export function PersonFormDialog({
         ? editing
           ? {}
           : { ccf_id }
-        : { stream_id, conversion_date, existing_connection_note, ...(seeking_group_id !== undefined ? { seeking_group_id } : {}) }),
+        : intoCcf
+          ? { ccf_id, conversion_date, existing_connection_note }
+          : { stream_id, conversion_date, existing_connection_note, ...(seeking_group_id !== undefined ? { seeking_group_id } : {}) }),
       answers,
     }
     setSaving(true)
     const res = editing
       ? await ccgApi.patch<{ id: string; proposal: { ccf_id: string | null; status: string } | null }>(`/people/${mode!.personId}`, body)
-      : await ccgApi.post<{ id: string; proposal: { ccf_id: string | null; status: string; hold_reason: string | null } | null }>('/people', {
+      : await ccgApi.post<{
+          id: string
+          proposal: { ccf_id: string | null; status: string; hold_reason: string | null } | null
+          placement?: { ccf_id: string }
+        }>('/people', {
           kind,
           ...body,
         })
@@ -181,8 +198,12 @@ export function PersonFormDialog({
     }
     const proposed = res.data.proposal
     const ccf = proposed?.ccf_id ? opts?.ccfs.find((f) => f.id === proposed.ccf_id) : null
+    const placement = (res.data as { placement?: { ccf_id: string } }).placement
+    const placedIn = placement ? opts?.ccfs.find((f) => f.id === placement.ccf_id) : null
     message.success(
-      editing
+      placedIn
+        ? `${fullName} registered and placed in ${placedIn.name}`
+        : editing
         ? proposed
           ? `Saved and re-matched${ccf ? `: ${ccf.name} proposed` : ''}`
           : 'Saved'
@@ -205,7 +226,9 @@ export function PersonFormDialog({
               {editing ? `Edit ${fullName || (kind === 'member' ? 'member' : 'convert')}` : kind === 'member' ? 'Add a member' : 'Register a convert'}
             </DialogTitle>
             <DialogDescription>
-              {kind === 'convert'
+              {intoCcf
+                ? 'They are placed in your CCF straight away and follow the milestones like every convert. A CCF can take up to twice as many converts as it has members.'
+                : kind === 'convert'
                 ? 'Their answers are used to propose the CCF where they are most likely to settle. The proposal goes to Approvals.'
                 : 'Members’ answers shape their CCF’s profile, which new converts are matched against.'}
             </DialogDescription>
@@ -292,7 +315,19 @@ export function PersonFormDialog({
                     />
                   </Field>
                 )}
-                {kind === 'convert' && (
+                {intoCcf && (
+                  <Field label="CCF *" htmlFor="p-ccf" error={errors.ccf_id}>
+                    <SearchSelect
+                      id="p-ccf"
+                      value={core.ccf_id}
+                      onChange={(v) => set('ccf_id', v)}
+                      options={ledCcfs.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
+                      placeholder="Choose your CCF"
+                      invalid={!!errors.ccf_id}
+                    />
+                  </Field>
+                )}
+                {kind === 'convert' && !intoCcf && (
                   <>
                     <Field
                       label="Stream"
