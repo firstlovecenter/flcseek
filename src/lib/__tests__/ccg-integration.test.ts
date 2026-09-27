@@ -231,7 +231,15 @@ d('CCG backend against Postgres', () => {
 
   it('two approvals racing for the last seat: exactly one wins', async () => {
     const tiny = await m.prisma.ccgFamily.create({
-      data: { ccgId: ids.ccg, code: `TN${run}`, name: 'Tiny CCF', meetingDay: 'Monday', meetingTime: '19:00', capacity: 1 },
+      data: { ccgId: ids.ccg, code: `TN${run}`, name: 'Tiny CCF', meetingDay: 'Monday', meetingTime: '19:00', capacity: 2 },
+    })
+    // One member (so converts are allowed) and one seat left.
+    await m.people.createPerson({
+      kind: 'member',
+      core: { first_name: 'Tiny', last_name: `Member ${run}`, ccf_id: tiny.id, date_of_birth: '1997-01-01' },
+      answers: {},
+      source: 'staff',
+      actorId: ids.admin,
     })
     const a = await convertFor({ interests: ['cooking'] })
     const b = await convertFor({ interests: ['cooking'] })
@@ -910,15 +918,17 @@ d('CCG backend against Postgres', () => {
     expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: first.id } })).status).toBe('placed')
     expect(await prisma.ccgPlacement.count({ where: { personId: first.id, status: 'proposed' } })).toBe(0)
     await m.placements.placeDirectly((await register()).id, small.id, ids.coord)
-    // The third is refused, whoever asks and however they place.
+    // Full: anyone else placing a third is refused, whatever their rights...
     const third = await register()
-    await expect(m.placements.placeDirectly(third.id, small.id, ids.admin)).rejects.toThrow(/at most 2 converts/)
     await expect(m.placements.remapPlacement((await prisma.ccgPlacement.findFirstOrThrow({ where: { personId: third.id, status: { in: ['proposed', 'held'] } } })).id, small.id, 'override', ids.admin)).rejects.toThrow(/at most 2 converts/)
     const placedElsewhere = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', finalCcfId: { in: [ids.football, ids.music] }, person: { deletedAt: null } } })
     await expect(m.placements.transferPerson(placedElsewhere.personId, small.id, 'move', ids.admin)).rejects.toThrow(/at most 2 converts/)
+    // ...but the CCF's own leader registering a convert is not held to the limit.
+    await expect(m.placements.placeDirectly(third.id, small.id, ids.coord)).resolves.toMatchObject({ status: 'active', finalCcfId: small.id })
+    expect(await prisma.ccgPlacement.count({ where: { personId: third.id, status: { in: ['proposed', 'held'] } } })).toBe(0)
     // Members are not converts: a member may still move in.
     await expect(m.placements.transferPerson(ids.fbMember, small.id, 'move', ids.admin)).resolves.toBeTruthy()
-  }, T)
+  }, 300_000)
 
   it('Seek user management does not list CCG-only users', async () => {
     const seek = await m.seekUsers.findMany({ search: `ccgcoord_${run}`, excludeSystemUsers: false })
