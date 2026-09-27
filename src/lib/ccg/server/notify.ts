@@ -8,8 +8,8 @@ import { sendSms, smsConfigured } from './sms'
 
 /**
  * Texts CCF Coordinators when converts are placed in (or transferred to) their
- * CCF: one short, personal SMS per coordinator per action, asking them to log
- * in. Converts' own details are never in the text.
+ * CCF: one short SMS per coordinator per action, greeting them by first name
+ * and asking them to log in. Nothing else about the converts is in the text.
  */
 
 export type NewConvertEvent = 'placed' | 'transferred'
@@ -44,27 +44,13 @@ export function gsmSafe(text: string): string {
   return out.replace(/ {2,}/g, ' ').trim()
 }
 
-const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
-
 /**
- * The coordinator's message: first name only, at most one segment. Only the
- * CCF name is shortened to fit, falling back to "your CCF".
+ * The coordinator's message. The only personal detail is their first name
+ * (user's choice): no count, no CCF name, the same words for any event.
  */
-export function buildLeaderSms(p: { firstName: string | null; count: number; ccfNames: string[]; event: NewConvertEvent }): string {
+export function buildLeaderSms(p: { firstName: string | null }): string {
   const first = gsmSafe(p.firstName ?? '').split(' ')[0]
-  const hi = first ? `Hi ${first},` : 'Hi,'
-  const n = p.count
-  const text = (where: string) =>
-    p.event === 'transferred'
-      ? `${hi} ${n} ${plural(n, 'soul has', 'souls have')} been transferred to ${where}. Please log in to the CCG app to see them.`
-      : `${hi} you have ${n} new ${plural(n, 'soul', 'souls')} in ${where}. Please log in to the CCG app to see and welcome them.`
-
-  const names = [...new Set(p.ccfNames.map(gsmSafe).filter(Boolean))]
-  if (names.length !== 1) return fit(text('your CCFs'))
-  const full = text(names[0])
-  if (full.length <= SMS_SEGMENT) return full
-  const room = SMS_SEGMENT - text('').length - 2
-  return fit(room >= 6 ? text(`${names[0].slice(0, room).trimEnd()}..`) : text('your CCF'))
+  return fit(`${first ? `Hi ${first},` : 'Hi,'} you have new souls in your CCF. Please log in to the CCG app to see and welcome them.`)
 }
 
 /** Last resort for a very long first name: a shorter sentence, then a hard cut. */
@@ -122,11 +108,7 @@ export async function notifyNewConverts(items: NewConvertItem[], actorId: string
   const byCcf = new Map<string, string[]>()
   for (const it of items) byCcf.set(it.ccfId, [...(byCcf.get(it.ccfId) ?? []), it.placementId])
   const ccfIds = [...byCcf.keys()]
-  const [contacts, ccfs] = await Promise.all([
-    ccfCoordinatorContacts(ccfIds),
-    prisma.ccgFamily.findMany({ where: { id: { in: ccfIds } }, select: { id: true, name: true } }),
-  ])
-  const nameOf = new Map(ccfs.map((f) => [f.id, f.name]))
+  const contacts = await ccfCoordinatorContacts(ccfIds)
 
   const reached = new Set(contacts.flatMap((c) => c.ccfIds))
   for (const ccfId of ccfIds.filter((id) => !reached.has(id))) {
@@ -141,7 +123,7 @@ export async function notifyNewConverts(items: NewConvertItem[], actorId: string
 
   for (const c of contacts) {
     const placementIds = c.ccfIds.flatMap((id) => byCcf.get(id) ?? [])
-    const message = buildLeaderSms({ firstName: c.firstName, count: placementIds.length, ccfNames: c.ccfIds.map((id) => nameOf.get(id) ?? ''), event })
+    const message = buildLeaderSms({ firstName: c.firstName })
     const configured = smsConfigured()
     const r = configured ? await sendSms({ phones: [c.phone], message, idempotencyKey: smsKey(event, c.phone, placementIds) }) : null
     await logCcg({

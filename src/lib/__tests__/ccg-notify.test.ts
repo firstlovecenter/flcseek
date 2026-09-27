@@ -5,36 +5,20 @@ import { sendSms, smsConfigured } from '@/lib/ccg/server/sms'
 const GSM_ONLY = /^[@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./0-9:;<=>?¡A-ZÄÖÑÜ§¿a-zäöñüà]*$/
 
 describe('CCF Coordinator SMS', () => {
-  it('greets by first name only and counts the new souls', () => {
-    expect(buildLeaderSms({ firstName: 'Ama Serwaa', count: 1, ccfNames: ['Music Family'], event: 'placed' })).toBe(
-      'Hi Ama, you have 1 new soul in Music Family. Please log in to the CCG app to see and welcome them.'
-    )
-    expect(buildLeaderSms({ firstName: 'Kofi', count: 3, ccfNames: ['Music Family'], event: 'placed' })).toBe(
-      'Hi Kofi, you have 3 new souls in Music Family. Please log in to the CCG app to see and welcome them.'
-    )
-    expect(buildLeaderSms({ firstName: null, count: 2, ccfNames: ['A', 'B'], event: 'placed' })).toBe(
-      'Hi, you have 2 new souls in your CCFs. Please log in to the CCG app to see and welcome them.'
-    )
-    expect(buildLeaderSms({ firstName: 'Kofi', count: 1, ccfNames: ['Music Family'], event: 'transferred' })).toBe(
-      'Hi Kofi, 1 soul has been transferred to Music Family. Please log in to the CCG app to see them.'
-    )
+  it('greets by first name only, with nothing else personal', () => {
+    const text = 'you have new souls in your CCF. Please log in to the CCG app to see and welcome them.'
+    expect(buildLeaderSms({ firstName: 'Ama Serwaa' })).toBe(`Hi Ama, ${text}`)
+    expect(buildLeaderSms({ firstName: null })).toBe(`Hi, ${text}`)
+    expect(buildLeaderSms({ firstName: '  ' })).toBe(`Hi, ${text}`)
   })
 
-  it('always fits one GSM segment, shortening only the CCF name', () => {
-    const cases = [
-      { firstName: 'Nana', ccfNames: ['The Very Long Named City Church Family Of The Greater Accra Region Football And Music Lovers'] },
-      { firstName: 'Bartholomew-Kwabenaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ccfNames: ['Online with Bishop Isaac Agyemang and Friends'] },
-      { firstName: 'Ëmmánuel', ccfNames: ['Jesus’ “Loved” Ones — Weekday [Group] €'] },
-    ]
-    for (const c of cases) {
-      for (const event of ['placed', 'transferred'] as const) {
-        const text = buildLeaderSms({ ...c, count: 12, event })
-        expect(text.length).toBeLessThanOrEqual(SMS_SEGMENT)
-        expect(text).toMatch(GSM_ONLY)
-      }
+  it('always fits one GSM segment', () => {
+    for (const firstName of ['Ëmmánuel', 'Jesus’', 'Bartholomew-Kwabenaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']) {
+      const text = buildLeaderSms({ firstName })
+      expect(text.length).toBeLessThanOrEqual(SMS_SEGMENT)
+      expect(text).toMatch(GSM_ONLY)
     }
-    const long = buildLeaderSms({ firstName: 'Nana', count: 2, ccfNames: [cases[0].ccfNames[0]], event: 'placed' })
-    expect(long.startsWith('Hi Nana, you have 2 new souls in The Very Long')).toBe(true)
+    expect(buildLeaderSms({ firstName: 'Ëmmánuel' })).toMatch(/^Hi Emmanuel, /)
   })
 
   it('keeps names readable in the GSM set', () => {
