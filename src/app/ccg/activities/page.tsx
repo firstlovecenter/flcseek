@@ -86,7 +86,7 @@ export default function CcgActivitiesPage() {
     <div className="space-y-6">
       <CcgPageHeader
         title="CCG activities"
-        description="From the CCG Manual: every CCG meets on Wednesday, 5:00–5:30am, to pray for its converts by name, and holds an informal fellowship over food each quarter."
+        description="Every CCG meets on Thursday, 5:00–5:30am, to pray for its converts by name, holds its fellowship service on Thursday, 7:00–8:00pm, and an informal fellowship over food each quarter."
         actions={
           has('activities.record') && (
             <Button onClick={() => setLogging({ ccgId: null, typeKey: null })}>

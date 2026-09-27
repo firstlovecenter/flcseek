@@ -491,9 +491,9 @@ function sentence(r: LogRow, names: Names): string | null {
       return `Attendance marked: ${val(r, 'present') ?? 0} present at ${String(val(r, 'event_type') ?? '').replace(/_/g, ' ')} on ${val(r, 'event_date') ?? ''}`
     case 'GROUP_ACTIVITY_RECORDED':
       return val(r, 'type') === 'intercession'
-        ? `Wednesday intercession held${val(r, 'prayed_for') ? `, ${val(r, 'prayed_for')} converts prayed for by name` : ''}`
+        ? `Intercession held${val(r, 'prayed_for') ? `, ${val(r, 'prayed_for')} converts prayed for by name` : ''}`
         : val(r, 'type') === 'fellowship_service'
-          ? 'Wednesday fellowship service held'
+          ? 'Fellowship service held'
           : 'Fellowship over food held'
     default:
       return null

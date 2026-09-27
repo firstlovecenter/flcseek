@@ -10,6 +10,8 @@ import type { UnitType } from './unit-overview'
 
 const DAY = 86_400_000
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+/** Intercession (5:00–5:30am) and the fellowship service (7:00–8:00pm) are on Thursday. */
+const THURSDAY = DAYS.indexOf('Thursday')
 
 /** Monday 00:00 UTC of the ISO week containing `d`. */
 export function weekStart(d: Date): Date {
@@ -48,7 +50,7 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
   let schedule: string | null = null
 
   if (focus?.type === 'ccf') {
-    // Fellowship is the Wednesday evening service: online every week, in person once a month.
+    // Fellowship is the Thursday evening service: online every week, in person once a month.
     const [sundays, fellowships] = await Promise.all([
       prisma.ccgAttendance.count({ where: { ccfId: focus.id, eventType: 'sunday_service', eventDate: inWeek } }),
       prisma.ccgAttendance.count({ where: { ccfId: focus.id, eventType: { in: ['in_person_fellowship', 'online_fellowship'] }, eventDate: inWeek } }),
@@ -56,8 +58,8 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
     tasks.push({
       key: 'fellowship_attendance',
       label: 'Mark fellowship attendance',
-      state: stateFor(fellowships > 0, 2, todayIndex),
-      detail: 'Wednesday, 7:00–8:00pm',
+      state: stateFor(fellowships > 0, THURSDAY, todayIndex),
+      detail: 'Thursday, 7:00–8:00pm',
       href: `/ccg/attendance?ccf=${focus.id}&event=online_fellowship`,
     })
     tasks.push({
@@ -67,7 +69,7 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
       detail: 'Sunday',
       href: `/ccg/attendance?ccf=${focus.id}&event=sunday_service`,
     })
-    schedule = 'Fellowship online on Wednesday, 7:00–8:00pm (in person once a month); church on Sunday.'
+    schedule = 'Fellowship online on Thursday, 7:00–8:00pm (in person once a month); church on Sunday.'
   } else if (focus?.type === 'ccg') {
     const quarterStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (now.getUTCMonth() % 3), 1))
     const [intercession, service, meal] = await Promise.all([
@@ -77,16 +79,16 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
     ])
     tasks.push({
       key: 'intercession',
-      label: 'Wednesday intercession',
-      state: stateFor(intercession > 0, 2, todayIndex),
-      detail: 'Wednesday, 5:00–5:30am',
+      label: 'Thursday intercession',
+      state: stateFor(intercession > 0, THURSDAY, todayIndex),
+      detail: 'Thursday, 5:00–5:30am',
       href: '/ccg/activities',
     })
     tasks.push({
       key: 'fellowship_service',
-      label: 'Wednesday fellowship service',
-      state: stateFor(service > 0, 2, todayIndex),
-      detail: 'Wednesday, 7:00–8:00pm, online',
+      label: 'Thursday fellowship service',
+      state: stateFor(service > 0, THURSDAY, todayIndex),
+      detail: 'Thursday, 7:00–8:00pm, online',
       href: '/ccg/activities',
     })
     tasks.push({
@@ -96,7 +98,7 @@ export async function weeklyTasks(focus: { type: UnitType; id: string } | null, 
       detail: 'This quarter',
       href: '/ccg/activities',
     })
-    schedule = 'Intercession on Wednesday morning, the fellowship service on Wednesday evening; an outing over food each quarter.'
+    schedule = 'Intercession on Thursday morning, the fellowship service on Thursday evening; an outing over food each quarter.'
   } else {
     // Campus, stream or church-wide: the front of the process (Sheep Seekers, central team).
     const where =
