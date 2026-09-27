@@ -4,6 +4,7 @@ import { currentAssignmentWhere, todayDate } from '../access'
 import { conflict, invalid, notFound } from '../errors'
 import type { ScopeLevel } from '../permissions'
 import { ccgTx, dateOnly, iso, logCcg, userDisplayName, type Db } from './common'
+import { personFor, type Appointee } from './appointee'
 import { sendInvite, userForMember, type InviteResult } from './member-login'
 
 export const assignmentInclude = {
@@ -172,17 +173,30 @@ export const LEADER_ROLE = {
 export type LeaderLevel = keyof typeof LEADER_ROLE
 
 /**
- * Make a member the leader of a unit (or clear it with null): ends any other
- * current holder of the unit's leader role and assigns the new one. A member
- * without a login gets one from `leader.login`.
+ * Make someone the leader of a unit (or clear it with null): ends any other
+ * current holder of the unit's leader role and assigns the new one. The leader
+ * of a campus, stream or CCG may be someone new, who need not be in any CCF
+ * (added as a member of the stream, or of none for a campus); a CCF's is one
+ * of its members. Anyone without a login is emailed a link to set a password.
  */
 export async function setUnitLeader(
   level: LeaderLevel,
   unitId: string,
-  leader: { person_id: string } | null,
+  appointee: Appointee | null,
   actorId: string,
   origin: string
 ): Promise<InviteResult | null> {
+  let leader: { person_id: string } | null = null
+  if (appointee) {
+    if (!('person_id' in appointee) && level === 'ccf') throw invalid('A CCF’s coordinator is one of its members')
+    const streamId =
+      level === 'stream'
+        ? unitId
+        : level === 'ccg'
+          ? (await prisma.ccgGroup.findUnique({ where: { id: unitId }, select: { streamId: true } }))?.streamId ?? null
+          : null
+    leader = { person_id: (await personFor(streamId, appointee, actorId)).personId }
+  }
   const roleKey = LEADER_ROLE[level]
   const unitField = level === 'campus' ? 'campusId' : level === 'stream' ? 'streamId' : level === 'ccg' ? 'ccgId' : 'ccfId'
   const current = await prisma.ccgRoleAssignment.findMany({

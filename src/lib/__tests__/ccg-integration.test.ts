@@ -847,6 +847,26 @@ d('CCG backend against Postgres', () => {
     expect(top.items.some((i) => i.id === ids.stream)).toBe(false) // shown under its campus
   }, T)
 
+  it('a CCG’s leader can be someone new who is in no CCF', async () => {
+    const { prisma } = m
+    await m.roles.setUnitLeader(
+      'ccg',
+      ids.ccg,
+      { first_name: 'New', last_name: `Governor ${run}`, phone: '0241717171', email: `gov.${run}@example.org` },
+      ids.admin,
+      'http://test'
+    )
+    const gov = await prisma.ccgPerson.findFirstOrThrow({ where: { email: { equals: `gov.${run}@example.org`, mode: 'insensitive' } } })
+    expect(gov.ccfId).toBeNull()
+    expect(gov.streamId).toBe(ids.stream) // a member of the CCG's stream, not of a CCF
+    const a = await prisma.ccgRoleAssignment.findFirstOrThrow({ where: { roleKey: 'ccg_governor', ccgId: ids.ccg, endsOn: null } })
+    expect(a.userId).toBe(gov.userId)
+    // A CCF's coordinator must still be one of its members.
+    await expect(
+      m.roles.setUnitLeader('ccf', ids.football, { first_name: 'No', last_name: 'Member', phone: '0241818181', email: `x.${run}@example.org` }, ids.admin, 'http://test')
+    ).rejects.toThrow(/one of its members/)
+  }, T)
+
   it('Seek user management does not list CCG-only users', async () => {
     const seek = await m.seekUsers.findMany({ search: `ccgcoord_${run}`, excludeSystemUsers: false })
     expect(seek).toHaveLength(0)
