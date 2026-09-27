@@ -212,7 +212,17 @@ export async function endAssignment(id: string, actorId: string) {
     // ends_on is exclusive; an assignment that starts in the future is simply removed.
     if (a.startsOn > today) await tx.ccgRoleAssignment.delete({ where: { id } })
     else await tx.ccgRoleAssignment.update({ where: { id }, data: { endsOn: today } })
-    await logCcg({ userId: actorId, action: 'ROLE_UNASSIGNED', entityType: 'ccg_role_assignment', entityId: id }, tx)
+    await logCcg(
+      {
+        userId: actorId,
+        action: 'ROLE_UNASSIGNED',
+        entityType: 'ccg_role_assignment',
+        entityId: id,
+        // Who held which role where, for the unit's history.
+        newValues: { user_id: a.userId, role: a.roleKey, campus: a.campusId, stream: a.streamId, ccg: a.ccgId, ccf: a.ccfId },
+      },
+      tx
+    )
     return a
   })
 }

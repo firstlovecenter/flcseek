@@ -4,6 +4,7 @@ import { currentAssignmentWhere } from '../access'
 import { notFound } from '../errors'
 import type { CcgScope } from '../scope'
 import { dateOnly, iso, userDisplayName, userRefs } from './common'
+import { formatTime12h } from '../engine/meeting-slot'
 import { ensure } from './handler'
 
 /**
@@ -268,7 +269,10 @@ async function holders(type: UnitType, id: string) {
 // ---------------------------------------------------------------------------
 
 type LogRow = Prisma.CcgActivityLogGetPayload<object>
-const val = (r: LogRow, key: string) => (r.newValues as Record<string, unknown> | null)?.[key]
+type Values = Record<string, unknown>
+const vals = (v: unknown): Values => (v && typeof v === 'object' ? (v as Values) : {})
+const val = (r: LogRow, key: string) => vals(r.newValues)[key]
+const str = (x: unknown) => (typeof x === 'string' ? x : null)
 
 const LEVEL_WORD = { campus: 'Campus', stream: 'Stream', ccg: 'CCG', ccf: 'CCF' } as const
 type Level = keyof typeof LEVEL_WORD
@@ -280,52 +284,158 @@ const LEVEL_PREFIXES: Record<Level, string[]> = {
   ccf: ['City Church Family', 'CCF'],
 }
 
+/** "Revival Campus", "Online with Edward CCF" (the level is not repeated if the name ends with it). */
+function unitLabel(name: string, level: Level): string {
+  const word = LEVEL_WORD[level]
+  return name.toLowerCase().endsWith(` ${word.toLowerCase()}`) ? name : `${name} ${word}`
+}
+
 /**
  * The position, where it is held: "Revival Campus Sheep Seeking Admin",
  * "Online with Edward CCF Coordinator". Church-wide roles are just the role.
  */
-function position(r: LogRow, role: string, units: Map<string, string>): string {
+function position(where: Values, role: string, units: Map<string, string>): string {
   for (const level of ['ccf', 'ccg', 'stream', 'campus'] as Level[]) {
-    const id = val(r, level)
-    if (typeof id !== 'string') continue
+    const id = str(where[level])
+    if (!id) continue
     const name = units.get(id)
     if (!name) return role
-    const word = LEVEL_WORD[level]
-    const where = name.toLowerCase().endsWith(` ${word.toLowerCase()}`) ? name : `${name} ${word}`
     const prefix = LEVEL_PREFIXES[level].find((p) => role.toLowerCase().startsWith(`${p.toLowerCase()} `))
-    return `${where} ${prefix ? role.slice(prefix.length + 1) : role}`
+    return `${unitLabel(name, level)} ${prefix ? role.slice(prefix.length + 1) : role}`
   }
   return role
 }
 
-function sentence(r: LogRow, names: { people: Map<string, string>; units: Map<string, string>; roles: Map<string, string> }): string | null {
-  const person = r.entityType === 'ccg_person' && r.entityId ? names.people.get(r.entityId) ?? 'Someone' : 'Someone'
-  const unit = (id: unknown) => (typeof id === 'string' ? names.units.get(id) ?? 'another unit' : 'another unit')
-  switch (r.action) {
-    case 'CCF_CREATED':
-    case 'CCG_CREATED':
-    case 'STREAM_CREATED':
-      return 'Created'
-    case 'CCF_UPDATED':
-    case 'CCG_UPDATED':
-    case 'STREAM_UPDATED':
-      return 'Details updated'
-    case 'CCF_DELETED':
-    case 'CCG_DELETED':
-    case 'STREAM_DELETED':
-      return 'Closed down'
-    case 'ROLE_ASSIGNED': {
-      // "Samuel Cyrus-Aduteye became Revival Campus Sheep Seeking Admin"
-      const holder = typeof val(r, 'user_id') === 'string' ? names.people.get(val(r, 'user_id') as string) : null
-      const role = names.roles.get(String(val(r, 'role')))
-      return `${holder ?? 'A member'} became ${role ? position(r, role, names.units) : 'a leader'}`
+/** "A, B and C" */
+const listOf = (items: string[]) => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`)
+const capitalise = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+const toCamel = (k: string) => k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+
+/** A logged value in comparable form (a stored time and "19:00" compare equal). */
+function plain(x: unknown): string | null {
+  if (x === null || x === undefined || x === '') return null
+  const s = String(x)
+  const time = /^1970-01-01T(\d\d:\d\d)/.exec(s) ?? /^(\d\d:\d\d)(:\d\d)?$/.exec(s)
+  return time ? time[1] : s
+}
+
+const UNIT_FIELDS: Record<string, string> = {
+  name: 'name',
+  meeting_location: 'meeting place',
+  meeting_day: 'meeting day',
+  meeting_time: 'meeting time',
+  meeting_frequency: 'meeting frequency',
+  capacity: 'capacity',
+}
+
+/** What an edit changed, e.g. "Meeting day changed from Tuesday to Thursday; capacity changed from 12 to 15". */
+function unitChanges(r: LogRow, units: Map<string, string>): string | null {
+  const before = vals(r.oldValues)
+  const after = vals(r.newValues)
+  const parts: string[] = []
+  for (const [key, value] of Object.entries(after)) {
+    const was = plain(before[toCamel(key)])
+    const now = plain(value)
+    if (was === now) continue
+    const show = (v: string) => (key === 'meeting_time' ? formatTime12h(v) : key === 'name' ? `"${v}"` : v)
+    if (key in UNIT_FIELDS) {
+      const label = UNIT_FIELDS[key]
+      parts.push(
+        now === null ? `${label} removed` : was === null ? `${label} set to ${show(now)}` : `${label} changed from ${show(was)} to ${show(now)}`
+      )
+    } else if (key === 'status' && now) {
+      parts.push(now === 'active' ? 'made active' : now === 'inactive' ? 'made inactive' : `status changed to ${now}`)
+    } else if (key === 'notes') {
+      parts.push('notes updated')
+    } else if (key === 'ccg_id' || key === 'stream_id' || key === 'campus_id') {
+      const level = key.slice(0, -3) as Level
+      parts.push(now ? `moved to ${unitLabel(units.get(now) ?? 'another', level)}` : `taken out of its ${LEVEL_WORD[level].toLowerCase()}`)
     }
-    case 'ROLE_UNASSIGNED':
-      return 'A role came to an end'
+    // code (never shown) and leader (recorded as role changes) are left out.
+  }
+  return parts.length ? capitalise(parts.join('; ')) : null
+}
+
+const PERSON_FIELDS: Record<string, string> = {
+  first_name: 'name',
+  middle_name: 'name',
+  last_name: 'name',
+  phone: 'phone',
+  email: 'email',
+  gender: 'gender',
+  date_of_birth: 'date of birth',
+  location: 'location',
+  landmark: 'landmark',
+  notes: 'notes',
+  existing_connection_member_id: 'who they know in church',
+  existing_connection_note: 'who they know in church',
+  conversion_date: 'conversion date',
+}
+
+interface Names {
+  people: Map<string, string>
+  users: Map<string, string>
+  units: Map<string, string>
+  roles: Map<string, string>
+  groups: Map<string, string>
+  /** placement id → person id */
+  placementPerson: Map<string, string>
+  /** role assignment id → who held which role where (for older "ended" entries). */
+  assignments: Map<string, Values>
+}
+
+function sentence(r: LogRow, names: Names): string | null {
+  const personName = (id: string | null | undefined) => (id ? names.people.get(id) : undefined) ?? 'Someone'
+  const person = r.entityType === 'ccg_person' ? personName(r.entityId) : 'Someone'
+  const placed = r.entityType === 'ccg_placement' && r.entityId ? personName(names.placementPerson.get(r.entityId)) : 'A convert'
+  const unit = (id: unknown) => (str(id) ? names.units.get(id as string) ?? 'another unit' : 'another unit')
+  const reason = str(val(r, 'reason')) ? `: ${val(r, 'reason')}` : ''
+  const group = `sheep seeking group "${(r.entityId && names.groups.get(r.entityId)) ?? str(val(r, 'name')) ?? 'a group'}"`
+  const holding = (v: Values) => {
+    const who = str(v.user_id) ? names.users.get(v.user_id as string) : undefined
+    const role = names.roles.get(String(v.role))
+    return { who: who ?? 'A member', what: role ? position(v, role, names.units) : 'a leader' }
+  }
+  switch (r.action) {
+    case 'CAMPUS_CREATED':
+    case 'STREAM_CREATED':
+    case 'CCG_CREATED':
+    case 'CCF_CREATED':
+      return 'Created'
+    case 'CAMPUS_UPDATED':
+    case 'STREAM_UPDATED':
+    case 'CCG_UPDATED':
+    case 'CCF_UPDATED':
+      return unitChanges(r, names.units)
+    case 'CAMPUS_DELETED':
+    case 'STREAM_DELETED':
+    case 'CCG_DELETED':
+    case 'CCF_DELETED':
+      return 'Closed down'
+
+    // "Samuel Cyrus-Aduteye became Revival Campus Sheep Seeking Admin"
+    case 'ROLE_ASSIGNED': {
+      const h = holding(vals(r.newValues))
+      return `${h.who} became ${h.what}`
+    }
+    case 'ROLE_UNASSIGNED': {
+      const v = str(val(r, 'role')) ? vals(r.newValues) : r.entityId ? names.assignments.get(r.entityId) : undefined
+      if (!v) return 'A role came to an end'
+      const h = holding(v)
+      return `${h.who} is no longer ${h.what}`
+    }
+
     case 'PLACEMENT_APPROVED':
-      return 'A new convert was placed here'
+      return `${placed} was placed here`
     case 'PLACEMENT_REMAPPED':
-      return 'A new convert was placed here by the central team'
+      return `${placed} was placed here instead of the proposed CCF${reason}`
+    case 'PLACEMENT_HELD':
+      return `${placed}'s placement here was put on hold${reason}`
+    case 'PLACEMENT_ENDED':
+      return `${placed}'s placement here ended${reason}${val(r, 'reopen') ? ' (sent back for matching)' : ''}`
+    case 'CONVERT_INTEGRATED':
+      return `${placed} was marked as integrated`
+
     case 'MEMBER_REGISTERED':
       return `${person} registered as a member`
     case 'MEMBER_CONFIRMED':
@@ -335,10 +445,48 @@ function sentence(r: LogRow, names: { people: Map<string, string>; units: Map<st
     case 'CONVERT_BECAME_MEMBER':
       return `${person} became a member`
     case 'MEMBER_TRANSFERRED':
-    case 'CONVERT_TRANSFERRED':
-      return `${person} transferred ${
-        (r.oldValues as Record<string, unknown> | null)?.ccf_id ? `from ${unit((r.oldValues as Record<string, unknown>).ccf_id)} ` : ''
-      }to ${unit(val(r, 'ccf_id'))}`
+    case 'CONVERT_TRANSFERRED': {
+      const from = vals(r.oldValues).ccf_id
+      return `${person} transferred ${from ? `from ${unit(from)} ` : ''}to ${unit(val(r, 'ccf_id'))}`
+    }
+    case 'PERSON_REMOVED':
+      return `${person} was removed`
+    case 'PERSON_UPDATED': {
+      const status = str(val(r, 'status'))
+      if (status === 'inactive') return `${person} was made inactive`
+      if (status === 'active') return `${person} was made active again`
+      if (status === 'new') return `${person} was sent back for matching`
+      const fields = Array.isArray(val(r, 'fields')) ? (val(r, 'fields') as string[]) : []
+      const what = [...new Set(fields.map((f) => PERSON_FIELDS[f]).filter(Boolean))]
+      if (Array.isArray(val(r, 'answers')) && (val(r, 'answers') as unknown[]).length) what.push('profile answers')
+      return what.length ? `${person}'s details were updated: ${listOf(what)}` : null
+    }
+
+    case 'SEEKING_GROUP_CREATED':
+      return `${capitalise(group)} was created`
+    case 'SEEKING_GROUP_UPDATED': {
+      const before = vals(r.oldValues)
+      const after = vals(r.newValues)
+      const parts: string[] = []
+      if (str(after.name) && after.name !== before.name) parts.push(`renamed from "${before.name}" to "${after.name}"`)
+      if (str(after.status) && after.status !== before.status) parts.push(after.status === 'active' ? 'reopened' : 'closed')
+      if (after.notes !== undefined && plain(after.notes) !== plain(before.notes)) parts.push('notes updated')
+      return parts.length ? `Sheep seeking group "${str(before.name) ?? 'a group'}" was ${listOf(parts)}` : null
+    }
+    case 'SEEKING_GROUP_REMOVED':
+      return `${capitalise(group)} was removed`
+    case 'SEEKING_GROUP_SEEKER_ADDED':
+      return `${names.users.get(String(val(r, 'user_id'))) ?? 'A Sheep Seeker'} joined ${group} as a Sheep Seeker`
+    case 'SEEKING_GROUP_SEEKER_REMOVED':
+      return `${names.users.get(String(val(r, 'user_id'))) ?? 'A Sheep Seeker'} left ${group}`
+    case 'SEEKING_GROUP_CONVERTS_ADDED': {
+      const added = Array.isArray(val(r, 'person_ids')) ? (val(r, 'person_ids') as string[]) : []
+      const who = added.length && added.length <= 3 ? listOf(added.map(personName)) : `${added.length || 'Some'} converts`
+      return `${who} ${added.length === 1 ? 'was' : 'were'} added to ${group}`
+    }
+    case 'SEEKING_GROUP_CONVERT_REMOVED':
+      return `${personName(str(val(r, 'person_id')))} was taken out of ${group}`
+
     case 'ATTENDANCE_MARKED':
       return `Attendance marked: ${val(r, 'present') ?? 0} present at ${String(val(r, 'event_type') ?? '').replace(/_/g, ' ')} on ${val(r, 'event_date') ?? ''}`
     case 'GROUP_ACTIVITY_RECORDED':
@@ -350,49 +498,109 @@ function sentence(r: LogRow, names: { people: Map<string, string>; units: Map<st
   }
 }
 
+const unitField = { campus: 'campusId', stream: 'streamId', ccg: 'ccgId', ccf: 'ccfId' } as const
+
+/**
+ * The unit's history, newest first: its own edits, roles given and ended
+ * there, and (for a CCF) its members' and converts' changes, (for a stream)
+ * its sheep seeking groups'.
+ */
 async function history(type: UnitType, id: string, limit = 5) {
-  const unitKey = type
+  const [assignments, given, placements, members, groups] = await Promise.all([
+    prisma.ccgRoleAssignment.findMany({ where: { [unitField[type]]: id }, select: { id: true } }),
+    // Roles given here, as logged: older "role ended" entries are matched to them by assignment.
+    prisma.ccgActivityLog.findMany({
+      where: { action: 'ROLE_ASSIGNED', entityType: 'ccg_role_assignment', newValues: { path: [type], equals: id } },
+      select: { entityId: true, newValues: true },
+    }),
+    type === 'ccf'
+      ? prisma.ccgPlacement.findMany({
+          where: { OR: [{ finalCcfId: id }, { proposedCcfId: id }] },
+          select: { id: true, personId: true, finalCcfId: true, proposedCcfId: true },
+        })
+      : Promise.resolve([] as Array<{ id: string; personId: string; finalCcfId: string | null; proposedCcfId: string | null }>),
+    type === 'ccf' ? prisma.ccgPerson.findMany({ where: { ccfId: id }, select: { id: true } }) : Promise.resolve([] as Array<{ id: string }>),
+    type === 'stream'
+      ? prisma.ccgSeekingGroup.findMany({ where: { streamId: id }, select: { id: true, name: true } })
+      : Promise.resolve([] as Array<{ id: string; name: string }>),
+  ])
+  const placedHere = placements.filter((p) => p.finalCcfId === id)
+  const personIdsHere = [...members.map((m) => m.id), ...placedHere.map((p) => p.personId)]
+
   const where: Prisma.CcgActivityLogWhereInput = {
     OR: [
       { entityId: id },
-      { entityType: 'ccg_role_assignment', newValues: { path: [unitKey], equals: id } },
+      { entityType: 'ccg_role_assignment', newValues: { path: [type], equals: id } },
+      {
+        entityType: 'ccg_role_assignment',
+        entityId: { in: [...new Set([...assignments.map((a) => a.id), ...given.map((g) => g.entityId).filter((x): x is string => !!x)])] },
+      },
       ...(type === 'ccf'
         ? [
             { entityType: 'ccg_person', newValues: { path: ['ccf_id'], equals: id } },
             { entityType: 'ccg_person', oldValues: { path: ['ccf_id'], equals: id } },
+            {
+              entityType: 'ccg_person',
+              entityId: { in: personIdsHere },
+              action: { in: ['PERSON_UPDATED', 'PERSON_REMOVED', 'MEMBER_CONFIRMED', 'MEMBER_REGISTERED', 'CONVERT_GRADUATED', 'CONVERT_BECAME_MEMBER'] },
+            },
             { entityType: 'ccg_placement', action: { in: ['PLACEMENT_APPROVED', 'PLACEMENT_REMAPPED'] }, newValues: { path: ['ccf_id'], equals: id } },
+            { entityType: 'ccg_placement', action: { in: ['PLACEMENT_ENDED', 'CONVERT_INTEGRATED'] }, entityId: { in: placedHere.map((p) => p.id) } },
+            {
+              entityType: 'ccg_placement',
+              action: 'PLACEMENT_HELD',
+              entityId: { in: placements.filter((p) => p.proposedCcfId === id).map((p) => p.id) },
+            },
           ]
         : []),
+      ...(type === 'stream' ? [{ entityType: 'ccg_seeking_group', entityId: { in: groups.map((g) => g.id) } }] : []),
     ],
   }
-  const rows = await prisma.ccgActivityLog.findMany({ where, orderBy: { createdAt: 'desc' }, take: 60 })
+  const rows = await prisma.ccgActivityLog.findMany({ where, orderBy: { createdAt: 'desc' }, take: Math.max(200, limit * 4) })
 
-  const personIds = rows.filter((r) => r.entityType === 'ccg_person' && r.entityId).map((r) => r.entityId!)
-  const holderUserIds = rows.map((r) => val(r, 'user_id')).filter((x): x is string => typeof x === 'string')
-  const ids = (keys: string[]) =>
-    rows.flatMap((r) => keys.map((k) => val(r, k))).filter((x): x is string => typeof x === 'string')
-  const ccfIds = [...ids(['ccf_id', 'ccf']), ...rows.map((r) => (r.oldValues as Record<string, unknown> | null)?.ccf_id).filter((x): x is string => typeof x === 'string')]
-  const roleKeys = rows.map((r) => val(r, 'role')).filter((x): x is string => typeof x === 'string')
-  const [people, holdersByUser, holderUsers, ccfs, ccgs, streams, campuses, roles, actors] = await Promise.all([
-    prisma.ccgPerson.findMany({ where: { id: { in: personIds } }, select: { id: true, fullName: true } }),
-    prisma.ccgPerson.findMany({ where: { userId: { in: holderUserIds }, deletedAt: null }, select: { userId: true, fullName: true } }),
+  // Older "role ended" entries only point at the assignment: take who, what and where
+  // from the assignment, or (if it has since been deleted) from when it was given.
+  const endedIds = rows.filter((r) => r.action === 'ROLE_UNASSIGNED' && !str(val(r, 'role')) && r.entityId).map((r) => r.entityId!)
+  const ended = endedIds.length
+    ? await prisma.ccgRoleAssignment.findMany({
+        where: { id: { in: endedIds } },
+        select: { id: true, userId: true, roleKey: true, campusId: true, streamId: true, ccgId: true, ccfId: true },
+      })
+    : []
+  const assignmentValues = new Map<string, Values>([
+    ...given.filter((g) => g.entityId).map((g) => [g.entityId!, vals(g.newValues)] as const),
+    ...ended.map((a) => [a.id, { user_id: a.userId, role: a.roleKey, campus: a.campusId, stream: a.streamId, ccg: a.ccgId, ccf: a.ccfId }] as const),
+  ])
+  const all: Values[] = [...rows.map((r) => vals(r.newValues)), ...rows.map((r) => vals(r.oldValues)), ...assignmentValues.values()]
+  const ids = (...keys: string[]) => [...new Set(all.flatMap((v) => keys.map((k) => str(v[k]))).filter((x): x is string => !!x))]
+  const placementPerson = new Map(placements.map((p) => [p.id, p.personId]))
+  const personIds = [
+    ...rows.filter((r) => r.entityType === 'ccg_person' && r.entityId).map((r) => r.entityId!),
+    ...placementPerson.values(),
+    ...ids('person_id'),
+    ...all.flatMap((v) => (Array.isArray(v.person_ids) ? (v.person_ids as string[]) : [])),
+  ]
+  const userIds = ids('user_id')
+  const [people, usersAsMembers, users, ccfs, ccgs, streams, campuses, roles, actors] = await Promise.all([
+    prisma.ccgPerson.findMany({ where: { id: { in: [...new Set(personIds)] } }, select: { id: true, fullName: true } }),
+    prisma.ccgPerson.findMany({ where: { userId: { in: userIds }, deletedAt: null }, select: { userId: true, fullName: true } }),
     // Role holders linked by login only have no member profile: use their login's name.
-    userRefs(holderUserIds),
-    prisma.ccgFamily.findMany({ where: { id: { in: ccfIds } }, select: { id: true, name: true } }),
-    prisma.ccgGroup.findMany({ where: { id: { in: ids(['ccg']) } }, select: { id: true, name: true } }),
-    prisma.ccgStream.findMany({ where: { id: { in: ids(['stream']) } }, select: { id: true, name: true } }),
-    prisma.ccgCampus.findMany({ where: { id: { in: ids(['campus']) } }, select: { id: true, name: true } }),
-    prisma.ccgRole.findMany({ where: { key: { in: roleKeys } }, select: { key: true, name: true } }),
+    userRefs(userIds),
+    prisma.ccgFamily.findMany({ where: { id: { in: ids('ccf_id', 'ccf') } }, select: { id: true, name: true } }),
+    prisma.ccgGroup.findMany({ where: { id: { in: ids('ccg_id', 'ccg') } }, select: { id: true, name: true } }),
+    prisma.ccgStream.findMany({ where: { id: { in: ids('stream_id', 'stream') } }, select: { id: true, name: true } }),
+    prisma.ccgCampus.findMany({ where: { id: { in: ids('campus_id', 'campus') } }, select: { id: true, name: true } }),
+    prisma.ccgRole.findMany({ where: { key: { in: ids('role') } }, select: { key: true, name: true } }),
     userRefs(rows.map((r) => r.userId)),
   ])
-  const names = {
-    people: new Map([
-      ...[...holderUsers.values()].map((u) => [u.id, u.name] as const),
-      ...people.map((p) => [p.id, p.fullName] as const),
-      ...holdersByUser.map((p) => [p.userId!, p.fullName] as const),
-    ]),
+  const names: Names = {
+    people: new Map(people.map((p) => [p.id, p.fullName])),
+    users: new Map([...[...users.values()].map((u) => [u.id, u.name] as const), ...usersAsMembers.map((p) => [p.userId!, p.fullName] as const)]),
     units: new Map([...ccfs, ...ccgs, ...streams, ...campuses].map((u) => [u.id, u.name])),
     roles: new Map(roles.map((r) => [r.key, r.name])),
+    groups: new Map(groups.map((g) => [g.id, g.name])),
+    placementPerson,
+    assignments: assignmentValues,
   }
   return rows
     .map((r) => {
