@@ -7,7 +7,7 @@ import type { CcgScope } from '@/lib/ccg/scope'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { proposeFor } from '@/lib/ccg/server/mapping'
 import { assertMemberDetails, createPerson, peopleScopeWhere, personInclude, serializePerson } from '@/lib/ccg/server/people'
-import { assertConvertRoom, placeDirectly } from '@/lib/ccg/server/placements'
+import { placeDirectly } from '@/lib/ccg/server/placements'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +79,7 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
  * by a stream's Sheep Seekers (into their stream; defaulted when they have
  * one), and matched immediately; the response includes the proposal. A CCF's
  * leaders may register a convert into their own CCF (`ccf_id`): placed there at
- * once, into the CCF's stream, within the CCF's convert limit.
+ * once, into the CCF's stream, past the convert limit (which is for converts placed by others).
  */
 export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema: personCreateSchema }, async ({ user, scope, body }) => {
   if (body.kind === 'convert' && body.ccf_id) return registerIntoCcf(body, user.id, scope)
@@ -118,8 +118,6 @@ async function registerIntoCcf(body: PersonCreate, actorId: string, scope: CcgSc
   ensure(scope.leadership().canOnCcf('people.manage', ccfId), 'You can only register converts into CCFs you lead')
   const ccf = await prisma.ccgFamily.findFirst({ where: { id: ccfId, deletedAt: null }, include: { ccg: true } })
   if (!ccf || ccf.ccg.deletedAt) throw notFound('CCF')
-  // Checked again under a lock when placing; this stops a registration that could not be placed.
-  await assertConvertRoom(prisma, ccfId, ccf.name)
   const { kind, answers, ccf_id: _ccf, seeking_group_id: _group, ...core } = body
   const { person } = await createPerson({
     kind,
@@ -133,7 +131,7 @@ async function registerIntoCcf(body: PersonCreate, actorId: string, scope: CcgSc
     const placement = await placeDirectly(person.id, ccfId, actorId)
     return created({ id: person.id, possible_duplicate_of: person.possibleDuplicateOfId, placement: { placement_id: placement.id, status: placement.status, ccf_id: ccfId }, proposal: null })
   } catch (err) {
-    // The CCF filled up meanwhile: the convert is kept and matched like any other.
+    // It could not be placed (the CCF is full or inactive): the convert is kept and matched like any other.
     await proposeFor(person.id, 'registration', actorId)
     throw err
   }

@@ -48,7 +48,8 @@ async function checkSeat(
   tx: Tx,
   ccfId: string,
   person: { dateOfBirth: Date | null; kind?: string },
-  overrideReason: string | null
+  overrideReason: string | null,
+  opts: { ignoreConvertLimit?: boolean } = {}
 ): Promise<{ full: boolean }> {
   await lockRow(tx, 'ccg_families', ccfId)
   const unit = await tx.ccgFamily.findUnique({ where: { id: ccfId }, include: { ccg: true } })
@@ -56,7 +57,7 @@ async function checkSeat(
   if (unit.status !== 'active' || unit.ccg.status !== 'active') {
     throw conflict(`${unit.name} or its CCG is no longer active. Rescore to propose another CCF.`)
   }
-  if (person.kind !== 'member') await assertConvertRoom(tx, ccfId, unit.name)
+  if (person.kind !== 'member' && !opts.ignoreConvertLimit) await assertConvertRoom(tx, ccfId, unit.name)
 
   const full = (await occupancy(tx, ccfId)) >= unit.capacity
   if (full) {
@@ -129,15 +130,16 @@ export async function approvePlacement(
 
 /**
  * A CCF's leader registered this convert into their own CCF: placed there at
- * once, with no proposal to approve (user, 2026-09-27). The convert limit and
- * capacity still apply. From here they follow milestones like any placed convert.
+ * once, with no proposal to approve, and past the convert limit (user,
+ * 2026-09-27: the limit is for converts placed by others). Capacity still
+ * applies. From here they follow milestones like any placed convert.
  */
 export async function placeDirectly(personId: string, ccfId: string, actorId: string) {
   const placed = await ccgTx(async (tx) => {
     await lockRow(tx, 'ccg_people', personId)
     const person = await tx.ccgPerson.findFirst({ where: { id: personId, deletedAt: null } })
     if (!person || person.kind !== 'convert') throw notFound('Convert')
-    await checkSeat(tx, ccfId, person, null)
+    await checkSeat(tx, ccfId, person, null, { ignoreConvertLimit: true })
     // Anything the matcher proposed meanwhile gives way.
     await tx.ccgPlacement.updateMany({ where: { personId, status: { in: ['proposed', 'held'] } }, data: { status: 'superseded', updatedAt: new Date() } })
     const created = await tx.ccgPlacement.create({

@@ -227,7 +227,7 @@ export function PersonFormDialog({
             </DialogTitle>
             <DialogDescription>
               {intoCcf
-                ? 'They are placed in your CCF straight away and follow the milestones like every convert. A CCF can take up to twice as many converts as it has members.'
+                ? 'They are placed in your CCF straight away and follow the milestones like every convert.'
                 : kind === 'convert'
                 ? 'Their answers are used to propose the CCF where they are most likely to settle. The proposal goes to Approvals.'
                 : 'Members’ answers shape their CCF’s profile, which new converts are matched against.'}
