@@ -492,7 +492,9 @@ function sentence(r: LogRow, names: Names): string | null {
     case 'GROUP_ACTIVITY_RECORDED':
       return val(r, 'type') === 'intercession'
         ? `Wednesday intercession held${val(r, 'prayed_for') ? `, ${val(r, 'prayed_for')} converts prayed for by name` : ''}`
-        : 'Fellowship over food held'
+        : val(r, 'type') === 'fellowship_service'
+          ? 'Wednesday fellowship service held'
+          : 'Fellowship over food held'
     default:
       return null
   }
