@@ -270,6 +270,34 @@ async function holders(type: UnitType, id: string) {
 type LogRow = Prisma.CcgActivityLogGetPayload<object>
 const val = (r: LogRow, key: string) => (r.newValues as Record<string, unknown> | null)?.[key]
 
+const LEVEL_WORD = { campus: 'Campus', stream: 'Stream', ccg: 'CCG', ccf: 'CCF' } as const
+type Level = keyof typeof LEVEL_WORD
+/** Words a role's name may start with that repeat its level ("Campus Leader", "City Church Family Coordinator"). */
+const LEVEL_PREFIXES: Record<Level, string[]> = {
+  campus: ['Campus'],
+  stream: ['Stream'],
+  ccg: ['City Church', 'CCG'],
+  ccf: ['City Church Family', 'CCF'],
+}
+
+/**
+ * The position, where it is held: "Revival Campus Sheep Seeking Admin",
+ * "Online with Edward CCF Coordinator". Church-wide roles are just the role.
+ */
+function position(r: LogRow, role: string, units: Map<string, string>): string {
+  for (const level of ['ccf', 'ccg', 'stream', 'campus'] as Level[]) {
+    const id = val(r, level)
+    if (typeof id !== 'string') continue
+    const name = units.get(id)
+    if (!name) return role
+    const word = LEVEL_WORD[level]
+    const where = name.toLowerCase().endsWith(` ${word.toLowerCase()}`) ? name : `${name} ${word}`
+    const prefix = LEVEL_PREFIXES[level].find((p) => role.toLowerCase().startsWith(`${p.toLowerCase()} `))
+    return `${where} ${prefix ? role.slice(prefix.length + 1) : role}`
+  }
+  return role
+}
+
 function sentence(r: LogRow, names: { people: Map<string, string>; units: Map<string, string>; roles: Map<string, string> }): string | null {
   const person = r.entityType === 'ccg_person' && r.entityId ? names.people.get(r.entityId) ?? 'Someone' : 'Someone'
   const unit = (id: unknown) => (typeof id === 'string' ? names.units.get(id) ?? 'another unit' : 'another unit')
@@ -287,8 +315,10 @@ function sentence(r: LogRow, names: { people: Map<string, string>; units: Map<st
     case 'STREAM_DELETED':
       return 'Closed down'
     case 'ROLE_ASSIGNED': {
+      // "Samuel Cyrus-Aduteye became Revival Campus Sheep Seeking Admin"
       const holder = typeof val(r, 'user_id') === 'string' ? names.people.get(val(r, 'user_id') as string) : null
-      return `${holder ?? 'A member'} became ${names.roles.get(String(val(r, 'role'))) ?? 'a leader'}`
+      const role = names.roles.get(String(val(r, 'role')))
+      return `${holder ?? 'A member'} became ${role ? position(r, role, names.units) : 'a leader'}`
     }
     case 'ROLE_UNASSIGNED':
       return 'A role came to an end'
@@ -339,20 +369,29 @@ async function history(type: UnitType, id: string, limit = 5) {
 
   const personIds = rows.filter((r) => r.entityType === 'ccg_person' && r.entityId).map((r) => r.entityId!)
   const holderUserIds = rows.map((r) => val(r, 'user_id')).filter((x): x is string => typeof x === 'string')
-  const unitIds = rows
-    .flatMap((r) => [val(r, 'ccf_id'), (r.oldValues as Record<string, unknown> | null)?.ccf_id])
-    .filter((x): x is string => typeof x === 'string')
+  const ids = (keys: string[]) =>
+    rows.flatMap((r) => keys.map((k) => val(r, k))).filter((x): x is string => typeof x === 'string')
+  const ccfIds = [...ids(['ccf_id', 'ccf']), ...rows.map((r) => (r.oldValues as Record<string, unknown> | null)?.ccf_id).filter((x): x is string => typeof x === 'string')]
   const roleKeys = rows.map((r) => val(r, 'role')).filter((x): x is string => typeof x === 'string')
-  const [people, holdersByUser, ccfs, roles, actors] = await Promise.all([
+  const [people, holdersByUser, holderUsers, ccfs, ccgs, streams, campuses, roles, actors] = await Promise.all([
     prisma.ccgPerson.findMany({ where: { id: { in: personIds } }, select: { id: true, fullName: true } }),
     prisma.ccgPerson.findMany({ where: { userId: { in: holderUserIds }, deletedAt: null }, select: { userId: true, fullName: true } }),
-    prisma.ccgFamily.findMany({ where: { id: { in: unitIds } }, select: { id: true, name: true } }),
+    // Role holders linked by login only have no member profile: use their login's name.
+    userRefs(holderUserIds),
+    prisma.ccgFamily.findMany({ where: { id: { in: ccfIds } }, select: { id: true, name: true } }),
+    prisma.ccgGroup.findMany({ where: { id: { in: ids(['ccg']) } }, select: { id: true, name: true } }),
+    prisma.ccgStream.findMany({ where: { id: { in: ids(['stream']) } }, select: { id: true, name: true } }),
+    prisma.ccgCampus.findMany({ where: { id: { in: ids(['campus']) } }, select: { id: true, name: true } }),
     prisma.ccgRole.findMany({ where: { key: { in: roleKeys } }, select: { key: true, name: true } }),
     userRefs(rows.map((r) => r.userId)),
   ])
   const names = {
-    people: new Map([...people.map((p) => [p.id, p.fullName] as const), ...holdersByUser.map((p) => [p.userId!, p.fullName] as const)]),
-    units: new Map(ccfs.map((f) => [f.id, f.name])),
+    people: new Map([
+      ...[...holderUsers.values()].map((u) => [u.id, u.name] as const),
+      ...people.map((p) => [p.id, p.fullName] as const),
+      ...holdersByUser.map((p) => [p.userId!, p.fullName] as const),
+    ]),
+    units: new Map([...ccfs, ...ccgs, ...streams, ...campuses].map((u) => [u.id, u.name])),
     roles: new Map(roles.map((r) => [r.key, r.name])),
   }
   return rows
