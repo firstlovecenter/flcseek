@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ClipboardCheck, Loader2, PauseCircle, RefreshCw, Shuffle, Sparkles, TriangleAlert } from 'lucide-react'
+import { AlertTriangle, Check, ClipboardCheck, Loader2, PauseCircle, RefreshCw, Shuffle, Sparkles, TriangleAlert } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
 import { FACTOR_LABELS, type Factor } from '@/lib/ccg/engine/config'
 import { message } from '@/lib/toast'
@@ -13,13 +13,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
-import { AnimatePresence, motion } from 'motion/react'
 import { ThinkingOrb } from '@/components/base/Orbs'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 
@@ -118,6 +118,118 @@ function Reasons({ scored }: { scored: Scored }) {
 
 type Decision = { kind: 'remap' | 'hold'; placement: Placement }
 
+function Actions({
+  p,
+  busy,
+  onApprove,
+  onDecide,
+}: {
+  p: Placement
+  busy: string | null
+  onApprove: (p: Placement) => void
+  onDecide: (d: Decision) => void
+}) {
+  return (
+    <div className="flex shrink-0 flex-wrap gap-2">
+      {p.status === 'proposed' && p.proposed_ccf && (
+        <Button size="sm" onClick={() => onApprove(p)} disabled={busy !== null}>
+          {busy === p.id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+          Approve
+        </Button>
+      )}
+      <Button size="sm" variant="outline" onClick={() => onDecide({ kind: 'remap', placement: p })} disabled={busy !== null}>
+        <Shuffle className="size-4" />
+        Place elsewhere
+      </Button>
+      {p.status === 'proposed' && (
+        <Button size="sm" variant="ghost" onClick={() => onDecide({ kind: 'hold', placement: p })} disabled={busy !== null}>
+          <PauseCircle className="size-4" />
+          Hold
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/** Everything about one proposal: the AI note, why the engine chose it, the scores and the other options. */
+function Detail({ p, aiOn }: { p: Placement; aiOn: boolean }) {
+  const scored = p.match?.proposed ?? null
+  const alternatives = p.match?.alternatives ?? []
+  return (
+    <div className="space-y-4">
+      {p.proposed_ccf ? (
+        <div className="rounded-lg border p-3">
+          <p className="text-xs text-muted-foreground">Option 1 · proposed</p>
+          <p className="font-semibold">{p.proposed_ccf.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {p.proposed_ccf.ccg.name} · score <Score value={p.proposed_score} />
+          </p>
+        </div>
+      ) : (
+        <Badge variant="warning">No CCF proposed</Badge>
+      )}
+
+      {p.hold_reason && (
+        <p className="flex gap-2 rounded-md bg-warning/10 px-3 py-2 text-sm">
+          <PauseCircle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+          {p.hold_reason}
+        </p>
+      )}
+      {p.match?.warnings.map((w) => (
+        <p key={w} className="flex gap-2 text-sm text-muted-foreground">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+          {w}
+        </p>
+      ))}
+
+      {p.status === 'proposed' &&
+        (p.ai_summary ? (
+          <p className="flex gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <span>
+              {p.ai_summary}
+              <span className="sr-only"> (written by AI)</span>
+            </span>
+          </p>
+        ) : (
+          aiOn &&
+          !p.ai_summary_at && (
+            <p className="flex items-center gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm text-muted-foreground" role="status">
+              <ThinkingOrb />
+              Writing a summary…
+            </p>
+          )
+        ))}
+
+      {scored && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Why this CCF</h3>
+          <Reasons scored={scored} />
+        </section>
+      )}
+      {scored && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Scores</h3>
+          <FactorTable scored={scored} />
+        </section>
+      )}
+      {alternatives.length > 0 && (
+        <section className="space-y-1">
+          <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Other options</h3>
+          {alternatives.map((a, i) => (
+            <div key={a.ccf_id} className="flex items-center justify-between gap-2 border-t py-2 text-sm first:border-t-0">
+              <span className="min-w-0 truncate">
+                <span className="font-medium">Option {i + 2}:</span> {a.ccf_name} <span className="text-xs text-muted-foreground">· {a.ccg_name}</span>
+              </span>
+              <Score value={a.overall} />
+            </div>
+          ))}
+        </section>
+      )}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -129,7 +241,7 @@ export default function CcgApprovalsPage() {
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [openId, setOpenId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [decision, setDecision] = useState<Decision | null>(null)
   const [ccfs, setCcfs] = useState<CcfOption[]>([])
@@ -143,12 +255,22 @@ export default function CcgApprovalsPage() {
         setItems(null)
         setSelected(new Set())
       }
-      const res = await ccgApi.get<{ placements: Placement[]; ai?: boolean }>(`/placements?status=${tab}&limit=100`)
-      if (!res.ok) return quiet ? undefined : setError(res.error.message)
+      // The API returns up to 200 at a time: fetch page after page so the whole queue is listed.
+      const all: Placement[] = []
+      let ai = false
+      let count = 0
+      for (let offset = 0; ; offset += 200) {
+        const res = await ccgApi.get<{ placements: Placement[]; ai?: boolean }>(`/placements?status=${tab}&limit=200&offset=${offset}`)
+        if (!res.ok) return quiet ? undefined : setError(res.error.message)
+        all.push(...res.data.placements)
+        ai = !!res.data.ai
+        count = Number(res.meta?.total ?? all.length)
+        if (res.data.placements.length === 0 || all.length >= count) break
+      }
       setError(null)
-      setAiOn(!!res.data.ai)
-      setItems(res.data.placements)
-      setTotal(Number(res.meta?.total ?? res.data.placements.length))
+      setAiOn(ai)
+      setItems(all)
+      setTotal(count)
     },
     [tab]
   )
@@ -188,14 +310,23 @@ export default function CcgApprovalsPage() {
 
   const approveSelected = async () => {
     setBusy('bulk')
-    const res = await ccgApi.post<{ approved: number; failed: number; results: Array<{ id: string; ok: boolean; error?: string }> }>(
-      '/placements/bulk-approve',
-      { placement_ids: [...selected] }
-    )
+    // The API takes up to 200 per request.
+    const ids = [...selected]
+    let approved = 0
+    let failed = 0
+    for (let i = 0; i < ids.length; i += 200) {
+      const res = await ccgApi.post<{ approved: number; failed: number }>('/placements/bulk-approve', { placement_ids: ids.slice(i, i + 200) })
+      if (!res.ok) {
+        setBusy(null)
+        message.error(res.error.message)
+        return load()
+      }
+      approved += res.data.approved
+      failed += res.data.failed
+    }
     setBusy(null)
-    if (!res.ok) return message.error(res.error.message)
-    if (res.data.failed) message.warning(`${res.data.approved} approved, ${res.data.failed} could not be — see the remaining items.`)
-    else message.success(`${res.data.approved} approved`)
+    if (failed) message.warning(`${approved} approved, ${failed} could not be — see the remaining items.`)
+    else message.success(`${approved} approved`)
     load()
   }
 
@@ -215,13 +346,7 @@ export default function CcgApprovalsPage() {
       else next.delete(id)
       return next
     })
-  const toggleExpanded = (id: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const open = items?.find((p) => p.id === openId) ?? null
 
   const selectable = useMemo(() => (tab === 'proposed' ? items ?? [] : []), [items, tab])
   const allSelected = selectable.length > 0 && selectable.every((p) => selected.has(p.id))
@@ -287,149 +412,80 @@ export default function CcgApprovalsPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
-          {total > items.length && (
-            <p className="text-xs text-muted-foreground">
-              Showing the oldest {items.length} of {total}.
-            </p>
-          )}
-          {items.map((p) => {
-            const scored = p.match?.proposed ?? null
-            const open = expanded.has(p.id)
-            return (
-              <Card key={p.id} className="gap-0 p-4">
-                <div className="flex gap-3">
-                  {tab === 'proposed' && canApprove && (
-                    <Checkbox
-                      className="mt-1"
-                      checked={selected.has(p.id)}
-                      onCheckedChange={(v) => toggleSelected(p.id, !!v)}
-                      aria-label={`Select ${p.person.full_name}`}
-                    />
-                  )}
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 font-semibold">
-                          {p.person.full_name}
-                          {p.person.age !== null && <span className="text-sm font-normal text-muted-foreground">{p.person.age}</span>}
-                          {p.person.possible_duplicate && <Badge variant="warning">Possible duplicate</Badge>}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {p.person.phone ?? 'No phone'} · waiting {p.waiting_days ?? 0} day{p.waiting_days === 1 ? '' : 's'}
-                        </p>
-                      </div>
-                      {p.proposed_ccf ? (
-                        <div className="text-right">
-                          <p className="text-sm">
-                            <span className="text-muted-foreground">Proposed: </span>
-                            <span className="font-medium">{p.proposed_ccf.name}</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {p.proposed_ccf.ccg.name} · score <Score value={p.proposed_score} />
-                          </p>
-                        </div>
-                      ) : (
-                        <Badge variant="warning">No CCF proposed</Badge>
-                      )}
-                    </div>
-
-                    {p.hold_reason && (
-                      <p className="flex gap-2 rounded-md bg-warning/10 px-3 py-2 text-sm">
-                        <PauseCircle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-                        {p.hold_reason}
-                      </p>
+        <Card className="gap-0 divide-y divide-border overflow-hidden p-0">
+          <p className="bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+            {total} {tab === 'proposed' ? 'waiting for approval' : 'on hold'}, oldest first. Click a name for the details.
+          </p>
+          {items.map((p) => (
+            <div key={p.id} className="flex flex-col gap-2 px-4 py-2.5 transition-colors hover:bg-accent/40 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                {tab === 'proposed' && canApprove && (
+                  <Checkbox
+                    checked={selected.has(p.id)}
+                    onCheckedChange={(v) => toggleSelected(p.id, !!v)}
+                    aria-label={`Select ${p.person.full_name}`}
+                  />
+                )}
+                <button type="button" onClick={() => setOpenId(p.id)} className="min-w-0 flex-1 text-left">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="font-medium text-foreground hover:underline">{p.person.full_name}</span>
+                    {p.person.age !== null && <span className="text-xs text-muted-foreground">{p.person.age}</span>}
+                    {p.person.possible_duplicate && <Badge variant="warning">Possible duplicate</Badge>}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {p.proposed_ccf ? (
+                      <>
+                        {p.proposed_ccf.name} · {p.proposed_ccf.ccg.name} · score <Score value={p.proposed_score} />
+                      </>
+                    ) : (
+                      p.hold_reason ?? 'No CCF proposed'
                     )}
-                    {p.match?.warnings.map((w) => (
-                      <p key={w} className="flex gap-2 text-sm text-muted-foreground">
-                        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-                        {w}
-                      </p>
-                    ))}
-
-                    {tab === 'proposed' && (p.ai_summary || (aiOn && !p.ai_summary_at)) && (
-                      <AnimatePresence mode="wait" initial={false}>
-                        {p.ai_summary ? (
-                          <motion.p
-                            key="summary"
-                            initial={{ opacity: 0, y: 4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4 }}
-                            className="flex gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm"
-                          >
-                            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-                            <span>
-                              {p.ai_summary}
-                              <span className="sr-only"> (written by AI)</span>
-                            </span>
-                          </motion.p>
-                        ) : (
-                          <motion.p
-                            key="writing"
-                            exit={{ opacity: 0 }}
-                            className="flex items-center gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm text-muted-foreground"
-                            role="status"
-                          >
-                            <ThinkingOrb />
-                            Writing a summary…
-                          </motion.p>
-                        )}
-                      </AnimatePresence>
-                    )}
-                    {scored && <Reasons scored={scored} />}
-
-                    {(scored || (p.match?.alternatives?.length ?? 0) > 0) && (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(p.id)}
-                        aria-expanded={open}
-                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />
-                        {open ? 'Hide' : 'Show'} scores and alternatives
-                      </button>
-                    )}
-                    {open && (
-                      <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-                        {scored && <FactorTable scored={scored} />}
-                        {(p.match?.alternatives ?? []).map((a, i) => (
-                          <div key={a.ccf_id} className="flex items-center justify-between gap-2 border-t pt-2 text-sm">
-                            <span className="min-w-0 truncate">
-                              <span className="font-medium">Option {i + 2}:</span> {a.ccf_name} <span className="text-xs text-muted-foreground">· {a.ccg_name}</span>
-                            </span>
-                            <Score value={a.overall} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {canApprove && (
-                      <div className="flex flex-wrap gap-2">
-                        {p.status === 'proposed' && p.proposed_ccf && (
-                          <Button size="sm" onClick={() => approve(p)} disabled={busy !== null}>
-                            {busy === p.id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                            Approve
-                          </Button>
-                        )}
-                        <Button size="sm" variant="outline" onClick={() => setDecision({ kind: 'remap', placement: p })} disabled={busy !== null}>
-                          <Shuffle className="size-4" />
-                          Place elsewhere
-                        </Button>
-                        {p.status === 'proposed' && (
-                          <Button size="sm" variant="ghost" onClick={() => setDecision({ kind: 'hold', placement: p })} disabled={busy !== null}>
-                            <PauseCircle className="size-4" />
-                            Hold
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+                    {' · '}
+                    {p.waiting_days ?? 0} day{p.waiting_days === 1 ? '' : 's'}
+                  </span>
+                </button>
+              </div>
+              {canApprove && <Actions p={p} busy={busy} onApprove={approve} onDecide={setDecision} />}
+            </div>
+          ))}
+        </Card>
       )}
+
+      <Sheet open={!!open} onOpenChange={(o) => !o && setOpenId(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          {open && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex flex-wrap items-center gap-2">
+                  {open.person.full_name}
+                  {open.person.age !== null && <span className="text-sm font-normal text-muted-foreground">{open.person.age}</span>}
+                  {open.person.possible_duplicate && <Badge variant="warning">Possible duplicate</Badge>}
+                </SheetTitle>
+                <SheetDescription>
+                  {open.person.phone ?? 'No phone'} · waiting {open.waiting_days ?? 0} day{open.waiting_days === 1 ? '' : 's'}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="space-y-5 px-4 pb-6">
+                <Detail p={open} aiOn={aiOn} />
+                {canApprove && (
+                  <Actions
+                    p={open}
+                    busy={busy}
+                    onApprove={async (p) => {
+                      await approve(p)
+                      setOpenId(null)
+                    }}
+                    onDecide={(d) => {
+                      setOpenId(null)
+                      setDecision(d)
+                    }}
+                  />
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <DecisionDialog decision={decision} ccfs={ccfs} onClose={() => setDecision(null)} onDone={load} />
     </div>
@@ -503,7 +559,7 @@ function DecisionDialog({
                 <SelectContent>
                   {alternatives.map((a, i) => (
                     <SelectItem key={a.ccf_id} value={a.ccf_id}>
-                      #{i + 2} {a.ccf_name} · {a.ccg_name} ({Math.round(a.overall)})
+                      Option {i + 2}: {a.ccf_name} · {a.ccg_name} ({Math.round(a.overall)})
                     </SelectItem>
                   ))}
                   {others.map((f) => (
