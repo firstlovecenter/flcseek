@@ -4,7 +4,7 @@ import { currentAssignmentWhere } from '../access'
 import { conflict, forbidden, notFound } from '../errors'
 import type { CcgScope } from '../scope'
 import { iso } from './common'
-import { createPerson } from './people'
+import { personFor, type Appointee } from './appointee'
 import { assignRoleToMember, endAssignment } from './roles'
 
 /**
@@ -267,9 +267,7 @@ export async function campusSeekingTeams(campusIds: string[] | 'all') {
 // Appointing a Sheep Seeker
 // ---------------------------------------------------------------------------
 
-export type AddSeeker =
-  | { person_id: string }
-  | { first_name: string; middle_name?: string | null; last_name: string; phone: string; email: string }
+export type AddSeeker = Appointee
 
 /**
  * Make someone a Sheep Seeker of a stream. They need not be in any CCF: new
@@ -316,26 +314,6 @@ export async function setCampusSeekingLead(campusId: string, lead: SeekingLead, 
 }
 
 /** The person to appoint: an existing member, one with the same email, or someone new (of the stream, when there is one). */
-async function personFor(streamId: string | null, body: AddSeeker, actorId: string) {
-  if ('person_id' in body) return { personId: body.person_id, reused: false }
-  const email = body.email.trim().toLowerCase()
-  const existing = await prisma.ccgPerson.findFirst({
-    where: { kind: 'member', deletedAt: null, email: { equals: email, mode: 'insensitive' } },
-    select: { id: true, status: true },
-  })
-  if (existing) {
-    if (existing.status !== 'active') throw conflict(`${email} belongs to a member who is not active yet`)
-    return { personId: existing.id, reused: true }
-  }
-  const { person } = await createPerson({
-    kind: 'member',
-    core: { first_name: body.first_name, middle_name: body.middle_name ?? null, last_name: body.last_name, phone: body.phone, email, stream_id: streamId },
-    answers: {},
-    source: 'staff',
-    actorId,
-  })
-  return { personId: person.id, reused: false }
-}
 
 async function appointInStream(streamId: string, roleKey: 'sheep_seeker' | 'seeking_admin' | 'seeking_overseer', body: AddSeeker, actorId: string, origin: string) {
   const stream = await prisma.ccgStream.findFirst({ where: { id: streamId, deletedAt: null } })

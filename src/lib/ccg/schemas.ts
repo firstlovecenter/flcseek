@@ -51,9 +51,28 @@ const meetingTime = z
 // --------------------------------------------------------------------------
 // Structure
 // --------------------------------------------------------------------------
+/** Someone being appointed: an existing member, or a new person (no CCF needed). */
+export const addSeekerSchema = z.union([
+  z.object({ person_id: uuid }),
+  z.object({
+    first_name: z.string().trim().min(1, 'Enter their first name').max(80),
+    middle_name: text(80),
+    last_name: z.string().trim().min(1, 'Enter their last name').max(80),
+    phone: z.string().trim().min(7, 'Enter their phone number').max(20),
+    email: z.string().trim().email('Enter a valid email address').max(254),
+  }),
+])
+
+/**
+ * The leader of a campus, stream or CCG (needs roles.manage): an existing
+ * member or someone new, who need not be in any CCF. Anyone without a login
+ * gets one and is emailed a link to set a password. null clears it.
+ */
+const unitLeader = addSeekerSchema.nullable().optional()
+
 /** A campus groups streams; `leader` is its Campus Leader (needs roles.manage). */
 export const campusSchema = z.object({
-  leader: z.object({ person_id: uuid }).nullable().optional(),
+  leader: unitLeader,
   /** Generated when left out (CMP-0001, …); not shown in the app. */
   code: code.optional(),
   name: z.string().trim().min(1).max(120),
@@ -62,16 +81,12 @@ export const campusSchema = z.object({
 })
 export const campusUpdateSchema = campusSchema.partial()
 
-/**
- * Optional on stream / CCG / CCF: the member who leads it (needs roles.manage).
- * A member without a login gets one and is emailed a link to set a password.
- * null clears it.
- */
-const leader = z.object({ person_id: uuid }).nullable().optional()
+/** A CCF's leader, its CCF Coordinator: one of its members (needs roles.manage). null clears it. */
+const ccfLeader = z.object({ person_id: uuid }).nullable().optional()
 
 export const streamSchema = z.object({
   campus_id: uuid.nullable().optional(),
-  leader,
+  leader: unitLeader,
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
   name: z.string().trim().min(1).max(120),
@@ -94,21 +109,9 @@ export const seekingGroupUpdateSchema = z.object({
 export const groupSeekerSchema = z.object({ user_id: uuid })
 export const groupConvertsSchema = z.object({ person_ids: z.array(uuid).min(1).max(500) })
 
-/** Appoint a Sheep Seeker: an existing member, or a new person of the stream (no CCF needed). */
-export const addSeekerSchema = z.union([
-  z.object({ person_id: uuid }),
-  z.object({
-    first_name: z.string().trim().min(1, 'Enter their first name').max(80),
-    middle_name: text(80),
-    last_name: z.string().trim().min(1, 'Enter their last name').max(80),
-    phone: z.string().trim().min(7, 'Enter their phone number').max(20),
-    email: z.string().trim().email('Enter a valid email address').max(254),
-  }),
-])
-
 export const ccgSchema = z.object({
   stream_id: uuid,
-  leader,
+  leader: unitLeader,
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
   name: z.string().trim().min(1).max(120),
@@ -119,7 +122,7 @@ export const ccgUpdateSchema = ccgSchema.partial()
 
 export const ccfSchema = z.object({
   ccg_id: uuid,
-  leader,
+  leader: ccfLeader,
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
   name: z.string().trim().min(1).max(120),

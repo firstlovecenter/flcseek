@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { ccgApi, fieldErrors } from '@/lib/ccg/client'
 import { MEETING_DAYS } from '@/lib/ccg/engine/meeting-slot'
 import { message } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -69,6 +70,11 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
   const [values, setValues] = useState<Values>({ status: 'active', ...(type === 'ccf' ? { capacity: '12' } : {}) })
   const [leader, setLeader] = useState<PickedMember | null>(null)
   const [initialLeader, setInitialLeader] = useState<string | null>(null)
+  // A campus, stream or CCG leader need not be in any CCF: pick a member, or add someone new.
+  const canAddNewLeader = type !== 'ccf'
+  const [leaderMode, setLeaderMode] = useState<'member' | 'new'>('member')
+  const [newLeader, setNewLeader] = useState({ first_name: '', middle_name: '', last_name: '', phone: '', email: '' })
+  const newLeaderStarted = Object.values(newLeader).some((v) => v.trim())
   const [parents, setParents] = useState<Array<{ value: string; label: string }>>([])
   const [loading, setLoading] = useState(editing)
   const [saving, setSaving] = useState(false)
@@ -128,6 +134,13 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     if (full && type === 'ccf' && !values.ccg_id) local.ccg_id = 'Choose its CCG'
     if (full && type === 'ccg' && !values.stream_id) local.stream_id = 'Choose its stream'
     if (type === 'ccf' && !(Number(values.capacity) > 0)) local.capacity = 'How many people it can hold'
+    const addingNew = canLead && canAddNewLeader && leaderMode === 'new' && newLeaderStarted
+    if (addingNew) {
+      if (!newLeader.first_name.trim()) local.leader_first_name = 'Enter their first name'
+      if (!newLeader.last_name.trim()) local.leader_last_name = 'Enter their last name'
+      if (newLeader.phone.trim().length < 7) local.leader_phone = 'Enter their phone number'
+      if (!/^\S+@\S+\.\S+$/.test(newLeader.email.trim())) local.leader_email = 'Enter a valid email address'
+    }
     setErrors(local)
     if (Object.keys(local).length) return
 
@@ -143,7 +156,15 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
       body.meeting_time = txt('meeting_time')
       body.meeting_location = txt('meeting_location')
     }
-    if (canLead && (leader?.id ?? null) !== initialLeader) body.leader = leader ? { person_id: leader.id } : null
+    if (addingNew) {
+      body.leader = {
+        first_name: newLeader.first_name.trim(),
+        middle_name: newLeader.middle_name.trim() || null,
+        last_name: newLeader.last_name.trim(),
+        phone: newLeader.phone.trim(),
+        email: newLeader.email.trim(),
+      }
+    } else if (canLead && leaderMode === 'member' && (leader?.id ?? null) !== initialLeader) body.leader = leader ? { person_id: leader.id } : null
 
     setSaving(true)
     const r = editing
@@ -156,7 +177,8 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     }
     message.success(editing ? 'Saved' : `${values.name} ${UNIT_LEVEL[type]} created`)
     const target = groupHref(type, editing ? id! : r.data.id)
-    invites.show(leader?.name ?? 'The leader', r.data.leader_invite, () => router.push(target))
+    const leaderName = addingNew ? `${newLeader.first_name.trim()} ${newLeader.last_name.trim()}` : leader?.name
+    invites.show(leaderName ?? 'The leader', r.data.leader_invite, () => router.push(target))
   }
 
   // Added from a group's page: the parent is that group, fixed (only an edit moves a group).
@@ -207,13 +229,70 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                 </Field>
 
                 {canLead && (
-                  <Field
-                    label={LEADER_LABEL[type]!}
-                    htmlFor="g-leader"
-                    hint="Chosen from members. One without a login is emailed a link to set their own password."
-                  >
-                    <MemberPicker id="g-leader" value={leader} onChange={setLeader} />
-                  </Field>
+                  <div className="space-y-2">
+                    <Field
+                      label={LEADER_LABEL[type]!}
+                      htmlFor="g-leader"
+                      hint={
+                        canAddNewLeader
+                          ? 'A member, or someone new who need not be in any CCF. Anyone without a login is emailed a link to set their own password.'
+                          : 'Chosen from members. One without a login is emailed a link to set their own password.'
+                      }
+                    >
+                      {canAddNewLeader && (
+                        <div className="mb-2 inline-flex w-full rounded-lg border border-border p-1" role="group" aria-label="Who">
+                          {(
+                            [
+                              ['member', 'An existing member'],
+                              ['new', 'Someone new'],
+                            ] as const
+                          ).map(([m, label]) => (
+                            <button
+                              key={m}
+                              type="button"
+                              aria-pressed={leaderMode === m}
+                              onClick={() => setLeaderMode(m)}
+                              className={cn(
+                                'min-h-9 flex-1 rounded-md px-3 text-sm font-medium transition-colors',
+                                leaderMode === m ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {leaderMode === 'member' || !canAddNewLeader ? (
+                        <MemberPicker id="g-leader" value={leader} onChange={setLeader} />
+                      ) : (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {(
+                            [
+                              ['first_name', 'First name *', 'text'],
+                              ['last_name', 'Last name *', 'text'],
+                              ['middle_name', 'Middle name', 'text'],
+                              ['phone', 'Phone *', 'tel'],
+                              ['email', 'Email *', 'email'],
+                            ] as const
+                          ).map(([k, label, inputType]) => (
+                            <Field key={k} label={label} htmlFor={`g-leader-${k}`} error={errors[`leader_${k}`]} className={k === 'email' ? 'space-y-1.5 sm:col-span-2' : undefined}>
+                              <Input
+                                id={`g-leader-${k}`}
+                                type={inputType}
+                                value={newLeader[k]}
+                                onChange={(e) => setNewLeader((w) => ({ ...w, [k]: e.target.value }))}
+                                aria-invalid={!!errors[`leader_${k}`]}
+                              />
+                            </Field>
+                          ))}
+                          <p className="text-xs text-muted-foreground sm:col-span-2">
+                            If this email already belongs to someone in the app, that person is appointed and keeps their one login.
+                            {leader ? ` ${leader.name} stands down.` : ''}
+                          </p>
+                        </div>
+                      )}
+                    </Field>
+                  </div>
                 )}
 
 
