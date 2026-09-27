@@ -151,6 +151,9 @@ export const personCoreSchema = z.object({
   email,
   gender: z.enum(['Male', 'Female']).nullable().optional(),
   date_of_birth: isoDate.nullable().optional(),
+  /** The area they live in. */
+  location: text(150),
+  /** A landmark near where they live. */
   landmark: text(150),
   notes: text(2000),
   // members
@@ -439,6 +442,7 @@ export const publicSubmissionSchema = z.object({
       email,
       gender: z.enum(['Male', 'Female']).nullable().optional(),
       date_of_birth: isoDate.nullable().optional(),
+      location: text(150),
       landmark: text(150),
       existing_connection_note: text(300),
     })

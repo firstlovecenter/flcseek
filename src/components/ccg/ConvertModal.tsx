@@ -654,6 +654,7 @@ function Profile({ row, person: p, questions }: { row: Detail; person: PersonDTO
         ['Email', p.email],
         ['Gender', p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : null],
         ['Age', p.age !== null ? `${p.age}${p.date_of_birth ? ` (born ${fmtDate(p.date_of_birth)})` : ''}` : null],
+        ['Location', p.location],
         ['Lives near', p.landmark],
         ['Converted', p.conversion_date ? fmtDate(p.conversion_date) : null],
         ['Stream', p.stream?.name ?? null],

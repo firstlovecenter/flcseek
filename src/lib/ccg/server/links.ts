@@ -145,7 +145,8 @@ const CORE_FIELDS: Record<LinkKind, Array<{ key: string; label: string; type: st
     { key: 'email', label: 'Email', type: 'email', required: false },
     { key: 'gender', label: 'Gender', type: 'gender', required: false },
     { key: 'date_of_birth', label: 'Date of birth', type: 'date', required: false },
-    { key: 'landmark', label: 'Location', type: 'text', required: false },
+    { key: 'location', label: 'Location', type: 'text', required: false },
+    { key: 'landmark', label: 'Landmark', type: 'text', required: false },
     { key: 'existing_connection_note', label: 'Do you already know someone in church? Who?', type: 'text', required: false },
   ],
   member_ccf: [
@@ -156,14 +157,16 @@ const CORE_FIELDS: Record<LinkKind, Array<{ key: string; label: string; type: st
     { key: 'email', label: 'Email', type: 'email', required: true },
     { key: 'gender', label: 'Gender', type: 'gender', required: true },
     { key: 'date_of_birth', label: 'Date of birth', type: 'date', required: true },
-    { key: 'landmark', label: 'Location', type: 'text', required: false },
+    { key: 'location', label: 'Location', type: 'text', required: false },
+    { key: 'landmark', label: 'Landmark', type: 'text', required: false },
   ],
   person_update: [
     { key: 'phone', label: 'Phone number', type: 'tel', required: false },
     { key: 'email', label: 'Email', type: 'email', required: false },
     { key: 'gender', label: 'Gender', type: 'gender', required: false },
     { key: 'date_of_birth', label: 'Date of birth', type: 'date', required: false },
-    { key: 'landmark', label: 'Location', type: 'text', required: false },
+    { key: 'location', label: 'Location', type: 'text', required: false },
+    { key: 'landmark', label: 'Landmark', type: 'text', required: false },
   ],
 }
 
@@ -189,6 +192,7 @@ export async function getPublicForm(token: string) {
         email: p.email,
         gender: p.gender,
         date_of_birth: dateOnly(p.dateOfBirth),
+        location: p.location,
         landmark: p.landmark,
       },
       answers: (await loadAnswers([p.id], bank)).get(p.id) ?? {},

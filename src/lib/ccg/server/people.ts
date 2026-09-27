@@ -131,6 +131,7 @@ export function serializePerson(p: PersonRow, answers?: Record<string, AnswerVal
     gender: p.gender,
     date_of_birth: dateOnly(p.dateOfBirth),
     age: ageOn(p.dateOfBirth),
+    location: p.location,
     landmark: p.landmark,
     conversion_date: dateOnly(p.conversionDate),
     ccf: unitRef(p.ccf),
@@ -268,6 +269,7 @@ function coreData(core: Partial<PersonCore>, kind: 'member' | 'convert') {
   if (core.email !== undefined) d.email = core.email
   if (core.gender !== undefined) d.gender = core.gender
   if (core.date_of_birth !== undefined) d.dateOfBirth = parseDateOnly(core.date_of_birth)
+  if (core.location !== undefined) d.location = core.location
   if (core.landmark !== undefined) d.landmark = core.landmark
   if (core.notes !== undefined) d.notes = core.notes
   if (kind === 'member') {
@@ -330,6 +332,9 @@ export async function createPerson(args: CreatePersonArgs) {
   const bank = args.bank ?? (await loadQuestionBank())
   if (args.kind === 'member' && !args.core.ccf_id && !args.core.stream_id) throw invalid('A member must belong to a CCF')
   if (args.kind === 'convert' && args.core.ccf_id) throw invalid('Converts are placed through matching, not assigned a CCF directly')
+  if (args.kind === 'convert' && !normalizePhone(args.core.phone)) {
+    throw invalid('A convert needs a phone number', { fieldErrors: { phone: ['Enter their phone number'] } })
+  }
 
   const person = await ccgTx(async (tx) => {
     await assertCcf(tx, args.core.ccf_id)
@@ -412,6 +417,9 @@ export async function updatePerson(
   const { answers, status, ...core } = patch
 
   if (kind === 'convert' && core.ccf_id) throw invalid('Converts are placed through matching, not assigned a CCF directly')
+  if (kind === 'convert' && core.phone !== undefined && !normalizePhone(core.phone)) {
+    throw invalid('A convert needs a phone number', { fieldErrors: { phone: ['Enter their phone number'] } })
+  }
   if (kind === 'member' && core.ccf_id === null && !(core.stream_id !== undefined ? core.stream_id : before.streamId)) {
     throw invalid('A member must belong to a CCF')
   }
