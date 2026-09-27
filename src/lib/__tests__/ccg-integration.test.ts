@@ -217,7 +217,7 @@ d('CCG backend against Postgres', () => {
     const music = logs.find((l) => l.entityId === ids.music)
     // SMS is never set up under tests: the coordinator's text is built and logged, not sent.
     expect(football?.action).toBe('LEADER_SMS_SKIPPED')
-    expect((football?.newValues as { message: string }).message).toMatch(/^Hi \S+, you have 2 new souls in /)
+    expect((football?.newValues as { message: string }).message).toMatch(/^Hi (\S+, |, )you have new souls in your CCF\. /)
     expect((music?.newValues as { reason: string }).reason).toMatch(/No CCF Coordinator/)
   }, T)
 

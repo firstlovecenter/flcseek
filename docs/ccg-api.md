@@ -224,7 +224,7 @@ Phone numbers are stored in normalised form: `0XXXXXXXXX` becomes `233XXXXXXXXX`
 | POST | `/placements/[id]/integrate` | milestones.update | Sets the convert to `integrated`. The placement stays active. |
 | POST | `/placements/[id]/make-member` | people.manage | The convert becomes an active member of the CCF. |
 
-**Texting CCF Coordinators:** after an approval, a remap or a convert's transfer, the CCF's current CCF Coordinators get an SMS through FlashSMS (`FLASHSMS_API_KEY`, `FLASHSMS_SENDER_ID`, `FLASHSMS_BASE_URL`). The text is one segment, uses the coordinator's first name, and says how many new souls they have, without the converts' details. A bulk approval sends one text per coordinator for the whole batch. The text goes after the response, so it never fails the request. Each outcome is logged as `LEADER_SMS_SENT`, `LEADER_SMS_FAILED` or `LEADER_SMS_SKIPPED` (no coordinator with a phone, or SMS not set up).
+**Texting CCF Coordinators:** after an approval, a remap or a convert's transfer, the CCF's current CCF Coordinators get an SMS through FlashSMS (`FLASHSMS_API_KEY`, `FLASHSMS_SENDER_ID`, `FLASHSMS_BASE_URL`). The text is one segment and says the same thing to every coordinator: their first name, that they have new souls in their CCF, and to log in. Nothing else is personalised. A bulk approval sends one text per coordinator for the whole batch. The text goes after the response, so it never fails the request. Each outcome is logged as `LEADER_SMS_SENT`, `LEADER_SMS_FAILED` or `LEADER_SMS_SKIPPED` (no coordinator with a phone, or SMS not set up).
 
 **Queue item fields:**
 - `person{…, possible_duplicate}`, `proposed_ccf`, `proposed_score`, `waiting_days`
