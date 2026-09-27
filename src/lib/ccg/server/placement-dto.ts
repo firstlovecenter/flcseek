@@ -65,8 +65,9 @@ export function serializePlacement(p: Row, opts: { withAlternatives?: boolean } 
 }
 
 /**
- * Placements the viewer may see (placements.view): by CCF, or by the stream
- * that registered the convert (stream-level Sheep Seekers see held cases too).
+ * Placements the viewer may see (placements.view): by CCF once approved, or by
+ * the stream that registered the convert (its Sheep Seeking roles see proposals
+ * and held cases too). A CCF's leaders do not see a proposal until it is approved.
  */
 export function placementScopeWhere(scope: CcgScope, perm: Permission = 'placements.view'): Prisma.CcgPlacementWhereInput {
   const ids = scope.ccfIds(perm)
@@ -76,7 +77,6 @@ export function placementScopeWhere(scope: CcgScope, perm: Permission = 'placeme
   return {
     OR: [
       { finalCcfId: within },
-      { status: { in: ['proposed', 'held'] }, proposedCcfId: within },
       ...(streams.length ? [{ person: { streamId: { in: streams } } }] : []),
     ],
   }

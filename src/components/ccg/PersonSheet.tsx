@@ -58,6 +58,7 @@ export function PersonSheet({
   onChanged: () => void
 }) {
   const { has, hasGlobal } = useCcgMe()
+  const { portal } = useCcgFocus()
   const opts = useCcgOptions()
   const [data, setData] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -111,8 +112,11 @@ export function PersonSheet({
   const p = data?.person
   const status = p ? PERSON_STATUS[p.status] ?? { label: p.status, tone: 'secondary' as const } : null
   // A CCF's members are edited by the CCG Admin or the stream's Admin (members.edit), not by the CCF's own leaders.
-  const canEdit = !!p && has(p.kind === 'member' && p.ccf ? 'members.edit' : 'people.manage')
-  const canTransfer = canEdit && !!p && ((p.kind === 'member' && ['active', 'pending'].includes(p.status)) || !!p.placement)
+  // Converts only from the Sheep Seeking side, and their details not once placed (church-wide rights excepted).
+  const convertSide = portal === 'seeking' || hasGlobal('people.manage')
+  const canChange = !!p && (p.kind === 'member' ? has(p.ccf ? 'members.edit' : 'people.manage') : convertSide && has('people.manage'))
+  const canEdit = canChange && !(p?.kind === 'convert' && !!p.placement &&!hasGlobal('people.manage'))
+  const canTransfer = canChange && !!p && ((p.kind === 'member' && ['active', 'pending'].includes(p.status)) || !!p.placement)
   const answered = (opts?.questions ?? []).filter((q) => p?.answers?.[q.key] !== undefined)
 
   return (

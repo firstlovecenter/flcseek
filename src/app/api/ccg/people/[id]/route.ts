@@ -4,7 +4,7 @@ import { invalid, notFound } from '@/lib/ccg/errors'
 import { personUpdateSchema, type PersonUpdate } from '@/lib/ccg/schemas'
 import { iso, num } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { canEditPerson, canOnPerson, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
+import { canEditDetails, canEditPerson, canOnPerson, isPlaced, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
 import { loadAnswerNotes, loadAnswers, loadQuestionBank } from '@/lib/ccg/server/questions'
 
 export const dynamic = 'force-dynamic'
@@ -70,7 +70,14 @@ export const GET = withCcg<undefined, P>({ permission: 'people.view' }, async ({
  */
 export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, async ({ user, scope, body, params }) => {
   const p = await load(params.id)
-  ensure(canEditPerson(scope, p), p.kind === 'member' ? 'Only the CCG Admin or the stream’s Admin edits a member’s profile' : 'You can only edit people in your scope')
+  ensure(
+    canEditDetails(scope, p),
+    p.kind === 'member'
+      ? 'Only the CCG Admin or the stream’s Admin edits a member’s profile'
+      : isPlaced(p)
+        ? 'A convert’s details cannot be changed once they are placed'
+        : 'Only Sheep Seekers edit converts in their care'
+  )
   if (p.kind === 'member' && body.ccf_id && body.ccf_id !== p.ccfId) {
     throw invalid('Use transfer to move a member to another CCF, so the move is recorded')
   }

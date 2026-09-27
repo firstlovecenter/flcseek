@@ -31,6 +31,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { OrbBurst, OrbField } from '@/components/base/Orbs'
+import { useCcgFocus } from './CcgFocusProvider'
 import { useCcgMe } from './CcgMeProvider'
 import { PersonFormDialog } from './PersonFormDialog'
 import { TransferDialog } from './PersonSheet'
@@ -145,7 +146,8 @@ function Guidance({ text }: { text: string }) {
 }
 
 export function ConvertModal({ placementId, onClose, onChanged }: { placementId: string | null; onClose: () => void; onChanged: () => void }) {
-  const { has } = useCcgMe()
+  const { has, hasGlobal } = useCcgMe()
+  const { portal } = useCcgFocus()
   const opts = useCcgOptions()
   const [data, setData] = useState<Detail | null>(null)
   const [person, setPerson] = useState<PersonDTO | null>(null)
@@ -158,6 +160,9 @@ export function ConvertModal({ placementId, onClose, onChanged }: { placementId:
   const [dialog, setDialog] = useState<'edit' | 'transfer' | null>(null)
   const [celebrate, setCelebrate] = useState(0)
   const canUpdate = has('milestones.update')
+  // Converts are changed from the Sheep Seeking side only, and their details not once placed (church-wide rights excepted).
+  const canChange = has('people.manage') && (portal === 'seeking' || hasGlobal('people.manage'))
+  const canEdit = canChange && (!person?.placement || hasGlobal('people.manage'))
 
   const load = useCallback(async (id: string) => {
     setError(null)
@@ -289,12 +294,14 @@ export function ConvertModal({ placementId, onClose, onChanged }: { placementId:
                   </Button>
                 </>
               )}
-              {person && has('people.manage') && (
+              {person && canChange && (
                 <>
-                  <Button size="sm" variant="secondary" className="bg-white/15 text-white hover:bg-white/25" onClick={() => setDialog('edit')}>
-                    <Pencil className="size-4" />
-                    Edit
-                  </Button>
+                  {canEdit && (
+                    <Button size="sm" variant="secondary" className="bg-white/15 text-white hover:bg-white/25" onClick={() => setDialog('edit')}>
+                      <Pencil className="size-4" />
+                      Edit
+                    </Button>
+                  )}
                   <Button size="sm" variant="secondary" className="bg-white/15 text-white hover:bg-white/25" onClick={() => setDialog('transfer')}>
                     <ArrowRightLeft className="size-4" />
                     Transfer

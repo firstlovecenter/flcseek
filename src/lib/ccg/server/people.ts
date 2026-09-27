@@ -22,12 +22,15 @@ type ScopedPerson = {
   placements: Array<{ status: string; finalCcfId: string | null; proposedCcfId: string | null }>
 }
 
-/** CCFs a person is attached to: members by CCF; converts by active or open placement. */
+/**
+ * CCFs a person is attached to: members by CCF; converts by approved placement
+ * only (a CCF does not see a convert proposed for it until the placement is approved).
+ */
 export function personCcfIds(p: ScopedPerson): string[] {
   if (p.kind === 'member') return p.ccfId ? [p.ccfId] : []
   return p.placements
-    .filter((x) => x.status === 'active' || x.status === 'proposed')
-    .map((x) => (x.status === 'active' ? x.finalCcfId : x.proposedCcfId))
+    .filter((x) => x.status === 'active')
+    .map((x) => x.finalCcfId)
     .filter((x): x is string => !!x)
 }
 
@@ -54,13 +57,27 @@ export function canOnPerson(scope: CcgScope, perm: 'people.view' | 'people.manag
 }
 
 /**
- * Changing an existing person (edit, transfer, remove, update link): a CCF's
- * members need members.edit there (the CCG Admin or the stream's Stream Admin,
- * not the CCF's own leaders); everyone else needs people.manage.
+ * Changing an existing person (transfer, remove): a CCF's members need
+ * members.edit there (the CCG Admin or the stream's Stream Admin, not the CCF's
+ * own leaders). Converts belong to the Sheep Seeking side: no City Church
+ * Groups leader changes them, wherever they are placed.
  */
 export function canEditPerson(scope: CcgScope, p: ScopedPerson): boolean {
   if (p.kind === 'member' && p.ccfId) return scope.canOnMembersOf('members.edit', p.ccfId)
-  return canOnPerson(scope, 'people.manage', p)
+  return canOnPerson(p.kind === 'convert' ? scope.sheepSeeking() : scope, 'people.manage', p)
+}
+
+/** A convert whose placement has been approved. */
+export const isPlaced = (p: ScopedPerson) => p.kind === 'convert' && p.placements.some((x) => x.status === 'active')
+
+/**
+ * Editing someone's details and answers (edit, update link): as canEditPerson,
+ * but a convert's details are fixed once their placement is approved (church-wide
+ * rights excepted, to correct mistakes).
+ */
+export function canEditDetails(scope: CcgScope, p: ScopedPerson): boolean {
+  if (isPlaced(p) && !scope.can('people.manage')) return false
+  return canEditPerson(scope, p)
 }
 
 /** Prisma filter restricting people to the scope (see canOnPerson). */
@@ -73,17 +90,7 @@ export function peopleScopeWhere(scope: CcgScope, perm: 'people.view' | 'people.
     OR: [
       { kind: 'member', ...(members ? { ccfId: members } : { ccfId: { not: null } }) },
       within
-        ? {
-            kind: 'convert',
-            placements: {
-              some: {
-                OR: [
-                  { status: 'active', finalCcfId: within },
-                  { status: 'proposed', proposedCcfId: within },
-                ],
-              },
-            },
-          }
+        ? { kind: 'convert', placements: { some: { status: 'active', finalCcfId: within } } }
         : { kind: 'convert' },
       ...(streams.length ? [{ kind: 'convert', streamId: { in: streams } }, { kind: 'member', ccfId: null, streamId: { in: streams } }] : []),
       // The converts in a Sheep Seeker's groups, wherever they are placed.

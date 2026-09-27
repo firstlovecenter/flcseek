@@ -55,7 +55,8 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
     // Members are for the CCF's leaders; sheep seeking roles see its converts only.
     members: scope.canOnMembersOf('people.view', f.id) ? members.map((m) => serializePerson(m)) : [],
     placed_converts: placed.map((c) => serializePerson(c)),
-    incoming_proposals: proposed.map((c) => serializePerson(c)),
+    // A proposal is not the CCF's until approved: only those who approve placements see it here.
+    incoming_proposals: scope.canPlaceInto('placements.approve', f.id) ? proposed.map((c) => serializePerson(c)) : [],
   })
 })
 
