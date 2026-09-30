@@ -183,9 +183,9 @@ export function useSeekingRole(): 'seeker' | 'overseer' | null {
 }
 
 /**
- * A Campus Leader or a stream's Overseer (Stream Leader) in focus: their home
- * works like Seek's Lead Pastor's — choose a stream (or CCG), then see its
- * converts against the milestones, read only. Null for everyone else.
+ * A Campus Leader or a stream's Overseer (Stream Leader) in focus: they get
+ * Seek's Lead Pastor screens — a month, then (a Campus Leader) a stream, then
+ * its Milestones, Attendance and Reports, read only. Null for everyone else.
  */
 export function useLeaderView(): { type: 'campus' | 'stream'; id: string; name: string } | null {
   const { focus } = useCcgFocus()
