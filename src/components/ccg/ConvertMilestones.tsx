@@ -137,13 +137,26 @@ export function useConvertScope() {
   return { query, waiting, name }
 }
 
-/** `mine`: only the converts in the signed-in Sheep Seeker's groups, wherever they are placed. */
-export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
+/**
+ * `mine`: only the converts in the signed-in Sheep Seeker's groups, wherever they are placed.
+ * `unit`: this stream, CCG or CCF, whatever the URL or focus says. `month` (yyyy-mm): only that month's converts.
+ */
+export function ConvertMilestones({
+  mine = false,
+  unit,
+  month,
+}: {
+  mine?: boolean
+  unit?: { type: 'stream' | 'ccg' | 'ccf'; id: string }
+  month?: string | null
+}) {
   const { has, loading: meLoading } = useCcgMe()
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
-  const { query, waiting } = useConvertScope()
+  const scope = useConvertScope()
+  const query = unit ? `${PARAM[unit.type]}=${unit.id}` : scope.query
+  const waiting = unit ? false : scope.waiting
   const openId = params.get('placement')
   const [overdueOnly, setOverdueOnly] = useState(false)
   const [search, setSearch] = useState('')
@@ -157,12 +170,12 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
   const canTick = has('milestones.update')
 
   const load = useCallback(async () => {
-    const q = [mine ? 'seeker=me' : query, overdueOnly ? 'overdue=1' : ''].filter(Boolean).join('&')
+    const q = [mine ? 'seeker=me' : query, overdueOnly ? 'overdue=1' : '', month ? `month=${month}` : ''].filter(Boolean).join('&')
     const r = await ccgApi.get<{ milestones: MilestoneDef[]; rows: ProgressRow[] }>(`/progress${q ? `?${q}` : ''}`)
     if (!r.ok) return setError(r.error.message)
     setError(null)
     setData(r.data)
-  }, [query, overdueOnly, mine])
+  }, [query, overdueOnly, mine, month])
 
   useEffect(() => {
     if (!has('placements.view') || (!mine && waiting)) return

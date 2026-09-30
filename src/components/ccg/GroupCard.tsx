@@ -121,11 +121,11 @@ export function GroupList({
   )
 }
 
-/** Synago's church card: leader initials, name and level, leader, counts. */
-export function GroupCard({ type, item }: { type: GroupType; item: GroupCardItem }) {
+/** Synago's church card: leader initials, name and level, leader, counts. `href` defaults to the group's page. */
+export function GroupCard({ type, item, href }: { type: GroupType; item: GroupCardItem; href?: string }) {
   return (
     <Link
-      href={groupHref(type, item.id)}
+      href={href ?? groupHref(type, item.id)}
       className="group flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-sm"
     >
       <Initials name={item.leader ?? item.name} className="size-11 text-sm" />

@@ -1,13 +1,15 @@
 import { success } from '@/lib/api/response'
+import { parseMonth } from '@/lib/ccg/server/cohort'
 import { withCcg } from '@/lib/ccg/server/handler'
 import { listProgress } from '@/lib/ccg/server/progress'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/progress?ccf_id=&ccg_id=&stream_id=&seeker=me&overdue=1 — the milestone grid:
+ * GET /api/ccg/progress?ccf_id=&ccg_id=&stream_id=&seeker=me&overdue=1&month= — the milestone grid:
  * every active placement in scope x active milestones, with derived status.
  * seeker=me: only the converts in the signed-in Sheep Seeker's groups.
+ * month (yyyy-mm): only that month's converts.
  */
 export const GET = withCcg({ permission: 'placements.view' }, async ({ scope, query }) =>
   success(
@@ -17,6 +19,7 @@ export const GET = withCcg({ permission: 'placements.view' }, async ({ scope, qu
       streamId: query.get('stream_id'),
       overdueOnly: query.get('overdue') === '1',
       seekingGroupIds: query.get('seeker') === 'me' ? scope.seekingGroupIds : null,
+      month: parseMonth(query.get('month')),
     })
   )
 )

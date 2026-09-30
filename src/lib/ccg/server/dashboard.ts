@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import type { CapacityStatus, RelationshipHealth } from '../engine'
 import { assessment, milestoneState, type AssessmentState } from '../progress'
 import { inFilter, type CcgScope } from '../scope'
+import { personInMonth } from './cohort'
 import { getCcgConfig } from './common'
 import { placementScopeWhere } from './placement-dto'
 import { loadProfiles } from './profiles'
@@ -14,9 +15,10 @@ const DAY = 86_400_000
 /**
  * Dashboard numbers for the units the viewer can report on, narrowed to the
  * unit in focus when one is given ("church in focus"; the caller checks the
- * viewer may see it).
+ * viewer may see it). With `month`, the convert numbers count only that
+ * month's converts; the unit's own numbers (members, CCFs) stay whole.
  */
-export async function dashboard(scope: CcgScope, focus: { type: UnitType; id: string } | null = null) {
+export async function dashboard(scope: CcgScope, focus: { type: UnitType; id: string } | null = null, month: string | null = null) {
   const inScope = scope.ccfIds('reports.view')
   const unitIds = focus ? await ccfIdsIn(focus.type, focus.id) : null
   const ccfIds = unitIds ? (inScope === 'all' ? unitIds : unitIds.filter((id) => inScope.includes(id))) : inScope
@@ -41,7 +43,11 @@ export async function dashboard(scope: CcgScope, focus: { type: UnitType; id: st
     loadProfiles({ bank, config, ccfIds: ccfIds === 'all' ? undefined : ccfIds }),
     prisma.ccgMilestone.findMany({ where: { isActive: true } }),
     prisma.ccgPlacement.findMany({
-      where: { status: 'active', person: { deletedAt: null }, ...(within ? { finalCcfId: within } : {}) },
+      where: {
+        status: 'active',
+        person: { deletedAt: null, ...(month ? personInMonth(month) : {}) },
+        ...(within ? { finalCcfId: within } : {}),
+      },
       select: {
         decidedAt: true,
         createdAt: true,

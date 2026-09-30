@@ -16,6 +16,7 @@ import { inFilter, type CcgScope, type IdSet } from '../scope'
 import { dateOnly, getCcgConfig, iso, logCcg, parseDateOnly, userRefs, type Db } from './common'
 import { todayDate } from '../access'
 import { graduateIfComplete } from './graduation'
+import { personInMonth } from './cohort'
 
 /**
  * Retention milestones for placed converts (CCG Manual). The clock starts when
@@ -181,6 +182,8 @@ export async function listProgress(
     overdueOnly?: boolean
     /** Only the converts in these sheep seeking groups (a Sheep Seeker's own). */
     seekingGroupIds?: string[] | null
+    /** Only the converts of this month (yyyy-mm). */
+    month?: string | null
   }
 ) {
   const within = inFilter(scope.ccfIds('placements.view'))
@@ -208,6 +211,7 @@ export async function listProgress(
           filter.ccfId ? { finalCcfId: filter.ccfId } : {},
           filter.ccgId ? { finalCcf: { ccgId: filter.ccgId } } : {},
           filter.streamId ? { finalCcf: { ccg: { streamId: filter.streamId } } } : {},
+          filter.month ? { person: personInMonth(filter.month) } : {},
         ],
       },
       include: placementInclude,
