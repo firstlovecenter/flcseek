@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
@@ -47,7 +47,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { SynagoLogo } from '@/components/shell/SynagoLogo'
 import { useTheme } from '@/components/shell/ThemeProvider'
 import { useCcgMe } from './CcgMeProvider'
-import { LEVEL_LABEL, useCcgFocus, type Portal } from './CcgFocusProvider'
+import { ccgApi } from '@/lib/ccg/client'
+import { LEVEL_LABEL, useCcgFocus, useLeaderView, type Portal } from './CcgFocusProvider'
 import { FocusPicker, PortalSwitcher, groupHref } from './synago'
 
 /**
@@ -167,6 +168,39 @@ function FocusItem({ open, onNavigate, mobile }: { open: boolean; onNavigate?: (
       <Building2 className={cn(mobile ? 'size-4' : 'size-5', 'shrink-0 text-churches')} />
       {mobile ? <span className="flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden">{label}</span> : <Label open={open}>{label}</Label>}
     </Link>
+  )
+}
+
+/**
+ * A Stream Leader's CCGs: each opens that CCG's milestones board for the
+ * month they chose (Home is the whole stream).
+ */
+function LeaderCcgs({ open, onNavigate, mobile }: { open: boolean; onNavigate?: () => void; mobile?: boolean }) {
+  const leader = useLeaderView()
+  const pathname = usePathname()
+  const streamId = leader?.type === 'stream' ? leader.id : null
+  const [ccgs, setCcgs] = useState<Array<{ id: string; name: string }>>([])
+  useEffect(() => {
+    if (!streamId) return setCcgs([])
+    ccgApi
+      .get<{ children: { items: Array<{ id: string; name: string; status: string }> } | null }>(`/groups/stream/${streamId}?history=1`)
+      .then((r) => r.ok && setCcgs((r.data.children?.items ?? []).filter((c) => c.status === 'active')))
+  }, [streamId])
+  if (!streamId || ccgs.length === 0) return null
+  return (
+    <div className="mb-1 space-y-0.5">
+      {(open || mobile) && <p className="px-2.5 pt-1 pb-0.5 text-[11px] font-medium tracking-wider text-sidebar-foreground/50 uppercase">CCGs</p>}
+      {ccgs.map((c) => (
+        <Item
+          key={c.id}
+          item={{ href: `/ccg/lead/ccg/${c.id}`, label: c.name, icon: Network, accent: 'text-churches', portals: BOTH }}
+          open={open}
+          active={pathname === `/ccg/lead/ccg/${c.id}`}
+          onNavigate={onNavigate}
+          mobile={mobile}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -299,6 +333,7 @@ function DesktopSidebar() {
           {open && <PortalSwitcher variant="sidebar" className="mb-2" />}
           {open && <FocusPicker variant="sidebar" className="mb-1" />}
           <FocusItem open={open} />
+          <LeaderCcgs open={open} />
           {secondary.map((i) => (
             <Item key={i.href} item={i} open={open} active={active(i)} />
           ))}
@@ -334,6 +369,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
           <PortalSwitcher variant="sidebar" className="mb-2" />
           <FocusPicker variant="sidebar" className="mb-1" />
           <FocusItem open onNavigate={onClose} mobile />
+          <LeaderCcgs open onNavigate={onClose} mobile />
           {secondary.map((i) => (
             <Item key={i.href} item={i} open active={active(i)} onNavigate={onClose} mobile />
           ))}

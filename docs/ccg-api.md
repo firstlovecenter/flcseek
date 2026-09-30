@@ -102,7 +102,9 @@ A small CCF's profile is blended with its CCG's profile (`config.smoothing`).
 | Method | Path | Permission | Notes |
 |---|---|---|---|
 | GET | `/me` | any CCG user | `{ user, is_superadmin, roles[{role, unit}], permissions, global_permissions }` |
-| GET | `/dashboard` | reports.view | Figures for the viewer's units, listed below. |
+| GET | `/dashboard?unit_type=&unit_id=&month=` | reports.view | Figures for the viewer's units, listed below. `month` (yyyy-mm) counts only that month's converts in `placements`. |
+| GET | `/months?unit_type=&unit_id=` | reports.view | `{ months[{ month, converts }] }`, newest first: the months whose converts are in their assessment year in the unit. A convert's month is the month and year they were registered. Campus and Stream Leaders pick a month first, as Seek's Lead Pastor picked a monthly group. |
+| GET | `/trends?series=&unit_type=&unit_id=&month=` | reports.view | Weekly attendance of placed converts; `month` as above. |
 
 `/dashboard` returns:
 - `units`: `{ active_ccfs, open_spaces, capacity, health }`
@@ -258,7 +260,7 @@ Auto-completed milestones are stored as progress records with `source: 'auto'`. 
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| GET | `/progress?ccf_id=&ccg_id=&overdue=1` | placements.view | The grid; row fields below. |
+| GET | `/progress?ccf_id=&ccg_id=&stream_id=&overdue=1&month=` | placements.view | The grid; row fields below. `month` (yyyy-mm): only that month's converts. |
 | GET / PUT | `/placements/[id]/progress` | placements.view / milestones.update | GET includes checklist items and the milestones with guidance. PUT is for **manual** milestones only. |
 | PUT | `/placements/[id]/checklist` | milestones.update | `{ item_id, done, date_completed? }` |
 | GET | `/attendance?ccf_id=&event_type=&date=` | attendance.mark | The CCF's register: placed converts, `present`, and their running `total`. |

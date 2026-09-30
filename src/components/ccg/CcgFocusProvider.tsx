@@ -182,6 +182,19 @@ export function useSeekingRole(): 'seeker' | 'overseer' | null {
   return focus.roleKey === 'sheep_seeker' ? 'seeker' : 'overseer'
 }
 
+/**
+ * A Campus Leader or a stream's Overseer (Stream Leader) in focus: their home
+ * works like Seek's Lead Pastor's — choose a stream (or CCG), then see its
+ * converts against the milestones, read only. Null for everyone else.
+ */
+export function useLeaderView(): { type: 'campus' | 'stream'; id: string; name: string } | null {
+  const { focus } = useCcgFocus()
+  if (!focus?.id) return null
+  if (focus.type === 'campus' && focus.roleKey === 'campus_leader') return { type: 'campus', id: focus.id, name: focus.name }
+  if (focus.type === 'stream' && focus.roleKey === 'overseer') return { type: 'stream', id: focus.id, name: focus.name }
+  return null
+}
+
 export function useSeekerMode(): boolean {
   return useSeekingRole() !== null
 }

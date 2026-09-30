@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { personInMonth } from './cohort'
 import { dateOnly } from './common'
 import type { UnitType } from './unit-overview'
 
@@ -137,7 +138,7 @@ export type TrendSeries = 'sunday' | 'fellowship'
  * pages before the current week. Sunday: one series; fellowship: in person
  * and online.
  */
-export async function attendanceTrend(ccfIds: string[] | 'all', series: TrendSeries, weeks = 5, offset = 0, now = new Date()) {
+export async function attendanceTrend(ccfIds: string[] | 'all', series: TrendSeries, weeks = 5, offset = 0, now = new Date(), month: string | null = null) {
   const lastStart = new Date(weekStart(now).getTime() - offset * weeks * 7 * DAY)
   const firstStart = new Date(lastStart.getTime() - (weeks - 1) * 7 * DAY)
   const end = new Date(lastStart.getTime() + 7 * DAY - 1)
@@ -147,6 +148,7 @@ export async function attendanceTrend(ccfIds: string[] | 'all', series: TrendSer
       eventType: { in: events },
       eventDate: { gte: firstStart, lte: end },
       ...(ccfIds === 'all' ? {} : { ccfId: { in: ccfIds } }),
+      ...(month ? { person: personInMonth(month) } : {}),
     },
     select: { eventType: true, eventDate: true },
   })
