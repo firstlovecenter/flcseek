@@ -92,7 +92,8 @@ const T = { duration: 0.2, ease: 'easeInOut' } as const
 function useNav() {
   const { me, has } = useCcgMe()
   const { portal } = useCcgFocus()
-  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus')
+  // A Campus Leader chooses a month and stream on Home, as Seek's Lead Pastor did; no portal page.
+  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus' && r.role.key !== 'campus_leader')
   const pathname = usePathname()
   const visible = (i: NavItem) => (!i.ownerOnly || !!me?.is_superadmin) && (!i.campusOnly || leadsCampus) && i.portals.includes(portal ?? 'ccg') && (!i.perm || (Array.isArray(i.perm) ? i.perm.some((p) => has(p)) : has(i.perm)))
   const active = (i: NavItem) => (i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(`${i.href}/`))
@@ -172,8 +173,8 @@ function FocusItem({ open, onNavigate, mobile }: { open: boolean; onNavigate?: (
 }
 
 /**
- * A Stream Leader's CCGs: each opens that CCG's milestones board for the
- * month they chose (Home is the whole stream).
+ * A Stream Leader's CCGs: each opens that CCG's milestones page for the
+ * month they chose (Home picks the month for the whole stream).
  */
 function LeaderCcgs({ open, onNavigate, mobile }: { open: boolean; onNavigate?: () => void; mobile?: boolean }) {
   const leader = useLeaderView()
@@ -195,7 +196,7 @@ function LeaderCcgs({ open, onNavigate, mobile }: { open: boolean; onNavigate?: 
           key={c.id}
           item={{ href: `/ccg/lead/ccg/${c.id}`, label: c.name, icon: Network, accent: 'text-churches', portals: BOTH }}
           open={open}
-          active={pathname === `/ccg/lead/ccg/${c.id}`}
+          active={pathname.startsWith(`/ccg/lead/ccg/${c.id}`)}
           onNavigate={onNavigate}
           mobile={mobile}
         />

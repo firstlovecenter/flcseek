@@ -29,7 +29,7 @@ import { hourlyGreeting, splitName } from '@/components/ccg/greetings'
 import { FocusPicker, groupHref } from '@/components/ccg/synago'
 import { SeekerHome } from '@/components/ccg/SeekerHome'
 import { hasChosen } from '@/components/ccg/campus-choice'
-import { LeaderUnitView, MonthPicker, StreamPicker, useMonthParam } from '@/components/ccg/LeaderView'
+import { MonthPicker, StreamPicker, useMonthParam } from '@/components/ccg/LeaderView'
 import { DashboardNumbers, WeeklyTrend, type Dashboard } from '@/components/ccg/UnitReport'
 
 const fadeUp = {
@@ -55,8 +55,9 @@ export default function CcgHomePage() {
   const [d, setD] = useState<Dashboard | null>(null)
   const q = focusQuery(focus)
   const waitingForFocus = options.length > 0 && !focus
-  // A Campus Leader chooses a stream and portal when they sign in (as Seek's Lead Pastor chooses a group).
-  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus')
+  // Other campus roles choose a portal when they sign in. A Campus Leader doesn't: Home asks them
+  // for a month and a stream, as Seek asked its Lead Pastor for a group.
+  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus' && r.role.key !== 'campus_leader')
   useEffect(() => {
     if (leadsCampus && !hasChosen()) router.replace('/ccg/choose')
   }, [leadsCampus, router])
@@ -98,6 +99,14 @@ export default function CcgHomePage() {
 
   const today = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 
+  if (leader) {
+    return (
+      <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
+        <LeaderHome leader={leader} />
+      </Suspense>
+    )
+  }
+
   return (
     <motion.div initial="hidden" animate="show" variants={stagger} className="pb-10 md:pt-2">
       {/* Header band */}
@@ -134,15 +143,7 @@ export default function CcgHomePage() {
         <FocusPicker className="w-full shrink-0 sm:w-72" />
       </motion.header>
 
-      {leader && (
-        <motion.div variants={fadeUp}>
-          <Suspense fallback={<Skeleton className="mt-6 h-64 rounded-xl" />}>
-            <LeaderHome leader={leader} />
-          </Suspense>
-        </motion.div>
-      )}
-
-      {seeker && !leader && (
+      {seeker && (
         <motion.div variants={fadeUp} className="mt-8 space-y-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-bold tracking-tight text-foreground">
@@ -164,7 +165,7 @@ export default function CcgHomePage() {
         </motion.div>
       )}
 
-      {!seeker && !leader && has('reports.view') && (
+      {!seeker && has('reports.view') && (
         <motion.div variants={stagger} className="mt-8 flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_360px] lg:items-start">
           {/* Primary column */}
           <motion.div variants={fadeUp} className="min-w-0 space-y-6">
@@ -304,15 +305,16 @@ export default function CcgHomePage() {
   )
 }
 
-/** Seek's Lead Pastor flow: a month, then (a Campus Leader) a stream, then its milestones board. */
+/**
+ * Seek's Lead Pastor "Select A Group": a month, then (a Campus Leader) a
+ * stream; both end on that stream's milestones page. A Stream Leader's CCGs
+ * are in the sidebar.
+ */
 function LeaderHome({ leader }: { leader: NonNullable<ReturnType<typeof useLeaderView>> }) {
   const router = useRouter()
   const month = useMonthParam()
+  const open = (streamId: string, m: string) => router.push(`/ccg/lead/stream/${streamId}?month=${m}`)
+  if (leader.type === 'stream') return <MonthPicker unit={leader} onPick={(m) => open(leader.id, m)} />
   if (!month) return <MonthPicker unit={leader} onPick={(m) => router.push(`/ccg?month=${m}`)} />
-  if (leader.type === 'campus') return <StreamPicker campus={leader} month={month} onChangeMonth={() => router.push('/ccg')} />
-  return (
-    <div className="mt-6">
-      <LeaderUnitView type="stream" id={leader.id} month={month} changeMonthHref="/ccg" embedded />
-    </div>
-  )
+  return <StreamPicker campusId={leader.id} month={month} onPick={(id) => open(id, month)} />
 }
