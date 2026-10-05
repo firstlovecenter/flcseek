@@ -188,6 +188,7 @@ export function PersonFormDialog({
           id: string
           proposal: { ccf_id: string | null; status: string; hold_reason: string | null } | null
           placement?: { ccf_id: string }
+          move_request?: { person: { full_name: string }; from_ccf: { name: string } | null }
         }>('/people', {
           kind,
           ...body,
@@ -196,6 +197,14 @@ export function PersonFormDialog({
     if (!res.ok) {
       setErrors({ ...fieldErrors(res.error), ...(res.error.details?.answers ?? {}) })
       return message.error(res.error.message)
+    }
+    const move = (res.data as { move_request?: { person: { full_name: string }; from_ccf: { name: string } | null } }).move_request
+    if (move) {
+      // Already in another CCF: nobody new was added; their coordinator there decides.
+      message.success(`${move.person.full_name} is already in ${move.from_ccf?.name ?? 'another CCF'}. Their coordinator there has been asked to approve the move.`)
+      onSaved(res.data.id)
+      onClose()
+      return
     }
     const proposed = res.data.proposal
     const ccf = proposed?.ccf_id ? opts?.ccfs.find((f) => f.id === proposed.ccf_id) : null

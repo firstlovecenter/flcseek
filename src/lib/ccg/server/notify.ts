@@ -154,3 +154,47 @@ export function queueNewConvertSms(items: NewConvertItem[], actorId: string | nu
     void task()
   }
 }
+
+/** The coordinator's text about a move request: like the new-souls text, only their first name. */
+export function buildMoveRequestSms(p: { firstName: string | null }): string {
+  const first = gsmSafe(p.firstName ?? '').split(' ')[0]
+  return fit(`${first ? `Hi ${first},` : 'Hi,'} someone in your CCF has asked to move to another CCF. Please log in to the CCG app to approve or decline.`)
+}
+
+/** Text the coordinators of a person's current CCF that a move request is waiting for them. */
+export async function notifyMoveRequest(ccfId: string, requestId: string, actorId: string | null) {
+  const contacts = await ccfCoordinatorContacts([ccfId])
+  if (!contacts.length) {
+    await logCcg({ userId: actorId, action: 'LEADER_SMS_SKIPPED', entityType: 'ccg_family', entityId: ccfId, newValues: { event: 'move_request', request_id: requestId, reason: 'No CCF Coordinator with a phone number' } })
+    return
+  }
+  for (const c of contacts) {
+    const message = buildMoveRequestSms({ firstName: c.firstName })
+    const r = smsConfigured()
+      ? await sendSms({ phones: [c.phone], message, idempotencyKey: createHash('sha256').update(`ccg-move-request|${c.phone}|${requestId}`).digest('hex') })
+      : null
+    await logCcg({
+      userId: actorId,
+      action: !r ? 'LEADER_SMS_SKIPPED' : r.sent ? 'LEADER_SMS_SENT' : 'LEADER_SMS_FAILED',
+      entityType: 'ccg_family',
+      entityId: ccfId,
+      newValues: {
+        event: 'move_request',
+        request_id: requestId,
+        coordinator_user_id: c.userId,
+        message,
+        ...(r?.id ? { message_id: r.id } : {}),
+        ...(!r ? { reason: 'SMS is not set up' } : r.sent ? {} : { reason: r.reason }),
+      },
+    })
+  }
+}
+
+export function queueMoveRequestSms(ccfId: string, requestId: string, actorId: string | null) {
+  const task = () => notifyMoveRequest(ccfId, requestId, actorId).catch((err) => console.error('[ccg] move request sms failed:', err))
+  try {
+    after(task)
+  } catch {
+    void task()
+  }
+}

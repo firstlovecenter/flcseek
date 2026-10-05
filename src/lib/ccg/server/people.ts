@@ -4,7 +4,7 @@ import { ageOn, isProfileComplete, type AnswerValue } from '../engine'
 import { conflict, invalid, notFound } from '../errors'
 import type { PersonCore, PersonUpdate } from '../schemas'
 import { inFilter, type CcgScope } from '../scope'
-import { ccgTx, dateOnly, iso, logCcg, normalizePhone, num, parseDateOnly, type Db } from './common'
+import { ccgTx, dateOnly, iso, logCcg, normalizePhone, num, parseDateOnly, phoneProblem, type Db } from './common'
 import { proposeFor, PROPOSABLE_STATUSES } from './mapping'
 import { needsTidy, runLater, tidyPerson } from './ai'
 import { loadAnswers, loadQuestionBank, saveAnswers, type AnswerNotes, type QuestionBank } from './questions'
@@ -229,6 +229,11 @@ async function assertConnection(db: Db, memberId: string | null | undefined, sel
 }
 
 /** Another live person with the same phone, if any. */
+function assertPhone(raw: string | null | undefined) {
+  const problem = phoneProblem(raw)
+  if (problem) throw invalid(problem, { fieldErrors: { phone: [problem] } })
+}
+
 async function findDuplicate(db: Db, phone: string | null, excludeId?: string) {
   if (!phone) return null
   return db.ccgPerson.findFirst({
@@ -310,6 +315,7 @@ export async function createPerson(args: CreatePersonArgs) {
   const bank = args.bank ?? (await loadQuestionBank())
   if (args.kind === 'member' && !args.core.ccf_id && !args.core.stream_id) throw invalid('A member must belong to a CCF')
   if (args.kind === 'convert' && args.core.ccf_id) throw invalid('Converts are placed through matching, not assigned a CCF directly')
+  assertPhone(args.core.phone)
   if (args.kind === 'convert' && !normalizePhone(args.core.phone)) {
     throw invalid('A convert needs a phone number', { fieldErrors: { phone: ['Enter their phone number'] } })
   }
@@ -390,6 +396,7 @@ export async function updatePerson(
   const { answers, status, ...core } = patch
 
   if (kind === 'convert' && core.ccf_id) throw invalid('Converts are placed through matching, not assigned a CCF directly')
+  assertPhone(core.phone)
   if (kind === 'convert' && core.phone !== undefined && !normalizePhone(core.phone)) {
     throw invalid('A convert needs a phone number', { fieldErrors: { phone: ['Enter their phone number'] } })
   }

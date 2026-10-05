@@ -6,8 +6,9 @@ import { invalid, notFound } from '@/lib/ccg/errors'
 import type { CcgScope } from '@/lib/ccg/scope'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { proposeFor } from '@/lib/ccg/server/mapping'
-import { assertMemberDetails, createPerson, peopleScopeWhere, personInclude, serializePerson } from '@/lib/ccg/server/people'
+import { assertMemberDetails, peopleScopeWhere, personInclude, serializePerson } from '@/lib/ccg/server/people'
 import { placeDirectly } from '@/lib/ccg/server/placements'
+import { registerOrRequestMove, type Registration } from '@/lib/ccg/server/moves'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,7 +96,10 @@ export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema:
   }
   if (body.kind === 'member') assertMemberDetails(body)
   const { kind, answers, ...core } = body
-  const { person, proposal } = await createPerson({ kind, core, answers, source: 'staff', actorId: user.id })
+  // Someone who already belongs to another CCF becomes a request to move them (see moves.ts).
+  const r = await registerOrRequestMove({ kind, core, answers, source: 'staff', actorId: user.id }, kind === 'member' ? body.ccf_id ?? null : null)
+  if (r.outcome === 'move_requested') return moveRequested(r)
+  const { person, proposal } = r
   return created({
     id: person.id,
     possible_duplicate_of: person.possibleDuplicateOfId,
@@ -111,14 +115,19 @@ async function registerIntoCcf(body: PersonCreate, actorId: string, scope: CcgSc
   const ccf = await prisma.ccgFamily.findFirst({ where: { id: ccfId, deletedAt: null }, include: { ccg: true } })
   if (!ccf || ccf.ccg.deletedAt) throw notFound('CCF')
   const { kind, answers, ccf_id: _ccf, ...core } = body
-  const { person } = await createPerson({
-    kind,
-    core: { ...core, stream_id: ccf.ccg.streamId },
-    answers,
-    source: 'staff',
-    actorId,
-    propose: false,
-  })
+  const r = await registerOrRequestMove(
+    {
+      kind,
+      core: { ...core, stream_id: ccf.ccg.streamId },
+      answers,
+      source: 'staff',
+      actorId,
+      propose: false,
+    },
+    ccfId
+  )
+  if (r.outcome === 'move_requested') return moveRequested(r)
+  const { person } = r
   try {
     const placement = await placeDirectly(person.id, ccfId, actorId)
     return created({ id: person.id, possible_duplicate_of: person.possibleDuplicateOfId, placement: { placement_id: placement.id, status: placement.status, ccf_id: ccfId }, proposal: null })
@@ -127,4 +136,13 @@ async function registerIntoCcf(body: PersonCreate, actorId: string, scope: CcgSc
     await proposeFor(person.id, 'registration', actorId)
     throw err
   }
+}
+
+/** No one was created: the person's current CCF coordinator is asked to let them move. */
+function moveRequested(r: Extract<Registration, { outcome: 'move_requested' }>) {
+  return success({
+    id: r.person.id,
+    move_request: { id: r.requestId, person: { id: r.person.id, full_name: r.person.fullName }, from_ccf: r.fromCcf },
+    proposal: null,
+  })
 }
