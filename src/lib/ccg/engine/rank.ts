@@ -2,7 +2,6 @@ import { scorePair, type ScoreContext } from './score'
 import type { CcfProfile, EnginePerson, IneligibleReason, RankResult, ScoredUnit } from './types'
 
 export const INELIGIBLE_LABELS: Record<IneligibleReason, string> = {
-  full: 'CCF is full',
   convert_limit: 'CCF already has twice as many converts as members',
   reserved: 'Remaining seats are held by proposals awaiting approval',
   inactive: 'CCF or its CCG is not active',
@@ -12,9 +11,8 @@ export function ineligibleReasons(convert: EnginePerson, profile: CcfProfile): I
   const u = profile.unit
   const reasons: IneligibleReason[] = []
   if (u.status !== 'active' || u.ccgStatus !== 'active') reasons.push('inactive')
-  if (profile.occupied >= u.capacity) reasons.push('full')
-  else if (profile.converts >= profile.convertLimit) reasons.push('convert_limit')
-  else if (profile.occupied + profile.reserved >= u.capacity || profile.converts + profile.reserved >= profile.convertLimit) reasons.push('reserved')
+  if (profile.converts >= profile.convertLimit) reasons.push('convert_limit')
+  else if (profile.converts + profile.reserved >= profile.convertLimit) reasons.push('reserved')
   return reasons
 }
 
@@ -46,8 +44,7 @@ export function rankUnits(convert: EnginePerson, profiles: CcfProfile[], ctx: Sc
       cautions: pair.cautions,
       eligible: why.length === 0,
       ineligibleReasons: why,
-      availableSpaces: Math.max(0, Math.min(p.unit.capacity - p.occupied, p.convertLimit - p.converts) - p.reserved),
-      capacity: p.unit.capacity,
+      availableSpaces: Math.max(0, p.convertLimit - p.converts - p.reserved),
       memberCount: p.own.memberCount,
     }
   })

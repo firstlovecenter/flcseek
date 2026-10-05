@@ -121,10 +121,12 @@ export const CONVERTS_PER_MEMBER = 2
 
 export const convertLimitFor = (memberCount: number) => CONVERTS_PER_MEMBER * memberCount
 
-export function capacityStatusFor(memberCount: number, occupied: number, capacity: number, minMembers: number): CapacityStatus {
-  if (occupied >= capacity) return 'full'
+/** A CCF's room comes from its members (the convert limit); there is no set capacity. */
+export function capacityStatusFor(memberCount: number, converts: number, minMembers: number): CapacityStatus {
   if (memberCount < minMembers) return 'below_minimum'
-  if (capacity - occupied <= 1 || occupied / capacity >= 0.8) return 'near_capacity'
+  const limit = convertLimitFor(memberCount)
+  if (converts >= limit) return 'full'
+  if (limit - converts <= 1) return 'near_capacity'
   return 'healthy'
 }
 
@@ -181,10 +183,10 @@ export function buildCcfProfile(input: ProfileInput, questions: EngineQuestion[]
     converts: input.activePlacements,
     convertLimit,
     reserved: input.reserved,
-    availableSpaces: Math.max(0, Math.min(input.unit.capacity - occupied, convertLimit - input.activePlacements)),
+    availableSpaces: Math.max(0, convertLimit - input.activePlacements),
     meetingSlotKey: meetingSlotKey(input.unit.meetingDay, input.unit.meetingTime),
     meetingSlotLabel: meetingSlot(input.unit.meetingDay, input.unit.meetingTime),
-    capacityStatus: capacityStatusFor(own.memberCount, occupied, input.unit.capacity, config.minMembers),
+    capacityStatus: capacityStatusFor(own.memberCount, input.activePlacements, config.minMembers),
     health: relationshipHealthFor(own.memberCount, socialMean, config.minMembers),
     socialMean,
   }

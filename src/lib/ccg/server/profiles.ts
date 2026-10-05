@@ -44,7 +44,6 @@ export function toEngineUnit(f: UnitRow): EngineUnit {
     zoneLabel: zoneLabel(zone),
     meetingDay: f.meetingDay,
     meetingTime: f.meetingTime,
-    capacity: f.capacity,
     status: f.status,
     ccgStatus: f.ccg.status,
   }

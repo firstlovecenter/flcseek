@@ -39,8 +39,6 @@ export interface PersonDTO {
   connection_by_ai?: boolean
   /** Converts: the Sheep Seeker who registered them. */
   seeker?: { id: string; full_name: string } | null
-  /** Converts: their sheep seeking group. */
-  seeking_group?: { id: string; name: string } | null
   possible_duplicate_of: { id: string; full_name: string; kind: string } | null
   status: string
   source: string
@@ -73,7 +71,6 @@ export interface CcfOption {
   code: string
   name: string
   status: string
-  capacity: number
   ccg: { id: string; code: string; name: string; status: string }
 }
 export interface StreamOption {
@@ -132,26 +129,6 @@ export function useSeekerOptions(streamId: string | null | undefined): SeekerOpt
     let live = true
     setList(null)
     ccgApi.get<{ seekers: SeekerOption[] }>(`/seekers/options${streamId ? `?stream_id=${streamId}` : ''}`).then((r) => live && setList(r.ok ? r.data.seekers : []))
-    return () => {
-      live = false
-    }
-  }, [streamId])
-  return list
-}
-
-/** A stream's sheep seeking groups, to put a convert in. */
-export function useSeekingGroupOptions(streamId: string | null | undefined): Array<{ id: string; name: string }> | null {
-  const [list, setList] = useState<Array<{ id: string; name: string }> | null>(null)
-  useEffect(() => {
-    let live = true
-    if (!streamId) {
-      setList([])
-      return
-    }
-    setList(null)
-    ccgApi
-      .get<{ groups: Array<{ id: string; name: string; status: string }> }>(`/seeking-groups?stream_id=${streamId}`)
-      .then((r) => live && setList(r.ok ? r.data.groups.filter((g) => g.status === 'active') : []))
     return () => {
       live = false
     }

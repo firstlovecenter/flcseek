@@ -260,12 +260,6 @@ export function ConvertModal({ placementId, onClose, onChanged }: { placementId:
                       {data.ccf.name} · {data.ccf.ccg.name}
                     </Badge>
                   )}
-                  {person?.seeking_group && (
-                    <Badge className="gap-1 border-0 bg-white/15 text-white hover:bg-white/20">
-                      <HeartHandshake className="size-3" aria-hidden />
-                      {person.seeking_group.name}
-                    </Badge>
-                  )}
                   {last?.follow_up_required && (
                     <Badge className="gap-1 border-0 bg-warning text-white">
                       <Flag className="size-3" aria-hidden />
@@ -665,7 +659,6 @@ function Profile({ row, person: p, questions }: { row: Detail; person: PersonDTO
         ['Lives near', p.landmark],
         ['Converted', p.conversion_date ? fmtDate(p.conversion_date) : null],
         ['Stream', p.stream?.name ?? null],
-        ['Sheep seeking group', p.seeking_group?.name ?? null],
         ['Registered by', p.seeker?.full_name ?? null],
         ['Registered', `${fmtDate(p.created_at)}${p.source === 'self' ? ' (themselves)' : ''}`],
         ['Placed', fmtDate(row.placed_at)],

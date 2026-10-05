@@ -57,7 +57,6 @@ export interface EngineUnit {
   zoneLabel: string | null
   meetingDay: string | null
   meetingTime: string | null
-  capacity: number
   status: string
   ccgStatus: string
 }
@@ -116,7 +115,7 @@ export interface FactorResult {
   weight: number
 }
 
-export type IneligibleReason = 'full' | 'convert_limit' | 'reserved' | 'inactive'
+export type IneligibleReason = 'convert_limit' | 'reserved' | 'inactive'
 
 export interface ScoredUnit {
   ccfId: string
@@ -132,7 +131,6 @@ export interface ScoredUnit {
   eligible: boolean
   ineligibleReasons: IneligibleReason[]
   availableSpaces: number
-  capacity: number
   memberCount: number
 }
 

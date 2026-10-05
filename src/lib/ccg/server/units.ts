@@ -5,7 +5,7 @@ import { conflict, invalid, notFound } from '../errors'
 import { iso } from './common'
 import type { QuestionBank } from './questions'
 
-/** Stream → CCG → CCF serialisation, profiles and structural guards. */
+/** Stream → council → CCG → CCF serialisation, profiles and structural guards. */
 
 export async function assertCampusExists(id: string | null | undefined) {
   if (!id) return
@@ -17,13 +17,49 @@ export async function assertStreamExists(id: string | null | undefined) {
   if (!(await prisma.ccgStream.findFirst({ where: { id, deletedAt: null } }))) throw invalid('Stream not found')
 }
 
-export const ccgInclude = { stream: true } satisfies Prisma.CcgGroupInclude
+/** A live council; returns it (its stream is its CCGs' stream). */
+export async function assertCouncilExists(id: string) {
+  const c = await prisma.ccgCouncil.findFirst({ where: { id, deletedAt: null } })
+  if (!c) throw invalid('Council not found')
+  return c
+}
+
+export function serializeCouncil(c: Prisma.CcgCouncilGetPayload<{ include: { stream: true } }>, extra: Record<string, unknown> = {}) {
+  return {
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    stream_id: c.streamId,
+    stream: { id: c.stream.id, code: c.stream.code, name: c.stream.name },
+    status: c.status,
+    notes: c.notes,
+    ...extra,
+    created_at: iso(c.createdAt),
+  }
+}
+
+/**
+ * Where a CCG goes: its council (and the council's stream), or a stream with no
+ * council. A council given wins; its stream must match any stream given.
+ */
+export async function ccgPlace(body: { council_id?: string | null; stream_id?: string }) {
+  if (body.council_id) {
+    const c = await assertCouncilExists(body.council_id)
+    if (body.stream_id && body.stream_id !== c.streamId) throw invalid('That council is in another stream', { council_id: 'Another stream' })
+    return { councilId: c.id, streamId: c.streamId }
+  }
+  if (body.stream_id) await assertStreamExists(body.stream_id)
+  return { councilId: null, streamId: body.stream_id }
+}
+
+export const ccgInclude = { stream: true, council: true } satisfies Prisma.CcgGroupInclude
 export function serializeCcg(g: Prisma.CcgGroupGetPayload<{ include: typeof ccgInclude }>, extra: Record<string, unknown> = {}) {
   return {
     id: g.id,
     code: g.code,
     name: g.name,
     stream: { id: g.stream.id, code: g.stream.code, name: g.stream.name },
+    council: g.council && !g.council.deletedAt ? { id: g.council.id, code: g.council.code, name: g.council.name } : null,
     status: g.status,
     notes: g.notes,
     ...extra,
@@ -42,7 +78,6 @@ export function serializeCcf(f: Prisma.CcgFamilyGetPayload<{ include: typeof ccf
     meeting_day: f.meetingDay,
     meeting_time: f.meetingTime,
     meeting_frequency: f.meetingFrequency,
-    capacity: f.capacity,
     status: f.status,
     notes: f.notes,
     ...extra,
@@ -113,38 +148,27 @@ export async function assertCcgExists(id: string) {
   return g
 }
 
-/** Capacity may not drop below the people already in the CCF. */
-export async function assertCapacityFits(ccfId: string, capacity: number) {
-  const [members, placed] = await Promise.all([
-    prisma.ccgPerson.count({ where: { kind: 'member', status: 'active', deletedAt: null, ccfId } }),
-    prisma.ccgPlacement.count({ where: { status: 'active', finalCcfId: ccfId, person: { deletedAt: null } } }),
-  ])
-  if (capacity < members + placed) {
-    throw invalid(`Capacity cannot be below the ${members + placed} people already in this CCF`)
-  }
-}
-
-export async function assertCcfEmpty(ccfId: string) {
+export async function assertCcfEmpty(ccfId: string, message = 'Move or remove everyone in this CCF (members, placements and proposals) first') {
   const [members, placements] = await Promise.all([
     prisma.ccgPerson.count({ where: { ccfId, deletedAt: null } }),
     prisma.ccgPlacement.count({ where: { status: { in: ['active', 'proposed'] }, OR: [{ finalCcfId: ccfId }, { proposedCcfId: ccfId }] } }),
   ])
-  if (members + placements > 0) throw conflict('Move or remove everyone in this CCF (members, placements and proposals) first')
+  if (members + placements > 0) throw conflict(message)
 }
 
 // ---------------------------------------------------------------------------
 // Codes: generated, never typed in
 // ---------------------------------------------------------------------------
 
-const CODE_PREFIX = { seeking_group: 'SSG', campus: 'CMP', stream: 'STR', ccg: 'CCG', ccf: 'CCF' } as const
+const CODE_PREFIX = { council: 'CNL', campus: 'CMP', stream: 'STR', ccg: 'CCG', ccf: 'CCF' } as const
 export type CodedUnit = keyof typeof CODE_PREFIX
 
 async function usedCodes(kind: CodedUnit, prefix: string): Promise<string[]> {
   const where = { code: { startsWith: prefix } }
   const select = { code: true }
   const rows =
-    kind === 'seeking_group'
-      ? await prisma.ccgSeekingGroup.findMany({ where, select })
+    kind === 'council'
+      ? await prisma.ccgCouncil.findMany({ where, select })
       : kind === 'campus'
       ? await prisma.ccgCampus.findMany({ where, select })
       : kind === 'stream'
@@ -156,7 +180,7 @@ async function usedCodes(kind: CodedUnit, prefix: string): Promise<string[]> {
 }
 
 /**
- * Create a campus, stream, CCG or CCF with the next free code for its level
+ * Create a campus, stream, council, CCG or CCF with the next free code for its level
  * (CCF-0001, CCF-0002, …) unless one was given. Retries when two are created
  * at the same moment and pick the same code.
  */

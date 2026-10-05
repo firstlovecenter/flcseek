@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRightLeft, Check, Loader2, Mail, Pencil, ShieldCheck, Sprout } from 'lucide-react'
+import { ArrowRightLeft, Check, Loader2, Mail, Pencil, ShieldCheck, Sprout, X } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
 import { message } from '@/lib/toast'
+import { useConfirm } from '@/hooks/use-confirm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -66,6 +67,7 @@ export function PersonSheet({
   const [dialog, setDialog] = useState<'transfer' | 'role' | null>(null)
   const [roles, setRoles] = useState<Array<{ id: string; role: { name: string }; unit: { name: string } | null }>>([])
   const invites = useInviteNotice()
+  const { confirm: ask, ConfirmDialog } = useConfirm()
 
   const load = useCallback(async (id: string) => {
     setData(null)
@@ -98,6 +100,24 @@ export function PersonSheet({
     if (!r.ok) return message.error(r.error.message)
     message.success('Member confirmed')
     refresh()
+  }
+
+  const reject = async () => {
+    if (!data) return
+    const ok = await ask({
+      title: `Reject ${data.person.full_name}?`,
+      description: 'Their registration is turned down and they are removed. They will not count as a member of the CCF.',
+      confirmLabel: 'Reject',
+      destructive: true,
+    })
+    if (!ok) return
+    setBusy(true)
+    const r = await ccgApi.post(`/people/${data.person.id}/reject`)
+    setBusy(false)
+    if (!r.ok) return message.error(r.error.message)
+    message.success(`${data.person.full_name}'s registration rejected`)
+    onChanged()
+    onClose()
   }
 
   const resend = async () => {
@@ -162,6 +182,12 @@ export function PersonSheet({
                     Confirm member
                   </Button>
                 )}
+                {p.kind === 'member' && p.status === 'pending' && has('members.confirm') && (
+                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={reject} disabled={busy}>
+                    <X className="size-4" />
+                    Reject
+                  </Button>
+                )}
                 {p.kind === 'member' && p.status === 'active' && hasGlobal('roles.manage') && (
                   <Button
                     size="sm"
@@ -216,10 +242,6 @@ export function PersonSheet({
                     <div>
                       <dt className="text-xs text-muted-foreground">Converted</dt>
                       <dd className="font-medium">{fmtDate(p.conversion_date)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">Sheep seeking group</dt>
-                      <dd className="font-medium">{p.seeking_group?.name ?? 'None yet'}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-muted-foreground">Registered by</dt>
@@ -336,6 +358,7 @@ export function PersonSheet({
           />
         )}
         {invites.notice}
+        {ConfirmDialog}
       </SheetContent>
     </Sheet>
   )
@@ -402,7 +425,7 @@ export function TransferDialog({ person, onClose, onDone }: { person: PersonDTO;
 interface RoleOption {
   key: string
   name: string
-  scope_level: 'global' | 'campus' | 'stream' | 'ccg' | 'ccf'
+  scope_level: 'global' | 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
   active: boolean
 }
 
@@ -410,6 +433,7 @@ const LEVEL_LABEL: Record<RoleOption['scope_level'], string> = {
   global: 'Everywhere',
   campus: 'Campus',
   stream: 'Stream',
+  council: 'Council',
   ccg: 'CCG',
   ccf: 'CCF',
 }
@@ -428,6 +452,7 @@ function RoleDialog({
   const [roles, setRoles] = useState<RoleOption[]>([])
   const [campuses, setCampuses] = useState<Array<{ id: string; name: string }>>([])
   const [ccgs, setCcgs] = useState<Array<{ id: string; name: string }>>([])
+  const [councils, setCouncils] = useState<Array<{ id: string; name: string; stream: { name: string } }>>([])
   const [roleKey, setRoleKey] = useState<string | null>(null)
   const [unitId, setUnitId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -437,8 +462,10 @@ function RoleDialog({
       ccgApi.get<{ roles: RoleOption[] }>('/roles'),
       ccgApi.get<{ ccgs: Array<{ id: string; name: string }> }>('/ccgs'),
       ccgApi.get<{ campuses: Array<{ id: string; name: string }> }>('/campuses'),
-    ]).then(([r, g, cp]) => {
+      ccgApi.get<{ councils: Array<{ id: string; name: string; stream: { name: string } }> }>('/councils'),
+    ]).then(([r, g, cp, cn]) => {
       setCampuses(cp.ok ? cp.data.campuses : [])
+      setCouncils(cn.ok ? cn.data.councils : [])
       // Each portal hands out its own roles: Sheep Seeking roles only in the Sheep Seeking portal.
       setRoles(r.ok ? r.data.roles.filter((x) => x.active && roleInPortal(x, portal ?? 'ccg')) : [])
       setCcgs(g.ok ? g.data.ccgs : [])
@@ -452,6 +479,8 @@ function RoleDialog({
       ? campuses.map((c) => ({ value: c.id, label: c.name }))
       : level === 'stream'
       ? (opts?.streams ?? []).map((s) => ({ value: s.id, label: s.name }))
+      : level === 'council'
+      ? councils.map((c) => ({ value: c.id, label: c.name, hint: c.stream.name }))
       : level === 'ccg'
         ? ccgs.map((g) => ({ value: g.id, label: g.name }))
         : level === 'ccf'

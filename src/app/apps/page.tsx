@@ -26,7 +26,7 @@ export default function AppsPage() {
   const cards = [
     {
       key: 'seek',
-      title: 'Seek',
+      title: 'Old Portal',
       body: 'Track new converts through milestones and Sunday attendance.',
       role: user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : '',
       icon: Sprout,
@@ -34,7 +34,7 @@ export default function AppsPage() {
     },
     {
       key: 'ccg',
-      title: 'City Church Group',
+      title: 'New Portal',
       body: 'Build CCGs, match converts to the right group, and follow their integration.',
       role: '',
       icon: UsersRound,
@@ -43,7 +43,7 @@ export default function AppsPage() {
   ]
 
   return (
-    <div className="mx-auto flex min-h-[80dvh] max-w-3xl flex-col justify-center gap-8 py-8">
+    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-8 px-4 py-8">
       <div className="space-y-2">
         <SynagoLogo size={40} surface="auto" />
         <h1 className="text-2xl font-semibold tracking-tight">

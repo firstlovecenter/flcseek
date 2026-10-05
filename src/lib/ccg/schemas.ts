@@ -95,22 +95,25 @@ export const streamSchema = z.object({
 })
 export const streamUpdateSchema = streamSchema.partial()
 
-/** A stream's sheep seeking group. */
-export const seekingGroupSchema = z.object({
+/** A council groups CCGs in a stream; `leader` is its Council Admin (needs roles.manage). */
+export const councilSchema = z.object({
   stream_id: uuid,
-  name: z.string().trim().min(1, 'Give the group a name').max(120),
+  leader: unitLeader,
+  /** Generated when left out (CNL-0001, …); not shown in the app. */
+  code: code.optional(),
+  name: z.string().trim().min(1).max(120),
+  status: z.enum(['active', 'inactive']).default('active'),
   notes: text(2000),
 })
-export const seekingGroupUpdateSchema = z.object({
-  name: z.string().trim().min(1).max(120).optional(),
-  notes: text(2000),
-  status: z.enum(['active', 'inactive']).optional(),
-})
-export const groupSeekerSchema = z.object({ user_id: uuid })
-export const groupConvertsSchema = z.object({ person_ids: z.array(uuid).min(1).max(500) })
+export const councilUpdateSchema = councilSchema.partial()
 
+/** A Sheep Seeker's CCFs as liaison (CCFs of their stream); replaces the list. */
+export const liaisonCcfsSchema = z.object({ ccf_ids: z.array(uuid).max(200) })
+
+/** A CCG sits in a council (its stream is the council's) or, until it has one, directly in a stream. */
 export const ccgSchema = z.object({
-  stream_id: uuid,
+  council_id: uuid.nullable().optional(),
+  stream_id: uuid.optional(),
   leader: unitLeader,
   /** Generated when left out (STR-0001, CCF-0001, …); not shown in the app. */
   code: code.optional(),
@@ -119,6 +122,7 @@ export const ccgSchema = z.object({
   notes: text(2000),
 })
 export const ccgUpdateSchema = ccgSchema.partial()
+export const ccgCreateSchema = ccgSchema.refine((b) => !!b.council_id || !!b.stream_id, { message: 'Choose its council', path: ['council_id'] })
 
 export const ccfSchema = z.object({
   ccg_id: uuid,
@@ -130,13 +134,12 @@ export const ccfSchema = z.object({
   meeting_day: z.enum(MEETING_DAYS).nullable().optional(),
   meeting_time: meetingTime,
   meeting_frequency: z.string().trim().min(1).max(20).default('Weekly'),
-  capacity: z.number().int().min(1).max(500),
   status: unitStatus.default('active'),
   notes: text(2000),
 })
 export const ccfUpdateSchema = ccfSchema.partial()
 /** What a governor (units.edit) may change — not the CCG, code or status. */
-export const CCF_UNIT_EDIT_FIELDS = ['name', 'meeting_location', 'meeting_day', 'meeting_time', 'meeting_frequency', 'capacity', 'notes'] as const
+export const CCF_UNIT_EDIT_FIELDS = ['name', 'meeting_location', 'meeting_day', 'meeting_time', 'meeting_frequency', 'notes'] as const
 
 // --------------------------------------------------------------------------
 // People
@@ -169,8 +172,6 @@ export const personCoreSchema = z.object({
   existing_connection_note: text(300),
   /** The Sheep Seeker (a member) who registered them; defaults to the registering Sheep Seeker. */
   seeker_person_id: uuid.nullable().optional(),
-  /** Converts: their sheep seeking group (its Sheep Seekers look after them). */
-  seeking_group_id: uuid.nullable().optional(),
 })
 export type PersonCore = z.infer<typeof personCoreSchema>
 
@@ -186,11 +187,13 @@ export const personUpdateSchema = personCoreSchema.partial().extend({
   status: z.enum(['active', 'inactive', 'new']).optional(),
 })
 export type PersonUpdate = z.infer<typeof personUpdateSchema>
+/** All that anyone but a superadmin (CCG owner) may change on a member or convert (user, 2026-10-05). */
+export const PERSON_EDIT_FIELDS = ['first_name', 'middle_name', 'last_name', 'phone'] as const
 
 // --------------------------------------------------------------------------
 // Placements
 // --------------------------------------------------------------------------
-export const approveSchema = z.object({ override_reason: text(1000) }).default({})
+export const approveSchema = z.object({}).default({})
 export const bulkApproveSchema = z.object({ placement_ids: z.array(uuid).min(1).max(200) })
 export const remapSchema = z.object({ ccf_id: uuid, reason: z.string().trim().min(1, 'Give a reason').max(1000) })
 export const holdSchema = z.object({ reason: z.string().trim().min(1, 'Say what is needed').max(1000) })
@@ -204,6 +207,8 @@ export const transferSchema = z.object({
   ccf_id: uuid,
   reason: z.string().trim().min(1, 'Give a reason').max(1000),
 })
+/** Where a closing CCF's people go; may be left out only when it is empty. */
+export const closeCcfSchema = z.object({ to_ccf_id: uuid.nullable().optional() }).default({})
 
 export const rescoreSchema = z.object({ person_ids: z.array(uuid).max(500).optional() }).default({})
 
@@ -403,6 +408,7 @@ export const assignmentSchema = z.object({
   role_key: z.string().min(1),
   campus_id: uuid.nullable().optional(),
   stream_id: uuid.nullable().optional(),
+  council_id: uuid.nullable().optional(),
   ccg_id: uuid.nullable().optional(),
   ccf_id: uuid.nullable().optional(),
   starts_on: isoDate.optional(),

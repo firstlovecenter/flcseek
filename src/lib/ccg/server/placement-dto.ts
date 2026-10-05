@@ -15,7 +15,7 @@ export const placementListInclude = {
 type Row = Prisma.CcgPlacementGetPayload<{ include: typeof placementListInclude }>
 
 const unit = (f: Row['proposedCcf']) =>
-  f ? { id: f.id, code: f.code, name: f.name, capacity: f.capacity, ccg: { id: f.ccg.id, code: f.ccg.code, name: f.ccg.name } } : null
+  f ? { id: f.id, code: f.code, name: f.name, ccg: { id: f.ccg.id, code: f.ccg.code, name: f.ccg.name } } : null
 
 const DAY = 86_400_000
 

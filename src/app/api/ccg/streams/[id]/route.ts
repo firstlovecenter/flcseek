@@ -59,9 +59,11 @@ export const PATCH = withCcg<z.infer<typeof streamUpdateSchema>, P>(
 export const DELETE = withCcg<undefined, P>({ permission: 'structure.manage' }, async ({ user, scope, params }) => {
   ensure(scope.can('structure.manage'))
   await load(params.id)
-  if (await prisma.ccgGroup.count({ where: { streamId: params.id, deletedAt: null } })) {
-    throw conflict('Move this stream’s CCGs to another stream first')
-  }
+  const [ccgs, councils] = await Promise.all([
+    prisma.ccgGroup.count({ where: { streamId: params.id, deletedAt: null } }),
+    prisma.ccgCouncil.count({ where: { streamId: params.id, deletedAt: null } }),
+  ])
+  if (ccgs || councils) throw conflict('Move this stream’s councils and CCGs to another stream first')
   await prisma.$transaction([
     prisma.ccgRoleAssignment.updateMany({ where: { streamId: params.id, endsOn: null }, data: { endsOn: new Date() } }),
     prisma.ccgStream.update({ where: { id: params.id }, data: { deletedAt: new Date(), status: 'inactive' } }),

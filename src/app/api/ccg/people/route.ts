@@ -12,7 +12,7 @@ import { placeDirectly } from '@/lib/ccg/server/placements'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&stream_id=&seeker=<person id>|me|none&gender=&search=&duplicates=1&limit=&offset=
+ * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&council_id=&stream_id=&seeker=<person id>|me|none&gender=&search=&duplicates=1&limit=&offset=
  * People the viewer can see: members of CCFs in scope, and converts placed or
  * proposed there. Unplaced converts are visible to global viewers only.
  */
@@ -21,14 +21,14 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
   const status = query.get('status')
   const ccfId = query.get('ccf_id')
   const ccgId = query.get('ccg_id')
+  const councilId = query.get('council_id')
   const streamId = query.get('stream_id')
   const gender = query.get('gender')
-  // seeker=me: the converts in the viewer's sheep seeking groups. seeker=<member id>: registered by
-  // that Sheep Seeker (the report). seeker=none: registered by no Sheep Seeker. group=<id>: one group.
+  // seeker=me: the converts placed in the CCFs the viewer is liaison for. seeker=<member id>: registered
+  // by that Sheep Seeker (the report). seeker=none: registered by no Sheep Seeker.
   const seeker = query.get('seeker')
   const mineOnly = seeker === 'me'
   const seekerId = mineOnly ? null : seeker
-  const groupId = query.get('group')
   const search = query.get('search')?.trim()
   const limit = Math.min(Number(query.get('limit')) || 50, 200)
   const offset = Math.max(Number(query.get('offset')) || 0, 0)
@@ -49,11 +49,11 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
       peopleScopeWhere(scope, 'people.view'),
       ccfId ? inUnit({ id: ccfId }) : {},
       ccgId ? inUnit({ ccgId }) : {},
+      councilId ? inUnit({ ccg: { councilId } }) : {},
       streamId ? { OR: [inUnit({ ccg: { streamId } }), { kind: 'convert', streamId }, { kind: 'member', ccfId: null, streamId }] } : {},
       gender === 'Male' || gender === 'Female' ? { gender } : {},
       seekerId === 'none' ? { kind: 'convert', seekerPersonId: null } : seekerId ? { kind: 'convert', seekerPersonId: seekerId } : {},
-      mineOnly ? { kind: 'convert', seekingGroupId: { in: scope.seekingGroupIds } } : {},
-      groupId ? { kind: 'convert', seekingGroupId: groupId } : {},
+      mineOnly ? { kind: 'convert', placements: { some: { status: 'active', finalCcfId: { in: scope.liaisonCcfIds } } } } : {},
       search
         ? {
             OR: [
@@ -93,14 +93,6 @@ export const POST = withCcg<PersonCreate>({ permission: 'people.manage', schema:
     if (!body.stream_id) throw invalid('Choose the stream this convert is registered into')
     ensure(seeking.canOnStream('people.manage', body.stream_id), 'You can only register converts into your stream')
   }
-  // Putting a convert in a sheep seeking group is the Overseer's call, or a seeker's for their own group
-  // (left out, a seeker in one group of the stream registers into it).
-  if (body.kind === 'convert' && body.seeking_group_id) {
-    ensure(
-      scope.can('seekers.manage') || scope.canOnStream('seekers.manage', body.stream_id) || scope.seekingGroupIds.includes(body.seeking_group_id),
-      'Only the stream’s Sheep Seeking Overseer can put converts in other groups'
-    )
-  }
   if (body.kind === 'member') assertMemberDetails(body)
   const { kind, answers, ...core } = body
   const { person, proposal } = await createPerson({ kind, core, answers, source: 'staff', actorId: user.id })
@@ -118,7 +110,7 @@ async function registerIntoCcf(body: PersonCreate, actorId: string, scope: CcgSc
   ensure(scope.leadership().canOnCcf('people.manage', ccfId), 'You can only register converts into CCFs you lead')
   const ccf = await prisma.ccgFamily.findFirst({ where: { id: ccfId, deletedAt: null }, include: { ccg: true } })
   if (!ccf || ccf.ccg.deletedAt) throw notFound('CCF')
-  const { kind, answers, ccf_id: _ccf, seeking_group_id: _group, ...core } = body
+  const { kind, answers, ccf_id: _ccf, ...core } = body
   const { person } = await createPerson({
     kind,
     core: { ...core, stream_id: ccf.ccg.streamId },

@@ -13,7 +13,7 @@ import { Field, NullableSelect, SearchSelect } from './form-utils'
 import { useCcgFocus } from './CcgFocusProvider'
 import { useCcgMe } from './CcgMeProvider'
 import { OTHER_SUFFIX, QuestionFields, missingRequired, type Answers } from './QuestionFields'
-import { ccfLabel, useCcgOptions, useSeekingGroupOptions, type PersonDTO } from './people-types'
+import { ccfLabel, useCcgOptions, type PersonDTO } from './people-types'
 
 type Mode = { kind: 'member' | 'convert'; personId?: string }
 
@@ -33,8 +33,6 @@ interface Core {
   conversion_date: string | null
   existing_connection_note: string | null
   /** Converts: their Sheep Seeker; undefined = leave to the server (the registering seeker). */
-  /** Converts: their sheep seeking group; undefined = leave to the server (the registering seeker's group). */
-  seeking_group_id?: string | null
 }
 
 const EMPTY: Core = {
@@ -76,6 +74,8 @@ export function PersonFormDialog({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const editing = !!mode?.personId
+  // Apart from a superadmin, only names and phone number can be changed.
+  const limited = editing && !me?.is_superadmin
   const kind = mode?.kind ?? 'convert'
   const fullName = [core.first_name, core.middle_name, core.last_name].filter((x) => x?.trim()).join(' ')
 
@@ -108,7 +108,6 @@ export function PersonFormDialog({
         stream_id: p.stream?.id ?? null,
         conversion_date: p.conversion_date,
         existing_connection_note: p.existing_connection_note,
-        seeking_group_id: p.seeking_group?.id ?? null,
       })
       const notes = p.answer_notes ?? {}
       const others = Object.fromEntries(
@@ -123,15 +122,6 @@ export function PersonFormDialog({
     () => (opts?.questions ?? []).filter((q) => q.active && (q.audience === 'both' || q.audience === kind)),
     [opts, kind]
   )
-  // Converts are put in seeking groups by the stream's (or campus's) Sheep Seeking Admin, or the central team.
-  const canAssign =
-    hasGlobal('seekers.manage') ||
-    !!me?.roles.some(
-      (r) =>
-        (r.role.key === 'seeking_admin' && (!core.stream_id || r.unit?.id === core.stream_id)) ||
-        (r.role.key === 'campus_seeking_admin' && (!core.stream_id || !!r.unit?.streams?.some((s) => s.id === core.stream_id)))
-    )
-  const groups = useSeekingGroupOptions(kind === 'convert' && mode ? core.stream_id : undefined)
   const activeCcfs = (opts?.ccfs ?? []).filter((f) => f.status === 'active' && f.ccg.status === 'active')
   // In the City Church Groups portal, a CCF's leaders register converts straight into their own CCF.
   const { portal } = useCcgFocus()
@@ -155,6 +145,13 @@ export function PersonFormDialog({
     if (!core.last_name.trim()) local.last_name = 'Enter their last name'
     if ((kind === 'member' || intoCcf) && !editing && !core.ccf_id) local.ccf_id = 'Choose their CCF'
     if (kind === 'convert' && !core.phone) local.phone = 'Enter their phone number'
+    if (limited) {
+      if (kind === 'member' && !core.phone) local.phone = 'Enter their phone number'
+      setErrors(local)
+      if (Object.keys(local).length) return
+      const { first_name, middle_name, last_name, phone } = core
+      return save({ first_name, middle_name, last_name, phone })
+    }
     // Compulsory for members on the CCF registration form. Members may become leaders:
     // SMS goes to their phone, invitations to their email.
     if (kind === 'member' && !editing) {
@@ -168,7 +165,7 @@ export function PersonFormDialog({
     setErrors(local)
     if (Object.keys(local).length) return
 
-    const { ccf_id, stream_id, conversion_date, existing_connection_note, seeking_group_id, ...shared } = core
+    const { ccf_id, stream_id, conversion_date, existing_connection_note, ...shared } = core
     const body = {
       ...shared,
       ...(kind === 'member'
@@ -177,9 +174,13 @@ export function PersonFormDialog({
           : { ccf_id }
         : intoCcf
           ? { ccf_id, conversion_date, existing_connection_note }
-          : { stream_id, conversion_date, existing_connection_note, ...(seeking_group_id !== undefined ? { seeking_group_id } : {}) }),
+          : { stream_id, conversion_date, existing_connection_note }),
       answers,
     }
+    return save(body)
+  }
+
+  const save = async (body: Record<string, unknown>) => {
     setSaving(true)
     const res = editing
       ? await ccgApi.patch<{ id: string; proposal: { ccf_id: string | null; status: string } | null }>(`/people/${mode!.personId}`, body)
@@ -226,7 +227,9 @@ export function PersonFormDialog({
               {editing ? `Edit ${fullName || (kind === 'member' ? 'member' : 'convert')}` : kind === 'member' ? 'Add a member' : 'Register a convert'}
             </DialogTitle>
             <DialogDescription>
-              {intoCcf
+              {limited
+                ? 'Only their names and phone number can be changed. Ask a superadmin to change anything else.'
+                : intoCcf
                 ? 'They are placed in your CCF straight away and follow the milestones like every convert.'
                 : kind === 'convert'
                 ? 'Their answers are used to propose the CCF where they are most likely to settle. The proposal goes to Approvals.'
@@ -269,113 +272,99 @@ export function PersonFormDialog({
                 <Field label="Phone *" htmlFor="p-phone" error={errors.phone}>
                   <Input id="p-phone" type="tel" inputMode="tel" autoComplete="off" {...text('phone')} aria-invalid={!!errors.phone} />
                 </Field>
-                <Field
-                  label={kind === 'member' ? 'Email *' : 'Email'}
-                  htmlFor="p-email"
-                  error={errors.email}
-                  hint={kind === 'member' ? 'If they are given a role, their invitation to set a password is sent here' : undefined}
-                >
-                  <Input id="p-email" type="email" inputMode="email" autoComplete="off" {...text('email')} aria-invalid={!!errors.email} />
-                </Field>
-                <Field label={kind === 'member' ? 'Gender *' : 'Gender'} htmlFor="p-gender" error={errors.gender}>
-                  <NullableSelect
-                    id="p-gender"
-                    value={core.gender}
-                    onChange={(v) => set('gender', v)}
-                    options={[
-                      { value: 'Male', label: 'Male' },
-                      { value: 'Female', label: 'Female' },
-                    ]}
-                  />
-                </Field>
-                <Field
-                  label={kind === 'member' ? 'Date of birth *' : 'Date of birth'}
-                  htmlFor="p-dob"
-                  error={errors.date_of_birth}
-                  hint="Compared with the ages of CCF members"
-                >
-                  <Input id="p-dob" type="date" {...text('date_of_birth')} aria-invalid={!!errors.date_of_birth} />
-                </Field>
-                <Field label="Location" htmlFor="p-location" error={errors.location} hint="The area they live in">
-                  <Input id="p-location" {...text('location')} />
-                </Field>
-                <Field label="Landmark" htmlFor="p-landmark" error={errors.landmark} hint="A landmark near where they live">
-                  <Input id="p-landmark" {...text('landmark')} />
-                </Field>
-
-                {kind === 'member' && !editing && (
-                  <Field label="CCF *" htmlFor="p-ccf" error={errors.ccf_id}>
-                    <SearchSelect
-                      id="p-ccf"
-                      value={core.ccf_id}
-                      onChange={(v) => set('ccf_id', v)}
-                      options={activeCcfs.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
-                      placeholder="Choose a CCF"
-                      invalid={!!errors.ccf_id}
-                    />
-                  </Field>
-                )}
-                {intoCcf && (
-                  <Field label="CCF *" htmlFor="p-ccf" error={errors.ccf_id}>
-                    <SearchSelect
-                      id="p-ccf"
-                      value={core.ccf_id}
-                      onChange={(v) => set('ccf_id', v)}
-                      options={ledCcfs.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
-                      placeholder="Choose your CCF"
-                      invalid={!!errors.ccf_id}
-                    />
-                  </Field>
-                )}
-                {kind === 'convert' && !intoCcf && (
+                {!limited && (
                   <>
                     <Field
-                      label="Stream"
-                      htmlFor="p-stream"
-                      error={errors.stream_id}
-                      hint="They are matched only with CCFs in this stream"
+                      label={kind === 'member' ? 'Email *' : 'Email'}
+                      htmlFor="p-email"
+                      error={errors.email}
+                      hint={kind === 'member' ? 'If they are given a role, their invitation to set a password is sent here' : undefined}
                     >
-                      <SearchSelect
-                        id="p-stream"
-                        value={core.stream_id}
-                        onChange={(v) => set('stream_id', v)}
-                        options={opts.streams.map((s) => ({ value: s.id, label: s.name }))}
-                        noneLabel="Church-wide"
-                        search="auto"
+                      <Input id="p-email" type="email" inputMode="email" autoComplete="off" {...text('email')} aria-invalid={!!errors.email} />
+                    </Field>
+                    <Field label={kind === 'member' ? 'Gender *' : 'Gender'} htmlFor="p-gender" error={errors.gender}>
+                      <NullableSelect
+                        id="p-gender"
+                        value={core.gender}
+                        onChange={(v) => set('gender', v)}
+                        options={[
+                          { value: 'Male', label: 'Male' },
+                          { value: 'Female', label: 'Female' },
+                        ]}
                       />
                     </Field>
-                    {canAssign && (
-                      <Field
-                        label="Sheep seeking group"
-                        htmlFor="p-group"
-                        error={errors.seeking_group_id}
-                        hint={core.stream_id ? 'Its Sheep Seekers look after them, whatever CCF they are placed in' : 'Choose their stream first'}
-                      >
+                    <Field
+                      label={kind === 'member' ? 'Date of birth *' : 'Date of birth'}
+                      htmlFor="p-dob"
+                      error={errors.date_of_birth}
+                      hint="Compared with the ages of CCF members"
+                    >
+                      <Input id="p-dob" type="date" {...text('date_of_birth')} aria-invalid={!!errors.date_of_birth} />
+                    </Field>
+                    <Field label="Location" htmlFor="p-location" error={errors.location} hint="The area they live in">
+                      <Input id="p-location" {...text('location')} />
+                    </Field>
+                    <Field label="Landmark" htmlFor="p-landmark" error={errors.landmark} hint="A landmark near where they live">
+                      <Input id="p-landmark" {...text('landmark')} />
+                    </Field>
+
+                    {kind === 'member' && !editing && (
+                      <Field label="CCF *" htmlFor="p-ccf" error={errors.ccf_id}>
                         <SearchSelect
-                          id="p-group"
-                          value={core.seeking_group_id ?? null}
-                          onChange={(v) => set('seeking_group_id', v)}
-                          options={(groups ?? []).map((g) => ({ value: g.id, label: g.name }))}
-                          noneLabel="No group yet"
-                          placeholder="No group yet"
-                          disabled={!core.stream_id}
+                          id="p-ccf"
+                          value={core.ccf_id}
+                          onChange={(v) => set('ccf_id', v)}
+                          options={activeCcfs.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
+                          placeholder="Choose a CCF"
+                          invalid={!!errors.ccf_id}
                         />
                       </Field>
                     )}
-                    <Field label="Date of conversion" htmlFor="p-conv">
-                      <Input id="p-conv" type="date" {...text('conversion_date')} />
-                    </Field>
-                    <Field label="Someone they already know in church" htmlFor="p-conn" className="space-y-1.5 sm:col-span-2">
-                      <Input id="p-conn" placeholder="Name, and how they know them" {...text('existing_connection_note')} />
+                    {intoCcf && (
+                      <Field label="CCF *" htmlFor="p-ccf" error={errors.ccf_id}>
+                        <SearchSelect
+                          id="p-ccf"
+                          value={core.ccf_id}
+                          onChange={(v) => set('ccf_id', v)}
+                          options={ledCcfs.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
+                          placeholder="Choose your CCF"
+                          invalid={!!errors.ccf_id}
+                        />
+                      </Field>
+                    )}
+                    {kind === 'convert' && !intoCcf && (
+                      <>
+                        <Field
+                          label="Stream"
+                          htmlFor="p-stream"
+                          error={errors.stream_id}
+                          hint="They are matched only with CCFs in this stream"
+                        >
+                          <SearchSelect
+                            id="p-stream"
+                            value={core.stream_id}
+                            onChange={(v) => set('stream_id', v)}
+                            options={opts.streams.map((s) => ({ value: s.id, label: s.name }))}
+                            noneLabel="Church-wide"
+                            search="auto"
+                          />
+                        </Field>
+                        <Field label="Date of conversion" htmlFor="p-conv">
+                          <Input id="p-conv" type="date" {...text('conversion_date')} />
+                        </Field>
+                        <Field label="Someone they already know in church" htmlFor="p-conn" className="space-y-1.5 sm:col-span-2">
+                          <Input id="p-conn" placeholder="Name, and how they know them" {...text('existing_connection_note')} />
+                        </Field>
+                      </>
+                    )}
+                    <Field label="Notes" htmlFor="p-notes" className="space-y-1.5 sm:col-span-2">
+                      <Textarea id="p-notes" rows={2} {...text('notes')} />
                     </Field>
                   </>
                 )}
-                <Field label="Notes" htmlFor="p-notes" className="space-y-1.5 sm:col-span-2">
-                  <Textarea id="p-notes" rows={2} {...text('notes')} />
-                </Field>
               </div>
 
-              {questions.length > 0 && (
+              {!limited && questions.length > 0 && (
                 <div className="space-y-2 border-t pt-4">
                   <h3 className="font-medium">Profile questions</h3>
                   <QuestionFields questions={questions} answers={answers} onChange={setAnswers} errors={errors} disabled={saving} aiKeys={aiKeys} />

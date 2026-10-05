@@ -21,9 +21,10 @@ import { StickyHeader } from '@/components/ccg/synago'
 function Converts() {
   const params = useSearchParams()
   const router = useRouter()
-  const { has } = useCcgMe()
-  // A Sheep Seeker sees the converts in their groups (unless a group's page sent them here).
-  const mine = useSeekingRole() === 'seeker' && !params.get('unit')
+  const { me, has } = useCcgMe()
+  // A Sheep Seeking Liaison sees the converts in their CCFs (unless a group's page sent them here);
+  // other Sheep Seekers their stream's.
+  const mine = useSeekingRole() === 'seeker' && !!me?.liaison_ccfs?.length && !params.get('unit')
   const { name } = useConvertScope()
   const view = params.get('view') === 'all' || params.get('new') === '1' ? 'all' : 'milestones'
 

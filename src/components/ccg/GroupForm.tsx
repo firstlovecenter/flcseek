@@ -20,27 +20,38 @@ import { UNIT_PATH } from './structure-types'
 import { StickyHeader, UNIT_LEVEL, groupHref } from './synago'
 
 /**
- * Add or edit a group (campus, stream, CCG or CCF) on its own page, like
- * Synago's church forms. The leader is chosen from members; one without a
- * login is emailed an invitation to set a password.
+ * Add or edit a group (campus, stream, council, CCG or CCF) on its own page,
+ * like Synago's church forms. The leader (a council's Council Admin) is chosen
+ * from members; one without a login is emailed an invitation to set a password.
  */
 
-export type GroupType = 'campus' | 'stream' | 'ccg' | 'ccf'
+export type GroupType = 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
 
 const PARENT: Record<GroupType, { type: GroupType; field: string; label: string; path: string; key: string } | null> = {
   campus: null,
   stream: { type: 'campus', field: 'campus_id', label: 'Campus', path: '/campuses', key: 'campuses' },
-  ccg: { type: 'stream', field: 'stream_id', label: 'Stream', path: '/streams', key: 'streams' },
+  council: { type: 'stream', field: 'stream_id', label: 'Stream', path: '/streams', key: 'streams' },
+  ccg: { type: 'council', field: 'council_id', label: 'Council', path: '/councils', key: 'councils' },
   ccf: { type: 'ccg', field: 'ccg_id', label: 'CCG', path: '/ccgs', key: 'ccgs' },
 }
 // A stream's Sheep Seeking Overseer is appointed on the Sheep Seeking side; its Overseer here.
-const LEADER_LABEL: Record<GroupType, string | null> = { campus: 'Campus Leader', stream: 'Overseer', ccg: 'City Church Governor', ccf: 'CCF Coordinator' }
+const LEADER_LABEL: Record<GroupType, string | null> = {
+  campus: 'Campus Leader',
+  stream: 'Overseer',
+  council: 'Council Admin',
+  ccg: 'City Church Governor',
+  ccf: 'CCF Coordinator',
+}
 const STATUSES: Record<GroupType, Array<{ value: string; label: string }>> = {
   campus: [
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
   ],
   stream: [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+  ],
+  council: [
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
   ],
@@ -67,7 +78,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
   const full = hasGlobal('structure.manage') // otherwise a CCG Governor editing a CCF's details
   const canLead = hasGlobal('roles.manage') && !!LEADER_LABEL[type]
 
-  const [values, setValues] = useState<Values>({ status: 'active', ...(type === 'ccf' ? { capacity: '12' } : {}) })
+  const [values, setValues] = useState<Values>({ status: 'active' })
   const [leader, setLeader] = useState<PickedMember | null>(null)
   const [initialLeader, setInitialLeader] = useState<string | null>(null)
   // A campus, stream or CCG leader need not be in any CCF: pick a member, or add someone new.
@@ -84,8 +95,15 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
 
   useEffect(() => {
     if (!parent) return
-    ccgApi.get<Record<string, Array<{ id: string; name: string; status: string }>>>(parent.path).then((r) => {
-      if (r.ok) setParents((r.data[parent.key] ?? []).filter((p) => p.status !== 'inactive').map((p) => ({ value: p.id, label: p.name })))
+    ccgApi.get<Record<string, Array<{ id: string; name: string; status: string; stream?: { name: string } }>>>(parent.path).then((r) => {
+      if (r.ok) {
+        setParents(
+          (r.data[parent.key] ?? [])
+            .filter((p) => p.status !== 'inactive')
+            // Councils are named per stream: show which.
+            .map((p) => ({ value: p.id, label: p.stream ? `${p.name} (${p.stream.name})` : p.name }))
+        )
+      }
     })
     if (!editing && parentId) set(parent.field, parentId)
   }, [parent, editing, parentId])
@@ -110,12 +128,12 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         name: str(g.name),
         status: str(g.status),
         notes: str(g.notes),
-        capacity: str(g.capacity),
         meeting_day: str(g.meeting_day),
         meeting_time: str(g.meeting_time),
         meeting_location: str(g.meeting_location),
         campus_id: str(g.campus_id),
         stream_id: str(g.stream_id ?? (g.stream as { id?: string } | null)?.id),
+        council_id: str((g.council as { id?: string } | null)?.id),
         ccg_id: str((g.ccg as { id?: string } | null)?.id),
       })
       const l = overview.ok ? overview.data.leaders[0] : null
@@ -132,8 +150,9 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     const local: Record<string, string> = {}
     if (!values.name?.trim()) local.name = 'Enter a name'
     if (full && type === 'ccf' && !values.ccg_id) local.ccg_id = 'Choose its CCG'
-    if (full && type === 'ccg' && !values.stream_id) local.stream_id = 'Choose its stream'
-    if (type === 'ccf' && !(Number(values.capacity) > 0)) local.capacity = 'How many people it can hold'
+    if (full && type === 'council' && !values.stream_id) local.stream_id = 'Choose its stream'
+    // A CCG goes in a council (older CCGs may still sit straight in their stream until moved).
+    if (full && type === 'ccg' && !values.council_id && !(editing && values.stream_id)) local.council_id = 'Choose its council'
     const addingNew = canLead && canAddNewLeader && leaderMode === 'new' && newLeaderStarted
     if (addingNew) {
       if (!newLeader.first_name.trim()) local.leader_first_name = 'Enter their first name'
@@ -149,9 +168,13 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     if (full) {
       body.status = values.status ?? 'active'
       if (parent) body[parent.field] = values[parent.field] ?? null
+      // A CCG not yet in a council stays in its stream.
+      if (type === 'ccg' && !values.council_id) {
+        delete body.council_id
+        body.stream_id = values.stream_id
+      }
     }
     if (type === 'ccf') {
-      body.capacity = Number(values.capacity)
       body.meeting_day = values.meeting_day
       body.meeting_time = txt('meeting_time')
       body.meeting_location = txt('meeting_location')
@@ -213,13 +236,13 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                     <span className="font-medium">{fixedParent.name ?? '…'}</span>
                   </p>
                 ) : parent && full && (
-                  <Field label={`${parent.label}${type === 'ccf' || type === 'ccg' ? ' *' : ''}`} htmlFor="g-parent" error={errors[parent.field]}>
+                  <Field label={`${parent.label}${type === 'ccf' || type === 'ccg' || type === 'council' ? ' *' : ''}`} htmlFor="g-parent" error={errors[parent.field]}>
                     <SearchSelect
                       id="g-parent"
                       value={values[parent.field] ?? null}
                       onChange={(v) => set(parent.field, v)}
                       options={parents}
-                      noneLabel={type === 'ccf' || type === 'ccg' ? `Choose a ${parent.label}` : `No ${parent.label.toLowerCase()} yet`}
+                      noneLabel={type === 'ccf' || type === 'ccg' || type === 'council' ? `Choose a ${parent.label}` : `No ${parent.label.toLowerCase()} yet`}
                       placeholder={`Choose a ${parent.label}`}
                     />
                   </Field>
@@ -298,9 +321,6 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
 
                 {type === 'ccf' && (
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Capacity *" htmlFor="g-cap" error={errors.capacity} hint="Members plus placed converts">
-                      <Input id="g-cap" type="number" min={1} inputMode="numeric" value={values.capacity ?? ''} onChange={(e) => set('capacity', e.target.value)} />
-                    </Field>
                     <Field label="Meeting day" htmlFor="g-day">
                       <NullableSelect
                         id="g-day"

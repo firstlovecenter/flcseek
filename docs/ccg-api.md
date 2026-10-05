@@ -76,7 +76,7 @@ Routes always check a permission against the unit concerned, never a role name. 
 4. If no CCF is eligible, the placement is `held` and the convert becomes `needs_info`.
 
 A CCF is **ineligible** when:
-- it is full;
+- it already has two converts per active member (`convert_limit`);
 - its remaining seats are held by other open proposals (`reserved`);
 - it or its CCG is not active;
 - the ages don't fit: a convert under 18 can only go into a `youth` CCG, and an adult never can.
@@ -134,16 +134,16 @@ Create and edit each level through its own collection:
 | GET | `/ccgs/[id]` | people.view on the CCG | The CCG, its combined `profile`, and `ccfs[]` each with its `profile`. |
 | PATCH / DELETE | `/ccgs/[id]` | structure.manage | DELETE requires it to have no CCFs. |
 | GET | `/ccfs?ccg_id=&stream_id=&with_profile=1` | any (filtered to scope) | |
-| POST | `/ccfs` | structure.manage | `{ ccg_id, code, name, capacity, leader?, meeting_day?, meeting_time?, meeting_location?, meeting_frequency?, status?, notes? }` |
+| POST | `/ccfs` | structure.manage | `{ ccg_id, code, name, leader?, meeting_day?, meeting_time?, meeting_location?, meeting_frequency?, status?, notes? }` |
 | GET | `/ccfs/[id]` | people.view on the CCF | `ccf`, `profile`, `members[]`, `placed_converts[]`, `incoming_proposals[]` |
-| PATCH | `/ccfs/[id]` | structure.manage, or units.edit for details only | With units.edit you can change only name, meeting details, capacity and notes. Capacity can't go below the number of people already in the CCF. |
+| PATCH | `/ccfs/[id]` | structure.manage, or units.edit for details only | With units.edit you can change only name, meeting details and notes. A CCF has no set capacity: its room is two converts per active member. |
 | DELETE | `/ccfs/[id]` | structure.manage | Must be empty. Ends its role assignments and revokes its links. |
 
 `leader` is `{ person_id }` (a member) or `null` to clear it, and needs roles.manage. A leader without a login is sent an invitation; the response includes `leader_invite`.
 
 A **CCF profile** contains:
 - `member_count`, `occupied`, `reserved`, `available_spaces`
-- `capacity_status`: `below_minimum`, `healthy`, `near_capacity` or `full`
+- `capacity_status`: `below_minimum`, `healthy`, `near_capacity` or `full`, measured against the convert limit (two per active member)
 - `health`: `critical`, `needs_attention` or `healthy`
 - `age{source,median,min,max}`, `gender_mix`, `meeting_slot`, `social_mean`
 - `matching_profile[]`: blended with the CCG; this is what the matcher uses
@@ -187,6 +187,7 @@ Fields and rules:
 | PATCH | `/people/[id]` | people.manage | Changes core fields and/or `answers`; details below. |
 | DELETE | `/people/[id]` | people.manage | Soft delete. Ends the person's placements. |
 | POST | `/people/[id]/confirm` | members.confirm | Moves a member from `pending` to `active`. |
+| POST | `/people/[id]/reject` | members.confirm | Turns down a `pending` member: they are removed and never count in the CCF. |
 | POST | `/people/[id]/transfer` | people.manage on the person and on the new CCF | `{ ccf_id, reason }`. Moves a member, or a placed convert, to another CCF (below). |
 | POST | `/people/[id]/invite` | roles.manage (global) | Emails a member who holds a role a new link to set their password. Any earlier link stops working. |
 | DELETE | `/people/[id]/login` | roles.manage (global) | Unlinks a member's login. Refused while they hold any role. |
@@ -217,7 +218,7 @@ Phone numbers are stored in normalised form: `0XXXXXXXXX` becomes `233XXXXXXXXX`
 |---|---|---|---|
 | GET | `/placements?status=proposed\|held\|active\|ended\|superseded&ccf_id=&ccg_id=` | placements.view | The queue is `status=proposed`, oldest first. Item fields below. |
 | GET | `/placements/[id]` | placements.view | |
-| POST | `/placements/[id]/approve` | placements.approve | Body `{ override_reason? }`. Details below. |
+| POST | `/placements/[id]/approve` | placements.approve | No body. Details below. |
 | POST | `/placements/bulk-approve` | placements.approve | `{ placement_ids[] }` returns `{ approved, failed, results[{id, ok, error?, code?}] }`. |
 | POST | `/placements/[id]/remap` | placements.approve (on the target CCF) | `{ ccf_id, reason }`. Works on `proposed` or `held` placements. |
 | POST | `/placements/[id]/hold` | placements.approve | `{ reason }`. The convert becomes `needs_info`. |
@@ -234,8 +235,7 @@ Phone numbers are stored in normalised form: `0XXXXXXXXX` becomes `233XXXXXXXXX`
 
 **Approving:**
 - Approval locks the CCF, so two approvals can never take its last seat.
-- If the CCF filled up after the proposal was made, approval returns `409 CONFLICT` with `details.reason = 'ccf_full'`. Rescore to get a new proposal.
-- Placing someone over capacity needs `config.allowFullOverride` to be on and an `override_reason`.
+- If the CCF reached its convert limit after the proposal was made, approval returns `409 CONFLICT` with `details.reason = 'convert_limit'`. Rescore to get a new proposal.
 
 ### Milestones, attendance and check-ins
 
@@ -248,7 +248,7 @@ The milestones come from the CCG Manual (migration 022) and are stored in the da
 
 **Graduation.** When a convert reaches every active milestone, they become an active **member** of their CCF automatically. Their placement ends with `outcome: 'graduated'`. The responses from `PUT /placements/[id]/progress` and `PUT /placements/[id]/checklist` include `graduated: true`, and `PUT /attendance` lists the graduates in `graduated[]`. Placements also record `outcome: 'made_member'` (made a member early, by hand) or `'ended'`.
 
-**Transfers.** Members and placed converts can be moved to another CCF, the smallest unit anyone belongs to; moving to another CCG means choosing one of its CCFs. The move is checked like an approval: capacity, the age rule, and the CCF and CCG being active. A convert keeps their placement, milestones and assessment year. If the new CCF is in another stream, a convert who has a stream moves to that stream too. Converts still awaiting placement are moved with *Place elsewhere* on the approvals screen instead. Every move is recorded (`transfers[]` on `GET /people/[id]`). Changing a member's `ccf_id` through PATCH is refused, so that every move goes through transfer.
+**Transfers.** Members and placed converts can be moved to another CCF, the smallest unit anyone belongs to; moving to another CCG means choosing one of its CCFs. The move is checked like an approval: the convert limit (for converts), the age rule, and the CCF and CCG being active. A convert keeps their placement, milestones and assessment year. If the new CCF is in another stream, a convert who has a stream moves to that stream too. Converts still awaiting placement are moved with *Place elsewhere* on the approvals screen instead. Every move is recorded (`transfers[]` on `GET /people/[id]`). Changing a member's `ccf_id` through PATCH is refused, so that every move goes through transfer.
 
 **Every role is held by a member.** Roles are given to an active member (`person_id`), never to a bare login. The first time a member gets a role:
 1. A login is created with their **email** as the sign-in name, and no usable password. If the email is missing, the request is refused with `reason: 'email_required'`. If a login (for example a Seek account) already uses that email, it is linked instead.
@@ -426,7 +426,7 @@ The central team and superadmins have both, church-wide or per stream. The clien
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| GET / PUT | `/settings` | any / settings.manage | The matching config: `weights` (must total 100), `ageBands`, `location`, `sameAnswer`, `availability`, `connection`, `targetShare`, `similarThreshold`, `highTraitThreshold`, `lowTraitThreshold`, `smoothing`, `minMembers`, `allowFullOverride`, `reasonThresholds`. GET also returns `defaults` and `factor_labels`. |
+| GET / PUT | `/settings` | any / settings.manage | The matching config: `weights` (must total 100), `ageBands`, `location`, `sameAnswer`, `availability`, `connection`, `targetShare`, `similarThreshold`, `highTraitThreshold`, `lowTraitThreshold`, `smoothing`, `minMembers`, `reasonThresholds`. GET also returns `defaults` and `factor_labels`. |
 | GET / POST | `/roles` | any / roles.manage | GET includes the permission catalogue. POST takes `{ key, name, scope_level, permissions[], description?, sort_order? }`. |
 | PATCH | `/roles/[key]` | roles.manage | Changes name, permissions or active. Refused if it would leave nobody able to manage roles; a Seek superadmin always can. |
 | GET / POST | `/assignments?user_id=&role_key=&stream_id=&ccg_id=&ccf_id=&include_ended=1` | roles.manage | POST takes `{ person_id, role_key, campus_id? \| stream_id? \| ccg_id? \| ccf_id?, starts_on? }`. The unit must match the role's level. The response includes `invite` when a login was created. |

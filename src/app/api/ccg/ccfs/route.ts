@@ -66,7 +66,6 @@ export const POST = withCcg<z.infer<typeof ccfSchema>>(
         meetingDay: body.meeting_day ?? null,
         meetingTime: body.meeting_time ?? null,
         meetingFrequency: body.meeting_frequency,
-        capacity: body.capacity,
         status: body.status,
         notes: body.notes ?? null,
         createdBy: user.id,

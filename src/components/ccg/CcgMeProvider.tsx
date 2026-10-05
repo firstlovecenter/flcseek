@@ -13,6 +13,8 @@ export interface CcgMe {
     /** A campus role also lists the campus's streams (a Campus Leader chooses one). */
     unit: { type: string; id: string; name: string; streams?: Array<{ id: string; name: string }> } | null
   }>
+  /** The CCFs this Sheep Seeker is liaison for. */
+  liaison_ccfs?: Array<{ id: string; name: string }>
   permissions: Permission[]
   global_permissions: Permission[]
 }

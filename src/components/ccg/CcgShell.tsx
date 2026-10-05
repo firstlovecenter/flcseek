@@ -27,7 +27,6 @@ import {
   GraduationCap,
   Trophy,
   UserCog,
-  UsersRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Permission } from '@/lib/ccg/permissions'
@@ -76,7 +75,6 @@ const PRIMARY: NavItem[] = [
 const SECONDARY: NavItem[] = [
   { href: '/ccg/choose', label: 'Choose stream', icon: Building2, accent: 'text-primary', portals: BOTH, campusOnly: true },
   { href: '/ccg/groups', label: 'Groups', icon: Network, accent: 'text-churches', portals: CCG },
-  { href: '/ccg/seeking-groups', label: 'Seeking groups', icon: UsersRound, perm: 'people.view', accent: 'text-members', portals: SEEKING },
   { href: '/ccg/seekers', label: 'Sheep Seekers', icon: HeartHandshake, perm: 'reports.view', accent: 'text-members', portals: SEEKING },
   { href: '/ccg/activities', label: 'CCG activities', icon: HandHeart, perm: ['activities.record', 'reports.view'], accent: 'text-campaigns', portals: CCG },
   { href: '/ccg/milestones', label: 'Milestones', icon: Trophy, perm: 'settings.manage', accent: 'text-success', portals: BOTH },
@@ -256,7 +254,7 @@ function AccountMenu({ open, mobile }: { open: boolean; mobile?: boolean }) {
         {bothApps && (
           <DropdownMenuItem onSelect={() => router.push('/apps')}>
             <LayoutGrid className="size-4" />
-            Switch app
+            Switch portal
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

@@ -1,11 +1,12 @@
 import { success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { invalid, notFound } from '@/lib/ccg/errors'
-import { personUpdateSchema, type PersonUpdate } from '@/lib/ccg/schemas'
+import { PERSON_EDIT_FIELDS, personUpdateSchema, type PersonUpdate } from '@/lib/ccg/schemas'
 import { iso, num } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { canEditDetails, canEditPerson, canOnPerson, isPlaced, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
 import { loadAnswerNotes, loadAnswers, loadQuestionBank } from '@/lib/ccg/server/questions'
+import { OWNER_GRANT } from '@/lib/ccg/server/scope-loader'
 
 export const dynamic = 'force-dynamic'
 type P = { id: string }
@@ -65,7 +66,7 @@ export const GET = withCcg<undefined, P>({ permission: 'people.view' }, async ({
 
 /**
  * PATCH /api/ccg/people/[id] — core fields and/or answers (keyed by question
- * key). A waiting convert whose answers change is re-matched automatically.
+ * key). Only a superadmin may change more than names and phone (PERSON_EDIT_FIELDS). A waiting convert whose answers change is re-matched automatically.
  * Moving a member to another CCF needs people.manage on both CCFs.
  */
 export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, async ({ user, scope, body, params }) => {
@@ -78,6 +79,11 @@ export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, as
         ? 'A convert’s details cannot be changed once they are placed'
         : 'Only Sheep Seekers edit converts in their care'
   )
+  // Apart from a superadmin, people's names and phone number are all anyone may change.
+  if (!scope.roleKeys.includes(OWNER_GRANT.roleKey)) {
+    const other = Object.keys(body).filter((k) => body[k as keyof PersonUpdate] !== undefined && !(PERSON_EDIT_FIELDS as readonly string[]).includes(k))
+    ensure(other.length === 0, 'Only names and phone numbers can be changed. Ask a superadmin to change anything else.')
+  }
   if (p.kind === 'member' && body.ccf_id && body.ccf_id !== p.ccfId) {
     throw invalid('Use transfer to move a member to another CCF, so the move is recorded')
   }
@@ -85,13 +91,6 @@ export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, as
     ensure(
       scope.can('people.manage') || (!!body.stream_id && scope.sheepSeeking().canOnStream('people.manage', body.stream_id)),
       'You can only move converts into your stream'
-    )
-  }
-  // Converts are put in sheep seeking groups by the stream's Sheep Seeking Overseer (or an admin).
-  if (body.seeking_group_id !== undefined && body.seeking_group_id !== p.seekingGroupId) {
-    ensure(
-      scope.can('seekers.manage') || scope.canOnStream('seekers.manage', body.stream_id ?? p.streamId),
-      'Only the stream’s Sheep Seeking Overseer can move converts between groups'
     )
   }
   const { proposal } = await updatePerson(p.id, body, { actorId: user.id, source: 'staff' })

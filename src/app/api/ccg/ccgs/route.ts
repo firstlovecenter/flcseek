@@ -1,24 +1,26 @@
 import type { z } from 'zod'
 import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
-import { ccgSchema } from '@/lib/ccg/schemas'
+import { ccgCreateSchema } from '@/lib/ccg/schemas'
 import { inFilter } from '@/lib/ccg/scope'
 import { logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
-import { assertStreamExists, ccgInclude, createWithCode, serializeCcg } from '@/lib/ccg/server/units'
+import { ccgInclude, ccgPlace, createWithCode, serializeCcg } from '@/lib/ccg/server/units'
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/ccgs?stream_id= — CCGs the viewer leads (City Church Groups side), with CCF counts. */
+/** GET /api/ccg/ccgs?stream_id=&council_id= — CCGs the viewer leads (City Church Groups side), with CCF counts. */
 export const GET = withCcg({}, async ({ scope, query }) => {
   const visible = scope.leadership().ccgIds('people.view')
   const streamId = query.get('stream_id')
+  const councilId = query.get('council_id')
   const ccgs = await prisma.ccgGroup.findMany({
     where: {
       deletedAt: null,
       ...(inFilter(visible) ? { id: inFilter(visible) } : {}),
       ...(streamId ? { streamId } : {}),
+      ...(councilId ? { councilId } : {}),
     },
     include: { ...ccgInclude, _count: { select: { families: { where: { deletedAt: null } } } } },
     orderBy: { name: 'asc' },
@@ -26,16 +28,17 @@ export const GET = withCcg({}, async ({ scope, query }) => {
   return success({ ccgs: ccgs.map((g) => serializeCcg(g, { ccf_count: g._count.families })) })
 })
 
-/** POST /api/ccg/ccgs (structure.manage) */
-export const POST = withCcg<z.infer<typeof ccgSchema>>(
-  { permission: 'structure.manage', schema: ccgSchema },
+/** POST /api/ccg/ccgs (structure.manage) — into a council (and its stream), or a stream with no council yet. */
+export const POST = withCcg<z.infer<typeof ccgCreateSchema>>(
+  { permission: 'structure.manage', schema: ccgCreateSchema },
   async ({ request, user, scope, body }) => {
     ensure(scope.can('structure.manage'))
     if (body.leader) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
-    await assertStreamExists(body.stream_id)
+    const place = await ccgPlace(body)
     const g = await createWithCode('ccg', body.code, (code) => prisma.ccgGroup.create({
       data: {
-        streamId: body.stream_id,
+        streamId: place.streamId!,
+        councilId: place.councilId,
         code,
         name: body.name,
         status: body.status,

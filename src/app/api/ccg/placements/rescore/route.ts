@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/ccg/placements/rescore — re-match every waiting convert (or the
- * given ones), e.g. after a CCF opens, capacity changes or settings change.
+ * given ones), e.g. after a CCF opens, gains members or settings change.
  * Stream-level approvers rescore the converts registered in their streams.
  */
 export const POST = withCcg<z.infer<typeof rescoreSchema>>(

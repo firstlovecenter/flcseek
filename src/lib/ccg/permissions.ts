@@ -4,8 +4,8 @@
  * role is just a new row.
  */
 export const PERMISSIONS = {
-  'structure.manage': 'Create, edit and remove campuses, streams, CCGs and CCFs',
-  'units.edit': 'Edit CCFs (details, meeting time, capacity) in scope',
+  'structure.manage': 'Create, edit and remove campuses, streams, councils, CCGs and CCFs',
+  'units.edit': 'Edit CCFs (details, meeting time) in scope',
   'people.view': 'See members and converts in scope',
   'people.manage': 'Add members and converts, and edit converts and their answers, in scope',
   'members.confirm': 'Confirm self-registered members in scope',
@@ -21,7 +21,7 @@ export const PERMISSIONS = {
   'reports.view': 'See dashboards and reports for units in scope',
   'settings.manage': 'Matching settings, question bank, zones and milestones',
   'roles.manage': 'Create roles and assign them to users',
-  'seekers.manage': 'Appoint and stand down Sheep Seekers, and assign converts to them, in scope',
+  'seekers.manage': 'Appoint and stand down Sheep Seekers, and assign them CCFs as liaisons, in scope',
 } as const
 
 export type Permission = keyof typeof PERMISSIONS
@@ -31,5 +31,5 @@ export function isPermission(v: unknown): v is Permission {
   return typeof v === 'string' && v in PERMISSIONS
 }
 
-export const SCOPE_LEVELS = ['global', 'campus', 'stream', 'ccg', 'ccf'] as const
+export const SCOPE_LEVELS = ['global', 'campus', 'stream', 'council', 'ccg', 'ccf'] as const
 export type ScopeLevel = (typeof SCOPE_LEVELS)[number]

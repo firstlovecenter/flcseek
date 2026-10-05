@@ -95,6 +95,30 @@ describe('resolveCcgScope', () => {
     expect(scope({ ...grant('ccf_coordinator', 'F1'), permissions: ['not.a.permission'] }).anywhere.size).toBe(0)
   })
 
+  it('Council Admin: the council’s CCGs and their CCFs, members included; not the rest of the stream', () => {
+    // Stream S1 → council K1 → G1; G2 has no council.
+    const withCouncils: Hierarchy = {
+      ...hierarchy,
+      ccgs: [
+        { id: 'G1', streamId: 'S1', councilId: 'K1' },
+        { id: 'G2', streamId: 'S1', councilId: null },
+        { id: 'G3', streamId: 'S9', councilId: null },
+      ],
+      councils: [{ id: 'K1', streamId: 'S1' }],
+    }
+    const admin = { roleKey: 'council_admin', scopeLevel: 'council' as const, permissions: ['people.view', 'members.edit'], councilId: 'K1', ccgId: null, ccfId: null }
+    const s = resolveCcgScope([admin], withCouncils)
+    expect(s.canOnCouncil('people.view', 'K1')).toBe(true)
+    expect(s.ccgIds('people.view')).toEqual(['G1'])
+    expect(s.ccfIds('people.view')).toEqual(['F1', 'F2'])
+    expect(s.canOnMembersOf('members.edit', 'F1')).toBe(true)
+    expect(s.canOnCcf('people.view', 'F3')).toBe(false) // G2: same stream, no council
+    expect(s.canOnStream('people.view', 'S1')).toBe(false)
+    // A stream-level role covers the stream's councils.
+    const overseer = resolveCcgScope([grant('overseer', 'S1')], withCouncils)
+    expect(overseer.councilIds('people.view')).toEqual(['K1'])
+  })
+
   it('a stream-level role covers every CCG and CCF in the stream', () => {
     const s = resolveCcgScope(
       [{ roleKey: 'stream_lead', scopeLevel: 'stream', permissions: ['people.view'], streamId: 'S1', ccgId: null, ccfId: null }],
@@ -156,7 +180,7 @@ describe('campuses and sheep seeking roles', () => {
   })
 
   it('Sheep seeking roles reach a stream’s converts but not its CCF members', () => {
-    const s = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view', 'milestones.update', 'placements.approve'])], tree, { seekingGroupIds: ['SG1'] })
+    const s = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view', 'milestones.update', 'placements.approve'])], tree, { liaisonCcfIds: ['F1'] })
     // CCGs and CCFs are not theirs: they only place converts into the stream's CCFs.
     expect(s.canOnCcf('people.view', 'F1')).toBe(false)
     expect(s.canOnCcg('people.view', 'G1')).toBe(false)
@@ -166,10 +190,14 @@ describe('campuses and sheep seeking roles', () => {
     expect(s.canOnStream('people.view', 'S1')).toBe(true) // the stream's converts
     expect(s.canOnMembersOf('people.view', 'F1')).toBe(false)
     expect(s.memberCcfIds('people.view')).toEqual([])
-    expect(s.seekingGroupIds).toEqual(['SG1'])
-    expect(s.canOnSeekingGroup('milestones.update', 'SG1')).toBe(true) // converts in their groups
-    expect(s.canOnSeekingGroup('milestones.update', 'SG2')).toBe(false)
-    expect(s.canOnSeekingGroup('structure.manage', 'SG1')).toBe(false)
+    // As liaison for F1: the converts placed there, with their Sheep Seeker permissions; still not its members.
+    expect(s.liaisonCcfIds).toEqual(['F1'])
+    expect(s.canAsLiaison('milestones.update', 'F1')).toBe(true)
+    expect(s.canAsLiaison('milestones.update', 'F2')).toBe(false)
+    expect(s.canAsLiaison('structure.manage', 'F1')).toBe(false)
+    expect(s.canOnMembersOf('people.view', 'F1')).toBe(false)
+    // Liaison CCFs mean nothing without the Sheep Seeker role.
+    expect(resolveCcgScope([grant('ccf_coordinator', 'F2')], tree, { liaisonCcfIds: ['F1'] }).liaisonCcfIds).toEqual([])
     // Also a CCF Coordinator: members of their own CCF only.
     const both = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view']), grant('ccf_coordinator', 'F2')], tree)
     expect(both.canOnMembersOf('people.view', 'F2')).toBe(true)

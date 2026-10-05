@@ -18,7 +18,7 @@ export const GET = withCcg({ permission: 'reports.view' }, async ({ scope, query
   const id = query.get('unit_id')
   const month = parseMonth(query.get('month'))
   if (!type || !id) return success(await dashboard(scope, null, month))
-  if (!isUnitType(type)) throw invalid('unit_type must be campus, stream, ccg or ccf')
+  if (!isUnitType(type)) throw invalid('unit_type must be campus, stream, council, ccg or ccf')
   ensure(canSeeUnit(scope, type, id), 'You can only view units in your scope')
   return success(await dashboard(scope, { type, id }, month))
 })
