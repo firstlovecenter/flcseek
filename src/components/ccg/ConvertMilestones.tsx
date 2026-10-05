@@ -23,6 +23,7 @@ import { useCcgFocus } from './CcgFocusProvider'
 import { ConvertModal } from './ConvertModal'
 import { ASSESSMENT, STAGE_STATE, type MilestoneDef, type ProgressRow, type Stage } from './progress-types'
 import { Initials } from './synago'
+import { phoneSearchDigits } from '@/lib/ccg/phone-search'
 
 /**
  * Converts against the CCG Manual's milestones for their assessment year,
@@ -172,7 +173,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase()
-    const digits = term.replace(/\D/g, '')
+    const digits = phoneSearchDigits(term)
     return [...(data?.rows ?? [])]
       .filter((r) => !term || r.person.full_name.toLowerCase().includes(term) || (!!digits && !!r.person.phone?.includes(digits)))
       .sort((a, b) => b.overdue - a.overdue || a.assessment.days_left - b.assessment.days_left || a.person.full_name.localeCompare(b.person.full_name))
@@ -234,7 +235,14 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
             />
           </div>
           <label className="flex shrink-0 items-center gap-2 text-sm">
-            <Switch checked={overdueOnly} onCheckedChange={setOverdueOnly} />
+            <Switch
+              checked={overdueOnly}
+              onCheckedChange={(v) => {
+                setOverdueOnly(v)
+                setPage(1)
+                setMobileShown(30)
+              }}
+            />
             Overdue only
           </label>
         </div>

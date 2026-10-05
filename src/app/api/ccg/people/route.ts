@@ -3,6 +3,7 @@ import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { personCreateSchema, type PersonCreate } from '@/lib/ccg/schemas'
 import { invalid, notFound } from '@/lib/ccg/errors'
+import { phoneSearchDigits } from '@/lib/ccg/phone-search'
 import type { CcgScope } from '@/lib/ccg/scope'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { proposeFor } from '@/lib/ccg/server/mapping'
@@ -59,7 +60,7 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
         ? {
             OR: [
               { fullName: { contains: search, mode: 'insensitive' } },
-              { phone: { contains: search.replace(/\D/g, '') || search } },
+              ...(phoneSearchDigits(search) ? [{ phone: { contains: phoneSearchDigits(search) } }] : []),
               { refCode: { contains: search, mode: 'insensitive' } },
             ],
           }

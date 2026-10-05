@@ -94,7 +94,10 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
 
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<string | null>(params.get('status'))
+  const urlStatus = params.get('status')
+  const [status, setStatus] = useState<string | null>(urlStatus)
+  // A link to this page with another ?status= (e.g. "Members to confirm") applies it.
+  useEffect(() => setStatus(urlStatus && STATUSES[kind].includes(urlStatus) ? urlStatus : null), [urlStatus, kind])
   // Sheep Seeking Liaisons: only the converts placed in their CCFs (?seeker=me).
   const isLiaison = kind === 'convert' && !!me?.liaison_ccfs?.length
   // With the Sheep Seeker role in focus, a liaison starts from the converts in their CCFs.
