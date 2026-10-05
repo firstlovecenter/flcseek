@@ -32,3 +32,14 @@ describe('normalizePhone', () => {
     expect(phoneProblem(undefined)).toBeNull()
   })
 })
+
+describe('phoneSearchDigits', () => {
+  it('a number searched the local way matches how it is stored', async () => {
+    const { phoneSearchDigits } = await import('@/lib/ccg/phone-search')
+    const stored = '233241234567'
+    for (const t of ['0241234567', '024 123', '+233 24 123 4567', '233241234567', '00233241234567', '+233 (0)24 123']) {
+      expect(stored.includes(phoneSearchDigits(t)), t).toBe(true)
+    }
+    expect(phoneSearchDigits('Mandy')).toBe('')
+  })
+})

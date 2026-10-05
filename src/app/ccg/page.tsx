@@ -282,9 +282,12 @@ export default function CcgHomePage() {
                     </div>
                   </div>
                   {(d?.members_pending_confirmation ?? 0) > 0 && (
-                    <Badge variant="warning" className="rounded-full">
-                      {d!.members_pending_confirmation} member{d!.members_pending_confirmation === 1 ? '' : 's'} to confirm
-                    </Badge>
+                    <Link href="/ccg/members?status=pending" className="self-start">
+                      <Badge variant="warning" className="rounded-full hover:opacity-90">
+                        {d!.members_pending_confirmation} member{d!.members_pending_confirmation === 1 ? '' : 's'} to confirm
+                        <ChevronRight className="size-3" />
+                      </Badge>
+                    </Link>
                   )}
                   {focus.id && focus.type !== 'global' && (
                     <>

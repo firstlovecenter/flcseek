@@ -186,7 +186,7 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
         <section>
           <SectionLabel>Details</SectionLabel>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            <DetailTile loading={!s} heading="Members" value={s?.members} href={`/ccg/members?${scope}`} />
+            <DetailTile loading={!s} heading="Members" value={s?.members} href={`/ccg/members?${scope}&status=active`} />
             <DetailTile loading={!s} heading="Converts placed" value={s?.placed_converts} href={`/ccg/converts?${scope}`} />
             <DetailTile
               loading={!s}
@@ -196,7 +196,7 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
               href={`/ccg/converts?${scope}`}
             />
             <DetailTile loading={!s} heading="Became members" value={s?.graduated} tone={s && s.graduated > 0 ? 'success' : undefined} />
-            {s && s.pending_members > 0 && <DetailTile heading="Members to confirm" value={s.pending_members} tone="warning" href={`/ccg/members?${scope}`} />}
+            {s && s.pending_members > 0 && <DetailTile heading="Members to confirm" value={s.pending_members} tone="warning" href={`/ccg/members?${scope}&status=pending`} />}
             {s && s.awaiting_approval > 0 && <DetailTile heading="Awaiting approval" value={s.awaiting_approval} href="/ccg/approvals" />}
             {s?.ccf_count !== null && s?.ccf_count !== undefined && <DetailTile heading="CCFs" value={s.ccf_count} />}
             {type === 'ccf' && u && (
