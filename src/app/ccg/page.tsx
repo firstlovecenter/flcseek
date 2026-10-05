@@ -64,6 +64,8 @@ export default function CcgHomePage() {
   // With the Sheep Seeker role in focus, home is the stream's converts against their milestones (as in Seek).
   const seekingRole = useSeekingRole()
   const seeker = seekingRole !== null
+  // A Sheep Seeking Liaison follows the converts in their CCFs; other Sheep Seekers, their stream's.
+  const liaison = seekingRole === 'seeker' && !!me?.liaison_ccfs?.length
   // A Campus Leader or Stream Leader in focus: a month, then (a campus) a stream, then its milestones board.
   const leader = useLeaderView()
 
@@ -147,7 +149,7 @@ export default function CcgHomePage() {
         <motion.div variants={fadeUp} className="mt-8 space-y-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-bold tracking-tight text-foreground">
-              {seekingRole === 'seeker' ? 'My' : focus?.name} <span className="text-members">Converts</span>
+              {liaison ? 'My' : focus?.name} <span className="text-members">Converts</span>
             </h2>
             {has('people.manage') && (
               <Button variant="outline" className="h-10 gap-1.5" asChild>
@@ -159,7 +161,7 @@ export default function CcgHomePage() {
             )}
           </div>
           <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
-            <ConvertMilestones mine={seekingRole === 'seeker'} />
+            <ConvertMilestones mine={liaison} />
           </Suspense>
           {seekingRole === 'seeker' && <SeekerHome />}
         </motion.div>

@@ -31,7 +31,6 @@ interface UnitRef {
   id: string
   code: string
   name: string
-  capacity: number
   ccg: { id: string; code: string; name: string }
 }
 
@@ -45,7 +44,6 @@ interface Scored {
   reasons: string[]
   cautions: string[]
   available_spaces: number
-  capacity: number
   member_count: number
 }
 
@@ -301,7 +299,7 @@ export default function CcgApprovalsPage() {
     const res = await ccgApi.post(`/placements/${p.id}/approve`)
     setBusy(null)
     if (!res.ok) {
-      message.error(res.error.details?.reason === 'ccf_full' ? `${p.proposed_ccf?.name} is now full. Rescore to get a new proposal.` : res.error.message)
+      message.error(res.error.message)
       return
     }
     message.success(`${p.person.full_name} placed in ${p.proposed_ccf?.name}`)

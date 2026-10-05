@@ -34,7 +34,7 @@ const STATUSES: Record<Kind, string[]> = {
   convert: ['new', 'proposed', 'needs_info', 'placed', 'integrated', 'inactive'],
   member: ['pending', 'active', 'inactive'],
 }
-const UNIT_PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', stream: 'stream_id' }
+const UNIT_PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id' }
 
 function subtitle(p: PersonDTO): string {
   if (p.kind === 'member') return [p.ccf?.name, p.login ? 'Leader' : null].filter(Boolean).join(' · ') || '—'
@@ -94,11 +94,11 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<string | null>(params.get('status'))
-  // Sheep Seekers: only the converts they brought (?seeker=me).
-  const isSeeker = kind === 'convert' && !!me?.roles.some((r) => r.role.key === 'sheep_seeker')
-  // With the Sheep Seeker role in focus, start from the converts in their groups.
+  // Sheep Seeking Liaisons: only the converts placed in their CCFs (?seeker=me).
+  const isLiaison = kind === 'convert' && !!me?.liaison_ccfs?.length
+  // With the Sheep Seeker role in focus, a liaison starts from the converts in their CCFs.
   const seekingRole = useSeekingRole()
-  const [mine, setMine] = useState(params.get('seeker') === 'me' || (seekingRole === 'seeker' && !params.get('unit') && !params.get('seeker')))
+  const [mine, setMine] = useState(params.get('seeker') === 'me' || (isLiaison && seekingRole === 'seeker' && !params.get('unit') && !params.get('seeker')))
   // One seeker's converts (from the Sheep Seekers report).
   const seekerId = params.get('seeker') !== 'me' ? params.get('seeker') : null
   const [gender, setGender] = useState<string | null>(null)
@@ -228,9 +228,9 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
             <span />
           )}
           <div className="ml-auto flex items-center gap-1">
-            {isSeeker && (
+            {isLiaison && (
               <Button variant={mine ? 'secondary' : 'ghost'} className="h-11" aria-pressed={mine} onClick={() => setMine((m) => !m)}>
-                My converts
+                My CCFs
               </Button>
             )}
             <Button variant="ghost" className="h-11 gap-1.5" onClick={download} disabled={downloading || !rows?.length} aria-label={`Download ${noun.toLowerCase()} list`}>

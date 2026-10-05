@@ -133,10 +133,10 @@ d('CCG backend against Postgres', () => {
     // within their stream, which keeps CCFs left over from earlier runs out of these tests.
     ids.stream = (await prisma.ccgStream.create({ data: { code: `S${run}`, name: 'Test stream' } })).id
     ids.ccg = (await prisma.ccgGroup.create({ data: { code: `G${run}`, name: 'Test CCG', streamId: ids.stream } })).id
-    const ccf = (code: string, capacity = 10) =>
-      prisma.ccgFamily.create({ data: { ccgId: ids.ccg, code: `${code}${run}`, name: `CCF ${code}`, meetingDay: 'Monday', meetingTime: '19:00', capacity } })
+    const ccf = (code: string) =>
+      prisma.ccgFamily.create({ data: { ccgId: ids.ccg, code: `${code}${run}`, name: `CCF ${code}`, meetingDay: 'Monday', meetingTime: '19:00' } })
     ids.football = (await ccf('FB')).id
-    ids.music = (await ccf('MU', 20)).id
+    ids.music = (await ccf('MU')).id
 
     // Members shape each CCF's profile.
     const member = (ccfId: string, interests: string[]) =>
@@ -229,11 +229,11 @@ d('CCG backend against Postgres', () => {
     expect(p.finalCcfId).toBe(ids.music)
   }, T)
 
-  it('two approvals racing for the last seat: exactly one wins', async () => {
+  it('three approvals racing for two seats: exactly two win', async () => {
     const tiny = await m.prisma.ccgFamily.create({
-      data: { ccgId: ids.ccg, code: `TN${run}`, name: 'Tiny CCF', meetingDay: 'Monday', meetingTime: '19:00', capacity: 2 },
+      data: { ccgId: ids.ccg, code: `TN${run}`, name: 'Tiny CCF', meetingDay: 'Monday', meetingTime: '19:00' },
     })
-    // One member (so converts are allowed) and one seat left.
+    // One member, so room for two converts.
     await m.people.createPerson({
       kind: 'member',
       core: { first_name: 'Tiny', last_name: `Member ${run}`, ccf_id: tiny.id, date_of_birth: '1997-01-01' },
@@ -243,18 +243,20 @@ d('CCG backend against Postgres', () => {
     })
     const a = await convertFor({ interests: ['cooking'] })
     const b = await convertFor({ interests: ['cooking'] })
-    // Force both proposals onto the one-seat CCF.
-    for (const c of [a, b]) {
+    const c3 = await convertFor({ interests: ['cooking'] })
+    // Force all three proposals onto the two-seat CCF.
+    for (const c of [a, b, c3]) {
       await m.prisma.ccgPlacement.update({ where: { id: c.proposal!.placement.id }, data: { proposedCcfId: tiny.id } })
     }
     const results = await Promise.allSettled([
       m.placements.approvePlacement(a.proposal!.placement.id, ids.admin),
       m.placements.approvePlacement(b.proposal!.placement.id, ids.admin),
+      m.placements.approvePlacement(c3.proposal!.placement.id, ids.admin),
     ])
-    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(2)
     const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult
-    expect(String(rejected.reason.message)).toMatch(/full/)
-    expect(await m.prisma.ccgPlacement.count({ where: { finalCcfId: tiny.id, status: 'active' } })).toBe(1)
+    expect(String(rejected.reason.message)).toMatch(/at most 2 converts/)
+    expect(await m.prisma.ccgPlacement.count({ where: { finalCcfId: tiny.id, status: 'active' } })).toBe(2)
   }, T)
 
   it('member self-registration link: pending until confirmed, idempotent, revocable', async () => {
@@ -561,29 +563,20 @@ d('CCG backend against Postgres', () => {
       })
     ).rejects.toThrow(/Sheep Seeker/)
 
-    // Their converts are those in their sheep seeking groups: a group of the stream, the seeker assigned to it,
-    // and the converts put in it (a convert they register goes straight into their only group).
-    const sg = await import('@/lib/ccg/server/seeking-groups')
-    const ownerScope = await m.scopeLoader.loadScope(ids.admin)
-    const group = await sg.createSeekingGroup(ownerScope, { stream_id: stream.id, name: `Group ${run}` }, ids.admin)
-    await sg.addGroupSeeker(ownerScope, group.id, login.id, ids.admin)
-    await sg.addGroupConverts(ownerScope, group.id, [mine!.id, staffRegistered.person.id], ids.admin)
-    const third = await m.people.createPerson({
-      kind: 'convert',
-      core: { first_name: 'Grouped', last_name: `Convert ${run}`, phone: testPhone(), stream_id: stream.id },
-      answers: {},
-      source: 'staff',
-      actorId: login.id,
-    })
-    expect(third.person.seekingGroupId).toBe(group.id)
-    await m.people.removePerson(third.person.id, ids.admin)
-    await expect(sg.addGroupSeeker(ownerScope, group.id, ids.coord, ids.admin)).rejects.toThrow(/Sheep Seekers of this stream/)
+    // Converts belong to the stream, not to a Sheep Seeker: whoever registered them, every Sheep Seeker
+    // of the stream reaches them. A liaison's CCFs are the stream's own.
+    expect(m.people.canOnPerson(scope, 'people.manage', (await prisma.ccgPerson.findUniqueOrThrow({ where: { id: byAdmin.person.id }, include: m.people.personInclude })))).toBe(true)
+    const assignment = await prisma.ccgRoleAssignment.findFirstOrThrow({ where: { userId: login.id, roleKey: 'sheep_seeker', streamId: stream.id, endsOn: null } })
+    await expect(m.seekers.setLiaisonCcfs(stream.id, assignment.id, [randomUUID()], ids.admin)).rejects.toThrow(/this stream/)
 
-    // Their home screen, and the stream's report by week and month.
+    // Their home screen (the stream's registrations), and the stream's report by week and month.
     const home = await m.seekers.seekerHome(login.id)
     expect(home?.seeker.person_id).toBe(seeker.id)
-    expect(home?.counts.registered_this_week).toBe(2)
-    expect(home?.counts.awaiting_approval).toBe(2)
+    expect(home?.liaison_ccfs).toEqual([])
+    expect(home?.counts.registered_this_week).toBeGreaterThanOrEqual(3) // theirs and the admin's
+    expect(home?.counts.awaiting_approval).toBe(
+      await prisma.ccgPerson.count({ where: { kind: 'convert', streamId: stream.id, status: 'proposed', deletedAt: null } })
+    )
     expect(await m.seekers.seekerHome(ids.admin)).toBeNull()
     const adminScope = await m.scopeLoader.loadScope(ids.admin)
     const report = await m.seekers.seekerReport(adminScope, { streamId: stream.id, period: 'week', offset: 0 })
@@ -714,22 +707,22 @@ d('CCG backend against Postgres', () => {
     const roles = await prisma.ccgRoleAssignment.findMany({ where: { userId: login.id, roleKey: 'sheep_seeker', endsOn: null } })
     expect(roles.map((r) => r.streamId).sort()).toEqual([fresh.id, ids.stream].sort())
 
-    // Converts in their sheep seeking group: they see and tick those converts' milestones wherever they are placed.
-    const sg = await import('@/lib/ccg/server/seeking-groups')
-    const ownerScope = await m.scopeLoader.loadScope(ids.admin)
-    const group = await sg.createSeekingGroup(ownerScope, { stream_id: ids.stream, name: `Care ${run}` }, ids.admin)
-    await sg.addGroupSeeker(ownerScope, group.id, login.id, ids.admin)
+    // As a Sheep Seeking Liaison for a CCF, they follow the converts placed there, as its CCF Coordinator does.
     const { person: assigned, proposal } = await convertFor({ interests: ['football'], availability: ['weekday_evenings'] })
     await m.placements.approvePlacement(proposal!.placement.id, ids.admin)
-    await sg.addGroupConverts(ownerScope, group.id, [assigned.id], ids.admin)
+    const placedIn = (await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: proposal!.placement.id } })).finalCcfId!
+    const seekerRole = await prisma.ccgRoleAssignment.findFirstOrThrow({ where: { userId: login.id, roleKey: 'sheep_seeker', streamId: ids.stream, endsOn: null } })
+    await m.seekers.setLiaisonCcfs(ids.stream, seekerRole.id, [placedIn], ids.admin)
     const seekerScope = await m.scopeLoader.loadScope(login.id)
-    expect(seekerScope.seekingGroupIds).toContain(group.id)
+    expect(seekerScope.liaisonCcfIds).toEqual([placedIn])
+    expect(seekerScope.canAsLiaison('milestones.update', placedIn)).toBe(true)
+    expect(seekerScope.canOnMembersOf('people.view', placedIn)).toBe(false) // converts only, never members
     await expect(m.placementRoutes.authorisePlacement(seekerScope, 'milestones.update', proposal!.placement.id)).resolves.toBeTruthy()
-    const mine = await (await import('@/lib/ccg/server/progress')).listProgress(seekerScope, { seekingGroupIds: [group.id] })
-    expect(mine.rows.map((r) => r.person.id)).toEqual([assigned.id])
-    const detail = await sg.seekingGroupDetail(seekerScope, group.id)
-    expect(detail.can_manage).toBe(false)
-    expect(detail.converts.map((c) => c.id)).toEqual([assigned.id])
+    const mine = await (await import('@/lib/ccg/server/progress')).listProgress(seekerScope, { liaisonCcfIds: seekerScope.liaisonCcfIds })
+    expect(mine.rows.map((r) => r.person.id)).toContain(assigned.id)
+    const liaisonTeam = await m.seekers.streamTeam(ids.stream)
+    expect(liaisonTeam.seekers.find((s) => s.user_id === login.id)?.ccfs.map((c) => c.id)).toEqual([placedIn])
+    expect((await m.seekers.seekerHome(login.id))?.liaison_ccfs.map((c) => c.id)).toEqual([placedIn])
     // Once placed, a convert's details are fixed, even for their Sheep Seeker; moving them is still theirs.
     const placedConvert = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: assigned.id }, include: m.people.personInclude })
     expect(m.people.isPlaced(placedConvert)).toBe(true)
@@ -752,7 +745,7 @@ d('CCG backend against Postgres', () => {
     expect(m.people.canOnPerson(coordScope, 'people.view', fbConvert)).toBe(true) // once placed
     expect(m.people.canEditPerson(coordScope, fbConvert)).toBe(false)
     expect(m.people.canEditDetails(coordScope, fbConvert)).toBe(false)
-    const otherPlacement = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', person: { seekingGroupId: null } } })
+    const otherPlacement = await prisma.ccgPlacement.findFirstOrThrow({ where: { status: 'active', finalCcfId: { not: placedIn } } })
     const otherInStream = await prisma.ccgPlacement.findFirst({
       where: { id: otherPlacement.id, finalCcf: { ccg: { streamId: { in: [fresh.id, ids.stream] } } } },
     })
@@ -901,7 +894,7 @@ d('CCG backend against Postgres', () => {
     const { prisma } = m
     // A one-member CCF: room for two converts, then a hard stop for everyone.
     const small = await prisma.ccgFamily.create({
-      data: { ccgId: ids.ccg, code: `SM${run}`, name: 'CCF Small', meetingDay: 'Monday', meetingTime: '19:00', capacity: 10 },
+      data: { ccgId: ids.ccg, code: `SM${run}`, name: 'CCF Small', meetingDay: 'Monday', meetingTime: '19:00' },
     })
     await m.people.createPerson({
       kind: 'member',

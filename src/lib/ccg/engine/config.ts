@@ -59,8 +59,6 @@ export const ccgConfigSchema = z
     smoothing: z.number().min(0).max(50),
     /** Fewer active members than this → below minimum / critical. */
     minMembers: z.number().int().min(0),
-    /** May an admin approve into a full CCF (with a reason)? */
-    allowFullOverride: z.boolean(),
     /** Each convert's retention assessment runs this many days from approval. */
     assessmentDays: z.number().int().min(30).max(1095),
     /** Factor score at/above which it is cited as a reason. */
@@ -101,7 +99,6 @@ export const DEFAULT_CCG_CONFIG: CcgConfig = {
   lowTraitThreshold: 3,
   smoothing: 3,
   minMembers: 3,
-  allowFullOverride: false,
   assessmentDays: 365,
   reasonThresholds: {
     interests: 60,

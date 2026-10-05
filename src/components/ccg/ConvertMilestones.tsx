@@ -31,12 +31,12 @@ import { Initials } from './synago'
  * in the grid; attendance and checklist ones, and a convert's name, open
  * their modal.
  *
- * Scope: ?unit=type:id or ?ccf= / ?ccg= / ?stream= (links from a
- * group's page), else the role in focus; `mine` = the converts assigned to
- * the signed-in Sheep Seeker. ?placement= opens that convert's panel.
+ * Scope: ?unit=type:id or ?ccf= / ?ccg= / ?council= / ?stream= (links from a
+ * group's page), else the role in focus; `mine` = the converts placed in the
+ * CCFs the signed-in Sheep Seeker is liaison for. ?placement= opens that convert's panel.
  */
 
-const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', stream: 'stream_id' }
+const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id' }
 const code = (n: number) => `M${String(n).padStart(2, '0')}`
 
 /**
@@ -137,7 +137,7 @@ export function useConvertScope() {
   return { query, waiting, name }
 }
 
-/** `mine`: only the converts in the signed-in Sheep Seeker's groups, wherever they are placed. */
+/** `mine`: only the converts placed in the CCFs the signed-in Sheep Seeker is liaison for. */
 export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
   const { has, loading: meLoading } = useCcgMe()
   const router = useRouter()
@@ -265,14 +265,14 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
           <EmptyState
             orb
             icon={Sprout}
-            title={search ? 'No one matches' : overdueOnly ? 'Nothing overdue' : mine ? 'No converts in your groups yet' : 'No converts in their assessment year'}
+            title={search ? 'No one matches' : overdueOnly ? 'Nothing overdue' : mine ? 'No converts in your CCFs yet' : 'No converts in their assessment year'}
             description={
               search
                 ? 'Try another name or number.'
                 : overdueOnly
                   ? 'Every convert is on track.'
                   : mine
-                    ? 'Converts in the sheep seeking groups you look after appear here once they are placed in a CCF.'
+                    ? 'Converts placed in the CCFs you are liaison for appear here once their placement is approved.'
                     : 'Converts appear here once their placement is approved.'
             }
           />

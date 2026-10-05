@@ -22,7 +22,7 @@ export const GET = withCcg({ permission: 'reports.view' }, async ({ scope, query
   const inScope = scope.ccfIds('reports.view')
   let ccfIds = inScope
   if (type && id) {
-    if (!isUnitType(type)) throw invalid('unit_type must be campus, stream, ccg or ccf')
+    if (!isUnitType(type)) throw invalid('unit_type must be campus, stream, council, ccg or ccf')
     ensure(canSeeUnit(scope, type, id), 'You can only view units in your scope')
     const unit = await ccfIdsIn(type, id)
     ccfIds = inScope === 'all' ? unit : unit.filter((x) => inScope.includes(x))

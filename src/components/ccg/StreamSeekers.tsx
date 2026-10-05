@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { BarChart3, Loader2, Pencil, Plus, X } from 'lucide-react'
+import { BarChart3, Loader2, Pencil, Plus, Users, X } from 'lucide-react'
 import { ccgApi, fieldErrors, type CcgResult } from '@/lib/ccg/client'
 import { message } from '@/lib/toast'
 import { useConfirm } from '@/hooks/use-confirm'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +23,8 @@ export interface SeekerHolder {
   person_id: string | null
   name: string
   since: string | null
+  /** Sheep Seekers: the CCFs they are liaison for. */
+  ccfs?: Array<{ id: string; name: string; ccg: string }>
 }
 
 type Lead = 'admin' | 'overseer'
@@ -33,7 +36,7 @@ const LEAD_ABOUT: Record<Lead, (where: string, campus: boolean) => string> = {
   admin: (w, campus) =>
     campus
       ? `The Campus Sheep Seeking Admin runs sheep seeking across every stream in ${w}: registration, approvals and milestones, its Sheep Seekers, and each stream’s Sheep Seeking Admin and Overseer.`
-      : `The Sheep Seeking Admin runs sheep seeking for ${w}: they appoint its Sheep Seekers, run its seeking groups, and oversee registration, approvals and milestones.`,
+      : `The Sheep Seeking Admin runs sheep seeking for ${w}: they appoint its Sheep Seekers and their liaison CCFs, and oversee registration, approvals and milestones.`,
   overseer: (w, campus) =>
     `The ${campus ? 'Campus ' : ''}Sheep Seeking Overseer sees sheep seeking ${campus ? 'across every stream in' : 'for'} ${w}: converts, placements, progress and reports. View only.`,
 }
@@ -47,6 +50,11 @@ function HolderCard({ h, action }: { h: SeekerHolder; action?: React.ReactNode }
         {h.since && (
           <p className="text-xs text-muted-foreground">
             Since {new Date(h.since).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
+        )}
+        {!!h.ccfs?.length && (
+          <p className="truncate text-xs text-members" title={h.ccfs.map((c) => c.name).join(', ')}>
+            Liaison for {h.ccfs.map((c) => c.name).join(', ')}
           </p>
         )}
       </div>
@@ -157,6 +165,95 @@ function AppointDialog({
           <Button onClick={go} disabled={!ready || saving}>
             {saving && <Loader2 className="size-4 animate-spin" />}
             {submitLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Make a Sheep Seeker liaison for some of the stream's CCFs: the converts placed there become theirs to follow. */
+function LiaisonDialog({
+  streamId,
+  streamName,
+  seeker,
+  onClose,
+  onSaved,
+}: {
+  streamId: string
+  streamName: string
+  seeker: SeekerHolder | null
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [ccfs, setCcfs] = useState<Array<{ id: string; name: string; ccg: { name: string }; status: string }> | null>(null)
+  const [chosen, setChosen] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!seeker) return
+    setChosen(seeker.ccfs?.map((c) => c.id) ?? [])
+    ccgApi.get<{ ccfs: Array<{ id: string; name: string; ccg: { name: string }; status: string }> }>(`/ccfs?stream_id=${streamId}`).then((r) => {
+      if (r.ok) setCcfs(r.data.ccfs.filter((f) => f.status !== 'inactive' || seeker.ccfs?.some((c) => c.id === f.id)))
+      else message.error(r.error.message)
+    })
+  }, [seeker, streamId])
+
+  const byCcg = useMemo(() => {
+    const out = new Map<string, Array<{ id: string; name: string }>>()
+    for (const f of ccfs ?? []) out.set(f.ccg.name, [...(out.get(f.ccg.name) ?? []), f])
+    return [...out.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [ccfs])
+
+  const save = async () => {
+    if (!seeker) return
+    setSaving(true)
+    const r = await ccgApi.put(`/streams/${streamId}/seekers/${seeker.assignment_id}/ccfs`, { ccf_ids: chosen })
+    setSaving(false)
+    if (!r.ok) return message.error(r.error.message)
+    message.success(chosen.length ? `${seeker.name} is liaison for ${chosen.length} CCF${chosen.length === 1 ? '' : 's'}` : `${seeker.name} is no longer a liaison`)
+    onSaved()
+    onClose()
+  }
+
+  return (
+    <Dialog open={!!seeker} onOpenChange={(o) => !saving && !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{seeker?.name}: liaison CCFs</DialogTitle>
+          <DialogDescription>
+            The converts placed in these CCFs of {streamName} become theirs to follow up, as they are the CCF Coordinator’s: milestones, check-ins and attendance.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[50vh] space-y-4 overflow-y-auto pr-1">
+          {ccfs === null ? (
+            <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
+          ) : byCcg.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{streamName} has no CCFs yet.</p>
+          ) : (
+            byCcg.map(([ccg, list]) => (
+              <fieldset key={ccg} className="space-y-2">
+                <legend className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{ccg}</legend>
+                {list.map((f) => (
+                  <label key={f.id} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-1 text-sm hover:bg-muted/50">
+                    <Checkbox
+                      checked={chosen.includes(f.id)}
+                      onCheckedChange={(v) => setChosen((c) => (v ? [...c, f.id] : c.filter((x) => x !== f.id)))}
+                    />
+                    {f.name}
+                  </label>
+                ))}
+              </fieldset>
+            ))
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={saving || ccfs === null}>
+            {saving && <Loader2 className="size-4 animate-spin" />}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -280,11 +377,12 @@ export function StreamSeekers({
   const { confirm, ConfirmDialog } = useConfirm()
   const { show, notice } = useInviteNotice()
   const [adding, setAdding] = useState(false)
+  const [liaison, setLiaison] = useState<SeekerHolder | null>(null)
 
   const remove = async (s: SeekerHolder) => {
     const ok = await confirm({
       title: `Stand ${s.name} down?`,
-      description: `They stop being a Sheep Seeker for ${streamName}. They come off the sheep seeking groups they looked after.`,
+      description: `They stop being a Sheep Seeker for ${streamName}${s.ccfs?.length ? ', and liaison for its CCFs' : ''}.`,
       confirmLabel: 'Stand down',
       destructive: true,
     })
@@ -327,7 +425,7 @@ export function StreamSeekers({
 
         {seekers === null ? null : seekers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No Sheep Seekers yet.{canManage ? ' Add the people who will register converts and look after the sheep seeking groups you give them.' : ''}
+            No Sheep Seekers yet.{canManage ? ' Add the people who will register converts, then make some of them liaisons for CCFs.' : ''}
           </p>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -337,9 +435,14 @@ export function StreamSeekers({
                   h={s}
                   action={
                     canManage && (
-                      <Button variant="ghost" size="icon" className="size-9 shrink-0" onClick={() => remove(s)} aria-label={`Stand ${s.name} down`}>
-                        <X className="size-4" />
-                      </Button>
+                      <div className="flex shrink-0">
+                        <Button variant="ghost" size="icon" className="size-9" onClick={() => setLiaison(s)} aria-label={`${s.name}’s liaison CCFs`} title="Liaison CCFs">
+                          <Users className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-9" onClick={() => remove(s)} aria-label={`Stand ${s.name} down`}>
+                          <X className="size-4" />
+                        </Button>
+                      </div>
                     )
                   }
                 />
@@ -352,7 +455,7 @@ export function StreamSeekers({
       <AppointDialog
         open={adding}
         title="Add a Sheep Seeker"
-        description={`Sheep Seekers register ${streamName}’s converts and look after the sheep seeking groups they are given, ticking those converts’ milestones in whatever CCF they are placed.`}
+        description={`Sheep Seekers register ${streamName}’s converts, who belong to the stream. Make one a liaison for some CCFs and the converts placed there are theirs to follow up.`}
         submitLabel="Add Sheep Seeker"
         onClose={() => setAdding(false)}
         submit={async (payload, name) => {
@@ -365,6 +468,7 @@ export function StreamSeekers({
           return r
         }}
       />
+      <LiaisonDialog streamId={streamId} streamName={streamName} seeker={liaison} onClose={() => setLiaison(null)} onSaved={onChanged} />
       {ConfirmDialog}
       {notice}
     </section>

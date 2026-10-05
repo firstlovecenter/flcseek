@@ -10,7 +10,6 @@ import { personInclude, serializePerson } from '@/lib/ccg/server/people'
 import { loadProfiles } from '@/lib/ccg/server/profiles'
 import { loadQuestionBank } from '@/lib/ccg/server/questions'
 import {
-  assertCapacityFits,
   assertCcfEmpty,
   assertCcgExists,
   ccfInclude,
@@ -63,7 +62,7 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
 /**
  * PATCH /api/ccg/ccfs/[id]
  * structure.manage: anything. units.edit (e.g. a CCG Governor): details only —
- * name, meeting time/place, capacity, notes.
+ * name, meeting time/place, notes.
  */
 export const PATCH = withCcg<Body, P>({ schema: ccfUpdateSchema }, async ({ request, user, scope, body, params }) => {
   const before = await load(params.id)
@@ -75,7 +74,10 @@ export const PATCH = withCcg<Body, P>({ schema: ccfUpdateSchema }, async ({ requ
   }
   if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
   if (body.ccg_id) await assertCcgExists(body.ccg_id)
-  if (body.capacity !== undefined) await assertCapacityFits(before.id, body.capacity)
+  // Nobody is left behind in a CCF that no longer meets.
+  if (body.status === 'inactive' && before.status !== 'inactive') {
+    await assertCcfEmpty(before.id, `${before.name} still has people in it. Use Close down to move them to another CCF.`)
+  }
 
   await prisma.ccgFamily.update({
     where: { id: params.id },
@@ -87,7 +89,6 @@ export const PATCH = withCcg<Body, P>({ schema: ccfUpdateSchema }, async ({ requ
       ...(body.meeting_day !== undefined ? { meetingDay: body.meeting_day } : {}),
       ...(body.meeting_time !== undefined ? { meetingTime: body.meeting_time } : {}),
       ...(body.meeting_frequency !== undefined ? { meetingFrequency: body.meeting_frequency } : {}),
-      ...(body.capacity !== undefined ? { capacity: body.capacity } : {}),
       ...(body.status !== undefined ? { status: body.status } : {}),
       ...(body.notes !== undefined ? { notes: body.notes } : {}),
       updatedAt: new Date(),

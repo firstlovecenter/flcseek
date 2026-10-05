@@ -117,7 +117,6 @@ export function unit(code: string, extra: Partial<EngineUnit> = {}): EngineUnit 
     zoneLabel: 'Zone A',
     meetingDay: 'Monday',
     meetingTime: '19:00',
-    capacity: 10,
     status: 'active',
     ccgStatus: 'active',
     ...extra,

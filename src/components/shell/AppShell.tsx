@@ -136,6 +136,8 @@ export default function AppShell({ children }: AppShellProps) {
   if (
     pathname === '/auth' ||
     pathname === '/forgot-password' ||
+    // The portal picker stands alone: no nav until a portal is chosen.
+    pathname === '/apps' ||
     ['/join/', '/welcome/', '/reset-password/'].some((p) => pathname.startsWith(p)) ||
     // City Church Group has its own shell (Synago-style sidebar), rendered by its layout.
     inCcg ||
@@ -246,7 +248,7 @@ export default function AppShell({ children }: AppShellProps) {
                 {hasBothApps && (
                   <DropdownMenuItem onClick={() => router.push('/apps')}>
                     <LayoutGrid className="size-4" />
-                    Switch app
+                    Switch portal
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 /** GET /api/ccg/me — who I am in CCG: roles (with units) and permissions. */
 export const GET = withCcg({}, async ({ user, scope }) => {
-  const [u, assignments] = await Promise.all([
+  const [u, assignments, liaisons] = await Promise.all([
     prisma.user.findUnique({ where: { id: user.id }, select: { id: true, username: true, firstName: true, lastName: true, ccgOwner: { select: { userId: true } } } }),
     prisma.ccgRoleAssignment.findMany({
       where: { userId: user.id, ...currentAssignmentWhere() },
@@ -17,11 +17,13 @@ export const GET = withCcg({}, async ({ user, scope }) => {
         role: true,
         campus: { include: { streams: { where: { deletedAt: null, status: 'active' }, select: { id: true, name: true }, orderBy: { name: 'asc' } } } },
         stream: true,
+        council: true,
         ccg: true,
         ccf: true,
       },
       orderBy: { role: { sortOrder: 'asc' } },
     }),
+    prisma.ccgSeekingLiaison.findMany({ where: { userId: user.id, ccf: { deletedAt: null } }, select: { ccf: { select: { id: true, name: true } } } }),
   ])
   return success({
     user: { id: user.id, username: u?.username ?? user.username, name: u ? userDisplayName(u) : user.username },
@@ -34,6 +36,8 @@ export const GET = withCcg({}, async ({ user, scope }) => {
         ? { type: 'campus', id: a.campus.id, name: a.campus.name, streams: a.campus.streams }
         : a.stream
         ? { type: 'stream', id: a.stream.id, name: a.stream.name }
+        : a.council
+        ? { type: 'council', id: a.council.id, name: a.council.name }
         : a.ccg
           ? { type: 'ccg', id: a.ccg.id, name: a.ccg.name }
           : a.ccf
@@ -42,6 +46,8 @@ export const GET = withCcg({}, async ({ user, scope }) => {
       starts_on: dateOnly(a.startsOn),
       ends_on: dateOnly(a.endsOn),
     })),
+    /** The CCFs this Sheep Seeker is liaison for (their converts are theirs to follow). */
+    liaison_ccfs: scope.liaisonCcfIds.length ? liaisons.map((l) => l.ccf) : [],
     /** Permissions held somewhere (for menus). */
     permissions: PERMISSION_KEYS.filter((p) => scope.anywhere.has(p)),
     /** Permissions held everywhere. */

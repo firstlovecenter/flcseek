@@ -52,12 +52,12 @@ describe('matching scenarios', () => {
 
   it('the best match is full: excluded from the top 3', () => {
     const c = convert({ interests: ['football'] })
-    const full = profile(unit('FULL', { capacity: 6 }), fans(6))
+    const full = profile(unit('FULL'), fans(3), { activePlacements: 6 })
     const open = profile(unit('OPEN'), [person({ interests: ['football'] }), person({ interests: ['music'] })])
     const r = rankUnits(c, [full, open], ctx())
     expect(r.ranked[0].ccfCode).toBe('FULL')
     expect(r.top.map((u) => u.ccfCode)).toEqual(['OPEN'])
-    expect(r.ineligible[0].ineligibleReasons).toContain('full')
+    expect(r.ineligible[0].ineligibleReasons).toContain('convert_limit')
   })
 
   it('no connection: the factor is left out and a recommendation still comes', () => {
@@ -67,7 +67,7 @@ describe('matching scenarios', () => {
   })
 
   it('every CCF full: "No eligible CCF available"', () => {
-    const profiles = ['A', 'B'].map((c) => profile(unit(c, { capacity: 2 }), [person(), person()]))
+    const profiles = ['A', 'B'].map((c) => profile(unit(c), [person(), person()], { activePlacements: 4 }))
     const r = rankUnits(convert(), profiles, ctx())
     expect(r.top).toEqual([])
     expect(r.warnings).toContain('No eligible CCF available.')
@@ -109,10 +109,6 @@ describe('prototype defect regressions', () => {
   it('"same line of work" preference uses the occupation answers', () => {
     const p = profile(unit('A'), fans(2, { occupation: 'health' } as never))
     expect(factor(scorePair(convert({ occupation: 'health', friendship_prefs: ['same_work'] }), p, ctx()), 'friendship')).toBe(100)
-  })
-
-  it('full CCFs are off by default', () => {
-    expect(DEFAULT_CCG_CONFIG.allowFullOverride).toBe(false)
   })
 
   it('availability is judged against when the CCF meets', () => {
@@ -204,15 +200,10 @@ describe('CCF profiles within a CCG', () => {
   })
 })
 
-describe('capacity and reserved seats', () => {
-  it('active placements take seats', () => {
-    const p = profile(unit('A', { capacity: 4 }), [person(), person()], { activePlacements: 2 })
-    expect(rankUnits(convert(), [p], ctx()).ineligible[0].ineligibleReasons).toEqual(['full'])
-  })
-
+describe('convert limit and reserved seats', () => {
   it('pending proposals hold the last seats, spreading a burst of converts', () => {
     const c = convert({ interests: ['football'] })
-    const best = profile(unit('BEST', { capacity: 4 }), fans(3), { reserved: 1 })
+    const best = profile(unit('BEST'), fans(3), { activePlacements: 5, reserved: 1 })
     const next = profile(unit('NEXT'), [person({ interests: ['football'] }), person()])
     const r = rankUnits(c, [best, next], ctx())
     expect(r.top[0].ccfCode).toBe('NEXT')

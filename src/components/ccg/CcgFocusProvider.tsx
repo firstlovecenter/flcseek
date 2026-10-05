@@ -20,7 +20,7 @@ import { useCcgMe } from './CcgMeProvider'
  * remembered on this device, the last role per portal.
  */
 
-export type FocusType = 'global' | 'campus' | 'stream' | 'ccg' | 'ccf'
+export type FocusType = 'global' | 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
 export type Portal = 'seeking' | 'ccg'
 
 export const PORTAL_LABEL: Record<Portal, string> = { seeking: 'Sheep Seeking', ccg: 'City Church Groups' }
@@ -40,6 +40,7 @@ export const LEVEL_LABEL: Record<FocusType, string> = {
   global: 'Church-wide',
   campus: 'Campus',
   stream: 'Stream',
+  council: 'Council',
   ccg: 'CCG',
   ccf: 'CCF',
 }

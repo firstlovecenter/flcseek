@@ -26,7 +26,6 @@ export interface ScoredUnitDTO {
   eligible: boolean
   ineligible_reasons: ScoredUnit['ineligibleReasons']
   available_spaces: number
-  capacity: number
   member_count: number
 }
 
@@ -52,7 +51,6 @@ export function serializeScored(u: ScoredUnit): ScoredUnitDTO {
     eligible: u.eligible,
     ineligible_reasons: u.ineligibleReasons,
     available_spaces: u.availableSpaces,
-    capacity: u.capacity,
     member_count: u.memberCount,
   }
 }

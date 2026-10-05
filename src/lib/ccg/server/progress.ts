@@ -178,18 +178,19 @@ export async function listProgress(
   filter: {
     ccfId?: string | null
     ccgId?: string | null
+    councilId?: string | null
     streamId?: string | null
     overdueOnly?: boolean
-    /** Only the converts in these sheep seeking groups (a Sheep Seeker's own). */
-    seekingGroupIds?: string[] | null
+    /** Only the converts placed in these CCFs (a Sheep Seeking Liaison's own). */
+    liaisonCcfIds?: string[] | null
     /** Only the converts of this month (yyyy-mm). */
     month?: string | null
   }
 ) {
   const within = inFilter(scope.ccfIds('placements.view'))
   // In scope: CCFs the viewer covers, the converts their stream registered (Sheep Seeking side),
-  // and the converts in a Sheep Seeker's groups wherever they are placed.
-  const mine = scope.seekingGroupIds.length && scope.canOnSeekingGroup('placements.view', scope.seekingGroupIds[0]) ? scope.seekingGroupIds : null
+  // and the converts placed in a Sheep Seeking Liaison's CCFs.
+  const mine = scope.liaisonCcfIds.length && scope.canAsLiaison('placements.view', scope.liaisonCcfIds[0]) ? scope.liaisonCcfIds : null
   const seekingStreams = scope.sheepSeeking().streamIds('placements.view') as string[]
   const [milestones, rows, config] = await Promise.all([
     loadMilestones(),
@@ -203,13 +204,14 @@ export async function listProgress(
                 OR: [
                   { finalCcfId: within },
                   ...(seekingStreams.length ? [{ person: { streamId: { in: seekingStreams } } }] : []),
-                  ...(mine ? [{ person: { seekingGroupId: { in: mine } } }] : []),
+                  ...(mine ? [{ finalCcfId: { in: mine } }] : []),
                 ],
               }
             : {},
-          filter.seekingGroupIds ? { person: { seekingGroupId: { in: filter.seekingGroupIds } } } : {},
+          filter.liaisonCcfIds ? { finalCcfId: { in: filter.liaisonCcfIds } } : {},
           filter.ccfId ? { finalCcfId: filter.ccfId } : {},
           filter.ccgId ? { finalCcf: { ccgId: filter.ccgId } } : {},
+          filter.councilId ? { finalCcf: { ccg: { councilId: filter.councilId } } } : {},
           filter.streamId ? { finalCcf: { ccg: { streamId: filter.streamId } } } : {},
           filter.month ? { person: personInMonth(filter.month) } : {},
         ],
