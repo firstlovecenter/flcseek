@@ -188,6 +188,11 @@ Fields and rules:
 | DELETE | `/people/[id]` | people.manage | Soft delete. Ends the person's placements. |
 | POST | `/people/[id]/confirm` | members.confirm | Moves a member from `pending` to `active`. |
 | POST | `/people/[id]/reject` | members.confirm | Turns down a `pending` member: they are removed and never count in the CCF. |
+| GET | `/moves?status=` | members.confirm | Move requests for CCFs in scope (default `pending`). `can_decide` marks those this viewer decides. |
+| POST | `/moves/[id]/approve` | members.confirm (their current CCF) | They are transferred to the CCF they registered into, keeping everything. |
+| POST | `/moves/[id]/decline` | members.confirm (their current CCF) | Body `{ reason? }`. They stay where they are. |
+
+**Already registered.** Phone numbers must be Ghana numbers; they are stored as `233XXXXXXXXX` however they are typed. A registration whose number already belongs to a member (or, for converts, the same number and first name) is the same person. If they belong to another CCF (a member there, or a convert placed there), `POST /people` and the CCF registration form create no one: they return `move_request` (the form: `move_requested: true`) and the coordinator of their current CCF is texted to approve or decline. Registering them where they already are, or a convert into a stream when already registered, is `409 CONFLICT` (`details.reason`: `already_here` or `already_registered`).
 | POST | `/people/[id]/transfer` | people.manage on the person and on the new CCF | `{ ccf_id, reason }`. Moves a member, or a placed convert, to another CCF (below). |
 | POST | `/people/[id]/invite` | roles.manage (global) | Emails a member who holds a role a new link to set their password. Any earlier link stops working. |
 | DELETE | `/people/[id]/login` | roles.manage (global) | Unlinks a member's login. Refused while they hold any role. |

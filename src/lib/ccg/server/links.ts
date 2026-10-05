@@ -5,7 +5,8 @@ import { questionAppliesTo, type AnswerValue } from '../engine'
 import { CcgError, conflict, invalid, notFound } from '../errors'
 import type { PublicSubmission } from '../schemas'
 import { dateOnly, iso, logCcg } from './common'
-import { assertMemberDetails, createPerson, seekerSelf, updatePerson } from './people'
+import { assertMemberDetails, seekerSelf, updatePerson } from './people'
+import { registerOrRequestMove } from './moves'
 import { loadAnswers, loadQuestionBank } from './questions'
 
 /**
@@ -297,13 +298,14 @@ export async function submitPublicForm(
 
   try {
     let personId: string
+    let moveRequested = false
     if (kind === 'person_update') {
       personId = l.personId!
       // A person updating their own details cannot change their name here.
       const { first_name: _f, middle_name: _m, last_name: _l, ...core } = body.person
       await updatePerson(personId, { ...core, answers: body.answers }, { actorId: null, source: 'self' })
     } else {
-      const { person } = await createPerson({
+      const r = await registerOrRequestMove({
         kind: kind === 'member_ccf' ? 'member' : 'convert',
         core: {
           ...body.person,
@@ -318,11 +320,15 @@ export async function submitPublicForm(
         source: 'self',
         actorId: null,
         memberStatus: 'pending',
-      })
-      personId = person.id
+      }, kind === 'member_ccf' ? l.ccfId : null)
+      // Already a member of another CCF: their coordinator there is asked to let them move.
+      personId = r.person.id
+      moveRequested = r.outcome === 'move_requested'
     }
     await prisma.ccgSubmission.update({ where: { id: submissionId }, data: { personId } })
-    return { ok: true, reference: reference(personId) }
+    return moveRequested
+      ? { ok: true, reference: null, move_requested: true }
+      : { ok: true, reference: reference(personId) }
   } catch (err) {
     await prisma.ccgSubmission.delete({ where: { id: submissionId } }).catch(() => {})
     await releaseUse(l.id)

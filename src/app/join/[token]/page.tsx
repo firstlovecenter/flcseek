@@ -47,6 +47,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [reference, setReference] = useState<string | null>(null)
+  const [moveRequested, setMoveRequested] = useState(false)
   // One id per form fill: a retried submission is recognised, never duplicated.
   const submissionId = useMemo(() => crypto.randomUUID(), [])
 
@@ -75,7 +76,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
     }
     setSaving(true)
     setFormError(null)
-    const res = await ccgApi.post<{ ok: boolean; reference: string | null }>(`/public/forms/${encodeURIComponent(token)}`, {
+    const res = await ccgApi.post<{ ok: boolean; reference: string | null; move_requested?: boolean }>(`/public/forms/${encodeURIComponent(token)}`, {
       client_submission_id: submissionId,
       person,
       answers,
@@ -87,6 +88,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
       setFormError(res.error.message)
       return
     }
+    setMoveRequested(!!res.data.move_requested)
     setReference(res.data.reference ?? '')
   }
 
@@ -112,7 +114,9 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
             <CheckCircle2 className="size-10 text-success" aria-hidden />
             <p className="text-lg font-semibold">Thank you!</p>
             <p className="text-sm text-muted-foreground">
-              {form?.kind === 'person_update'
+              {moveRequested
+                ? `You are already a member of another CCF. We have asked its coordinator to let you move to ${form?.ccf?.name ?? 'this CCF'}.`
+                : form?.kind === 'person_update'
                 ? 'Your details have been updated.'
                 : form?.kind === 'member_ccf'
                   ? `Your details have been sent to ${form.ccf?.name ?? 'your CCF'}. Your coordinator will confirm you shortly.`

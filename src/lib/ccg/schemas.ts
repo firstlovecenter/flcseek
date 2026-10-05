@@ -207,6 +207,8 @@ export const transferSchema = z.object({
   ccf_id: uuid,
   reason: z.string().trim().min(1, 'Give a reason').max(1000),
 })
+/** Declining a move request: why, optionally. */
+export const moveDeclineSchema = z.object({ reason: text(1000) }).default({})
 /** Where a closing CCF's people go; may be left out only when it is empty. */
 export const closeCcfSchema = z.object({ to_ccf_id: uuid.nullable().optional() }).default({})
 

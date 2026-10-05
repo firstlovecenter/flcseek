@@ -17,6 +17,7 @@ import { useCcgFocus, useSeekingRole } from './CcgFocusProvider'
 import { PersonFormDialog } from './PersonFormDialog'
 import { PersonSheet } from './PersonSheet'
 import { ConvertModal } from './ConvertModal'
+import { MoveRequests } from './MoveRequests'
 import { PERSON_STATUS, type PersonDTO } from './people-types'
 import { Initials, StickyHeader } from './synago'
 
@@ -245,6 +246,8 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
           </div>
         </div>
       </StickyHeader>
+
+      <MoveRequests kind={kind} onChanged={load} />
 
       {rows === null ? (
         <>

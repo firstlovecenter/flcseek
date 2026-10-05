@@ -43,17 +43,43 @@ export async function userRefs(ids: Array<string | null | undefined>, db: Db = p
   return new Map(users.map((u) => [u.id, { id: u.id, name: userDisplayName(u) }]))
 }
 
+export const PHONE_INVALID = 'Enter a valid phone number, e.g. 024 123 4567'
+
 /**
- * Normalise a phone number for storage and duplicate checks. Ghana local
- * numbers (0XXXXXXXXX) become international (233XXXXXXXXX); anything else is
- * reduced to its digits.
+ * Normalise a phone number for storage and duplicate checks, so one number is
+ * always stored the same way however it was typed. Ghana numbers become
+ * 233XXXXXXXXX from any of: 024 123 4567, 24 123 4567, +233 24 123 4567,
+ * +233 (0)24 123 4567, 00233 24 123 4567. Other countries' numbers (written
+ * with their code) keep their digits. Null when empty or not a possible
+ * number (see phoneProblem).
  */
 export function normalizePhone(raw: string | null | undefined): string | null {
-  if (!raw) return null
-  const digits = raw.replace(/\D/g, '')
-  if (!digits) return null
-  if (digits.length === 10 && digits.startsWith('0')) return `233${digits.slice(1)}`
-  return digits
+  let d = (raw ?? '').replace(/\D/g, '')
+  if (!d) return null
+  if (d.startsWith('00')) d = d.slice(2)
+  if (d.length === 13 && d.startsWith('2330')) d = `233${d.slice(4)}`
+  else if (d.length === 10 && d.startsWith('0')) d = `233${d.slice(1)}`
+  else if (d.length === 9 && /^[235]/.test(d)) d = `233${d}`
+  // Ghana: 233 + 9 digits, mobile (2x, 5x) or landline (3x).
+  if (d.startsWith('233')) return /^233[235]\d{8}$/.test(d) ? d : null
+  // A local number of the wrong length (e.g. a digit missing).
+  if (d.startsWith('0')) return null
+  return d.length >= 8 && d.length <= 15 ? d : null
+}
+
+export const PHONE_NOT_GHANA = 'Enter a Ghana phone number, e.g. 024 123 4567'
+
+export const isGhanaPhone = (normalized: string | null) => !!normalized && normalized.startsWith('233')
+
+/**
+ * Why a typed phone number can't be stored for a member or convert, or null
+ * when it is fine or left empty. Only Ghana numbers are taken (user, 2026-10-05).
+ */
+export function phoneProblem(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null
+  const phone = normalizePhone(raw)
+  if (!phone) return PHONE_INVALID
+  return isGhanaPhone(phone) ? null : PHONE_NOT_GHANA
 }
 
 export const zoneLabel = (z: { code: string; name: string } | null | undefined) => (z ? `Zone ${z.code} – ${z.name}` : null)

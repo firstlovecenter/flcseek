@@ -629,6 +629,8 @@ model CcgFamily {
   transfersOut CcgTransfer[]       @relation("CcgTransferFrom")
   transfersIn  CcgTransfer[]       @relation("CcgTransferTo")
   liaisons     CcgSeekingLiaison[]
+  movesOut     CcgMoveRequest[]    @relation("CcgMoveFrom")
+  movesIn      CcgMoveRequest[]    @relation("CcgMoveTo")
 
   @@map("ccg_families")
 }
@@ -727,6 +729,7 @@ model CcgPerson {
   prayedFor           CcgGroupActivityPerson[]
   user                User?                    @relation("CcgPersonUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   transfers           CcgTransfer[]
+  moveRequests        CcgMoveRequest[]
   seeker              CcgPerson?               @relation("CcgSeeker", fields: [seekerPersonId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   seekerOf            CcgPerson[]              @relation("CcgSeeker")
   seekerLinks         CcgFormLink[]            @relation("CcgLinkSeeker")
@@ -1110,4 +1113,28 @@ model CcgInvite {
 
   @@index([userId, createdAt(sort: Desc)], map: "idx_ccg_invites_user")
   @@map("ccg_invites")
+}
+
+/// A request to move someone who registered into another CCF than the one they belong to; their current CCF's coordinator decides.
+model CcgMoveRequest {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId      String    @map("person_id") @db.Uuid
+  kind          String    @db.VarChar(10)
+  fromCcfId     String?   @map("from_ccf_id") @db.Uuid
+  toCcfId       String    @map("to_ccf_id") @db.Uuid
+  source        String    @db.VarChar(10)
+  requestedBy   String?   @map("requested_by") @db.Uuid
+  status        String    @default("pending") @db.VarChar(10)
+  decidedBy     String?   @map("decided_by") @db.Uuid
+  decidedAt     DateTime? @map("decided_at") @db.Timestamptz(6)
+  declineReason String?   @map("decline_reason")
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  person  CcgPerson  @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  fromCcf CcgFamily? @relation("CcgMoveFrom", fields: [fromCcfId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  toCcf   CcgFamily  @relation("CcgMoveTo", fields: [toCcfId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([fromCcfId], map: "idx_ccg_move_requests_from")
+  @@index([toCcfId], map: "idx_ccg_move_requests_to")
+  @@map("ccg_move_requests")
 }

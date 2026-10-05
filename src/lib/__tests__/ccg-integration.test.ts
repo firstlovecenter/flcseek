@@ -86,8 +86,10 @@ const FORM_ANSWERS = {
   trait_checks_on_friends: 3,
 }
 
-/** A made-up, unused phone number (converts must have one). */
-const testPhone = () => `09${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`
+/** A made-up, unused Ghana phone number (converts must have one; numbers already in use mean the same person). */
+const testPhone = () => `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`
+/** How a number typed as 0XXXXXXXXX is stored. */
+const stored = (local: string) => `233${local.slice(1)}`
 
 async function convertFor(answers: Record<string, unknown>, extra: Record<string, unknown> = {}) {
   const { person, proposal } = await m.people.createPerson({
@@ -142,7 +144,7 @@ d('CCG backend against Postgres', () => {
     const member = (ccfId: string, interests: string[]) =>
       m.people.createPerson({
         kind: 'member',
-        core: { first_name: 'Member', last_name: `${randomUUID().slice(0, 4)}`, ccf_id: ccfId, date_of_birth: '1997-01-01' },
+        core: { first_name: 'Member', last_name: `${randomUUID().slice(0, 4)}`, ccf_id: ccfId, date_of_birth: '1997-01-01', phone: testPhone() },
         answers: { interests, trait_new_people: 4, trait_group_activity: 4 },
         source: 'staff',
         actorId: ids.admin,
@@ -267,7 +269,7 @@ d('CCG backend against Postgres', () => {
     expect(form.questions.some((q) => q.key === 'availability')).toBe(false) // convert-only question hidden
     expect(form.fields.filter((f) => f.required).map((f) => f.key)).toEqual(['first_name', 'last_name', 'phone', 'email', 'gender', 'date_of_birth'])
 
-    const person = { first_name: 'Self', last_name: `Registered ${run}`, phone: '0240000000', email: `self.${run}@example.org` }
+    const person = { first_name: 'Self', last_name: `Registered ${run}`, phone: testPhone(), email: `self.${run}@example.org` }
     const client = { ip: '127.0.0.1', userAgent: 'vitest' }
     // Gender and date of birth are compulsory for members.
     await expect(
@@ -286,7 +288,7 @@ d('CCG backend against Postgres', () => {
     const created = await m.prisma.ccgPerson.findFirst({ where: { fullName: `Self Registered ${run}`, ccfId: ids.football } })
     expect(created?.status).toBe('pending')
     expect(created?.source).toBe('self')
-    expect(created?.phone).toBe('233240000000')
+    expect(created?.phone).toBe(stored(person.phone))
     await m.people.confirmMember(created!.id, ids.coord)
     expect((await m.prisma.ccgPerson.findUnique({ where: { id: created!.id } }))?.status).toBe('active')
 
@@ -298,14 +300,14 @@ d('CCG backend against Postgres', () => {
     const { token } = await m.links.createLink({ kind: 'convert_intake', streamId: ids.stream, maxUses: 1, actorId: ids.admin })
     const client = { ip: '127.0.0.1', userAgent: 'vitest' }
     await expect(
-      m.links.submitPublicForm(token, { client_submission_id: randomUUID(), person: { first_name: 'No', last_name: 'Answers', phone: '0241111111' }, answers: {} }, client)
+      m.links.submitPublicForm(token, { client_submission_id: randomUUID(), person: { first_name: 'No', last_name: 'Answers', phone: testPhone() }, answers: {} }, client)
     ).rejects.toThrow(/not valid/)
 
     const ok = await m.links.submitPublicForm(
       token,
       {
         client_submission_id: randomUUID(),
-        person: { first_name: 'Intake', last_name: `Convert ${run}`, phone: '0242222222', date_of_birth: '1999-02-02' },
+        person: { first_name: 'Intake', last_name: `Convert ${run}`, phone: testPhone(), date_of_birth: '1999-02-02' },
         answers: { ...FORM_ANSWERS, interests: ['football'], availability: ['weekday_evenings'] },
       },
       client
@@ -316,7 +318,7 @@ d('CCG backend against Postgres', () => {
     expect(p?.placements[0].proposedCcfId).toBe(ids.football)
 
     await expect(
-      m.links.submitPublicForm(token, { client_submission_id: randomUUID(), person: { first_name: 'Too', last_name: 'Late', phone: '0243333333' }, answers: { ...FORM_ANSWERS, interests: ['music'], availability: ['weekday_evenings'] } }, client)
+      m.links.submitPublicForm(token, { client_submission_id: randomUUID(), person: { first_name: 'Too', last_name: 'Late', phone: testPhone() }, answers: { ...FORM_ANSWERS, interests: ['music'], availability: ['weekday_evenings'] } }, client)
     ).rejects.toThrow(/no longer valid/)
   }, T)
 
@@ -469,7 +471,7 @@ d('CCG backend against Postgres', () => {
     const email = `seeker.${run}@example.org`.toLowerCase()
     const { person: seeker } = await m.people.createPerson({
       kind: 'member',
-      core: { first_name: 'Seeker', last_name: `${run}`, ccf_id: ids.football, phone: '0246666666' },
+      core: { first_name: 'Seeker', last_name: `${run}`, ccf_id: ids.football, phone: testPhone() },
       answers: {},
       source: 'staff',
       actorId: ids.admin,
@@ -528,7 +530,7 @@ d('CCG backend against Postgres', () => {
       intakeToken,
       {
         client_submission_id: randomUUID(),
-        person: { first_name: 'Stream', last_name: `Intake ${run}`, phone: '0245555555', date_of_birth: '1999-02-02' },
+        person: { first_name: 'Stream', last_name: `Intake ${run}`, phone: testPhone(), date_of_birth: '1999-02-02' },
         answers: { ...FORM_ANSWERS, interests: ['music'], availability: ['weekday_evenings'] },
       },
       { ip: '127.0.0.1', userAgent: 'vitest' }
@@ -928,5 +930,62 @@ d('CCG backend against Postgres', () => {
     expect(seek).toHaveLength(0)
     const superadmin = await m.seekUsers.findMany({ search: `ccgadmin_${run}`, excludeSystemUsers: false })
     expect(superadmin).toHaveLength(1)
+  }, T)
+
+  it('registering someone already in another CCF asks their coordinator to let them move', async () => {
+    const { prisma } = m
+    const moves = await import('@/lib/ccg/server/moves')
+    // A member of the football CCF registers into the music one.
+    const phone = testPhone()
+    const member = await m.people.createPerson({
+      kind: 'member',
+      core: { first_name: 'Moving', last_name: `Member ${run}`, ccf_id: ids.football, date_of_birth: '1995-01-01', phone },
+      answers: {},
+      source: 'staff',
+      actorId: ids.admin,
+    })
+    const typed = `+233 ${phone.slice(1, 3)} ${phone.slice(3)}` // the same number, typed another way
+    const again = { kind: 'member' as const, core: { first_name: 'Moving', last_name: 'Member', ccf_id: ids.music, phone: typed }, answers: {}, source: 'self' as const, actorId: null, memberStatus: 'pending' as const }
+    const r = await moves.registerOrRequestMove(again, ids.music)
+    expect(r).toMatchObject({ outcome: 'move_requested', person: { id: member.person.id }, fromCcf: { id: ids.football } })
+    // Nobody new was created, and asking twice keeps one request.
+    expect(await prisma.ccgPerson.count({ where: { phone: stored(phone), deletedAt: null } })).toBe(1)
+    const r2 = await moves.registerOrRequestMove(again, ids.music)
+    expect(r2.outcome === 'move_requested' && r.outcome === 'move_requested' && r2.requestId === r.requestId).toBe(true)
+    // Registering them where they already are is refused.
+    await expect(moves.registerOrRequestMove({ ...again, core: { ...again.core, ccf_id: ids.football } }, ids.football)).rejects.toThrow(/already a member of this CCF/)
+
+    // The football CCF's coordinator decides; the music side cannot.
+    const req = await moves.loadMoveRequest(r.outcome === 'move_requested' ? r.requestId : '')
+    expect(moves.deciderCcfId(req)).toBe(ids.football)
+    const coordScope = await m.scopeLoader.loadScope(ids.coord)
+    expect(coordScope.canOnCcf('members.confirm', moves.deciderCcfId(req))).toBe(true)
+    await moves.approveMove(req.id, ids.coord)
+    expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: member.person.id } })).ccfId).toBe(ids.music)
+    expect(await prisma.ccgTransfer.count({ where: { personId: member.person.id, toCcfId: ids.music } })).toBe(1)
+    await expect(moves.approveMove(req.id, ids.coord)).rejects.toThrow(/already been approved/)
+
+    // A placed convert: the same phone with another first name is someone else (a shared phone).
+    const convert = await convertFor({ interests: ['music'], availability: ['weekday_evenings'] })
+    const placed = await m.placements.approvePlacement(convert.proposal!.placement.id, ids.admin)
+    const cphone = (await prisma.ccgPerson.findUniqueOrThrow({ where: { id: convert.person.id } })).phone!
+    const local = `0${cphone.slice(3)}`
+    const sibling = { kind: 'convert' as const, core: { first_name: 'Sibling', last_name: 'Convert', phone: local, stream_id: ids.stream }, answers: {}, source: 'staff' as const, actorId: ids.admin, propose: false }
+    expect((await moves.registerOrRequestMove(sibling, ids.football)).outcome).toBe('created')
+    // The same convert registered into another CCF by its leader: a request, declined here.
+    const same = { ...sibling, core: { ...sibling.core, first_name: 'convert' } }
+    const cr = await moves.registerOrRequestMove(same, ids.football)
+    expect(cr).toMatchObject({ outcome: 'move_requested', fromCcf: { id: placed.finalCcfId } })
+    await moves.declineMove(cr.outcome === 'move_requested' ? cr.requestId : '', 'Settled where they are', ids.admin)
+    expect((await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: placed.id } })).finalCcfId).toBe(placed.finalCcfId)
+    // Registered again into the stream: already registered, refused.
+    await expect(moves.registerOrRequestMove(same, null)).rejects.toThrow(/already registered and placed/)
+  }, 180_000)
+
+  it('only Ghana numbers are taken for members and converts', async () => {
+    await expect(convertFor({}, { phone: '+44 7700 900123' })).rejects.toThrow(/Ghana phone number/)
+    await expect(convertFor({}, { phone: '054696886' })).rejects.toThrow(/valid phone number/)
+    const { person } = await convertFor({})
+    await expect(m.people.updatePerson(person.id, { phone: '+1 202 555 0143' }, { actorId: ids.admin, source: 'staff' })).rejects.toThrow(/Ghana phone number/)
   }, T)
 })
