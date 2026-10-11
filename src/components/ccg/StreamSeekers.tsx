@@ -23,12 +23,12 @@ export interface SeekerHolder {
   person_id: string | null
   name: string
   since: string | null
-  /** Sheep Seekers: the CCFs they are liaison for. */
-  ccfs?: Array<{ id: string; name: string; ccg: string }>
+  /** Sheep Seekers: the CCGs they are liaison for. */
+  ccgs?: Array<{ id: string; name: string }>
 }
 
 type Lead = 'admin' | 'overseer'
-type Appointed = { invite: InviteResult | null; reused: boolean }
+export type Appointed = { invite: InviteResult | null; reused: boolean }
 type Payload = { person_id: string } | { first_name: string; middle_name: string | null; last_name: string; phone: string; email: string }
 
 const LEAD_TITLE: Record<Lead, string> = { admin: 'Sheep Seeking Admin', overseer: 'Sheep Seeking Overseer' }
@@ -36,12 +36,12 @@ const LEAD_ABOUT: Record<Lead, (where: string, campus: boolean) => string> = {
   admin: (w, campus) =>
     campus
       ? `The Campus Sheep Seeking Admin runs sheep seeking across every stream in ${w}: registration, approvals and milestones, its Sheep Seekers, and each stream’s Sheep Seeking Admin and Overseer.`
-      : `The Sheep Seeking Admin runs sheep seeking for ${w}: they appoint its Sheep Seekers and their liaison CCFs, and oversee registration, approvals and milestones.`,
+      : `The Sheep Seeking Admin runs sheep seeking for ${w}: they appoint its Sheep Seekers and their liaison CCGs, and oversee registration, approvals and milestones.`,
   overseer: (w, campus) =>
     `The ${campus ? 'Campus ' : ''}Sheep Seeking Overseer sees sheep seeking ${campus ? 'across every stream in' : 'for'} ${w}: converts, placements, progress and reports. View only.`,
 }
 
-function HolderCard({ h, action }: { h: SeekerHolder; action?: React.ReactNode }) {
+export function HolderCard({ h, action }: { h: SeekerHolder; action?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
       <Initials name={h.name} className="size-10 text-sm" />
@@ -52,9 +52,9 @@ function HolderCard({ h, action }: { h: SeekerHolder; action?: React.ReactNode }
             Since {new Date(h.since).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         )}
-        {!!h.ccfs?.length && (
-          <p className="truncate text-xs text-members" title={h.ccfs.map((c) => c.name).join(', ')}>
-            Liaison for {h.ccfs.map((c) => c.name).join(', ')}
+        {!!h.ccgs?.length && (
+          <p className="truncate text-xs text-members" title={h.ccgs.map((c) => c.name).join(', ')}>
+            Liaison for {h.ccgs.map((c) => c.name).join(', ')}
           </p>
         )}
       </div>
@@ -64,7 +64,7 @@ function HolderCard({ h, action }: { h: SeekerHolder; action?: React.ReactNode }
 }
 
 /** Choose who to appoint: someone new (no CCF needed) or an existing member. */
-function AppointDialog({
+export function AppointDialog({
   open,
   title,
   description,
@@ -117,7 +117,7 @@ function AppointDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {description} They don’t need to be in a CCF, and are emailed a link to set their own password.
+            {description} They don’t need to be in a CCF. They are emailed about it, with a link to set their password if they are new to the app.
           </DialogDescription>
         </DialogHeader>
         <div className="inline-flex w-full rounded-lg border border-border p-1" role="group" aria-label="Who">
@@ -172,7 +172,7 @@ function AppointDialog({
   )
 }
 
-/** Make a Sheep Seeker liaison for some of the stream's CCFs: the converts placed there become theirs to follow. */
+/** Make a Sheep Seeker liaison for some of the stream's CCGs: the converts placed in their CCFs become theirs to follow. */
 function LiaisonDialog({
   streamId,
   streamName,
@@ -186,32 +186,37 @@ function LiaisonDialog({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [ccfs, setCcfs] = useState<Array<{ id: string; name: string; ccg: { name: string }; status: string }> | null>(null)
+  type Ccg = { id: string; name: string; council: { name: string } | null; status: string; ccf_count: number }
+  const [ccgs, setCcgs] = useState<Ccg[] | null>(null)
   const [chosen, setChosen] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!seeker) return
-    setChosen(seeker.ccfs?.map((c) => c.id) ?? [])
-    ccgApi.get<{ ccfs: Array<{ id: string; name: string; ccg: { name: string }; status: string }> }>(`/ccfs?stream_id=${streamId}`).then((r) => {
-      if (r.ok) setCcfs(r.data.ccfs.filter((f) => f.status !== 'inactive' || seeker.ccfs?.some((c) => c.id === f.id)))
+    setChosen(seeker.ccgs?.map((c) => c.id) ?? [])
+    ccgApi.get<{ ccgs: Ccg[] }>(`/ccgs?stream_id=${streamId}`).then((r) => {
+      if (r.ok) setCcgs(r.data.ccgs.filter((g) => g.status !== 'inactive' || seeker.ccgs?.some((c) => c.id === g.id)))
       else message.error(r.error.message)
     })
   }, [seeker, streamId])
 
-  const byCcg = useMemo(() => {
-    const out = new Map<string, Array<{ id: string; name: string }>>()
-    for (const f of ccfs ?? []) out.set(f.ccg.name, [...(out.get(f.ccg.name) ?? []), f])
-    return [...out.entries()].sort(([a], [b]) => a.localeCompare(b))
-  }, [ccfs])
+  // Grouped by council; CCGs not yet in a council last.
+  const byCouncil = useMemo(() => {
+    const out = new Map<string, Ccg[]>()
+    for (const g of ccgs ?? []) {
+      const key = g.council?.name ?? ''
+      out.set(key, [...(out.get(key) ?? []), g])
+    }
+    return [...out.entries()].sort(([a], [b]) => (!a ? 1 : !b ? -1 : a.localeCompare(b)))
+  }, [ccgs])
 
   const save = async () => {
     if (!seeker) return
     setSaving(true)
-    const r = await ccgApi.put(`/streams/${streamId}/seekers/${seeker.assignment_id}/ccfs`, { ccf_ids: chosen })
+    const r = await ccgApi.put(`/streams/${streamId}/seekers/${seeker.assignment_id}/ccgs`, { ccg_ids: chosen })
     setSaving(false)
     if (!r.ok) return message.error(r.error.message)
-    message.success(chosen.length ? `${seeker.name} is liaison for ${chosen.length} CCF${chosen.length === 1 ? '' : 's'}` : `${seeker.name} is no longer a liaison`)
+    message.success(chosen.length ? `${seeker.name} is liaison for ${chosen.length} CCG${chosen.length === 1 ? '' : 's'}` : `${seeker.name} is no longer a liaison`)
     onSaved()
     onClose()
   }
@@ -220,27 +225,31 @@ function LiaisonDialog({
     <Dialog open={!!seeker} onOpenChange={(o) => !saving && !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{seeker?.name}: liaison CCFs</DialogTitle>
+          <DialogTitle>{seeker?.name}: liaison CCGs</DialogTitle>
           <DialogDescription>
-            The converts placed in these CCFs of {streamName} become theirs to follow up, as they are the CCF Coordinator’s: milestones, check-ins and attendance.
+            The converts placed in the CCFs of these CCGs of {streamName} become theirs to follow up, as they are the CCF Coordinator’s: milestones, check-ins and
+            attendance.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[50vh] space-y-4 overflow-y-auto pr-1">
-          {ccfs === null ? (
+          {ccgs === null ? (
             <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
-          ) : byCcg.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{streamName} has no CCFs yet.</p>
+          ) : byCouncil.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{streamName} has no CCGs yet.</p>
           ) : (
-            byCcg.map(([ccg, list]) => (
-              <fieldset key={ccg} className="space-y-2">
-                <legend className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{ccg}</legend>
-                {list.map((f) => (
-                  <label key={f.id} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-1 text-sm hover:bg-muted/50">
+            byCouncil.map(([council, list]) => (
+              <fieldset key={council} className="space-y-2">
+                <legend className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{council || 'Not in a council'}</legend>
+                {list.map((g) => (
+                  <label key={g.id} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-1 text-sm hover:bg-muted/50">
                     <Checkbox
-                      checked={chosen.includes(f.id)}
-                      onCheckedChange={(v) => setChosen((c) => (v ? [...c, f.id] : c.filter((x) => x !== f.id)))}
+                      checked={chosen.includes(g.id)}
+                      onCheckedChange={(v) => setChosen((c) => (v ? [...c, g.id] : c.filter((x) => x !== g.id)))}
                     />
-                    {f.name}
+                    <span className="flex-1">{g.name}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {g.ccf_count} CCF{g.ccf_count === 1 ? '' : 's'}
+                    </span>
                   </label>
                 ))}
               </fieldset>
@@ -251,7 +260,7 @@ function LiaisonDialog({
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={saving || ccfs === null}>
+          <Button onClick={save} disabled={saving || ccgs === null}>
             {saving && <Loader2 className="size-4 animate-spin" />}
             Save
           </Button>
@@ -261,7 +270,6 @@ function LiaisonDialog({
   )
 }
 
-/** One lead (Admin or Overseer) of a stream or campus, with appoint / change / stand down. */
 function LeadSlot({
   lead,
   holder,
@@ -382,7 +390,7 @@ export function StreamSeekers({
   const remove = async (s: SeekerHolder) => {
     const ok = await confirm({
       title: `Stand ${s.name} down?`,
-      description: `They stop being a Sheep Seeker for ${streamName}${s.ccfs?.length ? ', and liaison for its CCFs' : ''}.`,
+      description: `They stop being a Sheep Seeker for ${streamName}${s.ccgs?.length ? ', and liaison for its CCGs' : ''}.`,
       confirmLabel: 'Stand down',
       destructive: true,
     })
@@ -425,7 +433,7 @@ export function StreamSeekers({
 
         {seekers === null ? null : seekers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No Sheep Seekers yet.{canManage ? ' Add the people who will register converts, then make some of them liaisons for CCFs.' : ''}
+            No Sheep Seekers yet.{canManage ? ' Add the people who will register converts, then make some of them liaisons for CCGs.' : ''}
           </p>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -436,7 +444,7 @@ export function StreamSeekers({
                   action={
                     canManage && (
                       <div className="flex shrink-0">
-                        <Button variant="ghost" size="icon" className="size-9" onClick={() => setLiaison(s)} aria-label={`${s.name}’s liaison CCFs`} title="Liaison CCFs">
+                        <Button variant="ghost" size="icon" className="size-9" onClick={() => setLiaison(s)} aria-label={`${s.name}’s liaison CCGs`} title="Liaison CCGs">
                           <Users className="size-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="size-9" onClick={() => remove(s)} aria-label={`Stand ${s.name} down`}>
@@ -455,7 +463,7 @@ export function StreamSeekers({
       <AppointDialog
         open={adding}
         title="Add a Sheep Seeker"
-        description={`Sheep Seekers register ${streamName}’s converts, who belong to the stream. Make one a liaison for some CCFs and the converts placed there are theirs to follow up.`}
+        description={`Sheep Seekers register ${streamName}’s converts, who belong to the stream. Make one a liaison for some CCGs and the converts placed in their CCFs are theirs to follow up.`}
         submitLabel="Add Sheep Seeker"
         onClose={() => setAdding(false)}
         submit={async (payload, name) => {

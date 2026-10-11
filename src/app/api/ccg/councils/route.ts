@@ -22,12 +22,12 @@ export const GET = withCcg({}, async ({ scope, query }) => {
   return success({ councils: councils.map((c) => serializeCouncil(c, { ccg_count: c._count.ccgs })) })
 })
 
-/** POST /api/ccg/councils (structure.manage; its Council Admin, `leader`, needs roles.manage) */
+/** POST /api/ccg/councils (structure.manage; its Council Leader, `leader`, needs roles.manage) */
 export const POST = withCcg<z.infer<typeof councilSchema>>(
   { permission: 'structure.manage', schema: councilSchema },
   async ({ request, user, scope, body }) => {
     ensure(scope.can('structure.manage'))
-    if (body.leader) ensure(scope.can('roles.manage'), 'Setting a Council Admin needs permission to manage roles')
+    if (body.leader) ensure(scope.can('roles.manage'), 'Setting a Council Leader needs permission to manage roles')
     await assertStreamExists(body.stream_id)
     const { leader, ...rest } = body
     const c = await createWithCode('council', rest.code, (code) =>

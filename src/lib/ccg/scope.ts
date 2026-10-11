@@ -5,8 +5,8 @@ import { isPermission, type Permission, type ScopeLevel } from './permissions'
  * role assignments and the campus → stream → council → CCG → CCF hierarchy.
  *
  * A grant at a level covers everything beneath it: a campus grant covers its
- * streams; a stream grant (e.g. an Overseer's) covers its councils, CCGs and
- * their CCFs; a Council Admin's council grant covers its CCGs; a Governor's
+ * streams; a stream grant (e.g. a Stream Leader's) covers its councils, CCGs and
+ * their CCFs; a council grant covers its CCGs; a CCG Overseer's
  * CCG grant covers its CCFs.
  */
 
@@ -62,7 +62,7 @@ export interface CcgScope {
   canAsLiaison(perm: Permission, ccfId: string | null | undefined): boolean
   /**
    * `perm` on a CCF's members. Sheep seeking roles reach converts only, so
-   * this counts CCF, CCG, council, Overseer and church-wide leadership roles alone.
+   * this counts CCF, CCG, council, stream and church-wide leadership roles alone.
    */
   canOnMembersOf(perm: Permission, ccfId: string | null | undefined): boolean
   /** CCFs whose members `perm` reaches (see canOnMembersOf). */
@@ -127,7 +127,7 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
 
   const canOnCampus = (perm: Permission, campusId: string | null | undefined) => global.has(perm) || (!!campusId && !!byCampus.get(campusId)?.has(perm))
 
-  /** Leadership of the stream's CCGs (an Overseer's, a Campus Leader's, church-wide). */
+  /** Leadership of the stream's CCGs (a Stream Leader's, a Campus Leader's, church-wide). */
   const leadsStream = (perm: Permission, streamId: string | null | undefined) =>
     global.has(perm) || (!!streamId && (!!byStream.get(streamId)?.has(perm) || canOnCampus(perm, campusOfStream.get(streamId) ?? null)))
 

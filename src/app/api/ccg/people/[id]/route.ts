@@ -74,7 +74,7 @@ export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, as
   ensure(
     canEditDetails(scope, p),
     p.kind === 'member'
-      ? 'Only the CCG Admin or the stream’s Admin edits a member’s profile'
+      ? 'Only the Church Admin, or a Stream Admin, Council Leader or Council Admin over this member, edits their profile'
       : isPlaced(p)
         ? 'A convert’s details cannot be changed once they are placed'
         : 'Only Sheep Seekers edit converts in their care'
@@ -103,7 +103,7 @@ export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, as
 /** DELETE /api/ccg/people/[id] — soft delete; ends placements and proposals. */
 export const DELETE = withCcg<undefined, P>({}, async ({ user, scope, params }) => {
   const p = await load(params.id)
-  ensure(canEditPerson(scope, p), p.kind === 'member' ? 'Only the CCG Admin or the stream’s Admin removes a member' : 'You can only remove people in your scope')
+  ensure(canEditPerson(scope, p), p.kind === 'member' ? 'Only the Church Admin, or a Stream Admin, Council Leader or Council Admin over this member, removes them' : 'You can only remove people in your scope')
   await removePerson(p.id, user.id)
   return success({ id: p.id })
 })

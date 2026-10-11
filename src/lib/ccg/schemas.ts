@@ -95,7 +95,7 @@ export const streamSchema = z.object({
 })
 export const streamUpdateSchema = streamSchema.partial()
 
-/** A council groups CCGs in a stream; `leader` is its Council Admin (needs roles.manage). */
+/** A council groups CCGs in a stream; `leader` is its Council Leader (needs roles.manage). */
 export const councilSchema = z.object({
   stream_id: uuid,
   leader: unitLeader,
@@ -107,8 +107,8 @@ export const councilSchema = z.object({
 })
 export const councilUpdateSchema = councilSchema.partial()
 
-/** A Sheep Seeker's CCFs as liaison (CCFs of their stream); replaces the list. */
-export const liaisonCcfsSchema = z.object({ ccf_ids: z.array(uuid).max(200) })
+/** A Sheep Seeker's CCGs as liaison (CCGs of their stream); replaces the list. */
+export const liaisonCcgsSchema = z.object({ ccg_ids: z.array(uuid).max(200) })
 
 /** A CCG sits in a council (its stream is the council's) or, until it has one, directly in a stream. */
 export const ccgSchema = z.object({
@@ -138,7 +138,7 @@ export const ccfSchema = z.object({
   notes: text(2000),
 })
 export const ccfUpdateSchema = ccfSchema.partial()
-/** What a governor (units.edit) may change — not the CCG, code or status. */
+/** What a CCG's Overseer (units.edit) may change — not the CCG, code or status. */
 export const CCF_UNIT_EDIT_FIELDS = ['name', 'meeting_location', 'meeting_day', 'meeting_time', 'meeting_frequency', 'notes'] as const
 
 // --------------------------------------------------------------------------
@@ -210,7 +210,14 @@ export const transferSchema = z.object({
 /** Declining a move request: why, optionally. */
 export const moveDeclineSchema = z.object({ reason: text(1000) }).default({})
 /** Where a closing CCF's people go; may be left out only when it is empty. */
-export const closeCcfSchema = z.object({ to_ccf_id: uuid.nullable().optional() }).default({})
+/** Closing a CCF: where everyone goes (`to_ccf_id`), per-person exceptions (`moves`), and its coordinators' next role. */
+export const closeCcfSchema = z
+  .object({
+    to_ccf_id: uuid.nullable().optional(),
+    moves: z.record(uuid, uuid).optional(),
+    coordinators: z.enum(['member', 'coordinator']).optional(),
+  })
+  .default({})
 
 export const rescoreSchema = z.object({ person_ids: z.array(uuid).max(500).optional() }).default({})
 

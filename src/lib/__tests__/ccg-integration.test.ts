@@ -566,15 +566,15 @@ d('CCG backend against Postgres', () => {
     ).rejects.toThrow(/Sheep Seeker/)
 
     // Converts belong to the stream, not to a Sheep Seeker: whoever registered them, every Sheep Seeker
-    // of the stream reaches them. A liaison's CCFs are the stream's own.
+    // of the stream reaches them. A liaison's CCGs are the stream's own.
     expect(m.people.canOnPerson(scope, 'people.manage', (await prisma.ccgPerson.findUniqueOrThrow({ where: { id: byAdmin.person.id }, include: m.people.personInclude })))).toBe(true)
     const assignment = await prisma.ccgRoleAssignment.findFirstOrThrow({ where: { userId: login.id, roleKey: 'sheep_seeker', streamId: stream.id, endsOn: null } })
-    await expect(m.seekers.setLiaisonCcfs(stream.id, assignment.id, [randomUUID()], ids.admin)).rejects.toThrow(/this stream/)
+    await expect(m.seekers.setLiaisonCcgs(stream.id, assignment.id, [randomUUID()], ids.admin)).rejects.toThrow(/this stream/)
 
     // Their home screen (the stream's registrations), and the stream's report by week and month.
     const home = await m.seekers.seekerHome(login.id)
     expect(home?.seeker.person_id).toBe(seeker.id)
-    expect(home?.liaison_ccfs).toEqual([])
+    expect(home?.liaison_ccgs).toEqual([])
     expect(home?.counts.registered_this_week).toBeGreaterThanOrEqual(3) // theirs and the admin's
     expect(home?.counts.awaiting_approval).toBe(
       await prisma.ccgPerson.count({ where: { kind: 'convert', streamId: stream.id, status: 'proposed', deletedAt: null } })
@@ -705,26 +705,30 @@ d('CCG backend against Postgres', () => {
     // Appointing them again is refused; the same email in another stream reuses the person (one login).
     await expect(m.seekers.addSeeker(fresh.id, { person_id: person.id }, ids.admin, 'http://test')).rejects.toThrow(/already a Sheep Seeker/)
     const again = await m.seekers.addSeeker(ids.stream, { first_name: 'Other', last_name: 'Name', phone: '0249999000', email: email.toUpperCase() }, ids.admin, 'http://test')
-    expect(again).toMatchObject({ person_id: person.id, reused: true, invite: null })
+    // They never set their password: a new role sends a fresh link to set it.
+    expect(again).toMatchObject({ person_id: person.id, reused: true, invite: { kind: 'invite', sent_to: email } })
     const roles = await prisma.ccgRoleAssignment.findMany({ where: { userId: login.id, roleKey: 'sheep_seeker', endsOn: null } })
     expect(roles.map((r) => r.streamId).sort()).toEqual([fresh.id, ids.stream].sort())
 
-    // As a Sheep Seeking Liaison for a CCF, they follow the converts placed there, as its CCF Coordinator does.
+    // As a Sheep Seeking Liaison for a CCG, they follow the converts placed in its CCFs, as their CCF Coordinators do.
     const { person: assigned, proposal } = await convertFor({ interests: ['football'], availability: ['weekday_evenings'] })
     await m.placements.approvePlacement(proposal!.placement.id, ids.admin)
     const placedIn = (await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: proposal!.placement.id } })).finalCcfId!
     const seekerRole = await prisma.ccgRoleAssignment.findFirstOrThrow({ where: { userId: login.id, roleKey: 'sheep_seeker', streamId: ids.stream, endsOn: null } })
-    await m.seekers.setLiaisonCcfs(ids.stream, seekerRole.id, [placedIn], ids.admin)
+    const ccgOf = (await prisma.ccgFamily.findUniqueOrThrow({ where: { id: placedIn } })).ccgId
+    await m.seekers.setLiaisonCcgs(ids.stream, seekerRole.id, [ccgOf], ids.admin)
     const seekerScope = await m.scopeLoader.loadScope(login.id)
-    expect(seekerScope.liaisonCcfIds).toEqual([placedIn])
+    const ccgCcfs = (await prisma.ccgFamily.findMany({ where: { ccgId: ccgOf, deletedAt: null }, select: { id: true } })).map((f) => f.id)
+    expect([...seekerScope.liaisonCcfIds].sort()).toEqual(ccgCcfs.sort())
+    expect(seekerScope.liaisonCcfIds).toContain(placedIn)
     expect(seekerScope.canAsLiaison('milestones.update', placedIn)).toBe(true)
     expect(seekerScope.canOnMembersOf('people.view', placedIn)).toBe(false) // converts only, never members
     await expect(m.placementRoutes.authorisePlacement(seekerScope, 'milestones.update', proposal!.placement.id)).resolves.toBeTruthy()
     const mine = await (await import('@/lib/ccg/server/progress')).listProgress(seekerScope, { liaisonCcfIds: seekerScope.liaisonCcfIds })
     expect(mine.rows.map((r) => r.person.id)).toContain(assigned.id)
     const liaisonTeam = await m.seekers.streamTeam(ids.stream)
-    expect(liaisonTeam.seekers.find((s) => s.user_id === login.id)?.ccfs.map((c) => c.id)).toEqual([placedIn])
-    expect((await m.seekers.seekerHome(login.id))?.liaison_ccfs.map((c) => c.id)).toEqual([placedIn])
+    expect(liaisonTeam.seekers.find((s) => s.user_id === login.id)?.ccgs.map((c) => c.id)).toEqual([ccgOf])
+    expect((await m.seekers.seekerHome(login.id))?.liaison_ccgs.map((c) => c.id)).toEqual([ccgOf])
     // Once placed, a convert's details are fixed, even for their Sheep Seeker; moving them is still theirs.
     const placedConvert = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: assigned.id }, include: m.people.personInclude })
     expect(m.people.isPlaced(placedConvert)).toBe(true)
@@ -988,4 +992,155 @@ d('CCG backend against Postgres', () => {
     const { person } = await convertFor({})
     await expect(m.people.updatePerson(person.id, { phone: '+1 202 555 0143' }, { actorId: ids.admin, source: 'staff' })).rejects.toThrow(/Ghana phone number/)
   }, T)
+  it('CCGs, councils and streams have admins: appointed by the leader or those above, and emailed', async () => {
+    const { prisma } = m
+    const access = await import('@/lib/ccg/server/admin-access')
+    // A council of the test stream, with a CCG of its own.
+    const council = await prisma.ccgCouncil.create({ data: { streamId: ids.stream, code: `K${run}`, name: `Council ${run}` } })
+    const ccg = await prisma.ccgGroup.create({ data: { code: `GA${run}`, name: `Admin CCG ${run}`, streamId: ids.stream, councilId: council.id } })
+
+    // Someone new becomes the CCG's admin: a member of the stream, in no CCF, sent a link to set their password.
+    const email = `ccgadmin.${run}@example.org`.toLowerCase()
+    const first = await m.roles.addUnitAdmin('ccg', ccg.id, { first_name: 'Ama', last_name: `Admin ${run}`, phone: testPhone(), email }, ids.admin, 'http://test')
+    expect(first.invite).toMatchObject({ kind: 'invite', sent: false, sent_to: email })
+    const person = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: first.person_id } })
+    expect(person).toMatchObject({ ccfId: null, streamId: ids.stream })
+    expect(await m.roles.unitAdmins('ccg', ccg.id)).toEqual([expect.objectContaining({ person_id: person.id })])
+    await expect(m.roles.addUnitAdmin('ccg', ccg.id, { person_id: person.id }, ids.admin, 'http://test')).rejects.toThrow(/already an admin/)
+
+    // Given another role before setting their password: a fresh link, not "sign in".
+    const again = await m.roles.addUnitAdmin('council', council.id, { person_id: person.id }, ids.admin, 'http://test')
+    expect(again.invite).toMatchObject({ kind: 'invite', sent_to: email })
+    // Once they have a password, a new role is a note telling them so.
+    await m.memberLogin.acceptInvite(again.invite!.link!.split('/welcome/')[1], 'a-good-password')
+    const third = await m.roles.addUnitAdmin('stream', ids.stream, { person_id: person.id }, ids.admin, 'http://test')
+    expect(third.invite).toMatchObject({ kind: 'notice', sent: false, sent_to: email })
+    expect(third.invite?.link).toBeUndefined()
+
+    // An admin has the leader's rights in the unit, but does not appoint admins.
+    const adminScope = await m.scopeLoader.loadScope(person.userId!)
+    expect(adminScope.canOnCcg('people.manage', ccg.id)).toBe(true)
+    expect(access.canAppointAdmins(adminScope, 'ccg', ccg.id)).toBe(false)
+    expect(access.canAppointAdmins(adminScope, 'council', council.id)).toBe(false)
+
+    // The council's leader appoints admins of the council and of its CCGs, not of the stream.
+    const leader = await m.people.createPerson({
+      kind: 'member',
+      core: { first_name: 'Kofi', last_name: `Leader ${run}`, phone: testPhone(), email: `kleader.${run}@example.org`, stream_id: ids.stream },
+      answers: {},
+      source: 'staff',
+      actorId: ids.admin,
+    })
+    await m.roles.setUnitLeader('council', council.id, { person_id: leader.person.id }, ids.admin, 'http://test')
+    const leaderUser = (await prisma.ccgPerson.findUniqueOrThrow({ where: { id: leader.person.id } })).userId!
+    expect(await prisma.ccgRoleAssignment.count({ where: { userId: leaderUser, roleKey: 'council_leader', councilId: council.id, endsOn: null } })).toBe(1)
+    const leaderScope = await m.scopeLoader.loadScope(leaderUser)
+    expect(access.canAppointAdmins(leaderScope, 'council', council.id)).toBe(true)
+    expect(access.canAppointAdmins(leaderScope, 'ccg', ccg.id)).toBe(true)
+    expect(access.canAppointAdmins(leaderScope, 'stream', ids.stream)).toBe(false)
+    expect(access.canAppointAdmins(await m.scopeLoader.loadScope(ids.coord), 'ccg', ids.ccg)).toBe(false) // a CCF Coordinator
+    expect(access.canAppointAdmins(await m.scopeLoader.loadScope(ids.admin), 'stream', ids.stream)).toBe(true) // the central team
+    expect(() => access.adminLevel('ccf')).toThrow(/streams, councils and CCGs/)
+
+    // Standing one down ends that role only.
+    await m.roles.standDownUnitAdmin('ccg', ccg.id, first.assignment_id, ids.admin)
+    expect(await m.roles.unitAdmins('ccg', ccg.id)).toEqual([])
+    expect((await m.roles.unitAdmins('council', council.id)).map((a) => a.person_id)).toEqual([person.id])
+    await expect(m.roles.standDownUnitAdmin('ccg', ccg.id, first.assignment_id, ids.admin)).rejects.toThrow(/not found/i)
+  }, 180_000)
+
+  it('Sheep Seeking Admins see where the converts went, per CCF, filtered', async () => {
+    const { prisma } = m
+    const breakdown = await import('@/lib/ccg/server/placement-breakdown')
+    const scope = await m.scopeLoader.loadScope(ids.admin)
+    const all = await breakdown.placementBreakdown(scope, { streamId: ids.stream, councilId: null, ccgId: null, seekerId: null, from: null, to: null })
+    const fb = all.rows.find((r) => r.ccf.id === ids.football)!
+    expect(fb.ccg.id).toBe(ids.ccg)
+    expect(fb.in_ccf).toBe(await prisma.ccgPlacement.count({ where: { status: 'active', finalCcfId: ids.football, person: { deletedAt: null } } }))
+    expect(fb.awaiting).toBe(await prisma.ccgPlacement.count({ where: { status: 'proposed', proposedCcfId: ids.football, person: { deletedAt: null } } }))
+    expect(all.total.in_ccf).toBe(all.rows.reduce((t, r) => t + r.in_ccf, 0))
+    expect(all.not_placed).not.toBeNull()
+
+    // One CCG: only its CCFs; the not-placed count (stream-wide) is left out.
+    const one = await breakdown.placementBreakdown(scope, { streamId: ids.stream, councilId: null, ccgId: ids.ccg, seekerId: null, from: null, to: null })
+    expect(new Set(one.rows.map((r) => r.ccg.id))).toEqual(new Set([ids.ccg]))
+    expect(one.not_placed).toBeNull()
+
+    // A period in the future: nothing placed then, while today's counts stay.
+    const later = await breakdown.placementBreakdown(scope, {
+      streamId: ids.stream, councilId: null, ccgId: null, seekerId: null, from: new Date('2100-01-01'), to: new Date('2100-02-01'),
+    })
+    expect(later.total.placed).toBe(0)
+    expect(later.total.in_ccf).toBe(all.total.in_ccf)
+
+    // A CCF Coordinator is not on the Sheep Seeking side.
+    await expect(
+      breakdown.placementBreakdown(await m.scopeLoader.loadScope(ids.coord), { streamId: ids.stream, councilId: null, ccgId: null, seekerId: null, from: null, to: null })
+    ).rejects.toThrow()
+  }, T)
+  it('closing a CCF: everyone moves where chosen, room is checked, loose ends are tidied', async () => {
+    const { prisma } = m
+    const closure = await import('@/lib/ccg/server/ccf-closure')
+    const admin = await m.scopeLoader.loadScope(ids.admin)
+    const ccg = await prisma.ccgGroup.create({ data: { code: `GC${run}`, name: `Closing CCG ${run}`, streamId: ids.stream } })
+    const mkCcf = (code: string) => prisma.ccgFamily.create({ data: { ccgId: ccg.id, code: `${code}${run}`, name: `CCF ${code} ${run}`, meetingDay: 'Monday', meetingTime: '19:00' } })
+    const [x, y, z] = [await mkCcf('CX'), await mkCcf('CY'), await mkCcf('CZ')]
+    const member = async (ccfId: string, email?: string) =>
+      (
+        await m.people.createPerson({
+          kind: 'member',
+          core: { first_name: 'Member', last_name: randomUUID().slice(0, 4), ccf_id: ccfId, phone: testPhone(), ...(email ? { email } : {}) },
+          answers: { interests: ['football'] },
+          source: 'staff',
+          actorId: ids.admin,
+        })
+      ).person
+    const coord = await member(x.id, `closecoord.${run}@example.org`.toLowerCase())
+    const plain = await member(x.id)
+    await member(y.id)
+    await member(z.id) // Z can take 2 converts (more with members joining it)
+    await m.roles.setUnitLeader('ccf', x.id, { person_id: coord.id }, ids.admin, 'http://test')
+
+    // A convert placed in X, one on hold for X, and a move request into X.
+    const { proposal } = await convertFor({ interests: ['football'] })
+    await m.placements.remapPlacement(proposal!.placement.id, x.id, 'Closing test', ids.admin)
+    const placedId = (await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: proposal!.placement.id } })).personId
+    const { person: heldPerson, proposal: heldProposal } = await convertFor({ interests: ['football'] })
+    await prisma.ccgPlacement.update({ where: { id: heldProposal!.placement.id }, data: { status: 'held', proposedCcfId: x.id } })
+    await prisma.ccgPerson.update({ where: { id: heldPerson.id }, data: { status: 'needs_info' } })
+    const request = await prisma.ccgMoveRequest.create({ data: { personId: ids.fbMember, kind: 'member', fromCcfId: ids.football, toCcfId: x.id, source: 'staff' } })
+
+    // The preview lists who moves and where they may go.
+    const preview = await closure.closurePreview(admin, x.id)
+    expect(preview.members.map((p) => p.person_id).sort()).toEqual([coord.id, plain.id].sort())
+    expect(preview.members.find((p) => p.person_id === coord.id)?.is_coordinator).toBe(true)
+    expect(preview.converts.map((c) => c.person_id)).toEqual([placedId])
+    expect(preview.on_hold).toBe(1)
+    expect(preview.pending_move_requests).toBe(1)
+    expect(preview.destinations.map((d) => d.id)).toEqual(expect.arrayContaining([y.id, z.id]))
+    expect(preview.destinations.map((d) => d.id)).not.toContain(x.id)
+    // Not for a CCF Coordinator.
+    await expect(closure.closurePreview(await m.scopeLoader.loadScope(ids.coord), x.id)).rejects.toThrow(/central team/)
+
+    // Everyone must have somewhere to go; a CCF can't be sent more converts than it has room for.
+    await expect(closure.closeCcf(admin, x.id, { moves: { [plain.id]: y.id } }, ids.admin, 'http://test')).rejects.toThrow(/Choose where/)
+    const empty = await prisma.ccgFamily.create({ data: { ccgId: ccg.id, code: `CE${run}`, name: `CCF CE ${run}` } })
+    await expect(closure.closeCcf(admin, x.id, { to_ccf_id: y.id, moves: { [placedId]: empty.id } }, ids.admin, 'http://test')).rejects.toThrow(/can hold 0 converts/)
+    expect((await prisma.ccgFamily.findUniqueOrThrow({ where: { id: x.id } })).deletedAt).toBeNull() // nothing moved
+
+    // Members to Y, the convert to Z; the coordinator also coordinates Y.
+    const r = await closure.closeCcf(admin, x.id, { to_ccf_id: y.id, moves: { [placedId]: z.id }, coordinators: 'coordinator' }, ids.admin, 'http://test')
+    expect(r).toMatchObject({ members: 2, converts: 1, rematched: 1, coordinators: [expect.objectContaining({ ccf: y.name })] })
+    expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: plain.id } })).ccfId).toBe(y.id)
+    expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: coord.id } })).ccfId).toBe(y.id)
+    expect((await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: proposal!.placement.id } })).finalCcfId).toBe(z.id)
+    expect(await prisma.ccgTransfer.count({ where: { fromCcfId: x.id } })).toBe(3)
+    const coordUser = (await prisma.ccgPerson.findUniqueOrThrow({ where: { id: coord.id } })).userId!
+    expect(await prisma.ccgRoleAssignment.count({ where: { userId: coordUser, roleKey: 'ccf_coordinator', ccfId: y.id, endsOn: null } })).toBe(1)
+    expect(await prisma.ccgRoleAssignment.count({ where: { ccfId: x.id, endsOn: null } })).toBe(0)
+    // The held convert is matched again (no longer held for X); the move request into X is cancelled.
+    expect(await prisma.ccgPlacement.count({ where: { personId: heldPerson.id, status: { in: ['proposed', 'held'] }, proposedCcfId: x.id } })).toBe(0)
+    expect((await prisma.ccgMoveRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe('cancelled')
+    expect((await prisma.ccgFamily.findUniqueOrThrow({ where: { id: x.id } })).deletedAt).not.toBeNull()
+  }, 180_000)
 })

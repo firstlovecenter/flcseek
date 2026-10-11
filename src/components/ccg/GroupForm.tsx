@@ -21,7 +21,7 @@ import { StickyHeader, UNIT_LEVEL, groupHref } from './synago'
 
 /**
  * Add or edit a group (campus, stream, council, CCG or CCF) on its own page,
- * like Synago's church forms. The leader (a council's Council Admin) is chosen
+ * like Synago's church forms. The leader (a council's Council Leader) is chosen
  * from members; one without a login is emailed an invitation to set a password.
  */
 
@@ -37,9 +37,9 @@ const PARENT: Record<GroupType, { type: GroupType; field: string; label: string;
 // A stream's Sheep Seeking Overseer is appointed on the Sheep Seeking side; its Overseer here.
 const LEADER_LABEL: Record<GroupType, string | null> = {
   campus: 'Campus Leader',
-  stream: 'Overseer',
-  council: 'Council Admin',
-  ccg: 'City Church Governor',
+  stream: 'Stream Leader',
+  council: 'Council Leader',
+  ccg: 'Overseer',
   ccf: 'CCF Coordinator',
 }
 const STATUSES: Record<GroupType, Array<{ value: string; label: string }>> = {
@@ -75,7 +75,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
   const invites = useInviteNotice()
   const editing = !!id
   const parent = PARENT[type]
-  const full = hasGlobal('structure.manage') // otherwise a CCG Governor editing a CCF's details
+  const full = hasGlobal('structure.manage') // otherwise a CCG's Overseer editing a CCF's details
   const canLead = hasGlobal('roles.manage') && !!LEADER_LABEL[type]
 
   const [values, setValues] = useState<Values>({ status: 'active' })

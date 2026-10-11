@@ -34,17 +34,32 @@ The backend contract for the CCG app. The CCG app lives in the same repo as Seek
 
 ## Structure and permissions
 
-**Structure:** campus → stream → **CCG** (City Church Group) → **CCF** (City Church Family). Members belong to one CCF. Converts are placed into a CCF, and its CCG follows.
+**Structure:** campus → stream → council → **CCG** (City Church Group) → **CCF** (City Church Family). Members belong to one CCF. Converts are placed into a CCF, and its CCG follows.
+
+**Leaders and admins:** a CCF has one leader, its Coordinator. A CCG, council and stream each have one leader and any number of admins:
+
+| Level | Leader | Admins |
+|---|---|---|
+| CCF | Coordinator (`ccf_coordinator`) | none |
+| CCG | Overseer (`ccg_governor`) | City Church Admins (`ccg_group_admin`) |
+| Council | Council Leader (`council_leader`) | Council Admins (`council_admin`) |
+| Stream | Stream Leader (`overseer`, view only) | Stream Admins (`stream_admin`) |
+
+Admins hold the leader's rights in the unit (a Stream Admin acts while the Stream Leader views), but don't appoint admins. A unit's leader and everyone above it (`admins.appoint`), and the central team, appoint them. Everyone appointed is emailed: a new login gets a link to set a password, an existing one a note of the new role.
 
 **Roles** are rows in `ccg_roles`, each with a level and a set of permissions. Assigning a role gives a user that role over one unit. A grant covers everything below that unit.
 
 | Role | Level | Permissions |
 |---|---|---|
 | Seek superadmin | global (implicit) | all |
-| `ccg_admin` CCG Admin | global | all |
+| `ccg_admin` Church Admin | global | all |
 | `sheep_seeker` Sheep Seeker | stream | people.view/manage, links.intake, placements.view/approve, attendance.mark, milestones.update, checkins.record, reports.view. Registers converts into their stream and handles their mapping. |
-| `overseer` Overseer | stream (City Church Groups side: every CCG in the stream) | people.view, placements.view, reports.view (view only) |
-| `ccg_governor` City Church Governor | CCG | units.edit, people.view/manage, members.confirm, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
+| `overseer` Stream Leader | stream (City Church Groups side: every CCG in the stream) | people.view, placements.view, reports.view, admins.appoint |
+| `stream_admin` Stream Admin | stream | units.edit, people.view/manage, members.confirm/edit, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
+| `council_leader` Council Leader | council | as Council Admin, plus admins.appoint |
+| `council_admin` Council Admin | council | as Stream Admin, for one council |
+| `ccg_governor` Overseer | CCG | units.edit, people.view/manage, members.confirm, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view, admins.appoint |
+| `ccg_group_admin` City Church Admin | CCG | as the Overseer, without admins.appoint |
 | `ccf_coordinator` City Church Family Coordinator | CCF | people.view/manage, members.confirm, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, reports.view |
 
 **Permissions:**
@@ -54,7 +69,7 @@ The backend contract for the CCG app. The CCG app lives in the same repo as Seek
 - `placements.view`, `placements.approve`
 - `milestones.update`, `checkins.record`, `attendance.mark`, `activities.record`
 - `reports.view`
-- `settings.manage`, `roles.manage`
+- `settings.manage`, `roles.manage`, `admins.appoint`, `seekers.manage`
 
 Routes always check a permission against the unit concerned, never a role name. `GET /me` returns what the current user holds.
 
@@ -138,8 +153,13 @@ Create and edit each level through its own collection:
 | GET | `/ccfs/[id]` | people.view on the CCF | `ccf`, `profile`, `members[]`, `placed_converts[]`, `incoming_proposals[]` |
 | PATCH | `/ccfs/[id]` | structure.manage, or units.edit for details only | With units.edit you can change only name, meeting details and notes. A CCF has no set capacity: its room is two converts per active member. |
 | DELETE | `/ccfs/[id]` | structure.manage | Must be empty. Ends its role assignments and revokes its links. |
+| GET | `/ccfs/[id]/close` | central team, or the Sheep Seeking Admin of its stream or campus | What closing it would move: `{ ccf, members[{ person_id, name, status, is_coordinator }], converts[], waiting_for_approval, on_hold, pending_move_requests, destinations[{ id, name, ccg, stream, same_ccg, members, converts, convert_limit }] }`. Destinations are the CCFs of streams the viewer runs. |
+| POST | `/ccfs/[id]/close` | same | `{ to_ccf_id?, moves?: { person_id: ccf_id }, coordinators?: 'member'\|'coordinator' }`. Every member and placed convert goes where `moves` says, or to `to_ccf_id`. Converts keep their milestones and assessment year. Those waiting for approval or on hold for it are matched again; move requests into it are cancelled, those out of it pass to the person's new CCF. `coordinators: 'coordinator'` makes its coordinators coordinators of the CCF they move to too. Members are never notified; the receiving coordinators are texted about the converts. CONFLICT (`convert_limit`) when a receiving CCF lacks room: then nothing moves. |
+| GET | `/groups/[stream\|council\|ccg]/[id]/admins` | people.view on it | `{ admins[{ assignment_id, person_id, name, since }], can_appoint }` |
+| POST | `/groups/[stream\|council\|ccg]/[id]/admins` | admins.appoint on it, or roles.manage | Add an admin: `{ person_id }` or a new person's details. Returns `{ person_id, assignment_id, reused, invite }`. |
+| DELETE | `/groups/[stream\|council\|ccg]/[id]/admins/[assignmentId]` | same | Stand one admin down. |
 
-`leader` is `{ person_id }` (a member) or `null` to clear it, and needs roles.manage. A leader without a login is sent an invitation; the response includes `leader_invite`.
+`leader` is `{ person_id }` (a member) or `null` to clear it, and needs roles.manage. A leader without a login is sent an invitation, and one with a login a note of the role; the response includes `leader_invite` (`kind: 'invite' | 'notice'`).
 
 A **CCF profile** contains:
 - `member_count`, `occupied`, `reserved`, `available_spaces`
@@ -373,6 +393,8 @@ Sheep seeking has its own portal, over the same data as City Church Groups (see 
 | GET | `/seekers/me` | any | `{ home }`: the signed-in seeker's counts (registered this week, awaiting approval, on hold, in assessment, became members), the converts on hold, follow-ups and recent converts. `home` is null when they are not a Sheep Seeker. |
 | GET | `/seekers?stream_id=&period=week\|month&offset=0` | reports.view on the streams | Per seeker for one week (starting Monday) or calendar month, `offset` periods back: `registered`, `placed`, `became_members`, `dropped`, and `in_assessment` (today). Also returns `unassigned` and `total`. |
 | GET | `/seekers/options?stream_id=` | people.view | Seekers to choose from: `{ person_id, name, streams[] }` |
+| GET | `/seekers/placements?stream_id=&council_id=&ccg_id=&seeker=&from=&to=` | reports.view (Sheep Seeking side) | Where the converts went, per CCF with its CCG and council: `in_ccf` (now), `placed` (in the period), `awaiting`, `on_hold`, `became_members` and `dropped` (in the period); `total`, and `not_placed{ new, needs_info, proposed }` (null when narrowed to a council or CCG). `to` is inclusive. Shown on the Sheep Seeking Admin's home, with filters. |
+| PUT | `/streams/[id]/seekers/[assignmentId]/ccgs` | roles.manage, or seekers.manage on the stream (its or its campus's Sheep Seeking Admin) | `{ ccg_ids }`: make this Sheep Seeker liaison for exactly these CCGs of the stream. They follow the converts placed in every CCF of those CCGs. `[]` ends it. |
 
 `GET /people?seeker=me|<person id>|none` filters converts by seeker.
 

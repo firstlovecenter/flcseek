@@ -280,7 +280,7 @@ export function ConvertMilestones({ mine = false }: { mine?: boolean }) {
                 : overdueOnly
                   ? 'Every convert is on track.'
                   : mine
-                    ? 'Converts placed in the CCFs you are liaison for appear here once their placement is approved.'
+                    ? 'Converts placed in the CCGs you are liaison for appear here once their placement is approved.'
                     : 'Converts appear here once their placement is approved.'
             }
           />

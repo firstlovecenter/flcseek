@@ -23,7 +23,10 @@ export const GET = withCcg({}, async ({ user, scope }) => {
       },
       orderBy: { role: { sortOrder: 'asc' } },
     }),
-    prisma.ccgSeekingLiaison.findMany({ where: { userId: user.id, ccf: { deletedAt: null } }, select: { ccf: { select: { id: true, name: true } } } }),
+    prisma.ccgSeekingLiaisonCcg.findMany({
+      where: { userId: user.id, ccg: { deletedAt: null } },
+      select: { ccg: { select: { id: true, name: true, families: { where: { deletedAt: null }, select: { id: true, name: true }, orderBy: { name: 'asc' } } } } },
+    }),
   ])
   return success({
     user: { id: user.id, username: u?.username ?? user.username, name: u ? userDisplayName(u) : user.username },
@@ -46,8 +49,10 @@ export const GET = withCcg({}, async ({ user, scope }) => {
       starts_on: dateOnly(a.startsOn),
       ends_on: dateOnly(a.endsOn),
     })),
-    /** The CCFs this Sheep Seeker is liaison for (their converts are theirs to follow). */
-    liaison_ccfs: scope.liaisonCcfIds.length ? liaisons.map((l) => l.ccf) : [],
+    /** The CCGs this Sheep Seeker is liaison for (the converts placed in their CCFs are theirs to follow). */
+    liaison_ccgs: scope.liaisonCcfIds.length ? liaisons.map((l) => ({ id: l.ccg.id, name: l.ccg.name })) : [],
+    /** Those CCGs' CCFs. */
+    liaison_ccfs: scope.liaisonCcfIds.length ? liaisons.flatMap((l) => l.ccg.families) : [],
     /** Permissions held somewhere (for menus). */
     permissions: PERMISSION_KEYS.filter((p) => scope.anywhere.has(p)),
     /** Permissions held everywhere. */

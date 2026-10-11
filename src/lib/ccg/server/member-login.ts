@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { hashPassword, verifyPassword } from '@/lib/auth'
 import { conflict, invalid, notFound } from '../errors'
 import { logCcg, type Db } from './common'
-import { emailConfigured, inviteEmail, resetEmail, sendEmail } from './email'
+import { emailConfigured, inviteEmail, resetEmail, roleNoticeEmail, sendEmail } from './email'
 
 /**
  * Every CCG role is held by a member. A member gets their login the first
@@ -63,6 +63,8 @@ export async function userForMember(personId: string, actorId: string, db: Db = 
 }
 
 export interface InviteResult {
+  /** 'invite': a link to set their password. 'notice': they already have a login, and are told of the new role. */
+  kind?: 'invite' | 'notice'
   /** The email went out. */
   sent: boolean
   sent_to: string
@@ -107,7 +109,40 @@ export async function sendInvite(opts: {
   const result = await sendEmail({ to, ...mail })
   await logCcg({ userId: opts.actorId, action: 'MEMBER_INVITED', entityType: 'ccg_person', entityId: p.id, newValues: { sent: result.sent, to } })
   if (!result.sent && !emailConfigured() && process.env.NODE_ENV !== 'production') console.info(`[ccg] invite for ${to}: ${link}`)
-  return result.sent ? { sent: true, sent_to: to } : { sent: false, sent_to: to, link, reason: result.reason }
+  return result.sent ? { kind: 'invite', sent: true, sent_to: to } : { kind: 'invite', sent: false, sent_to: to, link, reason: result.reason }
+}
+
+/**
+ * Tell someone who already has a login about a role they were just given, by
+ * email. A login created for a role whose password was never set gets a fresh
+ * invitation instead (a link to set it), since "sign in" would not help them.
+ * Null when there is no address to write to.
+ */
+export async function notifyRole(opts: {
+  userId: string
+  role: string
+  unit: string | null
+  origin: string
+  actorId: string
+}): Promise<InviteResult | null> {
+  const user = await prisma.user.findFirst({
+    where: { id: opts.userId, deletedAt: null },
+    select: { id: true, username: true, email: true, firstName: true, role: true, ccgPeople: { where: { deletedAt: null }, select: { id: true, fullName: true, email: true }, take: 1 } },
+  })
+  if (!user) return null
+  const person = user.ccgPeople[0] ?? null
+  // The role is already given: with no address to write to, say nothing rather than fail.
+  const to = (person?.email ?? user.email ?? '').trim().toLowerCase()
+  if (!to) return null
+  // CCG-only logins start with an unusable password: until an invitation is used, they cannot sign in.
+  if (person && !user.role) {
+    const used = await prisma.ccgInvite.count({ where: { userId: user.id, usedAt: { not: null } } })
+    if (used === 0) return sendInvite({ personId: person.id, role: opts.role, unit: opts.unit, origin: opts.origin, actorId: opts.actorId })
+  }
+  const name = person?.fullName ?? user.firstName ?? user.username
+  const result = await sendEmail({ to, ...roleNoticeEmail({ name, role: opts.role, unit: opts.unit, link: `${opts.origin}/auth`, signInName: user.username }) })
+  await logCcg({ userId: opts.actorId, action: 'ROLE_NOTICE_SENT', entityType: 'user', entityId: user.id, newValues: { sent: result.sent, to, role: opts.role, unit: opts.unit } })
+  return { kind: 'notice', sent: result.sent, sent_to: to, ...(result.sent ? {} : { reason: result.reason }) }
 }
 
 // ---------------------------------------------------------------------------

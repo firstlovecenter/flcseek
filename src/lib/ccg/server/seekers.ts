@@ -11,8 +11,8 @@ import { assignRoleToMember, endAssignment } from './roles'
  * Sheep Seekers: stream-level members who bring converts in, register them and
  * see them placed. Converts belong to the stream; each records the seeker who
  * registered them (ccg_people.seeker_person_id), for reports. A Sheep Seeker
- * may be liaison for some of the stream's CCFs (ccg_seeking_liaisons): the
- * converts placed there are theirs to follow, as they are the CCF Coordinator's.
+ * may be liaison for some of the stream's CCGs (ccg_seeking_liaison_ccgs): the
+ * converts placed in their CCFs are theirs to follow, as they are the CCF Coordinator's.
  */
 
 const DAY = 86_400_000
@@ -62,15 +62,16 @@ export async function seekerHome(userId: string) {
 
   const now = new Date()
   const streamIds = streams.map((s) => s.stream?.id).filter((x): x is string => !!x)
-  const liaisonFor = await prisma.ccgSeekingLiaison.findMany({
-    where: { userId, ccf: { deletedAt: null, ccg: { streamId: { in: streamIds } } } },
-    select: { ccf: { select: { id: true, name: true } } },
+  const liaisonFor = await prisma.ccgSeekingLiaisonCcg.findMany({
+    where: { userId, ccg: { deletedAt: null, streamId: { in: streamIds } } },
+    select: { ccg: { select: { id: true, name: true, families: { where: { deletedAt: null }, select: { id: true } } } } },
   })
+  const liaisonCcfIds = liaisonFor.flatMap((l) => l.ccg.families.map((f) => f.id))
   // Converts belong to the stream: its registrations and mapping are every Sheep Seeker's.
   const stream: Prisma.CcgPersonWhereInput = { kind: 'convert', streamId: { in: streamIds }, deletedAt: null }
   // Once placed, a liaison follows those in their CCFs; a Sheep Seeker who is liaison for none, the stream's.
   const followed: Prisma.CcgPlacementWhereInput = liaisonFor.length
-    ? { finalCcfId: { in: liaisonFor.map((l) => l.ccf.id) }, person: { deletedAt: null } }
+    ? { finalCcfId: { in: liaisonCcfIds }, person: { deletedAt: null } }
     : { person: stream }
   const [registeredThisWeek, awaiting, held, placed, succeeded, heldList, followUps, recent] = await Promise.all([
     prisma.ccgPerson.count({ where: { ...stream, createdAt: { gte: startOfWeek(now) } } }),
@@ -103,8 +104,8 @@ export async function seekerHome(userId: string) {
   return {
     seeker: { person_id: me.id, name: me.fullName },
     streams: streams.map((s) => s.stream).filter((s): s is { id: string; name: string } => !!s),
-    /** The CCFs they are liaison for. */
-    liaison_ccfs: liaisonFor.map((l) => l.ccf),
+    /** The CCGs they are liaison for. */
+    liaison_ccgs: liaisonFor.map((l) => ({ id: l.ccg.id, name: l.ccg.name })),
     counts: {
       registered_this_week: registeredThisWeek,
       awaiting_approval: awaiting,
@@ -241,18 +242,18 @@ export async function streamTeam(streamId: string) {
     return r ? holder(r) : null
   }
   const seekers = rows.filter((r) => r.roleKey === 'sheep_seeker')
-  const liaisons = await prisma.ccgSeekingLiaison.findMany({
-    where: { userId: { in: seekers.map((r) => r.userId) }, ccf: { deletedAt: null, ccg: { streamId, deletedAt: null } } },
-    select: { userId: true, ccf: { select: { id: true, name: true, ccg: { select: { name: true } } } } },
-    orderBy: { ccf: { name: 'asc' } },
+  const liaisons = await prisma.ccgSeekingLiaisonCcg.findMany({
+    where: { userId: { in: seekers.map((r) => r.userId) }, ccg: { streamId, deletedAt: null } },
+    select: { userId: true, ccg: { select: { id: true, name: true } } },
+    orderBy: { ccg: { name: 'asc' } },
   })
   return {
     admin: one('seeking_admin'),
     overseer: one('seeking_overseer'),
     seekers: seekers.map((r) => ({
       ...holder(r),
-      /** The CCFs they are liaison for. */
-      ccfs: liaisons.filter((l) => l.userId === r.userId).map((l) => ({ id: l.ccf.id, name: l.ccf.name, ccg: l.ccf.ccg.name })),
+      /** The CCGs they are liaison for. */
+      ccgs: liaisons.filter((l) => l.userId === r.userId).map((l) => l.ccg),
     })),
   }
 }
@@ -358,12 +359,12 @@ async function appointInStream(streamId: string, roleKey: 'sheep_seeker' | 'seek
   return { person_id: personId, assignment_id: assignment.id, reused, invite }
 }
 
-/** Stand a Sheep Seeker of this stream down: they also stop being liaison for the stream's CCFs. */
+/** Stand a Sheep Seeker of this stream down: they also stop being liaison for the stream's CCGs. */
 export async function standDownSeeker(streamId: string, assignmentId: string, actorId: string) {
   const a = await prisma.ccgRoleAssignment.findFirst({ where: { id: assignmentId, streamId, roleKey: 'sheep_seeker' } })
   if (!a) throw notFound('Sheep Seeker')
   await endAssignment(a.id, actorId)
-  await prisma.ccgSeekingLiaison.deleteMany({ where: { userId: a.userId, ccf: { ccg: { streamId } } } })
+  await prisma.ccgSeekingLiaisonCcg.deleteMany({ where: { userId: a.userId, ccg: { streamId } } })
 }
 
 // ---------------------------------------------------------------------------
@@ -371,30 +372,30 @@ export async function standDownSeeker(streamId: string, assignmentId: string, ac
 // ---------------------------------------------------------------------------
 
 /**
- * Make a Sheep Seeker of this stream liaison for exactly these CCFs of the
- * stream (an empty list ends it). The converts placed there become theirs to
- * follow, as they are the CCF Coordinator's. Logged on each CCF's history.
+ * Make a Sheep Seeker of this stream liaison for exactly these CCGs of the
+ * stream (an empty list ends it). The converts placed in their CCFs become
+ * theirs to follow, as they are the CCF Coordinator's. Logged on each CCG's history.
  */
-export async function setLiaisonCcfs(streamId: string, assignmentId: string, ccfIds: string[], actorId: string) {
+export async function setLiaisonCcgs(streamId: string, assignmentId: string, ccgIds: string[], actorId: string) {
   const a = await prisma.ccgRoleAssignment.findFirst({ where: { id: assignmentId, streamId, roleKey: 'sheep_seeker', ...currentAssignmentWhere() } })
   if (!a) throw notFound('Sheep Seeker')
-  const wanted = [...new Set(ccfIds)]
-  const found = await prisma.ccgFamily.findMany({ where: { id: { in: wanted }, deletedAt: null, ccg: { streamId, deletedAt: null } }, select: { id: true } })
-  if (found.length !== wanted.length) throw invalid('Choose CCFs of this stream')
-  const current = (await prisma.ccgSeekingLiaison.findMany({ where: { userId: a.userId, ccf: { ccg: { streamId } } }, select: { ccfId: true } })).map((l) => l.ccfId)
+  const wanted = [...new Set(ccgIds)]
+  const found = await prisma.ccgGroup.findMany({ where: { id: { in: wanted }, deletedAt: null, streamId }, select: { id: true } })
+  if (found.length !== wanted.length) throw invalid('Choose CCGs of this stream')
+  const current = (await prisma.ccgSeekingLiaisonCcg.findMany({ where: { userId: a.userId, ccg: { streamId } }, select: { ccgId: true } })).map((l) => l.ccgId)
   const added = wanted.filter((id) => !current.includes(id))
   const removed = current.filter((id) => !wanted.includes(id))
   await prisma.$transaction([
-    prisma.ccgSeekingLiaison.deleteMany({ where: { userId: a.userId, ccfId: { in: removed } } }),
-    prisma.ccgSeekingLiaison.createMany({ data: added.map((ccfId) => ({ ccfId, userId: a.userId, assignedBy: actorId })), skipDuplicates: true }),
+    prisma.ccgSeekingLiaisonCcg.deleteMany({ where: { userId: a.userId, ccgId: { in: removed } } }),
+    prisma.ccgSeekingLiaisonCcg.createMany({ data: added.map((ccgId) => ({ ccgId, userId: a.userId, assignedBy: actorId })), skipDuplicates: true }),
   ])
-  // On each CCF's history: "… became Online with Edward CCF Sheep Seeking Liaison".
+  // On each CCG's history: "… became Time with Rev Agyei CCG Sheep Seeking Liaison".
   for (const [ids, action] of [[added, 'LIAISON_ASSIGNED'], [removed, 'LIAISON_REMOVED']] as const) {
-    for (const ccfId of ids) {
-      await logCcg({ userId: actorId, action, entityType: 'ccg_family', entityId: ccfId, newValues: { user_id: a.userId, ccf: ccfId } })
+    for (const ccgId of ids) {
+      await logCcg({ userId: actorId, action, entityType: 'ccg_group', entityId: ccgId, newValues: { user_id: a.userId, ccg: ccgId } })
     }
   }
-  return { ccf_ids: wanted }
+  return { ccg_ids: wanted }
 }
 
 // ---------------------------------------------------------------------------
