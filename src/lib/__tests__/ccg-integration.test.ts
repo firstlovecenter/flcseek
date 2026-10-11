@@ -1143,4 +1143,32 @@ d('CCG backend against Postgres', () => {
     expect((await prisma.ccgMoveRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe('cancelled')
     expect((await prisma.ccgFamily.findUniqueOrThrow({ where: { id: x.id } })).deletedAt).not.toBeNull()
   }, 180_000)
+  it('the owner edits a login: the member profile follows, the email sign-in name follows the email', async () => {
+    const { prisma } = m
+    const admin = await import('@/lib/ccg/server/user-admin')
+    const email = `edit.${run}@example.org`.toLowerCase()
+    const { person } = await m.people.createPerson({
+      kind: 'member',
+      core: { first_name: 'Kwame', last_name: `Edit ${run}`, phone: testPhone(), email, stream_id: ids.stream },
+      answers: {},
+      source: 'staff',
+      actorId: ids.admin,
+    })
+    await m.seekers.addSeeker(ids.stream, { person_id: person.id }, ids.admin, 'http://test')
+    const login = await prisma.user.findFirstOrThrow({ where: { ccgPeople: { some: { id: person.id } } } })
+    expect(login.username).toBe(email)
+
+    const next = `edited.${run}@example.org`.toLowerCase()
+    const r = await admin.updateLogin(login.id, { first_name: 'Kwabena', email: next, phone: '0244000111' }, ids.admin)
+    expect(r).toMatchObject({ username: next, email: next, signs_in_with_changed: true })
+    const after = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: person.id } })
+    expect(after).toMatchObject({ firstName: 'Kwabena', email: next, phone: '233244000111' })
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: login.id } })).firstName).toBe('Kwabena')
+
+    // Another login's email is refused; so is a phone outside Ghana.
+    const other = await prisma.user.findFirstOrThrow({ where: { id: ids.coord } })
+    await prisma.user.update({ where: { id: other.id }, data: { email: `coord.${run}@example.org`.toLowerCase() } })
+    await expect(admin.updateLogin(login.id, { email: `coord.${run}@example.org`.toLowerCase() }, ids.admin)).rejects.toThrow(/already another login/)
+    await expect(admin.updateLogin(login.id, { phone: '+44 7700 900123' }, ids.admin)).rejects.toThrow(/Ghana phone number/)
+  }, T)
 })

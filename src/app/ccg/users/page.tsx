@@ -1,13 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Loader2, Plus, Search, ShieldCheck, UserCog, X } from 'lucide-react'
-import { ccgApi } from '@/lib/ccg/client'
+import { ChevronRight, Loader2, Plus, Search, UserCog } from 'lucide-react'
+import { ccgApi, fieldErrors } from '@/lib/ccg/client'
 import { message } from '@/lib/toast'
 import { useConfirm } from '@/hooks/use-confirm'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,15 +19,18 @@ import { Initials, StickyHeader } from '@/components/ccg/synago'
 
 /**
  * The CCG owner's view of every user, Seek's included: their Seek role and
- * their CCG roles. Give anyone a CCG role (a Seek user keeps their one login;
- * no CCG profile is needed) or end one.
+ * their CCG roles. Edit anyone's login details, give anyone a CCG role (a
+ * Seek user keeps their one login; no CCG profile is needed) or end one.
  */
 
 interface UserRow {
   id: string
   username: string
   name: string
+  first_name: string | null
+  last_name: string | null
   email: string | null
+  phone_number: string | null
   seek_role: string | null
   is_superadmin: boolean
   assignments: Array<{ id: string; role: { key: string; name: string }; unit: string | null }>
@@ -52,6 +53,14 @@ const UNITS: Record<Exclude<RoleOption['scope_level'], 'global'>, { path: string
   ccf: { path: '/ccfs', key: 'ccfs' },
 }
 
+/** One line under a name: their roles, briefly. */
+function summary(u: UserRow) {
+  if (u.is_superadmin) return 'CCG owner'
+  const roles = u.assignments.map((a) => (a.unit ? `${a.role.name} · ${a.unit}` : a.role.name))
+  if (roles.length) return roles.length > 2 ? `${roles.slice(0, 2).join(', ')} +${roles.length - 2}` : roles.join(', ')
+  return u.seek_role ? `${SEEK_ROLE[u.seek_role] ?? u.seek_role}, no CCG role` : 'No CCG role'
+}
+
 export default function CcgUsersPage() {
   const { me, loading: meLoading } = useCcgMe()
   const isOwner = !!me?.is_superadmin
@@ -61,6 +70,7 @@ export default function CcgUsersPage() {
   const [search, setSearch] = useState('')
   const [only, setOnly] = useState<'all' | 'ccg' | 'none'>('all')
   const [giving, setGiving] = useState<UserRow | null>(null)
+  const [editing, setEditing] = useState<UserRow | null>(null)
 
   const load = useCallback(async () => {
     const r = await ccgApi.get<{ users: UserRow[] }>('/users?all=1')
@@ -94,6 +104,8 @@ export default function CcgUsersPage() {
     if (!r.ok) return message.error(r.error.message)
     message.success('Role ended')
     load()
+    // Keep an open edit dialog in step.
+    setEditing((e) => (e && e.id === u.id ? { ...e, assignments: e.assignments.filter((x) => x.id !== a.id) } : e))
   }
 
   if (!meLoading && !isOwner) {
@@ -146,52 +158,42 @@ export default function CcgUsersPage() {
       ) : shown.length === 0 ? (
         <EmptyState icon={UserCog} title="No one matches" description="Try another name or filter." className="mt-12" />
       ) : (
-        <ul className="mt-4 space-y-2">
-          {shown.map((u) => (
-            <li key={u.id}>
-              <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <Initials name={u.name} className="size-10 text-sm" />
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-foreground">
-                      {u.name} <span className="text-sm font-normal text-muted-foreground">@{u.username}</span>
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {u.is_superadmin && (
-                        <Badge className="gap-1">
-                          <ShieldCheck className="size-3" aria-hidden />
-                          CCG owner
-                        </Badge>
-                      )}
-                      {u.seek_role && <Badge variant="secondary">{SEEK_ROLE[u.seek_role] ?? u.seek_role}</Badge>}
-                      {u.assignments.map((a) => (
-                        <Badge key={a.id} variant="outline" className="gap-1 pr-1">
-                          {a.role.name}
-                          {a.unit ? ` · ${a.unit}` : ''}
-                          <button
-                            type="button"
-                            onClick={() => end(u, a)}
-                            className="rounded p-0.5 hover:bg-accent"
-                            aria-label={`End ${a.role.name}${a.unit ? `, ${a.unit}` : ''}`}
-                          >
-                            <X className="size-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                      {!u.is_superadmin && u.assignments.length === 0 && <span className="text-xs text-muted-foreground">No CCG role</span>}
-                    </div>
-                  </div>
+        <>
+          {/* As the FL admin portal's members list: rows on a phone, cards on a wider screen. */}
+          <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card md:hidden">
+            {shown.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => setEditing(u)}
+                className="flex min-h-16 w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-0 hover:bg-muted/50 active:bg-muted"
+              >
+                <Initials name={u.name} className="size-10 shrink-0 text-xs" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">{u.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{summary(u)}</p>
                 </div>
-                {!u.is_superadmin && (
-                  <Button variant="outline" size="sm" className="h-9 shrink-0 gap-1.5" onClick={() => setGiving(u)}>
-                    <Plus className="size-4" />
-                    Give CCG role
-                  </Button>
-                )}
-              </Card>
-            </li>
-          ))}
-        </ul>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 hidden grid-cols-2 gap-3 md:grid lg:grid-cols-3 xl:grid-cols-4">
+            {shown.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => setEditing(u)}
+                className="flex min-h-40 flex-col items-center gap-3 rounded-xl border border-border bg-card p-4 text-center transition-all hover:-translate-y-0.5 hover:border-members/40 hover:shadow-md active:translate-y-0"
+              >
+                <Initials name={u.name} className="size-14 text-base" />
+                <div className="w-full min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{u.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{summary(u)}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {giving && (
@@ -200,12 +202,123 @@ export default function CcgUsersPage() {
           onClose={() => setGiving(null)}
           onDone={() => {
             setGiving(null)
+            setEditing(null)
+            load()
+          }}
+        />
+      )}
+      {editing && (
+        <EditUserDialog
+          user={editing}
+          onGiveRole={() => {
+            setGiving(editing)
+            setEditing(null)
+          }}
+          onEndRole={(a) => end(editing, a)}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
             load()
           }}
         />
       )}
       {ConfirmDialog}
     </div>
+  )
+}
+
+/** Edit someone's login (and, for a member, their profile with it), and end any of their roles. */
+function EditUserDialog({
+  user,
+  onGiveRole,
+  onEndRole,
+  onClose,
+  onSaved,
+}: {
+  user: UserRow
+  onGiveRole: () => void
+  onEndRole: (a: UserRow['assignments'][number]) => void
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [form, setForm] = useState({ first_name: user.first_name ?? '', last_name: user.last_name ?? '', email: user.email ?? '', phone: user.phone_number ?? '' })
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const initial = { first_name: user.first_name ?? '', last_name: user.last_name ?? '', email: user.email ?? '', phone: user.phone_number ?? '' }
+  const changed = (Object.keys(form) as Array<keyof typeof form>).filter((k) => form[k].trim() !== initial[k].trim())
+
+  const save = async () => {
+    if (!changed.length) return onClose()
+    setSaving(true)
+    const r = await ccgApi.patch<{ username: string; signs_in_with_changed: boolean }>(`/users/${user.id}`, Object.fromEntries(changed.map((k) => [k, form[k].trim()])))
+    setSaving(false)
+    if (!r.ok) {
+      setErrors(fieldErrors(r.error))
+      return message.error(r.error.message)
+    }
+    message.success(r.data.signs_in_with_changed ? `Saved. ${form.first_name || user.name} now signs in with ${r.data.username}` : 'Saved')
+    onSaved()
+  }
+  const input = (k: keyof typeof form, label: string, type = 'text') => (
+    <Field label={label} htmlFor={`eu-${k}`} error={errors[k]}>
+      <Input id={`eu-${k}`} type={type} value={form[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} aria-invalid={!!errors[k]} />
+    </Field>
+  )
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !saving && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit {user.name}</DialogTitle>
+          <DialogDescription>
+            Signs in as <strong>{user.username}</strong>.{user.member ? ' Their member profile changes with these details.' : ''} Changing the email changes the sign-in name
+            when it was their email. Nobody is notified.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {input('first_name', 'First name')}
+          {input('last_name', 'Last name')}
+          <div className="sm:col-span-2">{input('email', 'Email', 'email')}</div>
+          <div className="sm:col-span-2">{input('phone', 'Phone', 'tel')}</div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">CCG roles</p>
+            {!user.is_superadmin && (
+              <Button variant="outline" size="sm" className="h-8 gap-1" onClick={onGiveRole}>
+                <Plus className="size-4" /> Give CCG role
+              </Button>
+            )}
+          </div>
+          {user.assignments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{user.is_superadmin ? 'The CCG owner: full access, no roles needed.' : 'No CCG role.'}</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {user.assignments.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate">
+                    {a.role.name}
+                    {a.unit ? <span className="text-muted-foreground"> · {a.unit}</span> : <span className="text-muted-foreground"> · everywhere</span>}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-8 shrink-0 text-destructive hover:text-destructive" onClick={() => onEndRole(a)}>
+                    End role
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={saving || !changed.length}>
+            {saving && <Loader2 className="size-4 animate-spin" />}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
