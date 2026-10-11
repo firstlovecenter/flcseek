@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { conflict, notFound } from '../errors'
 import { ccgTx, iso, logCcg, normalizePhone, type Db } from './common'
-import { queueMoveRequestSms } from './notify'
 import { createPerson, type CreatePersonArgs } from './people'
 import { transferPerson } from './placements'
 
@@ -128,7 +127,7 @@ export async function registerOrRequestMove(args: CreatePersonArgs, intoCcfId: s
     )
     return r.id
   })
-  if (fromCcf) queueMoveRequestSms(fromCcf.id, requestId, args.actorId)
+  // No text: SMS is for convert assignments only. Their coordinator sees the request in the app.
   return { outcome: 'move_requested', requestId, person: existing, fromCcf }
 }
 

@@ -2,7 +2,6 @@ import type { z } from 'zod'
 import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { ccgCreateSchema } from '@/lib/ccg/schemas'
-import { inFilter } from '@/lib/ccg/scope'
 import { logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
@@ -10,15 +9,23 @@ import { ccgInclude, ccgPlace, createWithCode, serializeCcg } from '@/lib/ccg/se
 
 export const dynamic = 'force-dynamic'
 
-/** GET /api/ccg/ccgs?stream_id=&council_id= — CCGs the viewer leads (City Church Groups side), with CCF counts. */
+/**
+ * GET /api/ccg/ccgs?stream_id=&council_id= — CCGs the viewer leads (City Church Groups side), and
+ * those of streams they work in on the Sheep Seeking side (to place converts and choose liaisons), with CCF counts.
+ */
 export const GET = withCcg({}, async ({ scope, query }) => {
   const visible = scope.leadership().ccgIds('people.view')
+  const seekingStreams = scope.sheepSeeking().streamIds('placements.view')
   const streamId = query.get('stream_id')
   const councilId = query.get('council_id')
+  const visibility =
+    visible === 'all' || seekingStreams === 'all'
+      ? {}
+      : { OR: [{ id: { in: visible } }, ...(seekingStreams.length ? [{ streamId: { in: seekingStreams } }] : [])] }
   const ccgs = await prisma.ccgGroup.findMany({
     where: {
       deletedAt: null,
-      ...(inFilter(visible) ? { id: inFilter(visible) } : {}),
+      ...visibility,
       ...(streamId ? { streamId } : {}),
       ...(councilId ? { councilId } : {}),
     },

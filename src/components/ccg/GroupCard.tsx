@@ -15,15 +15,15 @@ export const GROUP_PLURAL: Record<GroupType, string> = { campus: 'Campuses', str
 export const CHILD_GROUP: Record<GroupType, GroupType | null> = { campus: 'stream', stream: 'council', council: 'ccg', ccg: 'ccf', ccf: null }
 export const LEADER_TITLE: Record<GroupType, string> = {
   campus: 'Campus Leader',
-  stream: 'Overseer',
-  council: 'Council Admin',
-  ccg: 'City Church Governor',
+  stream: 'Stream Leader',
+  council: 'Council Leader',
+  ccg: 'Overseer',
   ccf: 'CCF Coordinator',
 }
 export const LEADER_KEY: Record<GroupType, string> = {
   campus: 'campus_leader',
   stream: 'overseer',
-  council: 'council_admin',
+  council: 'council_leader',
   ccg: 'ccg_governor',
   ccf: 'ccf_coordinator',
 }
@@ -145,7 +145,7 @@ export function GroupCard({ type, item, href }: { type: GroupType; item: GroupCa
         <p className="truncate text-sm font-semibold text-foreground">
           {item.name} <span className="text-members">{UNIT_LEVEL[type]}</span>
         </p>
-        <p className="truncate text-xs text-muted-foreground">{item.leader ?? (type === 'council' ? 'No Council Admin yet' : 'No leader yet')}</p>
+        <p className="truncate text-xs text-muted-foreground">{item.leader ?? (type === 'council' ? 'No Council Leader yet' : 'No leader yet')}</p>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <Badge variant="secondary" className="text-[11px]">
             {item.members} members

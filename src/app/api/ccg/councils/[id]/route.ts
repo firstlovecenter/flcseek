@@ -25,13 +25,13 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   return success({ council: serializeCouncil(c), ccgs: ccgs.map((g) => serializeCcg(g)) })
 })
 
-/** PATCH /api/ccg/councils/[id] (structure.manage; its Council Admin, `leader`, needs roles.manage) */
+/** PATCH /api/ccg/councils/[id] (structure.manage; its Council Leader, `leader`, needs roles.manage) */
 export const PATCH = withCcg<z.infer<typeof councilUpdateSchema>, P>(
   { permission: 'structure.manage', schema: councilUpdateSchema },
   async ({ request, user, scope, body, params }) => {
     ensure(scope.can('structure.manage'))
     const before = await load(params.id)
-    if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a Council Admin needs permission to manage roles')
+    if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a Council Leader needs permission to manage roles')
     const { stream_id, leader, ...rest } = body
     if (stream_id !== undefined && stream_id !== before.streamId) {
       await assertStreamExists(stream_id)

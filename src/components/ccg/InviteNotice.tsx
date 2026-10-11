@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 
 export interface InviteResult {
+  /** 'invite': a link to set their password. 'notice': they already had a login and were told of the new role. */
+  kind?: 'invite' | 'notice'
   sent: boolean
   sent_to: string
   link?: string
@@ -15,15 +17,22 @@ export interface InviteResult {
 }
 
 /**
- * After a member is given a role: a toast when their invitation was emailed.
- * When it could not be sent (email not set up yet), a dialog with the link so
- * the admin can pass it on privately, e.g. by WhatsApp.
+ * After a member is given a role: a toast when their email went out (an
+ * invitation, or a note of the new role for someone who already has a login).
+ * When an invitation could not be sent (email not set up yet), a dialog with
+ * the link so the admin can pass it on privately, e.g. by WhatsApp.
  */
 export function useInviteNotice() {
   const [pending, setPending] = useState<{ name: string; invite: InviteResult; onDone?: () => void } | null>(null)
 
   /** `onDone` runs once the admin has seen the result (straight away when it was emailed). */
   const show = (name: string, invite: InviteResult | null | undefined, onDone?: () => void) => {
+    if (invite?.kind === 'notice') {
+      if (invite.sent) message.success(`${name} was emailed at ${invite.sent_to} about their new role`)
+      else message.error(`Could not email ${name} about their new role${invite.reason ? `: ${invite.reason}` : ''}. Let them know yourself.`)
+      onDone?.()
+      return
+    }
     if (!invite || invite.sent) {
       if (invite) message.success(`Invitation emailed to ${invite.sent_to}: ${name} will set their own password`)
       onDone?.()

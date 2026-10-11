@@ -9,7 +9,7 @@ import { useCcgMe } from './CcgMeProvider'
  *
  *   Sheep Seeking       Sheep Seekers and Sheep Seeking Overseers: registering
  *                       converts, placing them, following their milestones.
- *   City Church Groups  CCF Coordinators, Governors and Overseers: members, attendance,
+ *   City Church Groups  CCF Coordinators, CCG Overseers and Stream Leaders: members, attendance,
  *                       and the converts placed with them.
  *
  * The portal switcher moves between the portals a person has roles in; inside
@@ -184,7 +184,7 @@ export function useSeekingRole(): 'seeker' | 'overseer' | null {
 }
 
 /**
- * A Campus Leader or a stream's Overseer (Stream Leader) in focus: they get
+ * A Campus Leader or a Stream Leader in focus: they get
  * Seek's Lead Pastor screens — a month, then (a Campus Leader) a stream, then
  * its Milestones, Attendance and Reports, read only. Null for everyone else.
  */

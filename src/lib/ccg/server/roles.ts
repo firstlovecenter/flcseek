@@ -5,7 +5,7 @@ import { conflict, invalid, notFound } from '../errors'
 import type { ScopeLevel } from '../permissions'
 import { ccgTx, dateOnly, iso, logCcg, userDisplayName, type Db } from './common'
 import { personFor, type Appointee } from './appointee'
-import { sendInvite, userForMember, type InviteResult } from './member-login'
+import { notifyRole, sendInvite, userForMember, type InviteResult } from './member-login'
 
 export const assignmentInclude = {
   role: true,
@@ -155,7 +155,8 @@ export async function createAssignment(
 
 /**
  * Give a member a role in one step: they get their login now if they have
- * none (username and password in `login`), then the role is assigned.
+ * none, then the role is assigned. Either way they are emailed: a new login a
+ * link to set their password, an existing one a note of the new role.
  */
 export async function assignRoleToMember(
   body: {
@@ -176,29 +177,37 @@ export async function assignRoleToMember(
     const { userId, created } = await userForMember(person_id, actorId, tx)
     return { assignment: await createAssignment({ ...rest, user_id: userId }, actorId, tx), created }
   })
-  // A new login: email the member a link to choose their password.
+  // A new login: a link to choose their password. An existing one: a note of the new role.
   const invite = created
     ? await sendInvite({ personId: person_id, role: assignment.role.name, unit: unitName(assignment), origin, actorId })
-    : null
+    : await notifyRole({ userId: assignment.user.id, role: assignment.role.name, unit: unitName(assignment), origin, actorId })
   return { assignment, invite }
 }
 
-const unitName = (a: AssignmentRow) => (a.ccf ?? a.ccg ?? a.council ?? a.stream ?? a.campus)?.name ?? null
+export const unitName = (a: AssignmentRow) => (a.ccf ?? a.ccg ?? a.council ?? a.stream ?? a.campus)?.name ?? null
 
 /** The role that makes someone a unit's leader, per level. */
 export const LEADER_ROLE = {
   campus: 'campus_leader',
   stream: 'overseer',
-  council: 'council_admin',
+  council: 'council_leader',
   ccg: 'ccg_governor',
   ccf: 'ccf_coordinator',
 } as const
 export type LeaderLevel = keyof typeof LEADER_ROLE
 
+/** The role of a unit's admins (any number of them), per level. A CCF has a leader only. */
+export const ADMIN_ROLE = {
+  stream: 'stream_admin',
+  council: 'council_admin',
+  ccg: 'ccg_group_admin',
+} as const
+export type AdminLevel = keyof typeof ADMIN_ROLE
+export const isAdminLevel = (v: unknown): v is AdminLevel => typeof v === 'string' && v in ADMIN_ROLE
+
 /**
  * Make someone the leader of a unit (or clear it with null): ends any other
- * current holder of the unit's leader role and assigns the new one (a
- * council's is its Council Admin). The leader of a campus, stream, council or
+ * current holder of the unit's leader role and assigns the new one. The leader of a campus, stream, council or
  * CCG may be someone new, who need not be in any CCF
  * (added as a member of the stream, or of none for a campus); a CCF's is one
  * of its members. Anyone without a login is emailed a link to set a password.
@@ -213,15 +222,7 @@ export async function setUnitLeader(
   let leader: { person_id: string } | null = null
   if (appointee) {
     if (!('person_id' in appointee) && level === 'ccf') throw invalid('A CCF’s coordinator is one of its members')
-    const streamId =
-      level === 'stream'
-        ? unitId
-        : level === 'council'
-          ? (await prisma.ccgCouncil.findUnique({ where: { id: unitId }, select: { streamId: true } }))?.streamId ?? null
-          : level === 'ccg'
-            ? (await prisma.ccgGroup.findUnique({ where: { id: unitId }, select: { streamId: true } }))?.streamId ?? null
-            : null
-    leader = { person_id: (await personFor(streamId, appointee, actorId)).personId }
+    leader = { person_id: (await personFor(await streamOf(level, unitId), appointee, actorId)).personId }
   }
   const roleKey = LEADER_ROLE[level]
   const unitField = { campus: 'campusId', stream: 'streamId', council: 'councilId', ccg: 'ccgId', ccf: 'ccfId' }[level]
@@ -241,6 +242,70 @@ export async function setUnitLeader(
   if (person?.userId && current.some((a) => a.userId === person.userId)) return null
   const { invite } = await assignRoleToMember({ person_id: leader.person_id, role_key: roleKey, [`${level}_id`]: unitId }, actorId, origin)
   return invite
+}
+
+/** The stream someone new joins when appointed to this unit (none for a campus or CCF). */
+async function streamOf(level: LeaderLevel, unitId: string): Promise<string | null> {
+  if (level === 'stream') return unitId
+  if (level === 'council') return (await prisma.ccgCouncil.findUnique({ where: { id: unitId }, select: { streamId: true } }))?.streamId ?? null
+  if (level === 'ccg') return (await prisma.ccgGroup.findUnique({ where: { id: unitId }, select: { streamId: true } }))?.streamId ?? null
+  return null
+}
+
+const ADMIN_UNIT_FIELD = { stream: 'streamId', council: 'councilId', ccg: 'ccgId' } as const
+
+/** A stream's, council's or CCG's current admins. */
+export async function unitAdmins(level: AdminLevel, unitId: string) {
+  const rows = await prisma.ccgRoleAssignment.findMany({
+    where: { roleKey: ADMIN_ROLE[level], [ADMIN_UNIT_FIELD[level]]: unitId, ...currentAssignmentWhere() },
+    orderBy: { startsOn: 'asc' },
+    select: {
+      id: true,
+      startsOn: true,
+      user: { select: { username: true, firstName: true, lastName: true, ccgPeople: { where: { deletedAt: null }, select: { id: true, fullName: true }, take: 1 } } },
+    },
+  })
+  return rows.map((r) => ({
+    assignment_id: r.id,
+    person_id: r.user.ccgPeople[0]?.id ?? null,
+    name: r.user.ccgPeople[0]?.fullName ?? userDisplayName(r.user),
+    since: dateOnly(r.startsOn),
+  }))
+}
+
+/**
+ * Add an admin to a stream, council or CCG (it may have several): an existing
+ * member, or someone new (added as a member of the unit's stream, no CCF
+ * needed). They are emailed either way.
+ */
+export async function addUnitAdmin(level: AdminLevel, unitId: string, appointee: Appointee, actorId: string, origin: string) {
+  const exists =
+    level === 'stream'
+      ? await prisma.ccgStream.findFirst({ where: { id: unitId, deletedAt: null }, select: { id: true } })
+      : level === 'council'
+        ? await prisma.ccgCouncil.findFirst({ where: { id: unitId, deletedAt: null }, select: { id: true } })
+        : await prisma.ccgGroup.findFirst({ where: { id: unitId, deletedAt: null }, select: { id: true } })
+  if (!exists) throw notFound(level === 'ccg' ? 'CCG' : level === 'council' ? 'Council' : 'Stream')
+  const { personId, reused } = await personFor(await streamOf(level, unitId), appointee, actorId)
+  const person = await prisma.ccgPerson.findFirst({ where: { id: personId, deletedAt: null }, select: { userId: true, fullName: true } })
+  if (person?.userId) {
+    const already = await prisma.ccgRoleAssignment.findFirst({
+      where: { userId: person.userId, roleKey: ADMIN_ROLE[level], [ADMIN_UNIT_FIELD[level]]: unitId, ...currentAssignmentWhere() },
+    })
+    if (already) throw conflict(`${person.fullName} is already an admin here`)
+  }
+  const { assignment, invite } = await assignRoleToMember({ person_id: personId, role_key: ADMIN_ROLE[level], [`${level}_id`]: unitId }, actorId, origin)
+  return { person_id: personId, assignment_id: assignment.id, reused, invite }
+}
+
+/** Stand one of a unit's admins down. */
+export async function standDownUnitAdmin(level: AdminLevel, unitId: string, assignmentId: string, actorId: string) {
+  const a = await prisma.ccgRoleAssignment.findFirst({
+    where: { id: assignmentId, roleKey: ADMIN_ROLE[level], [ADMIN_UNIT_FIELD[level]]: unitId, ...currentAssignmentWhere() },
+    select: { id: true },
+  })
+  if (!a) throw notFound('Admin')
+  await endAssignment(a.id, actorId)
 }
 
 export async function endAssignment(id: string, actorId: string) {

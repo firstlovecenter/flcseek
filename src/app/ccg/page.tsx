@@ -28,6 +28,7 @@ import { ConvertMilestones } from '@/components/ccg/ConvertMilestones'
 import { hourlyGreeting, splitName } from '@/components/ccg/greetings'
 import { FocusPicker, groupHref } from '@/components/ccg/synago'
 import { SeekerHome } from '@/components/ccg/SeekerHome'
+import { PlacementBreakdown } from '@/components/ccg/PlacementBreakdown'
 import { hasChosen } from '@/components/ccg/campus-choice'
 import { MonthPicker, StreamPicker, useMonthParam } from '@/components/ccg/LeaderView'
 import { DashboardNumbers, WeeklyTrend, type Dashboard } from '@/components/ccg/UnitReport'
@@ -160,6 +161,8 @@ export default function CcgHomePage() {
               </Button>
             )}
           </div>
+          {/* Sheep Seeking Admins and Overseers (a stream's or a campus's): where the converts have gone. */}
+          {seekingRole === 'overseer' && has('reports.view') && <PlacementBreakdown streamId={focus?.type === 'stream' ? focus.id : null} />}
           <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
             <ConvertMilestones mine={liaison} />
           </Suspense>

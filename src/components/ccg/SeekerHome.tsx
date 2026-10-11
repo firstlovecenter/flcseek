@@ -12,7 +12,7 @@ import { PERSON_STATUS } from './people-types'
 interface Home {
   seeker: { person_id: string; name: string }
   streams: Array<{ id: string; name: string }>
-  liaison_ccfs: Array<{ id: string; name: string }>
+  liaison_ccgs: Array<{ id: string; name: string }>
   counts: { registered_this_week: number; awaiting_approval: number; on_hold: number; in_assessment: number; became_members: number }
   on_hold: Array<{ person_id: string; name: string; reason: string | null; waiting_days: number | null }>
   follow_ups: Array<{ person_id: string; name: string; ccf: string | null; notes: string | null }>
@@ -24,7 +24,7 @@ const person = (id: string) => `/ccg/converts?view=all&person=${id}`
 /**
  * A Sheep Seeker's home screen: their stream's converts (registration and
  * mapping), what is waiting (on hold, follow-ups) and how they are getting on.
- * A liaison's placed converts are those in their CCFs.
+ * A liaison's placed converts are those in their CCGs' CCFs.
  */
 export function SeekerHome() {
   const [home, setHome] = useState<Home | null | undefined>(undefined)
@@ -33,14 +33,14 @@ export function SeekerHome() {
   }, [])
   if (home === null) return null
 
-  const liaison = !!home?.liaison_ccfs.length
+  const liaison = !!home?.liaison_ccgs.length
   const tiles = home
     ? [
         { label: 'Registered this week', value: home.counts.registered_this_week, href: '/ccg/converts?view=all' },
         { label: 'Awaiting approval', value: home.counts.awaiting_approval, href: '/ccg/converts?view=all&status=proposed' },
         { label: 'On hold', value: home.counts.on_hold, href: '/ccg/converts?view=all&status=needs_info', warn: home.counts.on_hold > 0 },
         {
-          label: liaison ? 'In your CCFs' : 'In their assessment year',
+          label: liaison ? 'In your CCGs' : 'In their assessment year',
           value: home.counts.in_assessment,
           href: `/ccg/converts?view=all${liaison ? '&seeker=me' : ''}&status=placed`,
         },
@@ -57,7 +57,7 @@ export function SeekerHome() {
           </h2>
           <p className="truncate text-xs text-muted-foreground">
             {home
-              ? `Sheep Seeker · ${home.streams.map((s) => s.name).join(', ')}${liaison ? ` · Liaison for ${home.liaison_ccfs.map((c) => c.name).join(', ')}` : ''}`
+              ? `Sheep Seeker · ${home.streams.map((s) => s.name).join(', ')}${liaison ? ` · Liaison for ${home.liaison_ccgs.map((c) => c.name).join(', ')}` : ''}`
               : ' '}
           </p>
         </div>
@@ -65,7 +65,7 @@ export function SeekerHome() {
           href={`/ccg/converts?view=all${liaison ? '&seeker=me' : ''}`}
           className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
         >
-          {liaison ? 'My CCFs’ converts' : 'All converts'} <ChevronRight className="size-3.5" />
+          {liaison ? 'My CCGs’ converts' : 'All converts'} <ChevronRight className="size-3.5" />
         </Link>
       </div>
 

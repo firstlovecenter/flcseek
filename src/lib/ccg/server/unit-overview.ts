@@ -23,7 +23,7 @@ export const isUnitType = (v: unknown): v is UnitType => typeof v === 'string' &
 const LEADER_ROLE: Record<UnitType, string> = {
   campus: 'campus_leader',
   stream: 'overseer',
-  council: 'council_admin',
+  council: 'council_leader',
   ccg: 'ccg_governor',
   ccf: 'ccf_coordinator',
 }
@@ -415,7 +415,7 @@ interface Names {
   assignments: Map<string, Values>
 }
 
-/** Not a role row: a Sheep Seeker's CCFs as liaison (ccg_seeking_liaisons). */
+/** Not a role row: a Sheep Seeker's CCGs as liaison (ccg_seeking_liaison_ccgs). */
 const LIAISON = 'sheep_seeking_liaison'
 
 function sentence(r: LogRow, names: Names): string | null {
@@ -498,7 +498,7 @@ function sentence(r: LogRow, names: Names): string | null {
       return what.length ? `${person}'s details were updated: ${listOf(what)}` : null
     }
 
-    // "Ama Mensah became Online with Edward CCF Sheep Seeking Liaison"
+    // "Ama Mensah became Time with Rev Agyei CCG Sheep Seeking Liaison"
     case 'LIAISON_ASSIGNED':
     case 'LIAISON_REMOVED': {
       const h = holding({ ...vals(r.newValues), role: LIAISON })

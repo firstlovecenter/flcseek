@@ -31,24 +31,25 @@ model User {
   updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  group              Group?               @relation("UserToGroupPrimary", fields: [groupId], references: [id], onUpdate: NoAction)
+  group              Group?                 @relation("UserToGroupPrimary", fields: [groupId], references: [id], onUpdate: NoAction)
   groups             UserGroup[]
-  leaderGroups       Group[]              @relation("GroupLeader")
-  registeredConverts NewConvert[]         @relation("RegisteredBy")
-  progressRecords    ProgressRecord[]     @relation("ProgressUpdatedBy")
-  attendanceRecords  AttendanceRecord[]   @relation("MarkedBy")
+  leaderGroups       Group[]                @relation("GroupLeader")
+  registeredConverts NewConvert[]           @relation("RegisteredBy")
+  progressRecords    ProgressRecord[]       @relation("ProgressUpdatedBy")
+  attendanceRecords  AttendanceRecord[]     @relation("MarkedBy")
   activityLogs       ActivityLog[]
   notifications      Notification[]
   passwordTokens     PasswordResetToken[]
   savedSearches      SavedSearch[]
   userBadges         UserBadge[]
   reportTemplates    ReportTemplate[]
-  acknowledgedAlerts ConvertAlert[]       @relation("AcknowledgedBy")
-  ccgRoleAssignments CcgRoleAssignment[]  @relation("CcgAssignmentUser")
-  ccgPeople          CcgPerson[]          @relation("CcgPersonUser")
-  ccgInvites         CcgInvite[]          @relation("CcgInviteUser")
+  acknowledgedAlerts ConvertAlert[]         @relation("AcknowledgedBy")
+  ccgRoleAssignments CcgRoleAssignment[]    @relation("CcgAssignmentUser")
+  ccgPeople          CcgPerson[]            @relation("CcgPersonUser")
+  ccgInvites         CcgInvite[]            @relation("CcgInviteUser")
   ccgOwner           CcgOwner?
-  ccgLiaisons        CcgSeekingLiaison[]  @relation("CcgSeekingLiaison")
+  ccgLiaisons        CcgSeekingLiaison[]    @relation("CcgSeekingLiaison")
+  ccgLiaisonCcgs     CcgSeekingLiaisonCcg[] @relation("CcgSeekingLiaisonCcg")
 
   @@index([role])
   @@index([groupId], map: "idx_users_group")
@@ -515,6 +516,21 @@ model CcgSeekingLiaison {
   @@map("ccg_seeking_liaisons")
 }
 
+/// A Sheep Seeker's CCGs as liaison: they follow the converts placed in every CCF of these CCGs.
+model CcgSeekingLiaisonCcg {
+  ccgId      String    @map("ccg_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  assignedBy String?   @map("assigned_by") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ccg  CcgGroup @relation(fields: [ccgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user User     @relation("CcgSeekingLiaisonCcg", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([ccgId, userId])
+  @@index([userId], map: "idx_ccg_seeking_liaison_ccgs_user")
+  @@map("ccg_seeking_liaison_ccgs")
+}
+
 /// A campus groups streams; its Campus Leader runs everything in them (like Seek's Lead Pastor).
 model CcgCampus {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -590,12 +606,13 @@ model CcgGroup {
   updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  stream      CcgStream           @relation(fields: [streamId], references: [id], onUpdate: NoAction)
-  council     CcgCouncil?         @relation(fields: [councilId], references: [id], onUpdate: NoAction)
-  zone        CcgZone?            @relation(fields: [zoneId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  stream      CcgStream              @relation(fields: [streamId], references: [id], onUpdate: NoAction)
+  council     CcgCouncil?            @relation(fields: [councilId], references: [id], onUpdate: NoAction)
+  zone        CcgZone?               @relation(fields: [zoneId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   families    CcgFamily[]
   assignments CcgRoleAssignment[]
   activities  CcgGroupActivity[]
+  liaisons    CcgSeekingLiaisonCcg[]
 
   @@map("ccg_groups")
 }

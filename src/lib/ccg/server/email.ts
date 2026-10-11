@@ -61,6 +61,28 @@ export function resetEmail(p: { name: string; link: string; expiresMinutes: numb
   return { subject, text, html }
 }
 
+/** A member who already has a login is given another role: where to sign in to use it. */
+export function roleNoticeEmail(p: { name: string; role: string; unit: string | null; link: string; signInName: string }) {
+  const what = p.unit ? `${p.role} of ${p.unit}` : p.role
+  const subject = `You have been made ${what} — City Church Group`
+  const text = [
+    `Hello ${p.name},`,
+    '',
+    `You have been made ${what} in the City Church Group app.`,
+    '',
+    `Sign in here with ${p.signInName} and your usual password: ${p.link}`,
+    'Then choose it from the list at the top of your home page to work in it.',
+    '',
+    'Forgotten your password? Use "Forgot password" on the sign-in page.',
+  ].join('\n')
+  const html = `<p>Hello ${escape(p.name)},</p>
+<p>You have been made <strong>${escape(what)}</strong> in the City Church Group app.</p>
+<p><a href="${escape(p.link)}" style="display:inline-block;padding:10px 16px;background:#e11d48;color:#fff;border-radius:6px;text-decoration:none">Sign in</a></p>
+<p>Sign in with <strong>${escape(p.signInName)}</strong> and your usual password, then choose it from the list at the top of your home page to work in it.</p>
+<p style="color:#666;font-size:12px">Forgotten your password? Use “Forgot password” on the sign-in page.</p>`
+  return { subject, text, html }
+}
+
 /** The invitation a member receives when they are first given a role. */
 export function inviteEmail(p: { name: string; role: string; unit: string | null; link: string; expiresDays: number; signInName: string }) {
   const what = p.unit ? `${p.role} of ${p.unit}` : p.role

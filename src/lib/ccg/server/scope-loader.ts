@@ -30,7 +30,8 @@ export async function loadHierarchy(): Promise<Hierarchy> {
 export async function loadScope(userId: string): Promise<CcgScope> {
   const [user, liaisons, assignments, hierarchy] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true, ccgOwner: { select: { userId: true } } } }),
-    prisma.ccgSeekingLiaison.findMany({ where: { userId, ccf: { deletedAt: null } }, select: { ccfId: true } }),
+    // A liaison follows the converts in every live CCF of their CCGs.
+    prisma.ccgFamily.findMany({ where: { deletedAt: null, ccg: { deletedAt: null, liaisons: { some: { userId } } } }, select: { id: true } }),
     prisma.ccgRoleAssignment.findMany({
       where: { userId, ...currentAssignmentWhere() },
       include: { role: true },
@@ -48,5 +49,5 @@ export async function loadScope(userId: string): Promise<CcgScope> {
     ccfId: a.ccfId,
   }))
   if (user && !user.deletedAt && user.ccgOwner) grants.unshift(OWNER_GRANT)
-  return resolveCcgScope(grants, hierarchy, { liaisonCcfIds: liaisons.map((l) => l.ccfId) })
+  return resolveCcgScope(grants, hierarchy, { liaisonCcfIds: liaisons.map((l) => l.id) })
 }

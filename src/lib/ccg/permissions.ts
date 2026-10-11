@@ -21,6 +21,7 @@ export const PERMISSIONS = {
   'reports.view': 'See dashboards and reports for units in scope',
   'settings.manage': 'Matching settings, question bank, zones and milestones',
   'roles.manage': 'Create roles and assign them to users',
+  'admins.appoint': 'Appoint and stand down the admins of CCGs, councils and streams in scope',
   'seekers.manage': 'Appoint and stand down Sheep Seekers, and assign them CCFs as liaisons, in scope',
 } as const
 

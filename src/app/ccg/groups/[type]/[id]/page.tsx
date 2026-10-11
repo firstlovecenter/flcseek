@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CalendarCheck, ListChecks, Loader2, MapPin, Pencil, Plus, Trash2, Users, UserRound } from 'lucide-react'
+import { CalendarCheck, ListChecks, MapPin, Pencil, Plus, Trash2, Users, UserRound } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
 import { formatTime12h } from '@/lib/ccg/engine/meeting-slot'
 import { message } from '@/lib/toast'
@@ -11,15 +11,14 @@ import { useConfirm } from '@/hooks/use-confirm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { CHILD_GROUP, GROUP_PLURAL, GroupCard, LEADER_KEY, LEADER_TITLE, isGroupType, type GroupType } from '@/components/ccg/GroupCard'
 import { SEEKING_ROLES } from '@/lib/ccg/scope'
-import { Field, SearchSelect } from '@/components/ccg/form-utils'
-import { useCcgOptions } from '@/components/ccg/people-types'
 import { UNIT_PATH } from '@/components/ccg/structure-types'
+import { UnitAdmins } from '@/components/ccg/UnitAdmins'
+import { CloseCcfDialog } from '@/components/ccg/CloseCcfDialog'
 import { Crumbs, DetailTile, LeaderBlock, SectionLabel, StickyHeader, Timeline, UNIT_LEVEL, UnitTitle, groupHref } from '@/components/ccg/synago'
 
 /**
@@ -62,6 +61,9 @@ interface Overview {
   history: Array<{ id: string; text: string; at: string | null; by: string | null }>
 }
 
+/** The admins' roles, shown in their own section. */
+const ADMIN_KEYS = ['stream_admin', 'council_admin', 'ccg_group_admin']
+
 export default function GroupPage({ params }: { params: Promise<{ type: string; id: string }> }) {
   const { type: rawType, id } = use(params)
   const type = rawType as GroupType
@@ -94,8 +96,10 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
   const canClose = hasGlobal('structure.manage')
   const child = CHILD_GROUP[type]
   const leader = data?.leaders[0]
-  // Group pages are City Church Groups: Sheep Seeking roles live in the Sheep Seeking portal.
-  const others = data?.role_holders.filter((h) => h.role_key !== LEADER_KEY[type] && !SEEKING_ROLES.includes(h.role_key)) ?? []
+  // Group pages are City Church Groups: Sheep Seeking roles live in the Sheep Seeking portal. Admins have their own section.
+  const hasAdmins = type === 'stream' || type === 'council' || type === 'ccg'
+  const others =
+    data?.role_holders.filter((h) => h.role_key !== LEADER_KEY[type] && !ADMIN_KEYS.includes(h.role_key) && !SEEKING_ROLES.includes(h.role_key)) ?? []
 
   const goToParent = () => {
     const parent = data?.breadcrumb.at(-1)
@@ -209,6 +213,8 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
           {u?.notes && <p className="mt-3 text-sm whitespace-pre-line text-muted-foreground">{u.notes}</p>}
         </section>
 
+        {hasAdmins && u && <UnitAdmins type={type} id={id} name={u.name} onChanged={load} />}
+
         {/* Other role holders */}
         {others.length > 0 && (
           <section>
@@ -280,89 +286,8 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
         </section>
       </div>
       {ConfirmDialog}
-      {closing && u && s && (
-        <CloseCcfDialog
-          ccf={{ id, name: u.name }}
-          counts={{ members: s.members + s.pending_members, converts: s.placed_converts, waiting: s.awaiting_approval }}
-          onClose={() => setClosing(false)}
-          onDone={goToParent}
-        />
-      )}
+      {closing && u && <CloseCcfDialog ccfId={id} ccfName={u.name} onClose={() => setClosing(false)} onDone={goToParent} />}
     </div>
-  )
-}
-
-/** Close a CCF down: choose where its members and placed converts go, then move them all in one step. */
-function CloseCcfDialog({
-  ccf,
-  counts,
-  onClose,
-  onDone,
-}: {
-  ccf: { id: string; name: string }
-  counts: { members: number; converts: number; waiting: number }
-  onClose: () => void
-  onDone: () => void
-}) {
-  const opts = useCcgOptions()
-  const [toId, setToId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const empty = counts.members + counts.converts === 0
-  const choices = (opts?.ccfs ?? []).filter((f) => f.id !== ccf.id && f.status === 'active' && f.ccg.status === 'active')
-  const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    const r = await ccgApi.post<{ members_moved: number; converts_moved: number }>(`/ccfs/${ccf.id}/close`, { to_ccf_id: empty ? null : toId })
-    setSaving(false)
-    if (!r.ok) return message.error(r.error.message)
-    const to = choices.find((f) => f.id === toId)?.name
-    message.success(
-      empty || !to
-        ? `${ccf.name} closed down`
-        : `${ccf.name} closed down. ${plural(r.data.members_moved, 'member')} and ${plural(r.data.converts_moved, 'convert')} moved to ${to}.`
-    )
-    onClose()
-    onDone()
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && !saving && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={submit} className="space-y-4">
-          <DialogHeader>
-            <DialogTitle>Close down {ccf.name}?</DialogTitle>
-            <DialogDescription>
-              {empty
-                ? 'It is closed and its leader roles and form links end.'
-                : `Its ${plural(counts.members, 'member')} and ${plural(counts.converts, 'placed convert')} move to the CCF you choose. Converts keep their milestones and assessment year. Its leader roles and form links end.`}
-              {counts.waiting > 0 && ` ${plural(counts.waiting, 'convert')} waiting for approval here will be matched to another CCF.`}
-            </DialogDescription>
-          </DialogHeader>
-          {!empty && (
-            <Field label="Move everyone to" htmlFor="close-to" hint="Members move first, so their places count towards the convert limit.">
-              <SearchSelect
-                id="close-to"
-                value={toId}
-                onChange={setToId}
-                options={choices.map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
-                placeholder="Choose a CCF"
-              />
-            </Field>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="destructive" disabled={saving || (!empty && !toId)}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              Close down
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 

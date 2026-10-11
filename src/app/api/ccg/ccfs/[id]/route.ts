@@ -61,7 +61,7 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
 
 /**
  * PATCH /api/ccg/ccfs/[id]
- * structure.manage: anything. units.edit (e.g. a CCG Governor): details only —
+ * structure.manage: anything. units.edit (e.g. a CCG's Overseer): details only —
  * name, meeting time/place, notes.
  */
 export const PATCH = withCcg<Body, P>({ schema: ccfUpdateSchema }, async ({ request, user, scope, body, params }) => {
