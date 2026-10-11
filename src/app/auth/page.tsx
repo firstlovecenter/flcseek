@@ -92,8 +92,8 @@ export default function LoginPage() {
             <SynagoLogo size={48} surface="auto" priority />
           </div>
           <div className="space-y-1">
-            <CardTitle className="text-2xl tracking-tight">Seek</CardTitle>
-            <CardDescription>Sheep seeking milestone tracker</CardDescription>
+            <CardTitle className="text-2xl tracking-tight">Seek City Church Family</CardTitle>
+            <CardDescription>Convert Milestone Tracker</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
