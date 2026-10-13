@@ -23,11 +23,14 @@ export function MemberPicker({
   value,
   onChange,
   invalid,
+  ccfId,
 }: {
   id?: string
   value: PickedMember | null
   onChange: (m: PickedMember | null) => void
   invalid?: boolean
+  /** Only this CCF's members (its Coordinator is one of them). */
+  ccfId?: string
 }) {
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<PersonDTO[]>([])
@@ -41,12 +44,12 @@ export function MemberPicker({
     }
     setLoading(true)
     const t = setTimeout(async () => {
-      const r = await ccgApi.get<{ people: PersonDTO[] }>(`/people?kind=member&status=active&limit=10&search=${encodeURIComponent(q)}`)
+      const r = await ccgApi.get<{ people: PersonDTO[] }>(`/people?kind=member&status=active&limit=10&search=${encodeURIComponent(q)}${ccfId ? `&ccf_id=${ccfId}` : ''}`)
       setHits(r.ok ? r.data.people : [])
       setLoading(false)
     }, 250)
     return () => clearTimeout(t)
-  }, [query])
+  }, [query, ccfId])
 
   if (value) {
     return (
@@ -109,7 +112,7 @@ export function MemberPicker({
         </ul>
       )}
       {query.trim().length >= 2 && !loading && hits.length === 0 && (
-        <p className="mt-1 text-xs text-muted-foreground">No active member matches. Leaders and role holders are chosen from members.</p>
+        <p className="mt-1 text-xs text-muted-foreground">No active member{ccfId ? ' of this CCF' : ''} matches. Leaders and role holders are chosen from members.</p>
       )}
     </div>
   )

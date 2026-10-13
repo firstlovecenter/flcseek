@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { conflict, notFound } from '../errors'
+import { conflict, invalid, notFound } from '../errors'
 import { logCcg, normalizePhone } from './common'
 import { updatePerson } from './people'
 
@@ -11,7 +11,7 @@ import { updatePerson } from './people'
  */
 export async function updateLogin(
   userId: string,
-  patch: { first_name?: string; last_name?: string; email?: string; phone?: string },
+  patch: { first_name?: string; middle_name?: string | null; last_name?: string; email?: string; phone?: string },
   actorId: string
 ) {
   const user = await prisma.user.findFirst({
@@ -20,6 +20,7 @@ export async function updateLogin(
   })
   if (!user) throw notFound('User')
   const member = await prisma.ccgPerson.findFirst({ where: { userId, kind: 'member', deletedAt: null }, select: { id: true } })
+  if (patch.middle_name !== undefined && !member) throw invalid('Only a member profile has a middle name', { fieldErrors: { middle_name: ['This login has no member profile'] } })
 
   const email = patch.email?.toLowerCase()
   const emailChanged = email !== undefined && email !== (user.email ?? '').toLowerCase()
@@ -39,6 +40,7 @@ export async function updateLogin(
       member.id,
       {
         ...(patch.first_name !== undefined ? { first_name: patch.first_name } : {}),
+        ...(patch.middle_name !== undefined ? { middle_name: patch.middle_name } : {}),
         ...(patch.last_name !== undefined ? { last_name: patch.last_name } : {}),
         ...(email !== undefined ? { email } : {}),
         ...(patch.phone !== undefined ? { phone: patch.phone } : {}),

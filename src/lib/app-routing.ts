@@ -38,3 +38,26 @@ export function landingPathFor(user: RoutableUser | null | undefined): string {
   if (apps.length > 1) return '/apps';
   return apps[0] === 'ccg' ? '/ccg' : seekLandingPath(user!);
 }
+
+const CHOSEN_KEY = 'synago.app-chosen';
+
+/**
+ * People with both portals always start at the chooser: a choice lasts for
+ * this browser tab only (sessionStorage), so a new visit asks again.
+ */
+export function markAppChosen(app: AppKey) {
+  try {
+    sessionStorage.setItem(CHOSEN_KEY, app);
+  } catch {
+    // Storage blocked: they are simply asked again.
+  }
+}
+
+export function chosenApp(): AppKey | null {
+  try {
+    const v = sessionStorage.getItem(CHOSEN_KEY);
+    return v === 'seek' || v === 'ccg' ? v : null;
+  } catch {
+    return null;
+  }
+}

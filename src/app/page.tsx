@@ -9,6 +9,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { availableApps, chosenApp } from '@/lib/app-routing'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { CURRENT_YEAR } from '@/lib/constants'
@@ -174,6 +175,11 @@ export default function RootPage() {
     if (!authLoading) {
       if (!user) {
         router.push('/auth')
+        return
+      }
+      // Both portals: the chooser first, unless they chose this one in this tab.
+      if (availableApps(user).length > 1 && chosenApp() !== 'seek') {
+        router.replace('/apps')
         return
       }
       // No Seek role → this user only belongs to City Church Group.

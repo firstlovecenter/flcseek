@@ -179,6 +179,15 @@ describe('campuses and sheep seeking roles', () => {
     expect(s.canOnStream('people.manage', 'S1')).toBe(false) // view only
   })
 
+  it('Campus Admin: runs the campus’s City Church Groups side only', () => {
+    const s = resolveCcgScope([at('campus_admin', 'campus', 'C1', ['people.view', 'members.edit', 'leaders.appoint'])], tree)
+    expect(s.canOnMembersOf('members.edit', 'F3')).toBe(true)
+    expect(s.leadership().canOnCcg('leaders.appoint', 'G1')).toBe(true)
+    expect(s.canOnStream('people.view', 'S9')).toBe(false)
+    expect(s.sheepSeeking().canOnStream('people.view', 'S1')).toBe(false)
+    expect(roleInPortal({ key: 'campus_admin', scope_level: 'campus' }, 'seeking')).toBe(false)
+  })
+
   it('Sheep seeking roles reach a stream’s converts but not its CCF members', () => {
     const s = resolveCcgScope([at('sheep_seeker', 'stream', 'S1', ['people.view', 'milestones.update', 'placements.approve'])], tree, { liaisonCcfIds: ['F1'] })
     // CCGs and CCFs are not theirs: they only place converts into the stream's CCFs.

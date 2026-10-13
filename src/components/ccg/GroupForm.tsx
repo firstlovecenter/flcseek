@@ -23,6 +23,8 @@ import { StickyHeader, UNIT_LEVEL, groupHref } from './synago'
  * Add or edit a group (campus, stream, council, CCG or CCF) on its own page,
  * like Synago's church forms. The leader (a council's Council Leader) is chosen
  * from members; one without a login is emailed an invitation to set a password.
+ * As in the admin portal, a unit's leader is changed here: by the central team,
+ * or by the leaders and admins above the unit (who may change only the leader).
  */
 
 export type GroupType = 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
@@ -70,13 +72,17 @@ const STATUSES: Record<GroupType, Array<{ value: string; label: string }>> = {
 type Values = Record<string, string | null>
 
 export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string; parentId?: string | null }) {
-  const { hasGlobal } = useCcgMe()
+  const { has, hasGlobal } = useCcgMe()
   const router = useRouter()
   const invites = useInviteNotice()
   const editing = !!id
   const parent = PARENT[type]
   const full = hasGlobal('structure.manage') // otherwise a CCG's Overseer editing a CCF's details
-  const canLead = hasGlobal('roles.manage') && !!LEADER_LABEL[type]
+  // Editing: the leader is for whoever may change it here (the page says); creating: the central team.
+  const [canSetLeader, setCanSetLeader] = useState(false)
+  const canLead = (editing ? canSetLeader : hasGlobal('roles.manage')) && !!LEADER_LABEL[type]
+  // Those who may change only the leader see the rest read-only.
+  const canDetails = !editing || full || (type === 'ccf' && has('units.edit'))
 
   const [values, setValues] = useState<Values>({ status: 'active' })
   const [leader, setLeader] = useState<PickedMember | null>(null)
@@ -115,7 +121,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         type === 'stream'
           ? ccgApi.get<{ streams: Array<Record<string, unknown>> }>('/streams')
           : ccgApi.get<Record<string, Record<string, unknown>>>(`${UNIT_PATH[type]}/${id}`),
-        ccgApi.get<{ leaders: Array<{ person_id: string | null; name: string }> }>(`/groups/${type}/${id}`),
+        ccgApi.get<{ leaders: Array<{ person_id: string | null; name: string }>; can: { set_leader: boolean } }>(`/groups/${type}/${id}?history=1`),
       ])
       setLoading(false)
       if (!detail.ok) return message.error(detail.error.message)
@@ -136,6 +142,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         council_id: str((g.council as { id?: string } | null)?.id),
         ccg_id: str((g.ccg as { id?: string } | null)?.id),
       })
+      setCanSetLeader(overview.ok && overview.data.can.set_leader)
       const l = overview.ok ? overview.data.leaders[0] : null
       if (l?.person_id) {
         setLeader({ id: l.person_id, name: l.name })
@@ -148,7 +155,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const local: Record<string, string> = {}
-    if (!values.name?.trim()) local.name = 'Enter a name'
+    if (canDetails && !values.name?.trim()) local.name = 'Enter a name'
     if (full && type === 'ccf' && !values.ccg_id) local.ccg_id = 'Choose its CCG'
     if (full && type === 'council' && !values.stream_id) local.stream_id = 'Choose its stream'
     // A CCG goes in a council (older CCGs may still sit straight in their stream until moved).
@@ -179,29 +186,56 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
       body.meeting_time = txt('meeting_time')
       body.meeting_location = txt('meeting_location')
     }
+    let newLeaderBody: Record<string, unknown> | null | undefined
     if (addingNew) {
-      body.leader = {
+      newLeaderBody = {
         first_name: newLeader.first_name.trim(),
         middle_name: newLeader.middle_name.trim() || null,
         last_name: newLeader.last_name.trim(),
         phone: newLeader.phone.trim(),
         email: newLeader.email.trim(),
       }
-    } else if (canLead && leaderMode === 'member' && (leader?.id ?? null) !== initialLeader) body.leader = leader ? { person_id: leader.id } : null
+    } else if (canLead && leaderMode === 'member' && (leader?.id ?? null) !== initialLeader) newLeaderBody = leader ? { person_id: leader.id } : null
 
     setSaving(true)
-    const r = editing
-      ? await ccgApi.patch<{ id: string; leader_invite?: InviteResult | null }>(`${UNIT_PATH[type]}/${id}`, body)
-      : await ccgApi.post<{ id: string; leader_invite?: InviteResult | null }>(UNIT_PATH[type], body)
-    setSaving(false)
-    if (!r.ok) {
-      setErrors(fieldErrors(r.error))
-      return message.error(r.error.message)
+    let unitId = id
+    let invite: InviteResult | null | undefined
+    if (!editing) {
+      // Creating: the leader goes with the new unit.
+      if (newLeaderBody !== undefined) body.leader = newLeaderBody
+      const r = await ccgApi.post<{ id: string; leader_invite?: InviteResult | null }>(UNIT_PATH[type], body)
+      if (!r.ok) {
+        setSaving(false)
+        setErrors(fieldErrors(r.error))
+        return message.error(r.error.message)
+      }
+      unitId = r.data.id
+      invite = r.data.leader_invite
+    } else {
+      if (canDetails) {
+        const r = await ccgApi.patch<{ id: string }>(`${UNIT_PATH[type]}/${id}`, body)
+        if (!r.ok) {
+          setSaving(false)
+          setErrors(fieldErrors(r.error))
+          return message.error(r.error.message)
+        }
+      }
+      // Editing: the leader is changed on its own, by whoever may.
+      if (newLeaderBody !== undefined) {
+        const r = await ccgApi.put<{ invite: InviteResult | null }>(`/groups/${type}/${id}/leader`, { leader: newLeaderBody })
+        if (!r.ok) {
+          setSaving(false)
+          setErrors(fieldErrors(r.error))
+          return message.error(r.error.message)
+        }
+        invite = r.data.invite
+      }
     }
+    setSaving(false)
     message.success(editing ? 'Saved' : `${values.name} ${UNIT_LEVEL[type]} created`)
-    const target = groupHref(type, editing ? id! : r.data.id)
+    const target = groupHref(type, unitId!)
     const leaderName = addingNew ? `${newLeader.first_name.trim()} ${newLeader.last_name.trim()}` : leader?.name
-    invites.show(leaderName ?? 'The leader', r.data.leader_invite, () => router.push(target))
+    invites.show(leaderName ?? 'The leader', invite, () => router.push(target))
   }
 
   // Added from a group's page: the parent is that group, fixed (only an edit moves a group).
@@ -235,7 +269,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                     <span className="text-muted-foreground">{fixedParent.label}: </span>
                     <span className="font-medium">{fixedParent.name ?? '…'}</span>
                   </p>
-                ) : parent && full && (
+                ) : parent && full && canDetails && (
                   <Field label={`${parent.label}${type === 'ccf' || type === 'ccg' || type === 'council' ? ' *' : ''}`} htmlFor="g-parent" error={errors[parent.field]}>
                     <SearchSelect
                       id="g-parent"
@@ -248,7 +282,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                   </Field>
                 )}
                 <Field label="Name *" htmlFor="g-name" error={errors.name}>
-                  <Input id="g-name" value={values.name ?? ''} onChange={(e) => set('name', e.target.value)} aria-invalid={!!errors.name} />
+                  <Input id="g-name" value={values.name ?? ''} onChange={(e) => set('name', e.target.value)} aria-invalid={!!errors.name} disabled={!canDetails} />
                 </Field>
 
                 {canLead && (
@@ -286,7 +320,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                         </div>
                       )}
                       {leaderMode === 'member' || !canAddNewLeader ? (
-                        <MemberPicker id="g-leader" value={leader} onChange={setLeader} />
+                        <MemberPicker id="g-leader" value={leader} onChange={setLeader} ccfId={type === 'ccf' && editing ? id : undefined} />
                       ) : (
                         <div className="grid gap-3 sm:grid-cols-2">
                           {(
@@ -319,7 +353,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                 )}
 
 
-                {type === 'ccf' && (
+                {type === 'ccf' && canDetails && (
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Meeting day" htmlFor="g-day">
                       <NullableSelect
@@ -349,9 +383,11 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                     />
                   </Field>
                 )}
-                <Field label="Notes" htmlFor="g-notes">
-                  <Textarea id="g-notes" rows={3} value={values.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
-                </Field>
+                {canDetails && (
+                  <Field label="Notes" htmlFor="g-notes">
+                    <Textarea id="g-notes" rows={3} value={values.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
+                  </Field>
+                )}
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button type="button" variant="outline" onClick={() => router.back()} disabled={saving}>

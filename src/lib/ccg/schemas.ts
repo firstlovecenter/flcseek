@@ -70,6 +70,12 @@ export const addSeekerSchema = z.union([
  */
 const unitLeader = addSeekerSchema.nullable().optional()
 
+/**
+ * PUT /groups/[type]/[id]/leader: the unit's new leader (an existing member, or
+ * someone new for all but a CCF), or null to leave it without one.
+ */
+export const setLeaderSchema = z.object({ leader: addSeekerSchema.nullable() })
+
 /** A campus groups streams; `leader` is its Campus Leader (needs roles.manage). */
 export const campusSchema = z.object({
   leader: unitLeader,
@@ -479,6 +485,8 @@ export type PublicSubmission = z.infer<typeof publicSubmissionSchema>
 /** The CCG owner edits someone's login: name, email (their sign-in name follows it) and phone. */
 export const userUpdateSchema = z.object({
   first_name: z.string().trim().min(1, 'Enter their first name').max(80).optional(),
+  /** On their member profile only (a login has no middle name); empty clears it. */
+  middle_name: z.string().trim().max(80).transform((v) => v || null).nullable().optional(),
   last_name: z.string().trim().min(1, 'Enter their last name').max(80).optional(),
   email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254).optional(),
   phone: z.string().trim().max(30).optional(),

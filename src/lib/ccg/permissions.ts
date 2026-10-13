@@ -21,7 +21,8 @@ export const PERMISSIONS = {
   'reports.view': 'See dashboards and reports for units in scope',
   'settings.manage': 'Matching settings, question bank, zones and milestones',
   'roles.manage': 'Create roles and assign them to users',
-  'admins.appoint': 'Appoint and stand down the admins of CCGs, councils and streams in scope',
+  'admins.appoint': 'Appoint and stand down the admins of campuses, streams, councils and CCGs in scope',
+  'leaders.appoint': 'Change the leaders of the units beneath one’s own',
   'seekers.manage': 'Appoint and stand down Sheep Seekers, and assign them CCFs as liaisons, in scope',
 } as const
 

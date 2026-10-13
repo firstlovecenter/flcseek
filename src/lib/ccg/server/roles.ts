@@ -198,6 +198,7 @@ export type LeaderLevel = keyof typeof LEADER_ROLE
 
 /** The role of a unit's admins (any number of them), per level. A CCF has a leader only. */
 export const ADMIN_ROLE = {
+  campus: 'campus_admin',
   stream: 'stream_admin',
   council: 'council_admin',
   ccg: 'ccg_group_admin',
@@ -252,9 +253,9 @@ async function streamOf(level: LeaderLevel, unitId: string): Promise<string | nu
   return null
 }
 
-const ADMIN_UNIT_FIELD = { stream: 'streamId', council: 'councilId', ccg: 'ccgId' } as const
+const ADMIN_UNIT_FIELD = { campus: 'campusId', stream: 'streamId', council: 'councilId', ccg: 'ccgId' } as const
 
-/** A stream's, council's or CCG's current admins. */
+/** A campus's, stream's, council's or CCG's current admins. */
 export async function unitAdmins(level: AdminLevel, unitId: string) {
   const rows = await prisma.ccgRoleAssignment.findMany({
     where: { roleKey: ADMIN_ROLE[level], [ADMIN_UNIT_FIELD[level]]: unitId, ...currentAssignmentWhere() },
@@ -274,18 +275,21 @@ export async function unitAdmins(level: AdminLevel, unitId: string) {
 }
 
 /**
- * Add an admin to a stream, council or CCG (it may have several): an existing
- * member, or someone new (added as a member of the unit's stream, no CCF
- * needed). They are emailed either way.
+ * Add an admin to a campus, stream, council or CCG (it may have several): an
+ * existing member, or someone new (added as a member of the unit's stream, or
+ * of none for a campus; no CCF needed). They are emailed either way.
  */
 export async function addUnitAdmin(level: AdminLevel, unitId: string, appointee: Appointee, actorId: string, origin: string) {
+  const where = { id: unitId, deletedAt: null }
   const exists =
-    level === 'stream'
-      ? await prisma.ccgStream.findFirst({ where: { id: unitId, deletedAt: null }, select: { id: true } })
-      : level === 'council'
-        ? await prisma.ccgCouncil.findFirst({ where: { id: unitId, deletedAt: null }, select: { id: true } })
-        : await prisma.ccgGroup.findFirst({ where: { id: unitId, deletedAt: null }, select: { id: true } })
-  if (!exists) throw notFound(level === 'ccg' ? 'CCG' : level === 'council' ? 'Council' : 'Stream')
+    level === 'campus'
+      ? await prisma.ccgCampus.findFirst({ where, select: { id: true } })
+      : level === 'stream'
+        ? await prisma.ccgStream.findFirst({ where, select: { id: true } })
+        : level === 'council'
+          ? await prisma.ccgCouncil.findFirst({ where, select: { id: true } })
+          : await prisma.ccgGroup.findFirst({ where, select: { id: true } })
+  if (!exists) throw notFound({ campus: 'Campus', stream: 'Stream', council: 'Council', ccg: 'CCG' }[level])
   const { personId, reused } = await personFor(await streamOf(level, unitId), appointee, actorId)
   const person = await prisma.ccgPerson.findFirst({ where: { id: personId, deletedAt: null }, select: { userId: true, fullName: true } })
   if (person?.userId) {

@@ -36,7 +36,7 @@ The backend contract for the CCG app. The CCG app lives in the same repo as Seek
 
 **Structure:** campus → stream → council → **CCG** (City Church Group) → **CCF** (City Church Family). Members belong to one CCF. Converts are placed into a CCF, and its CCG follows.
 
-**Leaders and admins:** a CCF has one leader, its Coordinator. A CCG, council and stream each have one leader and any number of admins:
+**Leaders and admins:** a CCF has one leader, its Coordinator. A CCG, council, stream and campus each have one leader and any number of admins:
 
 | Level | Leader | Admins |
 |---|---|---|
@@ -44,8 +44,9 @@ The backend contract for the CCG app. The CCG app lives in the same repo as Seek
 | CCG | Overseer (`ccg_governor`) | City Church Admins (`ccg_group_admin`) |
 | Council | Council Leader (`council_leader`) | Council Admins (`council_admin`) |
 | Stream | Stream Leader (`overseer`, view only) | Stream Admins (`stream_admin`) |
+| Campus | Campus Leader (`campus_leader`, view only) | Campus Admins (`campus_admin`, City Church Groups side only) |
 
-Admins hold the leader's rights in the unit (a Stream Admin acts while the Stream Leader views), but don't appoint admins. A unit's leader and everyone above it (`admins.appoint`), and the central team, appoint them. Everyone appointed is emailed: a new login gets a link to set a password, an existing one a note of the new role.
+Admins hold the leader's rights in the unit (a Stream Admin acts while the Stream Leader views), but don't appoint admins. A unit's leader and everyone above it (`admins.appoint`), and the central team, appoint them. A unit's leader is changed from its page by the leaders and admins of the units above it (`leaders.appoint`, checked on the unit's parent, so nobody changes their own unit's leader) or the central team; a Campus Leader by the central team only. A CCF's Coordinator is one of its active members. Everyone appointed is emailed: a new login gets a link to set a password, an existing one a note of the new role.
 
 **Roles** are rows in `ccg_roles`, each with a level and a set of permissions. Assigning a role gives a user that role over one unit. A grant covers everything below that unit.
 
@@ -55,6 +56,7 @@ Admins hold the leader's rights in the unit (a Stream Admin acts while the Strea
 | `ccg_admin` Church Admin | global | all |
 | `sheep_seeker` Sheep Seeker | stream | people.view/manage, links.intake, placements.view/approve, attendance.mark, milestones.update, checkins.record, reports.view. Registers converts into their stream and handles their mapping. |
 | `overseer` Stream Leader | stream (City Church Groups side: every CCG in the stream) | people.view, placements.view, reports.view, admins.appoint |
+| `campus_admin` Campus Admin | campus (City Church Groups side only) | as Stream Admin, for every stream of the campus |
 | `stream_admin` Stream Admin | stream | units.edit, people.view/manage, members.confirm/edit, links.manage, placements.view, attendance.mark, milestones.update, checkins.record, activities.record, reports.view |
 | `council_leader` Council Leader | council | as Council Admin, plus admins.appoint |
 | `council_admin` Council Admin | council | as Stream Admin, for one council |
@@ -69,7 +71,7 @@ Admins hold the leader's rights in the unit (a Stream Admin acts while the Strea
 - `placements.view`, `placements.approve`
 - `milestones.update`, `checkins.record`, `attendance.mark`, `activities.record`
 - `reports.view`
-- `settings.manage`, `roles.manage`, `admins.appoint`, `seekers.manage`
+- `settings.manage`, `roles.manage`, `admins.appoint`, `leaders.appoint`, `seekers.manage`
 
 Routes always check a permission against the unit concerned, never a role name. `GET /me` returns what the current user holds.
 
@@ -157,9 +159,10 @@ Create and edit each level through its own collection:
 | DELETE | `/ccfs/[id]` | structure.manage | Must be empty. Ends its role assignments and revokes its links. |
 | GET | `/ccfs/[id]/close` | central team, or the Sheep Seeking Admin of its stream or campus | What closing it would move: `{ ccf, members[{ person_id, name, status, is_coordinator }], converts[], waiting_for_approval, on_hold, pending_move_requests, destinations[{ id, name, ccg, stream, same_ccg, members, converts, convert_limit }] }`. Destinations are the CCFs of streams the viewer runs. |
 | POST | `/ccfs/[id]/close` | same | `{ to_ccf_id?, moves?: { person_id: ccf_id }, coordinators?: 'member'\|'coordinator' }`. Every member and placed convert goes where `moves` says, or to `to_ccf_id`. Converts keep their milestones and assessment year. Those waiting for approval or on hold for it are matched again; move requests into it are cancelled, those out of it pass to the person's new CCF. `coordinators: 'coordinator'` makes its coordinators coordinators of the CCF they move to too. Members are never notified; the receiving coordinators are texted about the converts. CONFLICT (`convert_limit`) when a receiving CCF lacks room: then nothing moves. |
-| GET | `/groups/[stream\|council\|ccg]/[id]/admins` | people.view on it | `{ admins[{ assignment_id, person_id, name, since }], can_appoint }` |
-| POST | `/groups/[stream\|council\|ccg]/[id]/admins` | admins.appoint on it, or roles.manage | Add an admin: `{ person_id }` or a new person's details. Returns `{ person_id, assignment_id, reused, invite }`. |
-| DELETE | `/groups/[stream\|council\|ccg]/[id]/admins/[assignmentId]` | same | Stand one admin down. |
+| GET | `/groups/[campus\|stream\|council\|ccg]/[id]/admins` | people.view on it | `{ admins[{ assignment_id, person_id, name, since }], can_appoint }` |
+| POST | `/groups/[campus\|stream\|council\|ccg]/[id]/admins` | admins.appoint on it, or roles.manage | Add an admin: `{ person_id }` or a new person's details. Returns `{ person_id, assignment_id, reused, invite }`. |
+| DELETE | `/groups/[campus\|stream\|council\|ccg]/[id]/admins/[assignmentId]` | same | Stand one admin down. |
+| PUT | `/groups/[type]/[id]/leader` | leaders.appoint on the unit above it, or roles.manage | `{ leader: { person_id } \| new person's details \| null }` (a CCF: one of its active members). The old leader stands down. Returns `{ invite }`. `GET /groups/[type]/[id]` returns `can: { set_leader, appoint_admins }`. |
 
 `leader` is `{ person_id }` (a member) or `null` to clear it, and needs roles.manage. A leader without a login is sent an invitation, and one with a login a note of the role; the response includes `leader_invite` (`kind: 'invite' | 'notice'`).
 
