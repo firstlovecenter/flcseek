@@ -65,6 +65,7 @@ type Mods = {
   seekUsers: typeof import('@/lib/db/queries/users')
   ai: typeof import('@/lib/ccg/server/ai')
   seekers: typeof import('@/lib/ccg/server/seekers')
+  quarantine: typeof import('@/lib/ccg/server/quarantine')
 }
 let m: Mods
 const run = randomUUID().slice(0, 6).toUpperCase()
@@ -121,6 +122,7 @@ d('CCG backend against Postgres', () => {
       seekUsers: await import('@/lib/db/queries/users'),
       ai: await import('@/lib/ccg/server/ai'),
       seekers: await import('@/lib/ccg/server/seekers'),
+      quarantine: await import('@/lib/ccg/server/quarantine'),
     }
     const { prisma } = m
 
@@ -543,8 +545,9 @@ d('CCG backend against Postgres', () => {
     expect(m.people.canOnPerson(scope, 'people.manage', mine!)).toBe(true)
     await expect(m.placementRoutes.authorisePlacement(scope, 'placements.approve', minePlacement.id)).resolves.toBeTruthy()
 
-    // Converts from a Sheep Seeker's link, or registered by them, are theirs.
-    expect(mine?.seekerPersonId).toBe(seeker.id)
+    // Converts, and the intake links that register them, belong to the stream: no Sheep Seeker is
+    // recorded, whether they came through a link or a Sheep Seeker registered them.
+    expect(mine?.seekerPersonId).toBeNull()
     const staffRegistered = await m.people.createPerson({
       kind: 'convert',
       core: { first_name: 'Seeker', last_name: `Brought ${run}`, phone: testPhone(), stream_id: stream.id, date_of_birth: '1998-05-01' },
@@ -552,18 +555,9 @@ d('CCG backend against Postgres', () => {
       source: 'staff',
       actorId: login.id,
     })
-    expect(staffRegistered.person.seekerPersonId).toBe(seeker.id)
+    expect(staffRegistered.person.seekerPersonId).toBeNull()
     const byAdmin = await convertFor({ interests: ['music'] }, { stream_id: stream.id })
-    expect(byAdmin.person.seekerPersonId).toBeNull() // registered by the admin, who is not a Sheep Seeker
-    await expect(
-      m.people.createPerson({
-        kind: 'convert',
-        core: { first_name: 'Not', last_name: `A seeker ${run}`, phone: testPhone(), stream_id: stream.id, seeker_person_id: ids.coordMember },
-        answers: {},
-        source: 'staff',
-        actorId: ids.admin,
-      })
-    ).rejects.toThrow(/Sheep Seeker/)
+    expect(byAdmin.person.seekerPersonId).toBeNull()
 
     // Converts belong to the stream, not to a Sheep Seeker: whoever registered them, every Sheep Seeker
     // of the stream reaches them. A liaison's CCGs are the stream's own.
@@ -581,11 +575,18 @@ d('CCG backend against Postgres', () => {
     )
     expect(await m.seekers.seekerHome(ids.admin)).toBeNull()
     const adminScope = await m.scopeLoader.loadScope(ids.admin)
+    // A Sheep Seeker's converts are those placed in the CCGs they are liaison for: none yet.
     const report = await m.seekers.seekerReport(adminScope, { streamId: stream.id, period: 'week', offset: 0 })
-    expect(report.seekers.find((r) => r.person_id === seeker.id)).toMatchObject({ registered: 2, placed: 0 })
-    expect(report.unassigned.registered).toBeGreaterThanOrEqual(1)
+    expect(report.seekers.find((r) => r.person_id === seeker.id)).toMatchObject({ registered: 0, placed: 0, in_assessment: 0 })
+    expect(report.unassigned.registered).toBeGreaterThanOrEqual(3) // the link's, theirs and the admin's
+    expect(report.total.registered).toBe(report.unassigned.registered)
     const lastMonth = await m.seekers.seekerReport(adminScope, { streamId: stream.id, period: 'month', offset: 1 })
     expect(lastMonth.seekers.find((r) => r.person_id === seeker.id)?.registered).toBe(0)
+    // Liaison for the CCG of the stream's music CCF: its CCFs become theirs.
+    const music = await prisma.ccgFamily.findUniqueOrThrow({ where: { id: ids.music }, select: { ccgId: true } })
+    await m.seekers.setLiaisonCcgs(stream.id, assignment.id, [music.ccgId], ids.admin)
+    expect((await m.seekers.liaisonCcfsOf([seeker.id])).get(seeker.id)).toContain(ids.music)
+    await m.seekers.setLiaisonCcgs(stream.id, assignment.id, [], ids.admin)
     await expect(m.seekers.seekerReport(scope, { streamId: other.id, period: 'week', offset: 0 })).rejects.toThrow()
 
     // Another stream with no CCFs: held with a stream-specific reason, and out of this seeker's reach.
@@ -783,8 +784,10 @@ d('CCG backend against Postgres', () => {
     await prisma.ccgPlacement.update({ where: { id: proposal!.placement.id }, data: { status: 'ended', outcome: 'graduated', endedAt: new Date() } })
     await prisma.ccgPerson.update({ where: { id: assigned.id }, data: { kind: 'member', ccfId: ids.football, status: 'active' } })
     const grads = await m.seekers.graduatedList(seekerScope, { streamId: null, mine: true, search: null, limit: 50, offset: 0 })
-    expect(grads.graduates.map((g) => g.person.id)).toEqual([assigned.id])
-    expect(grads.counts.this_month).toBe(1)
+    // (Their CCG's other CCFs may have graduates from earlier tests: the liaison follows the whole CCG.)
+    expect(grads.graduates.map((g) => g.person.id)).toContain(assigned.id)
+    expect(grads.graduates.every((g) => seekerScope.liaisonCcfIds.includes(g.ccf!.id))).toBe(true)
+    expect(grads.counts.this_month).toBeGreaterThanOrEqual(1)
     // Graduates are CCF members now: nobody records milestones for them any more.
     await expect(m.progress.setProgress(proposal!.placement.id, { stage_number: 4, is_completed: true }, ids.admin)).rejects.toThrow(/active placement/)
     const graduate = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: assigned.id }, include: m.people.personInclude })
@@ -1171,4 +1174,63 @@ d('CCG backend against Postgres', () => {
     await expect(admin.updateLogin(login.id, { email: `coord.${run}@example.org`.toLowerCase() }, ids.admin)).rejects.toThrow(/already another login/)
     await expect(admin.updateLogin(login.id, { phone: '+44 7700 900123' }, ids.admin)).rejects.toThrow(/Ghana phone number/)
   }, T)
+  it('quarantine: a CCF leader sets aside a convert in a Bacenta; the Sheep Seeking Admin decides', async () => {
+    const { prisma } = m
+    const q = m.quarantine
+    const coord = await m.scopeLoader.loadScope(ids.coord)
+    const admin = await m.scopeLoader.loadScope(ids.admin)
+    const placedHere = async () => {
+      const { person, proposal } = await convertFor({ ...FORM_ANSWERS, interests: ['football'] })
+      await m.placements.remapPlacement(proposal!.placement.id, ids.football, 'test', ids.admin)
+      return { person, placementId: proposal!.placement.id }
+    }
+    const activeIn = (ccfId: string) => prisma.ccgPlacement.count({ where: { status: 'active', finalCcfId: ccfId } })
+
+    // Their CCF Coordinator quarantines them: they leave the CCF at once, progress kept on the placement.
+    const a = await placedHere()
+    const before = await activeIn(ids.football)
+    await expect(q.quarantineConvert(coord, a.person.id, '  ', ids.coord)).rejects.toThrow(/why/)
+    await q.quarantineConvert(coord, a.person.id, 'Attends the Dansoman Bacenta', ids.coord)
+    expect(await activeIn(ids.football)).toBe(before - 1)
+    expect((await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: a.placementId } })).status).toBe('quarantined')
+    expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: a.person.id } })).status).toBe('quarantined')
+    await expect(q.quarantineConvert(coord, a.person.id, 'again', ids.coord)).rejects.toThrow(/already in quarantine/)
+    // The CCF no longer sees them.
+    const row = await prisma.ccgPerson.findUniqueOrThrow({ where: { id: a.person.id }, include: m.people.personInclude })
+    expect(m.people.canOnPerson(coord, 'people.view', row)).toBe(false)
+    expect(m.people.serializePerson(row).quarantine?.reason).toBe('Attends the Dansoman Bacenta')
+
+    // Another CCF's coordinator cannot quarantine them; nor can they decide.
+    const { person: inMusic, proposal: mp } = await convertFor({ ...FORM_ANSWERS, interests: ['music'] })
+    await m.placements.remapPlacement(mp!.placement.id, ids.music, 'test', ids.admin)
+    await expect(q.quarantineConvert(coord, inMusic.id, 'Bacenta', ids.coord)).rejects.toThrow(/Only/)
+    await expect(q.listQuarantines(coord, { status: ['open'], limit: 50, offset: 0 })).rejects.toThrow(/Sheep Seeking Admins/)
+
+    // The Sheep Seeking Admin (here the central team) sees it and releases them back, with their progress.
+    const list = await q.listQuarantines(admin, { status: ['open'], streamId: ids.stream, limit: 200, offset: 0 })
+    const caseA = list.quarantines.find((x) => x.person.id === a.person.id)!
+    expect(caseA).toMatchObject({ ccf: { id: ids.football }, reason: 'Attends the Dansoman Bacenta' })
+    await expect(q.decideQuarantine(coord, caseA.id, 'release', null, ids.coord)).rejects.toThrow(/Sheep Seeking Admin/)
+    await q.decideQuarantine(admin, caseA.id, 'release', 'Not in a Bacenta after all', ids.admin)
+    expect((await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: a.placementId } })).status).toBe('active')
+    expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: a.person.id } })).status).toBe('placed')
+    await expect(q.decideQuarantine(admin, caseA.id, 'confirm', null, ids.admin)).rejects.toThrow(/already been decided/)
+
+    // Quarantined again and confirmed: in a Bacenta for good, and not counted as dropped.
+    const { quarantine: again } = await q.quarantineConvert(coord, a.person.id, 'Confirmed by their Bacenta leader', ids.coord)
+    await q.decideQuarantine(admin, again.id, 'confirm', null, ids.admin)
+    expect(await prisma.ccgPlacement.findUniqueOrThrow({ where: { id: a.placementId } })).toMatchObject({ status: 'ended', outcome: 'bacenta' })
+    expect((await prisma.ccgPerson.findUniqueOrThrow({ where: { id: a.person.id } })).status).toBe('bacenta')
+    const confirmed = await q.listQuarantines(admin, { status: ['confirmed'], streamId: ids.stream, limit: 200, offset: 0 })
+    expect(confirmed.quarantines.some((x) => x.id === again.id)).toBe(true)
+
+    // A convert not yet placed, quarantined by the Sheep Seeking side, then placed elsewhere: matched afresh.
+    const { person: waiting } = await convertFor({ ...FORM_ANSWERS, interests: ['football'] })
+    const { quarantine: w } = await q.quarantineConvert(admin, waiting.id, 'Maybe a Bacenta', ids.admin)
+    expect(w.ccfId).toBeNull()
+    expect(await prisma.ccgPlacement.count({ where: { personId: waiting.id, status: { in: ['proposed', 'held'] } } })).toBe(0)
+    const decided = await q.decideQuarantine(admin, w.id, 'replace', null, ids.admin)
+    expect(decided.proposal).not.toBeNull()
+    expect(await prisma.ccgPlacement.count({ where: { personId: waiting.id, status: { in: ['proposed', 'held'] } } })).toBe(1)
+  }, T * 2)
 })

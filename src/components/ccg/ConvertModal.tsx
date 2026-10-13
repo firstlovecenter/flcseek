@@ -37,6 +37,7 @@ import { PersonFormDialog } from './PersonFormDialog'
 import { TransferDialog } from './PersonSheet'
 import { TraitScale } from './TraitScale'
 import { PERSON_STATUS, useCcgOptions, type BankQuestion, type PersonDTO } from './people-types'
+import { QuarantineButton, useCanQuarantine } from './QuarantineDialog'
 import {
   ASSESSMENT,
   EVENT_LABEL,
@@ -163,6 +164,8 @@ export function ConvertModal({ placementId, onClose, onChanged }: { placementId:
   // Converts are changed from the Sheep Seeking side only, and their details not once placed (church-wide rights excepted).
   const canChange = has('people.manage') && (portal === 'seeking' || hasGlobal('people.manage'))
   const canEdit = canChange && (!person?.placement || hasGlobal('people.manage'))
+  // The panel is a placed convert's, so a convert even before their profile loads.
+  const canQuarantine = useCanQuarantine(person ?? (data ? { kind: 'convert', status: data.person.status } : null))
 
   const load = useCallback(async (id: string) => {
     setError(null)
@@ -301,6 +304,17 @@ export function ConvertModal({ placementId, onClose, onChanged }: { placementId:
                     Transfer
                   </Button>
                 </>
+              )}
+              {/* A CCF's leaders (and Sheep Seeking roles) quarantine a convert who already belongs to a Bacenta. */}
+              {canQuarantine && data && (
+                <QuarantineButton
+                  person={data.person}
+                  className="bg-white/15 text-white hover:bg-white/25"
+                  onDone={() => {
+                    onChanged()
+                    onClose()
+                  }}
+                />
               )}
             </div>
           )}
@@ -659,7 +673,7 @@ function Profile({ row, person: p, questions }: { row: Detail; person: PersonDTO
         ['Lives near', p.landmark],
         ['Converted', p.conversion_date ? fmtDate(p.conversion_date) : null],
         ['Stream', p.stream?.name ?? null],
-        ['Registered by', p.seeker?.full_name ?? null],
+        ['Sheep Seeking Liaison', p.liaisons?.map((l) => l.full_name).join(', ') || null],
         ['Registered', `${fmtDate(p.created_at)}${p.source === 'self' ? ' (themselves)' : ''}`],
         ['Placed', fmtDate(row.placed_at)],
       ]

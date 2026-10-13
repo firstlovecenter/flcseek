@@ -36,7 +36,7 @@ export async function assertConvertRoom(tx: Tx, ccfId: string, unitName: string)
 }
 
 /** Lock the CCF and check it can take one more person. */
-async function checkSeat(
+export async function checkSeat(
   tx: Tx,
   ccfId: string,
   person: { dateOfBirth: Date | null; kind?: string },

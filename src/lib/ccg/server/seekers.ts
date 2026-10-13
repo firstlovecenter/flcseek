@@ -9,10 +9,11 @@ import { assignRoleToMember, endAssignment } from './roles'
 
 /**
  * Sheep Seekers: stream-level members who bring converts in, register them and
- * see them placed. Converts belong to the stream; each records the seeker who
- * registered them (ccg_people.seeker_person_id), for reports. A Sheep Seeker
- * may be liaison for some of the stream's CCGs (ccg_seeking_liaison_ccgs): the
- * converts placed in their CCFs are theirs to follow, as they are the CCF Coordinator's.
+ * see them placed. Converts, and the links that register them, belong to the
+ * stream, not to whoever registered them. A Sheep Seeker's converts are those
+ * placed in the CCGs they are liaison for (ccg_seeking_liaison_ccgs): theirs to
+ * follow, as they are the CCF Coordinator's. (ccg_people.seeker_person_id is
+ * history only: who registered a convert before this rule; nothing reads it.)
  */
 
 const DAY = 86_400_000
@@ -38,6 +39,29 @@ export async function seekersIn(streams: string[] | 'all') {
     byPerson.set(person.id, entry)
   }
   return [...byPerson.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** Each Sheep Seeker's converts' CCFs: those of the CCGs they are liaison for, by their member id. */
+export async function liaisonCcfsOf(personIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map(personIds.map((id) => [id, [] as string[]]))
+  if (personIds.length === 0) return out
+  const people = await prisma.ccgPerson.findMany({ where: { id: { in: personIds }, userId: { not: null } }, select: { id: true, userId: true } })
+  const personOf = new Map(people.map((p) => [p.userId!, p.id]))
+  const rows = await prisma.ccgSeekingLiaisonCcg.findMany({
+    where: { userId: { in: [...personOf.keys()] }, ccg: { deletedAt: null } },
+    select: { userId: true, ccg: { select: { families: { where: { deletedAt: null }, select: { id: true } } } } },
+  })
+  for (const r of rows) out.get(personOf.get(r.userId)!)!.push(...r.ccg.families.map((f) => f.id))
+  return out
+}
+
+/** Every CCF some Sheep Seeker is liaison for (through its CCG). */
+export async function allLiaisonCcfIds(): Promise<string[]> {
+  const rows = await prisma.ccgSeekingLiaisonCcg.findMany({
+    where: { ccg: { deletedAt: null } },
+    select: { ccg: { select: { families: { where: { deletedAt: null }, select: { id: true } } } } },
+  })
+  return [...new Set(rows.flatMap((r) => r.ccg.families.map((f) => f.id)))]
 }
 
 // ---------------------------------------------------------------------------
@@ -69,10 +93,8 @@ export async function seekerHome(userId: string) {
   const liaisonCcfIds = liaisonFor.flatMap((l) => l.ccg.families.map((f) => f.id))
   // Converts belong to the stream: its registrations and mapping are every Sheep Seeker's.
   const stream: Prisma.CcgPersonWhereInput = { kind: 'convert', streamId: { in: streamIds }, deletedAt: null }
-  // Once placed, a liaison follows those in their CCFs; a Sheep Seeker who is liaison for none, the stream's.
-  const followed: Prisma.CcgPlacementWhereInput = liaisonFor.length
-    ? { finalCcfId: { in: liaisonCcfIds }, person: { deletedAt: null } }
-    : { person: stream }
+  // Their converts: those placed in the CCGs they are liaison for (none until they are liaison for one).
+  const followed: Prisma.CcgPlacementWhereInput = { finalCcfId: { in: liaisonCcfIds }, person: { deletedAt: null } }
   const [registeredThisWeek, awaiting, held, placed, succeeded, heldList, followUps, recent] = await Promise.all([
     prisma.ccgPerson.count({ where: { ...stream, createdAt: { gte: startOfWeek(now) } } }),
     prisma.ccgPerson.count({ where: { ...stream, status: 'proposed' } }),
@@ -167,57 +189,55 @@ export async function seekerReport(full: CcgScope, opts: { streamId: string | nu
   const { from, to, label } = periodRange(opts.period, Math.max(0, opts.offset))
   const seekers = await seekersIn(streams)
   const inPeriod = { gte: from, lt: to }
-  // Converts counted: those of these seekers, plus unassigned converts in these streams.
-  const people: Prisma.CcgPersonWhereInput = {
-    kind: 'convert',
-    deletedAt: null,
-    OR: [
-      { seekerPersonId: { in: seekers.map((s) => s.person_id) } },
-      { seekerPersonId: null, ...(streams === 'all' ? {} : { streamId: { in: streams } }) },
-    ],
-  }
+  // A Sheep Seeker's converts are those in the CCFs of the CCGs they are liaison for. A CCG can
+  // have more than one liaison, so each seeker's row counts all of them; the total counts each once.
+  const ccfsOf = await liaisonCcfsOf(seekers.map((s) => s.person_id))
+  const seekersOfCcf = new Map<string, string[]>()
+  for (const [personId, ccfs] of ccfsOf) for (const c of ccfs) seekersOfCcf.set(c, [...(seekersOfCcf.get(c) ?? []), personId])
+  const people: Prisma.CcgPersonWhereInput = { kind: 'convert', deletedAt: null, ...(streams === 'all' ? {} : { streamId: { in: streams } }) }
+  const lastCcf = {
+    where: { status: { in: ['active', 'ended'] }, finalCcfId: { not: null } },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: { finalCcfId: true },
+  } satisfies Prisma.CcgPerson$placementsArgs
   const [registered, placed, ended, active] = await Promise.all([
-    prisma.ccgPerson.findMany({ where: { ...people, createdAt: inPeriod }, select: { seekerPersonId: true } }),
+    prisma.ccgPerson.findMany({ where: { ...people, createdAt: inPeriod }, select: { placements: lastCcf } }),
+    prisma.ccgPlacement.findMany({ where: { decision: { in: ['approved', 'remapped'] }, decidedAt: inPeriod, person: people }, select: { finalCcfId: true } }),
     prisma.ccgPlacement.findMany({
-      where: { decision: { in: ['approved', 'remapped'] }, decidedAt: inPeriod, person: people },
-      select: { person: { select: { seekerPersonId: true } } },
+      // (Converts confirmed as a Bacenta's are not dropped: they were never the CCF's.)
+      where: { status: 'ended', endedAt: inPeriod, outcome: { notIn: ['bacenta'] }, NOT: { outcome: null }, person: people },
+      select: { outcome: true, finalCcfId: true },
     }),
-    prisma.ccgPlacement.findMany({
-      where: { status: 'ended', endedAt: inPeriod, outcome: { not: null }, person: people },
-      select: { outcome: true, person: { select: { seekerPersonId: true } } },
-    }),
-    prisma.ccgPlacement.findMany({ where: { status: 'active', person: people }, select: { person: { select: { seekerPersonId: true } } } }),
+    prisma.ccgPlacement.findMany({ where: { status: 'active', person: people }, select: { finalCcfId: true } }),
   ])
 
   type Row = { registered: number; placed: number; became_members: number; dropped: number; in_assessment: number }
   const empty = (): Row => ({ registered: 0, placed: 0, became_members: 0, dropped: 0, in_assessment: 0 })
   const rows = new Map<string, Row>()
-  const row = (id: string | null) => {
-    const key = id ?? 'none'
-    if (!rows.has(key)) rows.set(key, empty())
-    return rows.get(key)!
+  const total = empty()
+  const add = (ccfId: string | null | undefined, k: keyof Row) => {
+    total[k]++
+    const owners = (ccfId && seekersOfCcf.get(ccfId)) || ['none']
+    for (const o of owners) {
+      if (!rows.has(o)) rows.set(o, empty())
+      rows.get(o)![k]++
+    }
   }
-  for (const r of registered) row(r.seekerPersonId).registered++
-  for (const p of placed) row(p.person.seekerPersonId).placed++
-  for (const e of ended) {
-    if (SUCCESS_OUTCOMES.includes(e.outcome!)) row(e.person.seekerPersonId).became_members++
-    else row(e.person.seekerPersonId).dropped++
-  }
-  for (const a of active) row(a.person.seekerPersonId).in_assessment++
+  for (const r of registered) add(r.placements[0]?.finalCcfId, 'registered')
+  for (const p of placed) add(p.finalCcfId, 'placed')
+  for (const e of ended) add(e.finalCcfId, SUCCESS_OUTCOMES.includes(e.outcome!) ? 'became_members' : 'dropped')
+  for (const a of active) add(a.finalCcfId, 'in_assessment')
 
   const out = seekers.map((s) => ({ ...s, ...(rows.get(s.person_id) ?? empty()) }))
   const unassigned = rows.get('none')
-  const total = [...out, ...(unassigned ? [unassigned] : [])].reduce<Row>((t, r) => {
-    for (const k of Object.keys(t) as Array<keyof Row>) t[k] += r[k]
-    return t
-  }, empty())
 
   return {
     period: opts.period,
     offset: opts.offset,
     range: { from: iso(from), to: iso(to), label },
     seekers: out,
-    /** Converts in these streams with no Sheep Seeker recorded. */
+    /** Converts in these streams in no liaison's CCG (not placed yet, or in a CCG with no liaison). */
     unassigned: unassigned ?? empty(),
     total,
   }
@@ -455,8 +475,19 @@ export async function graduatedList(
         id: true,
         decidedAt: true,
         endedAt: true,
-        person: { select: { id: true, fullName: true, seeker: { select: { id: true, fullName: true } } } },
-        finalCcf: { select: { id: true, name: true, ccg: { select: { name: true } } } },
+        person: { select: { id: true, fullName: true } },
+        finalCcf: {
+          select: {
+            id: true,
+            name: true,
+            ccg: {
+              select: {
+                name: true,
+                liaisons: { select: { user: { select: { ccgPeople: { where: { kind: 'member', deletedAt: null }, select: { id: true, fullName: true }, take: 1 } } } } },
+              },
+            },
+          },
+        },
       },
     }),
     prisma.ccgPlacement.count({ where }),
@@ -469,7 +500,8 @@ export async function graduatedList(
       placement_id: r.id,
       person: { id: r.person.id, full_name: r.person.fullName },
       ccf: r.finalCcf ? { id: r.finalCcf.id, name: r.finalCcf.name, ccg: r.finalCcf.ccg.name } : null,
-      seeker: r.person.seeker ? { id: r.person.seeker.id, full_name: r.person.seeker.fullName } : null,
+      /** The Sheep Seekers who are liaison for their CCG. */
+      liaisons: (r.finalCcf?.ccg.liaisons ?? []).flatMap((l) => l.user.ccgPeople.map((m) => ({ id: m.id, full_name: m.fullName }))),
       placed_on: iso(r.decidedAt),
       graduated_on: iso(r.endedAt),
       days: r.decidedAt && r.endedAt ? Math.round((r.endedAt.getTime() - r.decidedAt.getTime()) / DAY) : null,

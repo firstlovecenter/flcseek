@@ -26,6 +26,7 @@ import {
   HeartHandshake,
   GraduationCap,
   Trophy,
+  ShieldAlert,
   UserCog,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -69,6 +70,7 @@ const PRIMARY: NavItem[] = [
   { href: '/ccg/converts', label: 'Converts', icon: Sprout, perm: 'people.view', accent: 'text-members', portals: BOTH },
   { href: '/ccg/members', label: 'Members', icon: Users, perm: 'people.view', accent: 'text-members', portals: CCG },
   { href: '/ccg/approvals', label: 'Approvals', icon: ClipboardCheck, perm: 'placements.view', accent: 'text-primary', portals: SEEKING },
+  { href: '/ccg/quarantine', label: 'Quarantine', icon: ShieldAlert, perm: 'seekers.manage', accent: 'text-destructive', portals: SEEKING },
   { href: '/ccg/attendance', label: 'Attendance', icon: CalendarCheck, perm: 'attendance.mark', accent: 'text-arrivals', portals: BOTH },
   { href: '/ccg/graduated', label: 'Graduated', icon: GraduationCap, perm: 'reports.view', accent: 'text-success', portals: SEEKING },
 ]

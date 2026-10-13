@@ -170,8 +170,6 @@ export const personCoreSchema = z.object({
   conversion_date: isoDate.nullable().optional(),
   existing_connection_member_id: uuid.nullable().optional(),
   existing_connection_note: text(300),
-  /** The Sheep Seeker (a member) who registered them; defaults to the registering Sheep Seeker. */
-  seeker_person_id: uuid.nullable().optional(),
 })
 export type PersonCore = z.infer<typeof personCoreSchema>
 
@@ -197,6 +195,17 @@ export const approveSchema = z.object({}).default({})
 export const bulkApproveSchema = z.object({ placement_ids: z.array(uuid).min(1).max(200) })
 export const remapSchema = z.object({ ccf_id: uuid, reason: z.string().trim().min(1, 'Give a reason').max(1000) })
 export const holdSchema = z.object({ reason: z.string().trim().min(1, 'Say what is needed').max(1000) })
+/** Quarantine a convert who already belongs to a Bacenta. */
+export const quarantineSchema = z.object({
+  reason: z.string().trim().min(1, 'Say why, e.g. which Bacenta they belong to').max(1000),
+})
+
+/** A Sheep Seeking Admin's decision on a quarantined convert. */
+export const quarantineDecisionSchema = z.object({
+  decision: z.enum(['confirm', 'release', 'replace']),
+  note: text(1000).optional(),
+})
+
 export const endSchema = z.object({
   reason: z.string().trim().min(1, 'Give a reason').max(1000),
   /** Re-propose a new CCF straight away (e.g. the convert moved). */
@@ -439,8 +448,6 @@ export const linkSchema = z.object({
   ccf_id: uuid.optional(),
   /** convert_intake: register converts into this stream (empty = church-wide). */
   stream_id: uuid.nullable().optional(),
-  /** convert_intake: converts who register through it are this Sheep Seeker's (default: the creator, when a Sheep Seeker). */
-  seeker_person_id: uuid.nullable().optional(),
   person_id: uuid.optional(),
   label: text(150),
   expires_at: z.string().datetime().nullable().optional(),

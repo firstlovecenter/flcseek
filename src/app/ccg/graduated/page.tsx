@@ -15,7 +15,8 @@ interface Graduate {
   placement_id: string
   person: { id: string; full_name: string }
   ccf: { id: string; name: string; ccg: string } | null
-  seeker: { id: string; full_name: string } | null
+  /** The Sheep Seekers who are liaison for their CCG. */
+  liaisons: Array<{ id: string; full_name: string }>
   placed_on: string | null
   graduated_on: string | null
   days: number | null
@@ -146,7 +147,7 @@ export default function CcgGraduatedPage() {
                   </th>
                   {role !== 'seeker' && (
                     <th scope="col" className="px-3 py-3 font-medium">
-                      Sheep Seeker
+                      Liaison
                     </th>
                   )}
                   <th scope="col" className="px-3 py-3 text-right font-medium">
@@ -174,7 +175,7 @@ export default function CcgGraduatedPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{fmt(g.graduated_on)}</td>
-                    {role !== 'seeker' && <td className="px-3 py-2.5 text-muted-foreground">{g.seeker?.full_name ?? 'Not assigned'}</td>}
+                    {role !== 'seeker' && <td className="px-3 py-2.5 text-muted-foreground">{g.liaisons.map((l) => l.full_name).join(', ') || 'None'}</td>}
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{g.days ?? '—'}</td>
                   </tr>
                 ))}

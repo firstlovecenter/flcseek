@@ -9,6 +9,7 @@ import { ensure, withCcg } from '@/lib/ccg/server/handler'
 import { proposeFor } from '@/lib/ccg/server/mapping'
 import { assertMemberDetails, peopleScopeWhere, personInclude, serializePerson } from '@/lib/ccg/server/people'
 import { placeDirectly } from '@/lib/ccg/server/placements'
+import { allLiaisonCcfIds, liaisonCcfsOf } from '@/lib/ccg/server/seekers'
 import { registerOrRequestMove, type Registration } from '@/lib/ccg/server/moves'
 
 export const dynamic = 'force-dynamic'
@@ -27,8 +28,8 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
   const streamId = query.get('stream_id')
   const campusId = query.get('campus_id')
   const gender = query.get('gender')
-  // seeker=me: the converts placed in the CCFs the viewer is liaison for. seeker=<member id>: registered
-  // by that Sheep Seeker (the report). seeker=none: registered by no Sheep Seeker.
+  // seeker=me: the converts placed in the CCGs the viewer is liaison for. seeker=<member id>: that Sheep
+  // Seeker's (the report). seeker=none: converts in no liaison's CCG.
   const seeker = query.get('seeker')
   const mineOnly = seeker === 'me'
   const seekerId = mineOnly ? null : seeker
@@ -58,7 +59,11 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
         ? { OR: [inUnit({ ccg: { stream: { campusId } } }), { kind: 'convert', stream: { campusId } }, { kind: 'member', ccfId: null, stream: { campusId } }] }
         : {},
       gender === 'Male' || gender === 'Female' ? { gender } : {},
-      seekerId === 'none' ? { kind: 'convert', seekerPersonId: null } : seekerId ? { kind: 'convert', seekerPersonId: seekerId } : {},
+      seekerId === 'none'
+        ? { kind: 'convert', NOT: { placements: { some: { status: 'active', finalCcfId: { in: await allLiaisonCcfIds() } } } } }
+        : seekerId
+          ? { kind: 'convert', placements: { some: { status: 'active', finalCcfId: { in: (await liaisonCcfsOf([seekerId])).get(seekerId) ?? [] } } } }
+          : {},
       mineOnly ? { kind: 'convert', placements: { some: { status: 'active', finalCcfId: { in: scope.liaisonCcfIds } } } } : {},
       search
         ? {

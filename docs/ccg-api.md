@@ -76,11 +76,12 @@ Routes always check a permission against the unit concerned, never a role name. 
 ## Statuses
 
 - **Member:** `pending` (self-registered, not yet counted) → `active` or `inactive`. Only active members shape their CCF's profile.
-- **Convert:** `new` → `proposed` → `placed` → `integrated`. A convert can also be `needs_info` or `inactive`.
+- **Convert:** `new` → `proposed` → `placed` → `integrated`. A convert can also be `needs_info` or `inactive`, `quarantined` (already in a Bacenta, awaiting the Sheep Seeking Admin) or `bacenta` (confirmed: out of CCF placement for good).
 - **Placement:**
   - `proposed` → `active` (decision `approved`, or `remapped` with a reason) → `ended`
   - `proposed` → `held` → `active` (by remapping)
   - An open proposal becomes `superseded` when the convert is matched again.
+  - `active` → `quarantined` (left the CCF, progress kept) → `active` (released), `ended` with outcome `bacenta` (confirmed), or `superseded` (placed elsewhere).
 - **Milestone state** (worked out, never stored): `done`, `overdue`, `due_soon` (7 days or less), `upcoming` or `no_deadline`. It counts from the approval date plus `target_days`.
 
 ## How matching works
@@ -370,7 +371,7 @@ Links open the public page `/join/[token]`, which needs no login and is shown wi
 
 Sheep seeking has its own portal, over the same data as City Church Groups (see **Portals** below).
 
-- **Sheep Seekers** belong to a stream. They don't need to be in a CCF; new people are added as members of the stream only. Converts are **assigned** to them (`seeker_person_id` on people, shown as `seeker`). A seeker sees and ticks the milestones of their assigned converts in whatever CCF those converts are placed. A convert a seeker registers, or who registers through a seeker's intake link, is assigned to that seeker. Only the stream's Sheep Seeking Overseer, a Campus Leader or an admin (`seekers.manage`) can assign a convert to a different seeker.
+- **Sheep Seekers** belong to a stream. They don't need to be in a CCF; new people are added as members of the stream only. **Converts belong to the stream, never to a Sheep Seeker**, whoever registers them; so do intake links (a link has a stream, no Sheep Seeker). A Sheep Seeker's converts are those placed in the CCGs they are **liaison** for: the seeker report, `?seeker=` filters, their home screen and a convert's `liaisons` (on people and graduates) all follow that. `seeker_person_id` on people is history only (who registered a convert before this rule); nothing writes or reads it.
 - **Sheep Seeking roles** are appointed in the Sheep Seeking portal only (role pickers show each portal's own roles):
   - **Stream Sheep Seeking Admin** (`seeking_admin`, one per stream): acts. Registers converts, approves placements, appoints and stands down the stream's Sheep Seekers, runs its seeking groups.
   - **Stream Sheep Seeking Overseer** (`seeking_overseer`, one per stream): view only.
@@ -397,7 +398,17 @@ Sheep seeking has its own portal, over the same data as City Church Groups (see 
 | GET | `/seekers/placements?stream_id=&council_id=&ccg_id=&seeker=&from=&to=` | reports.view (Sheep Seeking side) | Where the converts went, per CCF with its CCG and council: `in_ccf` (now), `placed` (in the period), `awaiting`, `on_hold`, `became_members` and `dropped` (in the period); `total`, and `not_placed{ new, needs_info, proposed }` (null when narrowed to a council or CCG). `to` is inclusive. Shown on the Sheep Seeking Admin's home, with filters. |
 | PUT | `/streams/[id]/seekers/[assignmentId]/ccgs` | roles.manage, or seekers.manage on the stream (its or its campus's Sheep Seeking Admin) | `{ ccg_ids }`: make this Sheep Seeker liaison for exactly these CCGs of the stream. They follow the converts placed in every CCF of those CCGs. `[]` ends it. |
 
-`GET /people?seeker=me|<person id>|none` filters converts by seeker.
+`GET /people?seeker=me|<person id>|none` filters converts by Sheep Seeker: placed in the CCGs that seeker (or the viewer) is liaison for; `none`: in no liaison's CCG.
+
+### Quarantine (converts already in a Bacenta)
+
+Some converts already belong to a Bacenta, so they don't qualify for a CCF, though some were placed in one. Anyone with `people.manage` on the convert's CCF (its Coordinator, CCG Overseer, the admins above, the central team) or on its stream's Sheep Seeking side (Sheep Seekers, Sheep Seeking Admins) quarantines them. A placed convert **leaves the CCF at once**: off its lists, milestones, attendance and convert count, with their progress kept. A convert not yet placed has their proposal set aside. The stream's or campus's **Sheep Seeking Admin** (`seekers.manage`) decides. Nobody is notified. Cases are kept in `ccg_quarantines` (migration 048).
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| POST | `/people/[id]/quarantine` | people.manage on their CCF or stream | `{ reason }`. Returns `{ quarantine }`. A person's `quarantine` (reason, since, the CCF they left) shows on `/people` while it is open. |
+| GET | `/quarantines?status=open,confirmed,released,replaced&stream_id=&campus_id=&limit=&offset=` | seekers.manage (their streams) | `{ quarantines[{ id, status, person, ccf, stream, reason, flagged_by, flagged_at, decided_by, decided_at, decision_note }], total, open }` |
+| POST | `/quarantines/[id]/decide` | seekers.manage on the stream | `{ decision, note? }`. `confirm`: belongs to a Bacenta (placement ends, outcome `bacenta`; not counted as dropped). `release`: back to the same CCF with their progress, if it has room (or back to matching if they were not placed). `replace`: matched afresh; the proposal goes to Approvals. Returns `{ quarantine, proposal }`. |
 
 ### AI help
 

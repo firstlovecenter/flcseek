@@ -32,16 +32,16 @@ interface Report {
 }
 
 const COLUMNS: Array<{ key: keyof Counts; label: string; hint: string }> = [
-  { key: 'registered', label: 'Registered', hint: 'Converts they brought, registered in this period' },
-  { key: 'placed', label: 'Placed', hint: 'Placed in a CCF in this period' },
+  { key: 'registered', label: 'Registered', hint: 'Registered in this period, and now in a CCF of their CCGs' },
+  { key: 'placed', label: 'Placed', hint: 'Placed in a CCF of their CCGs in this period' },
   { key: 'became_members', label: 'Became members', hint: 'Completed their assessment in this period' },
   { key: 'dropped', label: 'Dropped', hint: 'Placement ended without completing, in this period' },
   { key: 'in_assessment', label: 'In assessment now', hint: 'In their assessment year today' },
 ]
 
 /**
- * Sheep Seekers report: per seeker, for a week or a month, how many converts
- * they brought, how many were placed, became members or dropped.
+ * Sheep Seekers report: per seeker, for a week or a month, their converts (those
+ * in the CCGs they are liaison for): registered, placed, became members or dropped.
  */
 function SeekerReport() {
   const params = useSearchParams()
@@ -186,8 +186,8 @@ function SeekerReport() {
           title="No Sheep Seekers yet"
           description={
             stream
-              ? 'Add them above. Their converts appear here as they register them.'
-              : 'Open a stream above to add them. Their converts appear here as they register them.'
+              ? 'Add them above, then make them liaisons for CCGs: their converts are those placed in those CCGs.'
+              : 'Open a stream above to add them. Their converts are those placed in the CCGs they are liaison for.'
           }
           className="mt-12"
         />
@@ -227,7 +227,9 @@ function SeekerReport() {
               ))}
               {Object.values(data.unassigned).some((n) => n > 0) && (
                 <tr className="text-muted-foreground">
-                  <td className="px-4 py-2.5 italic">No Sheep Seeker recorded</td>
+                  <td className="px-4 py-2.5 italic" title="Not placed yet, or in a CCG no Sheep Seeker is liaison for">
+                    In no liaison’s CCG
+                  </td>
                   {COLUMNS.map((c) => (
                     <td key={c.key} className="px-3 py-2.5 text-right tabular-nums">
                       {data.unassigned[c.key]}
