@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { liaisonCcfsOf } from './seekers'
 import { forbidden, invalid } from '../errors'
 import type { CcgScope } from '../scope'
 import { iso } from './common'
@@ -54,8 +55,10 @@ export async function placementBreakdown(full: CcgScope, f: BreakdownFilters) {
     ...(f.councilId ? { councilId: f.councilId } : {}),
     ...(f.ccgId ? { id: f.ccgId } : {}),
   }
+  // One Sheep Seeker's: the CCFs of the CCGs they are liaison for.
+  const seekerCcfs = f.seekerId ? (await liaisonCcfsOf([f.seekerId])).get(f.seekerId) ?? [] : null
   const ccfs = await prisma.ccgFamily.findMany({
-    where: { deletedAt: null, ccg: ccgWhere },
+    where: { deletedAt: null, ccg: ccgWhere, ...(seekerCcfs ? { id: { in: seekerCcfs } } : {}) },
     select: {
       id: true,
       name: true,
@@ -73,7 +76,7 @@ export async function placementBreakdown(full: CcgScope, f: BreakdownFilters) {
   })
   const ccfIds = ccfs.map((c) => c.id)
 
-  const person: Prisma.CcgPersonWhereInput = { deletedAt: null, ...(f.seekerId ? { seekerPersonId: f.seekerId } : {}) }
+  const person: Prisma.CcgPersonWhereInput = { deletedAt: null }
   const period = f.from || f.to ? { ...(f.from ? { gte: f.from } : {}), ...(f.to ? { lt: f.to } : {}) } : undefined
   const count = async (by: 'finalCcfId' | 'proposedCcfId', where: Prisma.CcgPlacementWhereInput) => {
     const rows = await prisma.ccgPlacement.groupBy({ by: [by], where: { ...where, [by]: { in: ccfIds }, person }, _count: { _all: true } })
@@ -85,9 +88,11 @@ export async function placementBreakdown(full: CcgScope, f: BreakdownFilters) {
     count('proposedCcfId', { status: 'proposed' }),
     count('proposedCcfId', { status: 'held' }),
     count('finalCcfId', { status: 'ended', outcome: { in: SUCCESS_OUTCOMES }, ...(period ? { endedAt: period } : {}) }),
-    count('finalCcfId', { status: 'ended', outcome: { notIn: SUCCESS_OUTCOMES }, NOT: { outcome: null }, ...(period ? { endedAt: period } : {}) }),
+    // Dropped: ended without completing (a convert confirmed as a Bacenta's is not dropped).
+    count('finalCcfId', { status: 'ended', outcome: { notIn: [...SUCCESS_OUTCOMES, 'bacenta'] }, NOT: { outcome: null }, ...(period ? { endedAt: period } : {}) }),
     // Not placed yet: new, needing more information, or proposed somewhere (CCF filters don't narrow these).
-    f.councilId || f.ccgId
+    // (Converts not placed yet are no Sheep Seeker's: they belong to the stream.)
+    f.councilId || f.ccgId || f.seekerId
       ? Promise.resolve(null)
       : prisma.ccgPerson.groupBy({
           by: ['status'],

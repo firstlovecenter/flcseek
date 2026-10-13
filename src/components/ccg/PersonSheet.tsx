@@ -18,6 +18,7 @@ import { useCcgFocus } from './CcgFocusProvider'
 import { useInviteNotice, type InviteResult } from './InviteNotice'
 import { Field, NullableSelect, SearchSelect } from './form-utils'
 import { PERSON_STATUS, ccfLabel, useCcgOptions, type BankQuestion, type PersonDTO } from './people-types'
+import { QuarantineButton, useCanQuarantine } from './QuarantineDialog'
 
 interface Detail {
   person: PersonDTO
@@ -138,6 +139,7 @@ export function PersonSheet({
   const canEdit = canChange && !(p?.kind === 'convert' && !!p.placement &&!hasGlobal('people.manage'))
   const canTransfer = canChange && !!p && ((p.kind === 'member' && ['active', 'pending'].includes(p.status)) || !!p.placement)
   const answered = (opts?.questions ?? []).filter((q) => p?.answers?.[q.key] !== undefined)
+  const canQuarantine = useCanQuarantine(p)
 
   return (
     <Sheet open={!!personId} onOpenChange={(o) => !o && onClose()}>
@@ -204,6 +206,16 @@ export function PersonSheet({
                     Send password link
                   </Button>
                 )}
+                {canQuarantine && (
+                  <QuarantineButton
+                    person={p}
+                    onDone={() => {
+                      // They leave the CCF, so its leaders no longer see them here.
+                      onChanged()
+                      onClose()
+                    }}
+                  />
+                )}
                 {p.placement && (
                   <Button size="sm" variant="outline" asChild>
                     <Link href={`/ccg/converts?placement=${p.placement.id}`}>
@@ -213,6 +225,13 @@ export function PersonSheet({
                   </Button>
                 )}
               </div>
+
+              {p.quarantine && (
+                <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm">
+                  <strong>In quarantine</strong> since {fmtDate(p.quarantine.since)}
+                  {p.quarantine.ccf && <> (left {p.quarantine.ccf.name})</>}: “{p.quarantine.reason}”. The stream’s Sheep Seeking Admin decides what happens next.
+                </p>
+              )}
 
               {p.possible_duplicate_of && (
                 <p className="rounded-md bg-warning/10 px-3 py-2 text-sm">
@@ -244,8 +263,8 @@ export function PersonSheet({
                       <dd className="font-medium">{fmtDate(p.conversion_date)}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-muted-foreground">Registered by</dt>
-                      <dd className="font-medium">{p.seeker?.full_name ?? '—'}</dd>
+                      <dt className="text-xs text-muted-foreground">Sheep Seeking Liaison</dt>
+                      <dd className="font-medium">{p.liaisons?.map((l) => l.full_name).join(', ') || '—'}</dd>
                     </div>
                   </>
                 )}
@@ -323,10 +342,14 @@ export function PersonSheet({
                           <p>
                             {h.status === 'active'
                               ? `Placed in ${h.final_ccf?.name}`
-                              : h.status === 'ended'
+                              : h.status === 'quarantined'
+                                ? `In quarantine (left ${h.final_ccf?.name})`
+                                : h.status === 'ended'
                                 ? h.outcome === 'graduated'
                                   ? `Completed the assessment in ${h.final_ccf?.name} and became a member`
-                                  : `Placement in ${h.final_ccf?.name} ended`
+                                  : h.outcome === 'bacenta'
+                                    ? `Left ${h.final_ccf?.name}: belongs to a Bacenta`
+                                    : `Placement in ${h.final_ccf?.name} ended`
                                 : h.status === 'held'
                                   ? 'On hold'
                                   : `Proposed for ${h.proposed_ccf?.name}`}

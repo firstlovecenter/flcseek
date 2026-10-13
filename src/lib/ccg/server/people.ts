@@ -101,16 +101,23 @@ export function peopleScopeWhere(scope: CcgScope, perm: 'people.view' | 'people.
 // Serialisation
 // ---------------------------------------------------------------------------
 
+const liaisonPerson = { where: { kind: 'member', deletedAt: null }, select: { id: true, fullName: true }, take: 1 } as const
+
 export const personInclude = {
   stream: { select: { id: true, code: true, name: true } },
   user: { select: { id: true, username: true } },
   ccf: { include: { ccg: true } },
   existingConnection: { select: { id: true, fullName: true, ccfId: true } },
-  seeker: { select: { id: true, fullName: true } },
   possibleDuplicateOf: { select: { id: true, fullName: true, kind: true } },
+  // An open quarantine (already in a Bacenta), awaiting the Sheep Seeking Admin.
+  quarantines: { where: { status: 'open' }, take: 1, select: { id: true, reason: true, flaggedAt: true, ccf: { select: { id: true, name: true } } } },
   placements: {
     where: { status: { in: ['proposed', 'held', 'active'] } },
-    include: { proposedCcf: { include: { ccg: true } }, finalCcf: { include: { ccg: true } } },
+    include: {
+      proposedCcf: { include: { ccg: true } },
+      // The CCG's Sheep Seeking Liaisons: whose converts the placed ones are.
+      finalCcf: { include: { ccg: { include: { liaisons: { select: { user: { select: { ccgPeople: liaisonPerson } } } } } } } },
+    },
   },
 } satisfies Prisma.CcgPersonInclude
 
@@ -148,8 +155,12 @@ export function serializePerson(p: PersonRow, answers?: Record<string, AnswerVal
     existing_connection_note: p.existingConnectionNote,
     /** The member above was matched by the AI from the note. */
     connection_by_ai: p.connectionByAi,
-    /** Converts: the Sheep Seeker who registered them. */
-    seeker: p.seeker ? { id: p.seeker.id, full_name: p.seeker.fullName } : null,
+    /** In quarantine (already in a Bacenta): why, since when, and the CCF they left. */
+    quarantine: p.quarantines[0]
+      ? { id: p.quarantines[0].id, reason: p.quarantines[0].reason, since: iso(p.quarantines[0].flaggedAt), ccf: p.quarantines[0].ccf }
+      : null,
+    /** Placed converts: the Sheep Seekers who are liaison for their CCG (theirs to follow). */
+    liaisons: (active?.finalCcf?.ccg.liaisons ?? []).flatMap((l) => l.user.ccgPeople.map((m) => ({ id: m.id, full_name: m.fullName }))),
     possible_duplicate_of: p.possibleDuplicateOf
       ? { id: p.possibleDuplicateOf.id, full_name: p.possibleDuplicateOf.fullName, kind: p.possibleDuplicateOf.kind }
       : null,
@@ -198,29 +209,6 @@ async function assertStream(db: Db, streamId: string | null | undefined) {
   if (!s) throw invalid('Stream not found')
 }
 
-/** A Sheep Seeker: a live member holding the role (for this stream, when given). */
-async function assertSeeker(db: Db, seekerId: string | null | undefined, streamId: string | null | undefined) {
-  if (!seekerId) return
-  const m = await db.ccgPerson.findFirst({ where: { id: seekerId, kind: 'member', deletedAt: null }, select: { userId: true } })
-  const holds =
-    m?.userId &&
-    (await db.ccgRoleAssignment.count({
-      where: { userId: m.userId, roleKey: 'sheep_seeker', ...(streamId ? { streamId } : {}), ...currentAssignmentWhere() },
-    }))
-  if (!holds) throw invalid(streamId ? 'Choose a Sheep Seeker of this stream' : 'Choose a Sheep Seeker', { seeker_person_id: 'Not a Sheep Seeker' })
-}
-
-/** The acting user's own member record when they are a Sheep Seeker (of this stream, when given): the default owner of converts they register. */
-export async function seekerSelf(db: Db, actorId: string | null, streamId: string | null | undefined): Promise<string | null> {
-  if (!actorId) return null
-  const m = await db.ccgPerson.findFirst({ where: { userId: actorId, kind: 'member', deletedAt: null }, select: { id: true } })
-  if (!m) return null
-  const holds = await db.ccgRoleAssignment.count({
-    where: { userId: actorId, roleKey: 'sheep_seeker', ...(streamId ? { streamId } : {}), ...currentAssignmentWhere() },
-  })
-  return holds ? m.id : null
-}
-
 async function assertConnection(db: Db, memberId: string | null | undefined, selfId?: string) {
   if (!memberId) return
   if (memberId === selfId) throw invalid('A person cannot be their own connection')
@@ -267,7 +255,6 @@ function coreData(core: Partial<PersonCore>, kind: 'member' | 'convert') {
       d.existingConnectionMemberId = core.existing_connection_member_id
       d.connectionByAi = false
     }
-    if (core.seeker_person_id !== undefined) d.seekerPersonId = core.seeker_person_id
     if (core.existing_connection_note !== undefined) d.existingConnectionNote = core.existing_connection_note
   }
   return d
@@ -324,14 +311,8 @@ export async function createPerson(args: CreatePersonArgs) {
     await assertCcf(tx, args.core.ccf_id)
     await assertStream(tx, args.core.stream_id)
     await assertConnection(tx, args.core.existing_connection_member_id)
-    // Converts belong to their stream. They record the Sheep Seeker who registered them
-    // (the one chosen, or the registering user when they are one), for reports only.
-    let seekerId: string | null = null
-    if (args.kind === 'convert') {
-      seekerId = args.core.seeker_person_id ?? (await seekerSelf(tx, args.actorId, args.core.stream_id))
-      // (A self-registration keeps its link's seeker even if they have since stepped down.)
-      if (args.core.seeker_person_id && args.source === 'staff') await assertSeeker(tx, seekerId, args.core.stream_id)
-    }
+    // Converts belong to their stream, whoever registers them. A Sheep Seeker's converts are those
+    // placed in the CCGs they are liaison for.
     const phone = normalizePhone(args.core.phone)
     const dup = await findDuplicate(tx, phone)
 
@@ -344,7 +325,6 @@ export async function createPerson(args: CreatePersonArgs) {
         status: args.kind === 'member' ? args.memberStatus ?? 'active' : 'new',
         source: args.source,
         possibleDuplicateOfId: dup?.id ?? null,
-        seekerPersonId: seekerId,
         createdBy: args.actorId,
       },
     })
@@ -410,9 +390,6 @@ export async function updatePerson(
     await assertCcf(tx, core.ccf_id)
     await assertStream(tx, core.stream_id)
     await assertConnection(tx, core.existing_connection_member_id, id)
-    if (kind === 'convert' && core.seeker_person_id) {
-      await assertSeeker(tx, core.seeker_person_id, core.stream_id !== undefined ? core.stream_id : before.streamId)
-    }
 
     const data = coreData(core, kind)
     if (core.first_name !== undefined || core.middle_name !== undefined || core.last_name !== undefined) {
@@ -515,8 +492,13 @@ export async function removePerson(id: string, actorId: string) {
       data: { status: 'superseded', updatedAt: new Date() },
     })
     await tx.ccgPlacement.updateMany({
-      where: { personId: id, status: 'active' },
+      where: { personId: id, status: { in: ['active', 'quarantined'] } },
       data: { status: 'ended', endedAt: new Date(), endReason: 'Person removed', updatedAt: new Date() },
+    })
+    // An open quarantine closes with them.
+    await tx.ccgQuarantine.updateMany({
+      where: { personId: id, status: 'open' },
+      data: { status: 'confirmed', decidedBy: actorId, decidedAt: new Date(), decisionNote: 'Person removed' },
     })
     await tx.ccgPerson.update({ where: { id }, data: { deletedAt: new Date() } })
     await logCcg({ userId: actorId, action: 'PERSON_REMOVED', entityType: 'ccg_person', entityId: id }, tx)

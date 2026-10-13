@@ -567,6 +567,7 @@ model CcgStream {
   assignments CcgRoleAssignment[]
   people      CcgPerson[]
   formLinks   CcgFormLink[]
+  quarantines CcgQuarantine[]
 
   @@map("ccg_streams")
 }
@@ -648,6 +649,7 @@ model CcgFamily {
   liaisons     CcgSeekingLiaison[]
   movesOut     CcgMoveRequest[]    @relation("CcgMoveFrom")
   movesIn      CcgMoveRequest[]    @relation("CcgMoveTo")
+  quarantines  CcgQuarantine[]
 
   @@map("ccg_families")
 }
@@ -747,6 +749,7 @@ model CcgPerson {
   user                User?                    @relation("CcgPersonUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   transfers           CcgTransfer[]
   moveRequests        CcgMoveRequest[]
+  quarantines         CcgQuarantine[]
   seeker              CcgPerson?               @relation("CcgSeeker", fields: [seekerPersonId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   seekerOf            CcgPerson[]              @relation("CcgSeeker")
   seekerLinks         CcgFormLink[]            @relation("CcgLinkSeeker")
@@ -914,6 +917,7 @@ model CcgPlacement {
   progressItems   CcgProgressItem[]
   checkIns        CcgCheckIn[]
   transfers       CcgTransfer[]
+  quarantines     CcgQuarantine[]
 
   @@index([status, createdAt], map: "idx_ccg_placements_status")
   @@map("ccg_placements")
@@ -1154,4 +1158,31 @@ model CcgMoveRequest {
   @@index([fromCcfId], map: "idx_ccg_move_requests_from")
   @@index([toCcfId], map: "idx_ccg_move_requests_to")
   @@map("ccg_move_requests")
+}
+
+/// A convert who already belongs to a Bacenta, set aside from CCF placement until the
+/// stream's (or campus's) Sheep Seeking Admin confirms, releases or re-places them (migration 048).
+model CcgQuarantine {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId     String    @map("person_id") @db.Uuid
+  placementId  String?   @map("placement_id") @db.Uuid
+  ccfId        String?   @map("ccf_id") @db.Uuid
+  streamId     String?   @map("stream_id") @db.Uuid
+  priorStatus  String    @map("prior_status") @db.VarChar(20)
+  reason       String
+  /// open | confirmed (belongs to a Bacenta) | released | replaced
+  status       String    @default("open") @db.VarChar(10)
+  flaggedBy    String?   @map("flagged_by") @db.Uuid
+  flaggedAt    DateTime  @default(now()) @map("flagged_at") @db.Timestamptz(6)
+  decidedBy    String?   @map("decided_by") @db.Uuid
+  decidedAt    DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote String?   @map("decision_note")
+
+  person    CcgPerson     @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  placement CcgPlacement? @relation(fields: [placementId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  ccf       CcgFamily?    @relation(fields: [ccfId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  stream    CcgStream?    @relation(fields: [streamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([streamId, status], map: "idx_ccg_quarantines_stream")
+  @@map("ccg_quarantines")
 }

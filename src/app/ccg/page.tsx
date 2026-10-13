@@ -12,6 +12,7 @@ import {
   HandHeart,
   PauseCircle,
   Soup,
+  ShieldAlert,
   UserPlus,
   Users,
   type LucideIcon,
@@ -23,7 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
-import { LEVEL_LABEL, focusQuery, useCcgFocus, useLeaderView, useSeekingRole } from '@/components/ccg/CcgFocusProvider'
+import { LEVEL_LABEL, focusFilter, focusQuery, useCcgFocus, useLeaderView, useSeekingRole } from '@/components/ccg/CcgFocusProvider'
 import { ConvertMilestones } from '@/components/ccg/ConvertMilestones'
 import { hourlyGreeting, splitName } from '@/components/ccg/greetings'
 import { FocusPicker, UnitDrill, groupHref } from '@/components/ccg/synago'
@@ -167,6 +168,8 @@ export default function CcgHomePage() {
               </Button>
             )}
           </div>
+          {/* Sheep Seeking Admins: converts quarantined (already in a Bacenta) waiting for their decision. */}
+          {has('seekers.manage') && <QuarantineWaiting q={focus?.type === 'stream' || focus?.type === 'campus' ? focusFilter(focus) : ''} />}
           {/* Sheep Seeking Admins and Overseers (a stream's or a campus's): where the converts have gone. */}
           {seekingRole === 'overseer' && has('reports.view') && <PlacementBreakdown streamId={focus?.type === 'stream' ? focus.id : null} campusId={focus?.type === 'campus' ? focus.id : null} />}
           <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
@@ -324,6 +327,27 @@ export default function CcgHomePage() {
  * stream; both end on that stream's milestones page. A Stream Leader's CCGs
  * are in the sidebar.
  */
+/** How many converts wait in quarantine for this Sheep Seeking Admin (nothing when none). */
+function QuarantineWaiting({ q }: { q: string }) {
+  const [open, setOpen] = useState(0)
+  useEffect(() => {
+    ccgApi.get<{ open: number }>(`/quarantines?status=open&limit=1${q ? `&${q}` : ''}`).then((r) => setOpen(r.ok ? r.data.open : 0))
+  }, [q])
+  if (!open) return null
+  return (
+    <Link
+      href="/ccg/quarantine"
+      className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm transition-colors hover:bg-destructive/10"
+    >
+      <ShieldAlert className="size-5 shrink-0 text-destructive" />
+      <span className="flex-1">
+        <strong className="tabular-nums">{open}</strong> convert{open === 1 ? '' : 's'} in quarantine (already in a Bacenta) waiting for your decision
+      </span>
+      <ChevronRight className="size-4 text-muted-foreground" />
+    </Link>
+  )
+}
+
 function LeaderHome({ leader }: { leader: NonNullable<ReturnType<typeof useLeaderView>> }) {
   const router = useRouter()
   const month = useMonthParam()

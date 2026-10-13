@@ -38,7 +38,10 @@ export interface PersonDTO {
   /** The connection above was matched by the AI from the note. */
   connection_by_ai?: boolean
   /** Converts: the Sheep Seeker who registered them. */
-  seeker?: { id: string; full_name: string } | null
+  /** In quarantine (already in a Bacenta), awaiting the Sheep Seeking Admin. */
+  quarantine?: { id: string; reason: string; since: string | null; ccf: { id: string; name: string } | null } | null
+  /** Placed converts: the Sheep Seekers who are liaison for their CCG. */
+  liaisons?: Array<{ id: string; full_name: string }>
   possible_duplicate_of: { id: string; full_name: string; kind: string } | null
   status: string
   source: string
@@ -64,6 +67,8 @@ export const PERSON_STATUS: Record<string, { label: string; tone: Tone }> = {
   needs_info: { label: 'On hold', tone: 'warning' },
   placed: { label: 'Placed', tone: 'success' },
   integrated: { label: 'Integrated', tone: 'success' },
+  quarantined: { label: 'In quarantine', tone: 'destructive' },
+  bacenta: { label: 'In a Bacenta', tone: 'secondary' },
 }
 
 export interface CcfOption {
