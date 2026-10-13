@@ -15,7 +15,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
+import { UnitDrill } from '@/components/ccg/synago'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
+import { focusFilter, useCcgFocus } from '@/components/ccg/CcgFocusProvider'
 import { Field, NullableSelect, SearchSelect } from '@/components/ccg/form-utils'
 import { fmtDate, todayIso, type ProgressRow } from '@/components/ccg/progress-types'
 
@@ -52,17 +54,21 @@ export default function CcgActivitiesPage() {
   const [logging, setLogging] = useState<{ ccgId: string | null; typeKey: string | null } | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const canView = has('activities.record') || has('reports.view')
+  // The CCGs of the unit in focus (or drilled into); a CCF's is its CCG's.
+  const { focus, ready } = useCcgFocus()
+  const unit = focus?.type === 'ccf' ? '' : focusFilter(focus)
 
   const load = useCallback(async () => {
+    if (!ready) return
     const [t, a] = await Promise.all([
       ccgApi.get<{ activity_types: ActivityType[] }>('/activity-types'),
-      ccgApi.get<{ activities: Activity[]; summary: Summary[] }>('/group-activities?limit=50'),
+      ccgApi.get<{ activities: Activity[]; summary: Summary[] }>(`/group-activities?limit=50${unit ? `&${unit}` : ''}`),
     ])
     if (!a.ok) return setError(a.error.message)
     setError(null)
     setTypes(t.ok ? t.data.activity_types : [])
     setData(a.data)
-  }, [])
+  }, [ready, unit])
 
   useEffect(() => {
     if (canView) load()
@@ -96,6 +102,7 @@ export default function CcgActivitiesPage() {
           )
         }
       />
+      <UnitDrill />
 
       {data === null ? (
         <div className="grid gap-4 md:grid-cols-2">

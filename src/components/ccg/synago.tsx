@@ -1,10 +1,14 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ccgApi } from '@/lib/ccg/client'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LEVEL_LABEL, useCcgFocus, type FocusType, PORTAL_LABEL } from './CcgFocusProvider'
+import { LEVEL_LABEL, focusQuery, useCcgFocus, type DrillUnit, type FocusType, PORTAL_LABEL } from './CcgFocusProvider'
 
 /**
  * Building blocks in the admin portal's (Synago) style: the church-in-focus
@@ -51,6 +55,128 @@ export function FocusPicker({ className, variant = 'page' }: { className?: strin
         </SelectContent>
       </Select>
     </div>
+  )
+}
+
+
+const LEVEL_PLURAL: Record<DrillUnit['type'], string> = { campus: 'Campuses', stream: 'Streams', council: 'Councils', ccg: 'CCGs', ccf: 'CCFs' }
+const SHOWN = 8
+
+/**
+ * Drill-down on the page, as in the admin portal: a breadcrumb from the church
+ * in focus down to the unit open now, and the units below it as cards. Opening
+ * one keeps the role and shows this same page for that unit (campus → stream →
+ * council → CCG → CCF; Sheep Seeking stops at streams). Nothing shows for a
+ * role with nothing below it.
+ */
+export function UnitDrill({ className, units = true }: { className?: string; /** Off: the breadcrumb only. */ units?: boolean }) {
+  const { focus, roleFocus, portal, drillPath, drillTo, drillBack } = useCcgFocus()
+  const [children, setChildren] = useState<DrillUnit[] | null>(null)
+  const [all, setAll] = useState(false)
+  const [filter, setFilter] = useState('')
+  const q = focusQuery(focus)
+
+  useEffect(() => {
+    setAll(false)
+    setFilter('')
+    if (!units || !portal || focus?.type === 'ccf') return setChildren([])
+    setChildren(null)
+    let live = true
+    ccgApi.get<{ items: DrillUnit[] }>(`/units/children?portal=${portal}${q ? `&${q}` : ''}`).then((r) => {
+      if (!live) return
+      if (r.ok) setChildren(r.data.items)
+      else if (drillPath.length) drillBack(-1) // a unit opened earlier is gone or out of reach
+      else setChildren([])
+    })
+    return () => {
+      live = false
+    }
+    // Refetch when the unit changes, not when the drill helpers do.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [units, portal, q])
+
+  if (!roleFocus || !focus) return null
+  const crumbs: Array<{ name: string; type: FocusType; index: number }> = [
+    { name: roleFocus.name, type: roleFocus.type, index: -1 },
+    ...drillPath.map((u, i) => ({ name: u.name, type: u.type, index: i })),
+  ]
+  const types = [...new Set((children ?? []).map((c) => c.type))]
+  const heading = `${types.map((t) => LEVEL_PLURAL[t]).join(' and ')} in ${focus.name}`
+  const matching = (children ?? []).filter((c) => !filter || c.name.toLowerCase().includes(filter.toLowerCase()))
+  const shown = all || filter ? matching : matching.slice(0, SHOWN)
+  if (drillPath.length === 0 && !children?.length) return null
+
+  return (
+    <section className={cn('space-y-3', className)} aria-label="Units">
+      {drillPath.length > 0 && (
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => drillBack(drillPath.length - 2)}
+            className="-ml-1.5 inline-flex min-h-8 items-center gap-0.5 rounded-md px-1.5 font-medium hover:bg-muted hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" /> Back
+          </button>
+          {crumbs.map((c, i) => (
+            <span key={`${c.type}:${c.index}`} className="flex min-w-0 items-center gap-1.5">
+              {i > 0 && <ChevronRight className="size-3.5 shrink-0" aria-hidden />}
+              {i === crumbs.length - 1 ? (
+                <span className="truncate font-medium text-foreground" aria-current="page">
+                  {c.name} <span className="text-members">{LEVEL_LABEL[c.type]}</span>
+                </span>
+              ) : (
+                <button type="button" onClick={() => drillBack(c.index)} className="truncate underline-offset-2 hover:text-foreground hover:underline">
+                  {c.name}
+                </button>
+              )}
+            </span>
+          ))}
+        </nav>
+      )}
+      {children === null && units && focus.type !== 'ccf' ? (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        !!children?.length && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                {heading} <span className="tabular-nums">· {children.length}</span>
+              </p>
+              {children.length > SHOWN * 1.5 && (
+                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Find…" aria-label={`Find in ${heading}`} className="h-9 w-44" />
+              )}
+            </div>
+            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {shown.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => drillTo(c)}
+                    className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left transition-colors hover:border-foreground/20 hover:bg-muted/50"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-foreground">{c.name}</span>
+                      <span className="block text-xs text-muted-foreground">{LEVEL_LABEL[c.type]}</span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {!filter && matching.length > SHOWN && (
+              <button type="button" onClick={() => setAll((a) => !a)} className="min-h-8 text-sm font-medium text-primary hover:underline">
+                {all ? 'Show fewer' : `Show all ${matching.length}`}
+              </button>
+            )}
+            {filter && matching.length === 0 && <p className="text-sm text-muted-foreground">Nothing matches “{filter}”.</p>}
+          </div>
+        )
+      )}
+    </section>
   )
 }
 

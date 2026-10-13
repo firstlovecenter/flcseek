@@ -151,11 +151,17 @@ function periodRange(period: ReportPeriod, offset: number, now = new Date()) {
   return { from, to, label: from.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }
 }
 
-export async function seekerReport(full: CcgScope, opts: { streamId: string | null; period: ReportPeriod; offset: number }) {
+/** A campus's streams the viewer reports on (Sheep Seeking side): a campus drilled into. */
+async function campusStreams(scope: CcgScope, campusId: string) {
+  const rows = await prisma.ccgStream.findMany({ where: { campusId, deletedAt: null }, select: { id: true } })
+  return rows.map((s) => s.id).filter((id) => scope.canOnStream('reports.view', id))
+}
+
+export async function seekerReport(full: CcgScope, opts: { streamId: string | null; campusId?: string | null; period: ReportPeriod; offset: number }) {
   const scope = full.sheepSeeking()
   const inScope = scope.streamIds('reports.view')
   if (opts.streamId && !scope.canOnStream('reports.view', opts.streamId)) throw forbidden('You can only see reports for your streams')
-  const streams: string[] | 'all' = opts.streamId ? [opts.streamId] : inScope
+  const streams: string[] | 'all' = opts.streamId ? [opts.streamId] : opts.campusId ? await campusStreams(scope, opts.campusId) : inScope
   if (streams !== 'all' && streams.length === 0) throw forbidden('Sheep Seeker reports are for streams you oversee')
 
   const { from, to, label } = periodRange(opts.period, Math.max(0, opts.offset))
@@ -408,7 +414,10 @@ export async function setLiaisonCcgs(streamId: string, assignmentId: string, ccg
  * Church Groups. A Sheep Seeker sees their stream's (`mine`: those from the
  * CCFs they are liaison for); an Overseer their stream's; the central team everyone's.
  */
-export async function graduatedList(full: CcgScope, opts: { streamId: string | null; mine: boolean; search: string | null; limit: number; offset: number }) {
+export async function graduatedList(
+  full: CcgScope,
+  opts: { streamId: string | null; campusId?: string | null; mine: boolean; search: string | null; limit: number; offset: number }
+) {
   const scope = full.sheepSeeking()
   const streams = scope.streamIds('reports.view')
   if (opts.streamId && !scope.canOnStream('reports.view', opts.streamId)) throw forbidden('You can only see graduates of your streams')
@@ -428,6 +437,7 @@ export async function graduatedList(full: CcgScope, opts: { streamId: string | n
     AND: [
       { OR: visible },
       opts.streamId ? inStream([opts.streamId]) : {},
+      opts.campusId && !opts.streamId ? inStream(await campusStreams(scope, opts.campusId)) : {},
       opts.mine ? { finalCcfId: { in: scope.liaisonCcfIds } } : {},
       opts.search ? { person: { fullName: { contains: opts.search, mode: 'insensitive' } } } : {},
     ],

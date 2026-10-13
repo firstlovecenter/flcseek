@@ -19,7 +19,7 @@ import { PersonSheet } from './PersonSheet'
 import { ConvertModal } from './ConvertModal'
 import { MoveRequests } from './MoveRequests'
 import { PERSON_STATUS, type PersonDTO } from './people-types'
-import { Initials, StickyHeader } from './synago'
+import { Initials, StickyHeader, UnitDrill } from './synago'
 
 /**
  * The members page and the converts page (separate, as asked), in the admin
@@ -35,7 +35,7 @@ const STATUSES: Record<Kind, string[]> = {
   convert: ['new', 'proposed', 'needs_info', 'placed', 'integrated', 'inactive'],
   member: ['pending', 'active', 'inactive'],
 }
-const UNIT_PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id' }
+const UNIT_PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id', campus: 'campus_id' }
 
 function subtitle(p: PersonDTO): string {
   if (p.kind === 'member') return [p.ccf?.name, p.login ? 'Leader' : null].filter(Boolean).join(' · ') || '—'
@@ -249,6 +249,7 @@ export function PeopleDirectory({ kind, tabs }: { kind: Kind; /** e.g. the conve
           </div>
         </div>
       </StickyHeader>
+      {!unitType && !mine && <UnitDrill className="mt-4" />}
 
       <MoveRequests kind={kind} onChanged={load} />
 

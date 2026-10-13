@@ -14,7 +14,7 @@ import { registerOrRequestMove, type Registration } from '@/lib/ccg/server/moves
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&council_id=&stream_id=&seeker=<person id>|me|none&gender=&search=&duplicates=1&limit=&offset=
+ * GET /api/ccg/people?kind=&status=&ccf_id=&ccg_id=&council_id=&stream_id=&campus_id=&seeker=<person id>|me|none&gender=&search=&duplicates=1&limit=&offset=
  * People the viewer can see: members of CCFs in scope, and converts placed or
  * proposed there. Unplaced converts are visible to global viewers only.
  */
@@ -25,6 +25,7 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
   const ccgId = query.get('ccg_id')
   const councilId = query.get('council_id')
   const streamId = query.get('stream_id')
+  const campusId = query.get('campus_id')
   const gender = query.get('gender')
   // seeker=me: the converts placed in the CCFs the viewer is liaison for. seeker=<member id>: registered
   // by that Sheep Seeker (the report). seeker=none: registered by no Sheep Seeker.
@@ -53,6 +54,9 @@ export const GET = withCcg({ permission: 'people.view' }, async ({ scope, query 
       ccgId ? inUnit({ ccgId }) : {},
       councilId ? inUnit({ ccg: { councilId } }) : {},
       streamId ? { OR: [inUnit({ ccg: { streamId } }), { kind: 'convert', streamId }, { kind: 'member', ccfId: null, streamId }] } : {},
+      campusId
+        ? { OR: [inUnit({ ccg: { stream: { campusId } } }), { kind: 'convert', stream: { campusId } }, { kind: 'member', ccfId: null, stream: { campusId } }] }
+        : {},
       gender === 'Male' || gender === 'Female' ? { gender } : {},
       seekerId === 'none' ? { kind: 'convert', seekerPersonId: null } : seekerId ? { kind: 'convert', seekerPersonId: seekerId } : {},
       mineOnly ? { kind: 'convert', placements: { some: { status: 'active', finalCcfId: { in: scope.liaisonCcfIds } } } } : {},

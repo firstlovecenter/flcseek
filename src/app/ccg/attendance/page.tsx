@@ -12,9 +12,11 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/base/EmptyState'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
+import { UnitDrill } from '@/components/ccg/synago'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
+import { focusFilter, useCcgFocus } from '@/components/ccg/CcgFocusProvider'
 import { Field, NullableSelect, SearchSelect } from '@/components/ccg/form-utils'
-import { ccfLabel, useCcgOptions } from '@/components/ccg/people-types'
+import { ccfLabel, type CcfOption } from '@/components/ccg/people-types'
 import { EVENT_LABEL, todayIso, type MilestoneDef } from '@/components/ccg/progress-types'
 
 type Event = keyof typeof EVENT_LABEL
@@ -34,7 +36,15 @@ function lastSunday() {
 
 function AttendanceRegister() {
   const { has, loading: meLoading } = useCcgMe()
-  const opts = useCcgOptions()
+  // The CCFs of the unit in focus (or drilled into).
+  const { focus, ready } = useCcgFocus()
+  const unit = focusFilter(focus)
+  const [ccfs, setCcfs] = useState<CcfOption[] | null>(null)
+  useEffect(() => {
+    if (!ready) return
+    const one = focus?.type === 'ccf' ? focus.id : null
+    ccgApi.get<{ ccfs: CcfOption[] }>(`/ccfs${unit && !one ? `?${unit}` : ''}`).then((r) => setCcfs(r.ok ? r.data.ccfs.filter((f) => !one || f.id === one) : []))
+  }, [ready, unit, focus?.type, focus?.id])
   const params = useSearchParams()
   const [ccfId, setCcfId] = useState<string | null>(params.get('ccf'))
   const [event, setEvent] = useState<Event>((params.get('event') as Event) in EVENT_LABEL ? (params.get('event') as Event) : 'sunday_service')
@@ -109,6 +119,7 @@ function AttendanceRegister() {
         title="Attendance"
         description="Mark who came, for each Sunday service and fellowship meeting. The fellowship milestones complete themselves when a convert reaches the target."
       />
+      <UnitDrill />
 
       <Card className="grid gap-4 p-4 sm:grid-cols-3">
         <Field label="CCF" htmlFor="a-ccf">
@@ -116,7 +127,7 @@ function AttendanceRegister() {
             id="a-ccf"
             value={ccfId}
             onChange={setCcfId}
-            options={(opts?.ccfs ?? []).filter((f) => f.status === 'active').map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
+            options={(ccfs ?? []).filter((f) => f.status === 'active').map((f) => ({ value: f.id, label: f.name, hint: f.ccg.name }))}
             placeholder="Choose a CCF"
           />
         </Field>

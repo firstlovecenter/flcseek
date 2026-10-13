@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { useCcgFocus } from '@/components/ccg/CcgFocusProvider'
-import { Initials, StickyHeader } from '@/components/ccg/synago'
+import { Initials, StickyHeader, UnitDrill } from '@/components/ccg/synago'
 import { CampusSeekingTeams, StreamSeekers, type CampusSeekingTeam, type SeekerHolder } from '@/components/ccg/StreamSeekers'
 
 interface Counts {
@@ -82,8 +82,9 @@ function SeekerReport() {
     setError(null)
     const q = new URLSearchParams({ period, offset: String(offset) })
     if (stream) q.set('stream_id', stream)
+    else if (focus?.type === 'campus' && focus.id) q.set('campus_id', focus.id)
     ccgApi.get<Report>(`/seekers?${q}`).then((r) => (r.ok ? setData(r.data) : setError(r.error.message)))
-  }, [has, stream, period, offset])
+  }, [has, stream, focus?.type, focus?.id, period, offset])
 
   const go = (next: { period?: string; offset?: number }) => {
     const q = new URLSearchParams(params.toString())
@@ -148,6 +149,7 @@ function SeekerReport() {
           </div>
         </div>
       </StickyHeader>
+      {!params.get('stream') && <UnitDrill className="mt-4" />}
 
       {stream && (
         <div className="mt-4 rounded-xl border border-border bg-card p-4">
@@ -167,7 +169,9 @@ function SeekerReport() {
         <div className="mt-4 rounded-xl border border-border bg-card p-4">
           <h2 className="mb-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Campus Sheep Seeking</h2>
           <CampusSeekingTeams campuses={campusesShown} canAppoint={!!campusTeams?.can_appoint} onChanged={loadCampusTeams} />
-          <p className="mt-4 text-xs text-muted-foreground">Choose a stream in the sidebar to appoint its Sheep Seeking Admin, Overseer and Sheep Seekers.</p>
+          <p className="mt-4 text-xs text-muted-foreground">
+            To appoint a stream’s Sheep Seeking Admin, Overseer and Sheep Seekers, open the stream above.
+          </p>
         </div>
       )}
 
@@ -180,7 +184,11 @@ function SeekerReport() {
           orb
           icon={HeartHandshake}
           title="No Sheep Seekers yet"
-          description="Appoint them from a stream’s page. Their converts appear here as they register them."
+          description={
+            stream
+              ? 'Add them above. Their converts appear here as they register them.'
+              : 'Open a stream above to add them. Their converts appear here as they register them.'
+          }
           className="mt-12"
         />
       ) : (

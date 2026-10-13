@@ -58,9 +58,13 @@ function serializeActivity(a: ActivityRow, names: Map<string, { id: string; name
 }
 
 /** Activities in scope, newest first, plus per CCG and type whether it has been held this period. */
-export async function listGroupActivities(ccgIds: IdSet, filter: { ccgId?: string | null; typeKey?: string | null; limit?: number }) {
+/** `unit`: only the CCGs of a council, stream or campus (the unit drilled into). */
+export async function listGroupActivities(
+  ccgIds: IdSet,
+  filter: { ccgId?: string | null; unit?: Prisma.CcgGroupWhereInput; typeKey?: string | null; limit?: number }
+) {
   const within = inFilter(ccgIds)
-  const ccgWhere: Prisma.CcgGroupWhereInput = { deletedAt: null, ...(within ? { id: within } : {}), ...(filter.ccgId ? { id: filter.ccgId } : {}) }
+  const ccgWhere: Prisma.CcgGroupWhereInput = { deletedAt: null, ...filter.unit, ...(within ? { id: within } : {}), ...(filter.ccgId ? { id: filter.ccgId } : {}) }
   if (within && filter.ccgId && !within.in.includes(filter.ccgId)) return { activities: [], summary: [] }
 
   const [rows, types, ccgs, latest] = await Promise.all([

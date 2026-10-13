@@ -9,7 +9,7 @@ import { listGroupActivities, recordGroupActivity } from '@/lib/ccg/server/activ
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/group-activities?ccg_id=&type=&limit=
+ * GET /api/ccg/group-activities?ccg_id=&council_id=&stream_id=&campus_id=&type=&limit=
  * Logged CCG activities in scope (newest first), and a summary per CCG of
  * whether each activity has been held this week / quarter.
  */
@@ -21,7 +21,9 @@ export const GET = withCcg({}, async ({ scope: full, query }) => {
   const b = scope.ccgIds('reports.view')
   const ccgIds: IdSet = a === 'all' || b === 'all' ? 'all' : [...new Set([...a, ...b])]
   const limit = Number(query.get('limit') ?? '') || undefined
-  return success(await listGroupActivities(ccgIds, { ccgId: query.get('ccg_id'), typeKey: query.get('type'), limit }))
+  const [councilId, streamId, campusId] = ['council_id', 'stream_id', 'campus_id'].map((k) => query.get(k))
+  const unit = councilId ? { councilId } : streamId ? { streamId } : campusId ? { stream: { campusId } } : undefined
+  return success(await listGroupActivities(ccgIds, { ccgId: query.get('ccg_id'), unit, typeKey: query.get('type'), limit }))
 })
 
 /** POST /api/ccg/group-activities — log (or correct) one activity; same CCG, type and day updates it. */

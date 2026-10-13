@@ -12,7 +12,7 @@ const day = (v: string | null, name: string) => {
 }
 
 /**
- * GET /api/ccg/seekers/placements?stream_id=&council_id=&ccg_id=&seeker=&from=&to= (reports.view
+ * GET /api/ccg/seekers/placements?stream_id=&campus_id=&council_id=&ccg_id=&seeker=&from=&to= (reports.view
  * on the Sheep Seeking side) — the streams' converts per CCF, with its CCG and council: in the CCF
  * now, placed (in the period), awaiting approval, on hold, became members and dropped (in the
  * period), and those not placed yet. `to` is inclusive.
@@ -22,6 +22,7 @@ export const GET = withCcg({ permission: 'reports.view' }, async ({ scope, query
   return success(
     await placementBreakdown(scope, {
       streamId: query.get('stream_id'),
+      campusId: query.get('campus_id'),
       councilId: query.get('council_id'),
       ccgId: query.get('ccg_id'),
       seekerId: query.get('seeker'),

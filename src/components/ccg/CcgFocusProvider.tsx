@@ -18,6 +18,11 @@ import { useCcgMe } from './CcgMeProvider'
  * at the unit they are assigned to, never the units below it. The central
  * team and Seek superadmins have both portals, church-wide. Choices are
  * remembered on this device, the last role per portal.
+ *
+ * Higher roles drill down from there (sidebar): campus → stream → council →
+ * CCG → CCF in City Church Groups, campus → stream in Sheep Seeking. The role
+ * stays the one in focus; `focus` carries the unit drilled into, so every page
+ * follows it. `roleFocus` is the role's own unit.
  */
 
 export type FocusType = 'global' | 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
@@ -54,14 +59,39 @@ interface Ctx {
   portals: Portal[]
   portal: Portal | null
   setPortal: (p: Portal) => void
+  /** The role in focus, at the unit drilled into (what pages scope to). */
   focus: FocusOption | null
+  /** The role in focus, at its own unit. */
+  roleFocus: FocusOption | null
   setFocus: (key: string) => void
+  /** The units drilled into below the role's unit, top first. */
+  drillPath: DrillUnit[]
+  /** Open a unit one level below the current one. */
+  drillTo: (unit: DrillUnit) => void
+  /** Back up to drillPath[index] (-1: the role's own unit). */
+  drillBack: (index: number) => void
   ready: boolean
+}
+
+export interface DrillUnit {
+  type: Exclude<FocusType, 'global'>
+  id: string
+  name: string
 }
 
 const FocusContext = createContext<Ctx | null>(null)
 const STORAGE_KEY = 'ccg.focus'
 const portalKey = (p: Portal) => `${STORAGE_KEY}.${p}`
+const drillKey = (focusKey: string) => `${STORAGE_KEY}.drill.${focusKey}`
+
+function readDrill(focusKey: string): DrillUnit[] {
+  try {
+    const v = JSON.parse(read(drillKey(focusKey)) ?? '[]')
+    return Array.isArray(v) ? v.filter((u) => u && typeof u.id === 'string' && typeof u.name === 'string' && typeof u.type === 'string') : []
+  } catch {
+    return []
+  }
+}
 
 function read(k: string): string | null {
   try {
@@ -81,6 +111,9 @@ function write(k: string, v: string) {
 export function CcgFocusProvider({ children }: { children: React.ReactNode }) {
   const { me, loading } = useCcgMe()
   const [key, setKey] = useState<string | null>(null)
+  // The drill-down below the role in focus; each role keeps its own on this device.
+  const [drill, setDrill] = useState<{ key: string | null; path: DrillUnit[] }>({ key: null, path: [] })
+  const drillPath = useMemo(() => (drill.key === key ? drill.path : key ? readDrill(key) : []), [drill, key])
 
   const churchWide = !!me && (me.is_superadmin || me.roles.some((r) => !r.unit))
 
@@ -131,8 +164,20 @@ export function CcgFocusProvider({ children }: { children: React.ReactNode }) {
     })
   }, [options])
 
+  const saveDrill = useCallback(
+    (path: DrillUnit[]) => {
+      setDrill({ key, path })
+      if (key) write(drillKey(key), JSON.stringify(path))
+    },
+    [key]
+  )
+  const drillTo = useCallback((unit: DrillUnit) => saveDrill([...drillPath.filter((u) => u.id !== unit.id), unit]), [drillPath, saveDrill])
+  const drillBack = useCallback((index: number) => saveDrill(drillPath.slice(0, index + 1)), [drillPath, saveDrill])
+
   const setFocus = useCallback(
     (k: string) => {
+      // Choosing a role starts at its own unit.
+      write(drillKey(k), '[]')
       setKey(k)
       write(STORAGE_KEY, k)
       const o = options.find((x) => x.key === k)
@@ -151,12 +196,27 @@ export function CcgFocusProvider({ children }: { children: React.ReactNode }) {
     [options, setFocus]
   )
 
-  const focus = options.find((o) => o.key === key) ?? null
-  const portal = focus?.portal ?? null
+  const roleFocus = options.find((o) => o.key === key) ?? null
+  const portal = roleFocus?.portal ?? null
   const portalOptions = useMemo(() => options.filter((o) => o.portal === portal), [options, portal])
+  const here = drillPath[drillPath.length - 1]
+  const focus = useMemo<FocusOption | null>(() => (roleFocus && here ? { ...roleFocus, type: here.type, id: here.id, name: here.name } : roleFocus), [roleFocus, here])
   return (
     <FocusContext.Provider
-      value={{ options, portalOptions, portals, portal, setPortal, focus, setFocus, ready: !loading && (!!focus || options.length === 0) }}
+      value={{
+        options,
+        portalOptions,
+        portals,
+        portal,
+        setPortal,
+        focus,
+        roleFocus,
+        setFocus,
+        drillPath,
+        drillTo,
+        drillBack,
+        ready: !loading && (!!focus || options.length === 0),
+      }}
     >
       {children}
     </FocusContext.Provider>
@@ -171,6 +231,11 @@ export function useCcgFocus() {
 
 /** Query string for the focused unit (empty for church-wide). */
 export const focusQuery = (f: FocusOption | null) => (f && f.type !== 'global' && f.id ? `unit_type=${f.type}&unit_id=${f.id}` : '')
+
+const UNIT_FILTER: Record<Exclude<FocusType, 'global'>, string> = { campus: 'campus_id', stream: 'stream_id', council: 'council_id', ccg: 'ccg_id', ccf: 'ccf_id' }
+
+/** List filter for the focused unit, e.g. `stream_id=…` (empty for church-wide): what list APIs take. */
+export const focusFilter = (f: FocusOption | null) => (f && f.type !== 'global' && f.id ? `${UNIT_FILTER[f.type]}=${f.id}` : '')
 
 /**
  * In the Sheep Seeking portal: 'seeker' (a Sheep Seeker, who sees the converts
@@ -189,11 +254,12 @@ export function useSeekingRole(): 'seeker' | 'overseer' | null {
  * its Milestones, Attendance and Reports, read only. Null for everyone else.
  */
 export function useLeaderView(): { type: 'campus' | 'stream'; id: string; name: string } | null {
-  const { focus } = useCcgFocus()
-  if (!focus?.id) return null
-  if (focus.type === 'campus' && focus.roleKey === 'campus_leader') return { type: 'campus', id: focus.id, name: focus.name }
-  if (focus.type === 'stream' && focus.roleKey === 'overseer') return { type: 'stream', id: focus.id, name: focus.name }
-  return null
+  const { focus, roleFocus } = useCcgFocus()
+  if (!focus?.id || !roleFocus) return null
+  const leader = (roleFocus.type === 'campus' && roleFocus.roleKey === 'campus_leader') || (roleFocus.type === 'stream' && roleFocus.roleKey === 'overseer')
+  // Drilled below a stream, a leader gets the ordinary (view-only) screens for that unit.
+  if (!leader || (focus.type !== 'campus' && focus.type !== 'stream')) return null
+  return { type: focus.type, id: focus.id, name: focus.name }
 }
 
 export function useSeekerMode(): boolean {
