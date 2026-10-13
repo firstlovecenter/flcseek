@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
+import { SEEKING_ROLES } from '@/lib/ccg/scope'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -59,7 +60,7 @@ export default function CcgHomePage() {
   const waitingForFocus = options.length > 0 && !focus
   // Other campus roles choose a portal when they sign in. A Campus Leader doesn't: Home asks them
   // for a month and a stream, as Seek asked its Lead Pastor for a group.
-  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus' && r.role.key !== 'campus_leader')
+  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus' && SEEKING_ROLES.includes(r.role.key))
   useEffect(() => {
     if (leadsCampus && !hasChosen()) router.replace('/ccg/choose')
   }, [leadsCampus, router])

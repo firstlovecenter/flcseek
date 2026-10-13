@@ -48,6 +48,7 @@ import { SynagoLogo } from '@/components/shell/SynagoLogo'
 import { useTheme } from '@/components/shell/ThemeProvider'
 import { useCcgMe } from './CcgMeProvider'
 import { ccgApi } from '@/lib/ccg/client'
+import { SEEKING_ROLES } from '@/lib/ccg/scope'
 import { LEVEL_LABEL, useCcgFocus, useLeaderView, type Portal } from './CcgFocusProvider'
 import { FocusPicker, PortalSwitcher, groupHref } from './synago'
 
@@ -93,7 +94,7 @@ function useNav() {
   const { me, has } = useCcgMe()
   const { portal } = useCcgFocus()
   // A Campus Leader chooses a month and stream on Home, as Seek's Lead Pastor did; no portal page.
-  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus' && r.role.key !== 'campus_leader')
+  const leadsCampus = !!me?.roles.some((r) => r.unit?.type === 'campus' && SEEKING_ROLES.includes(r.role.key))
   const pathname = usePathname()
   const visible = (i: NavItem) => (!i.ownerOnly || !!me?.is_superadmin) && (!i.campusOnly || leadsCampus) && i.portals.includes(portal ?? 'ccg') && (!i.perm || (Array.isArray(i.perm) ? i.perm.some((p) => has(p)) : has(i.perm)))
   const active = (i: NavItem) => (i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(`${i.href}/`))

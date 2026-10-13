@@ -14,12 +14,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
-import { CHILD_GROUP, GROUP_PLURAL, GroupCard, LEADER_KEY, LEADER_TITLE, isGroupType, type GroupType } from '@/components/ccg/GroupCard'
+import { CHILD_GROUP, GROUP_PLURAL, GroupCard, LEADER_KEY, isGroupType, type GroupType } from '@/components/ccg/GroupCard'
 import { SEEKING_ROLES } from '@/lib/ccg/scope'
 import { UNIT_PATH } from '@/components/ccg/structure-types'
-import { UnitAdmins } from '@/components/ccg/UnitAdmins'
+import { ADMIN_KEY, UnitTeam } from '@/components/ccg/UnitTeam'
 import { CloseCcfDialog } from '@/components/ccg/CloseCcfDialog'
-import { Crumbs, DetailTile, LeaderBlock, SectionLabel, StickyHeader, Timeline, UNIT_LEVEL, UnitTitle, groupHref } from '@/components/ccg/synago'
+import { Crumbs, DetailTile, SectionLabel, StickyHeader, Timeline, UNIT_LEVEL, UnitTitle, groupHref } from '@/components/ccg/synago'
 
 /**
  * A group's page (campus, stream, council, CCG or CCF), laid out like Synago's church
@@ -59,10 +59,12 @@ interface Overview {
     items: Array<{ type?: GroupType; id: string; code: string; name: string; status: string; members: number; placed: number; leader: string | null }>
   } | null
   history: Array<{ id: string; text: string; at: string | null; by: string | null }>
+  /** What the viewer may do here. */
+  can: { set_leader: boolean; appoint_admins: boolean }
 }
 
-/** The admins' roles, shown in their own section. */
-const ADMIN_KEYS = ['stream_admin', 'council_admin', 'ccg_group_admin']
+/** The admins' roles, shown under the leader. */
+const ADMIN_KEYS = Object.values(ADMIN_KEY)
 
 export default function GroupPage({ params }: { params: Promise<{ type: string; id: string }> }) {
   const { type: rawType, id } = use(params)
@@ -92,12 +94,13 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
   const u = data?.unit
   const s = data?.stats
   const scope = u ? `unit=${type}:${id}&name=${encodeURIComponent(u.name)}` : ''
-  const canEdit = hasGlobal('structure.manage') || (type === 'ccf' && has('units.edit'))
+  // As in the admin portal, the leader is changed on the Edit page: the leaders and admins above the unit may open it for that.
+  const canEdit = hasGlobal('structure.manage') || (type === 'ccf' && has('units.edit')) || !!data?.can.set_leader
   const canClose = hasGlobal('structure.manage')
   const child = CHILD_GROUP[type]
   const leader = data?.leaders[0]
-  // Group pages are City Church Groups: Sheep Seeking roles live in the Sheep Seeking portal. Admins have their own section.
-  const hasAdmins = type === 'stream' || type === 'council' || type === 'ccg'
+  // Group pages are City Church Groups: Sheep Seeking roles live in the Sheep Seeking portal. Admins sit under the leader.
+  const admins = type === 'ccf' ? [] : (data?.role_holders.filter((h) => h.role_key === ADMIN_KEY[type]) ?? [])
   const others =
     data?.role_holders.filter((h) => h.role_key !== LEADER_KEY[type] && !ADMIN_KEYS.includes(h.role_key) && !SEEKING_ROLES.includes(h.role_key)) ?? []
 
@@ -161,12 +164,8 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
       </StickyHeader>
 
       <div className="space-y-8 pt-4">
-        {data ? (
-          <LeaderBlock
-            title={LEADER_TITLE[type]}
-            name={leader?.name ?? null}
-            href={leader?.person_id ? `/ccg/members?person=${leader.person_id}` : undefined}
-          />
+        {data && u ? (
+          <UnitTeam type={type} id={id} name={u.name} leader={leader ?? null} admins={admins} canAppoint={data.can.appoint_admins} onChanged={load} />
         ) : (
           <Skeleton className="h-16 w-64" />
         )}
@@ -212,8 +211,6 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
           </div>
           {u?.notes && <p className="mt-3 text-sm whitespace-pre-line text-muted-foreground">{u.notes}</p>}
         </section>
-
-        {hasAdmins && u && <UnitAdmins type={type} id={id} name={u.name} onChanged={load} />}
 
         {/* Other role holders */}
         {others.length > 0 && (

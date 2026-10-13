@@ -71,16 +71,23 @@ export function AppointDialog({
   submitLabel,
   onClose,
   submit,
+  ccfId,
+  searchFirst,
 }: {
   open: boolean
   title: string
   description: string
   submitLabel: string
   onClose: () => void
+  /** A CCF's Coordinator: one of this CCF's members, no one new. */
+  ccfId?: string
+  /** Open on the member search (as the admin portal does), with someone new second. */
+  searchFirst?: boolean
   /** Returns the API result; the dialog shows field errors itself. */
   submit: (payload: Payload, name: string) => Promise<CcgResult<Appointed>>
 }) {
-  const [mode, setMode] = useState<'new' | 'member'>('new')
+  const [chosenMode, setMode] = useState<'new' | 'member'>(searchFirst ? 'member' : 'new')
+  const mode = ccfId ? 'member' : chosenMode
   const [picked, setPicked] = useState<PickedMember | null>(null)
   const [who, setWho] = useState({ first_name: '', middle_name: '', last_name: '', phone: '', email: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -117,15 +124,21 @@ export function AppointDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {description} They don’t need to be in a CCF. They are emailed about it, with a link to set their password if they are new to the app.
+            {description} {ccfId ? '' : 'They don’t need to be in a CCF. '}They are emailed about it, with a link to set their password if they are new to the app.
           </DialogDescription>
         </DialogHeader>
+        {!ccfId && (
         <div className="inline-flex w-full rounded-lg border border-border p-1" role="group" aria-label="Who">
           {(
-            [
-              ['new', 'Someone new'],
-              ['member', 'An existing member'],
-            ] as const
+            (searchFirst
+              ? [
+                  ['member', 'An existing member'],
+                  ['new', 'Someone new'],
+                ]
+              : [
+                  ['new', 'Someone new'],
+                  ['member', 'An existing member'],
+                ]) as ReadonlyArray<readonly ['new' | 'member', string]>
           ).map(([m, label]) => (
             <button
               key={m}
@@ -141,10 +154,11 @@ export function AppointDialog({
             </button>
           ))}
         </div>
+        )}
         {mode === 'member' ? (
           <div className="space-y-1.5">
             <Label htmlFor="appoint-pick">Member</Label>
-            <MemberPicker id="appoint-pick" value={picked} onChange={setPicked} />
+            <MemberPicker id="appoint-pick" value={picked} onChange={setPicked} ccfId={ccfId} />
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">

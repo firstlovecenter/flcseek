@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Lock, User } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { landingPathFor } from '@/lib/app-routing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,14 +46,8 @@ export default function LoginPage() {
   })
 
   useEffect(() => {
-    if (!loading && user) {
-      if (user.role === 'superadmin') router.push('/superadmin')
-      else if (user.role === 'leadpastor' || user.role === 'overseer')
-        router.push('/')
-      else if (user.role === 'admin' || user.role === 'leader')
-        router.push(user.group_id ? `/${user.group_id}` : '/')
-      else router.push('/')
-    }
+    // Already signed in: where signing in would take them (the portal chooser for those with both).
+    if (!loading && user) router.push(landingPathFor(user))
   }, [user, loading, router])
 
   const onSubmit = async (values: LoginForm) => {

@@ -34,7 +34,7 @@ interface UserRow {
   seek_role: string | null
   is_superadmin: boolean
   assignments: Array<{ id: string; role: { key: string; name: string }; unit: string | null }>
-  member: { id: string; full_name: string } | null
+  member: { id: string; full_name: string; middle_name: string | null } | null
 }
 interface RoleOption {
   key: string
@@ -241,10 +241,17 @@ function EditUserDialog({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [form, setForm] = useState({ first_name: user.first_name ?? '', last_name: user.last_name ?? '', email: user.email ?? '', phone: user.phone_number ?? '' })
+  // A login has no middle name: it is their member profile's.
+  const initial = {
+    first_name: user.first_name ?? '',
+    middle_name: user.member?.middle_name ?? '',
+    last_name: user.last_name ?? '',
+    email: user.email ?? '',
+    phone: user.phone_number ?? '',
+  }
+  const [form, setForm] = useState(initial)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  const initial = { first_name: user.first_name ?? '', last_name: user.last_name ?? '', email: user.email ?? '', phone: user.phone_number ?? '' }
   const changed = (Object.keys(form) as Array<keyof typeof form>).filter((k) => form[k].trim() !== initial[k].trim())
 
   const save = async () => {
@@ -277,6 +284,7 @@ function EditUserDialog({
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           {input('first_name', 'First name')}
+          {user.member && input('middle_name', 'Middle name')}
           {input('last_name', 'Last name')}
           <div className="sm:col-span-2">{input('email', 'Email', 'email')}</div>
           <div className="sm:col-span-2">{input('phone', 'Phone', 'tel')}</div>

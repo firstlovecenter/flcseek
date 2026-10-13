@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Sprout, UsersRound } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { availableApps, landingPathFor, seekLandingPath } from '@/lib/app-routing'
+import { availableApps, landingPathFor, markAppChosen, seekLandingPath } from '@/lib/app-routing'
 import { LoadingScreen } from '@/components/base/LoadingScreen'
 import { SynagoLogo } from '@/components/shell/SynagoLogo'
 
@@ -56,7 +56,10 @@ export default function AppsPage() {
           <button
             key={key}
             type="button"
-            onClick={() => router.push(href)}
+            onClick={() => {
+              markAppChosen(key as 'seek' | 'ccg')
+              router.push(href)
+            }}
             className="group flex flex-col items-start gap-4 rounded-xl border bg-card p-6 text-left transition-colors hover:border-primary/50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary">

@@ -54,7 +54,7 @@ export const GET = withCcg({ permission: 'roles.manage' }, async ({ user, scope,
       },
       ccgPeople: {
         where: { kind: 'member', deletedAt: null },
-        select: { id: true, fullName: true, status: true, ccf: { select: { id: true, name: true } } },
+        select: { id: true, fullName: true, middleName: true, status: true, ccf: { select: { id: true, name: true } } },
       },
     },
     orderBy: [{ firstName: 'asc' }, { username: 'asc' }],
@@ -82,7 +82,7 @@ export const GET = withCcg({ permission: 'roles.manage' }, async ({ user, scope,
         unit: (a.ccf ?? a.ccg ?? a.council ?? a.stream ?? a.campus)?.name ?? null,
       })),
       member: u.ccgPeople[0]
-        ? { id: u.ccgPeople[0].id, full_name: u.ccgPeople[0].fullName, status: u.ccgPeople[0].status, ccf: u.ccgPeople[0].ccf }
+        ? { id: u.ccgPeople[0].id, full_name: u.ccgPeople[0].fullName, middle_name: u.ccgPeople[0].middleName, status: u.ccgPeople[0].status, ccf: u.ccgPeople[0].ccf }
         : null,
     })),
   })

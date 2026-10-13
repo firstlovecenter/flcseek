@@ -69,7 +69,7 @@ export interface CcgScope {
   memberCcfIds(perm: Permission): IdSet
   /** The same scope counting leadership roles only (City Church Groups side): group pages and structure. */
   leadership(): CcgScope
-  /** The same scope counting the Sheep Seeking side only: seeking roles, plus campus and church-wide roles (which run both sides). */
+  /** The same scope counting the Sheep Seeking side only: seeking roles, plus the Campus Leader and church-wide roles (which see both sides). */
   sheepSeeking(): CcgScope
 }
 
@@ -159,7 +159,8 @@ export function resolveCcgScope(assignments: AssignmentGrant[], hierarchy: Hiera
   // Members are reached through leadership roles only (not sheep seeking ones).
   const leading = assignments.filter((a) => !SEEKING_ROLES.includes(a.roleKey))
   const leaders = leading.length === assignments.length ? null : resolveCcgScope(leading, hierarchy)
-  const seekingSide = assignments.filter((a) => SEEKING_ROLES.includes(a.roleKey) || a.scopeLevel === 'global' || a.scopeLevel === 'campus')
+  // The Campus Leader sees both sides; a Campus Admin runs City Church Groups only.
+  const seekingSide = assignments.filter((a) => SEEKING_ROLES.includes(a.roleKey) || a.scopeLevel === 'global' || a.roleKey === 'campus_leader')
   let seekers: CcgScope | null = null
   const ccfIds = (perm: Permission): IdSet => (global.has(perm) ? 'all' : hierarchy.ccfs.filter((c) => canOnCcf(perm, c.id)).map((c) => c.id))
 
