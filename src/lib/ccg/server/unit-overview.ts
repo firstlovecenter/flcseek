@@ -263,6 +263,62 @@ async function children(type: UnitType, id: string) {
   return null
 }
 
+/**
+ * The units one level below a unit (the top of the tree when `parent` is null)
+ * that the viewer can drill into, by name: what a higher role opens from the
+ * sidebar. City Church Groups goes down to CCFs; Sheep Seeking stops at
+ * streams, as sheep seeking roles never see CCGs or CCFs.
+ */
+export async function drillChildren(full: CcgScope, portal: 'ccg' | 'seeking', parent: { type: UnitType; id: string } | null) {
+  type Item = { type: UnitType; id: string; name: string }
+  const seeking = portal === 'seeking'
+  const scope = seeking ? full.sheepSeeking() : full.leadership()
+  // A campus Sheep Seeking role, or a campus role on both portals (a Campus Leader).
+  const seesCampus = (id: string) => scope.canOnCampus('people.view', id) || (seeking && scope.canOnSeekingCampus('people.view', id))
+  const seesStream = (id: string) => scope.canOnStream('people.view', id)
+  const pick = { id: true, name: true } as const
+  const live = { deletedAt: null, status: { not: 'inactive' } }
+  let items: Item[] = []
+
+  if (!parent) {
+    const [campuses, streams] = await Promise.all([
+      prisma.ccgCampus.findMany({ where: live, select: pick, orderBy: { name: 'asc' } }),
+      prisma.ccgStream.findMany({ where: live, select: { ...pick, campusId: true }, orderBy: { name: 'asc' } }),
+    ])
+    const open = campuses.filter((c) => seesCampus(c.id))
+    items = [
+      ...open.map((c) => ({ type: 'campus' as const, ...c })),
+      // Streams outside the campuses listed (none, or one the viewer can't open whole).
+      ...streams.filter((s) => !open.some((c) => c.id === s.campusId) && seesStream(s.id)).map((s) => ({ type: 'stream' as const, id: s.id, name: s.name })),
+    ]
+  } else if (parent.type === 'campus') {
+    const rows = await prisma.ccgStream.findMany({ where: { ...live, campusId: parent.id }, select: pick, orderBy: { name: 'asc' } })
+    items = rows.filter((s) => seesStream(s.id)).map((s) => ({ type: 'stream', ...s }))
+  } else if (seeking) {
+    items = []
+  } else if (parent.type === 'stream') {
+    const [councils, loose] = await Promise.all([
+      prisma.ccgCouncil.findMany({ where: { ...live, streamId: parent.id }, select: pick, orderBy: { name: 'asc' } }),
+      prisma.ccgGroup.findMany({
+        where: { ...live, streamId: parent.id, OR: [{ councilId: null }, { council: { deletedAt: { not: null } } }] },
+        select: pick,
+        orderBy: { name: 'asc' },
+      }),
+    ])
+    items = [
+      ...councils.filter((c) => scope.canOnCouncil('people.view', c.id)).map((c) => ({ type: 'council' as const, ...c })),
+      ...loose.filter((g) => scope.canOnCcg('people.view', g.id)).map((g) => ({ type: 'ccg' as const, ...g })),
+    ]
+  } else if (parent.type === 'council') {
+    const rows = await prisma.ccgGroup.findMany({ where: { ...live, councilId: parent.id }, select: pick, orderBy: { name: 'asc' } })
+    items = rows.filter((g) => scope.canOnCcg('people.view', g.id)).map((g) => ({ type: 'ccg', ...g }))
+  } else if (parent.type === 'ccg') {
+    const rows = await prisma.ccgFamily.findMany({ where: { ...live, ccgId: parent.id }, select: pick, orderBy: { name: 'asc' } })
+    items = rows.filter((f) => scope.canOnCcf('people.view', f.id)).map((f) => ({ type: 'ccf', ...f }))
+  }
+  return { items }
+}
+
 /** Role holders at this unit; each is a member (every role is held by a member). */
 async function holders(type: UnitType, id: string) {
   const rows = await prisma.ccgRoleAssignment.findMany({

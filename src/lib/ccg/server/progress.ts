@@ -180,6 +180,7 @@ export async function listProgress(
     ccgId?: string | null
     councilId?: string | null
     streamId?: string | null
+    campusId?: string | null
     overdueOnly?: boolean
     /** Only the converts placed in these CCFs (a Sheep Seeking Liaison's own). */
     liaisonCcfIds?: string[] | null
@@ -213,6 +214,7 @@ export async function listProgress(
           filter.ccgId ? { finalCcf: { ccgId: filter.ccgId } } : {},
           filter.councilId ? { finalCcf: { ccg: { councilId: filter.councilId } } } : {},
           filter.streamId ? { finalCcf: { ccg: { streamId: filter.streamId } } } : {},
+          filter.campusId ? { finalCcf: { ccg: { stream: { campusId: filter.campusId } } } } : {},
           filter.month ? { person: personInMonth(filter.month) } : {},
         ],
       },

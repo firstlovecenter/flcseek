@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 const STATUSES = ['proposed', 'held', 'active', 'ended', 'superseded']
 
 /**
- * GET /api/ccg/placements?status=proposed&ccf_id=&ccg_id=&limit=&offset=
+ * GET /api/ccg/placements?status=proposed&ccf_id=&ccg_id=&council_id=&stream_id=&campus_id=&limit=&offset=
  * The approval queue (status=proposed, oldest first), held cases, or placement
  * history. Each item carries the match reasons and #2/#3 alternatives.
  */
@@ -20,6 +20,9 @@ export const GET = withCcg({ permission: 'placements.view' }, async ({ scope, qu
   if (!STATUSES.includes(status)) throw invalid(`status must be one of ${STATUSES.join(', ')}`)
   const ccfId = query.get('ccf_id')
   const ccgId = query.get('ccg_id')
+  const councilId = query.get('council_id')
+  const streamId = query.get('stream_id')
+  const campusId = query.get('campus_id')
   const limit = Math.min(Number(query.get('limit')) || 50, 200)
   const offset = Math.max(Number(query.get('offset')) || 0, 0)
   const open = status === 'proposed' || status === 'held'
@@ -32,6 +35,10 @@ export const GET = withCcg({ permission: 'placements.view' }, async ({ scope, qu
       placementScopeWhere(scope),
       ccfId ? { [open ? 'proposedCcfId' : 'finalCcfId']: ccfId } : {},
       ccgId ? { [unitField]: { ccgId } } : {},
+      councilId ? { [unitField]: { ccg: { councilId } } } : {},
+      // A convert belongs to their stream even before (or without) a CCF.
+      streamId ? { OR: [{ [unitField]: { ccg: { streamId } } }, { person: { streamId } }] } : {},
+      campusId ? { OR: [{ [unitField]: { ccg: { stream: { campusId } } } }, { person: { stream: { campusId } } }] } : {},
     ],
   }
   const [rows, total] = await Promise.all([

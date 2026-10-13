@@ -443,9 +443,9 @@ export function StreamSeekers({
                   h={s}
                   action={
                     canManage && (
-                      <div className="flex shrink-0">
-                        <Button variant="ghost" size="icon" className="size-9" onClick={() => setLiaison(s)} aria-label={`${s.name}’s liaison CCGs`} title="Liaison CCGs">
-                          <Users className="size-4" />
+                      <div className="flex shrink-0 items-center">
+                        <Button variant="ghost" size="sm" className="h-9 gap-1 px-2" onClick={() => setLiaison(s)} aria-label={`${s.name}’s liaison CCGs`}>
+                          <Users className="size-4" /> Liaison
                         </Button>
                         <Button variant="ghost" size="icon" className="size-9" onClick={() => remove(s)} aria-label={`Stand ${s.name} down`}>
                           <X className="size-4" />

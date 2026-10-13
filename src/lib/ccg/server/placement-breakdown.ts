@@ -18,6 +18,8 @@ const SUCCESS_OUTCOMES = ['graduated', 'made_member']
 
 export interface BreakdownFilters {
   streamId: string | null
+  /** A campus opened by drilling down: its streams the viewer sees. */
+  campusId?: string | null
   councilId: string | null
   ccgId: string | null
   /** A Sheep Seeker's member id: only the converts they registered. */
@@ -35,7 +37,13 @@ export async function placementBreakdown(full: CcgScope, f: BreakdownFilters) {
   const scope = full.sheepSeeking()
   const inScope = scope.streamIds('reports.view')
   if (f.streamId && !scope.canOnStream('reports.view', f.streamId)) throw forbidden('You can only see your streams')
-  const streams: string[] | 'all' = f.streamId ? [f.streamId] : inScope
+  const streams: string[] | 'all' = f.streamId
+    ? [f.streamId]
+    : f.campusId
+      ? (await prisma.ccgStream.findMany({ where: { campusId: f.campusId, deletedAt: null }, select: { id: true } }))
+          .map((s) => s.id)
+          .filter((id) => scope.canOnStream('reports.view', id))
+      : inScope
   if (streams !== 'all' && streams.length === 0) throw forbidden('This is for the streams you run sheep seeking in')
   if (f.from && f.to && f.from >= f.to) throw invalid('The period must end after it starts')
 

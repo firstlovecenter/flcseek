@@ -98,7 +98,15 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
   )
 }
 
-export function PlacementBreakdown({ streamId }: { /** The stream in focus; none for a campus or church-wide. */ streamId?: string | null }) {
+export function PlacementBreakdown({
+  streamId,
+  campusId,
+}: {
+  /** The stream in focus; none for a campus or church-wide. */
+  streamId?: string | null
+  /** The campus in focus (or drilled into). */
+  campusId?: string | null
+}) {
   const [period, setPeriod] = useState<Period>('all')
   const [custom, setCustom] = useState({ from: '', to: '' })
   const [seeker, setSeeker] = useState(ALL)
@@ -125,11 +133,12 @@ export function PlacementBreakdown({ streamId }: { /** The stream in focus; none
     setError(null)
     const q = new URLSearchParams()
     if (streamId) q.set('stream_id', streamId)
+    else if (campusId) q.set('campus_id', campusId)
     if (seeker !== ALL) q.set('seeker', seeker)
     if (from) q.set('from', from)
     if (to) q.set('to', to)
     ccgApi.get<Breakdown>(`/seekers/placements?${q}`).then((r) => (r.ok ? setData(r.data) : setError(r.error.message)))
-  }, [streamId, seeker, from, to, reload])
+  }, [streamId, campusId, seeker, from, to, reload])
 
   useEffect(() => {
     ccgApi.get<{ seekers: Array<{ person_id: string; name: string; streams: Ref[] }> }>(`/seekers/options${streamId ? `?stream_id=${streamId}` : ''}`).then((r) => {

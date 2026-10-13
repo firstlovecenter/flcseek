@@ -135,6 +135,7 @@ Campuses, streams, CCGs and CCFs are "groups" (Synago calls them churches). Each
 | Method | Path | Permission | Notes |
 |---|---|---|---|
 | GET | `/groups` | any (filtered to scope) | The streams the viewer can see: `{ type:'stream', items[{ id, code, name, status, members, placed, leader }] }` |
+| GET | `/units/children?portal=ccg\|seeking&unit_type=&unit_id=` | people.view on the unit | The units one level below it (the top of the tree without a unit) that the viewer can drill into: `{ items[{ type, id, name }] }`. Sheep Seeking stops at streams. Used by the sidebar's drill-down for higher roles. |
 | GET | `/groups/[type]/[id]?history=5` | people.view on the group | `{ unit, breadcrumb[], leaders[], role_holders[], stats, children{type, items[]}, history[] }`. `type` is campus, stream, ccg or ccf. `stats`: members, pending_members, placed_converts, awaiting_approval, graduated, milestones_overdue, open_places (CCF only), ccf_count. |
 
 Create and edit each level through its own collection:

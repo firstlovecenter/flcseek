@@ -37,7 +37,7 @@ import { phoneSearchDigits } from '@/lib/ccg/phone-search'
  * CCFs the signed-in Sheep Seeker is liaison for. ?placement= opens that convert's panel.
  */
 
-const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id' }
+const PARAM: Record<string, string> = { ccf: 'ccf_id', ccg: 'ccg_id', council: 'council_id', stream: 'stream_id', campus: 'campus_id' }
 const code = (n: number) => `M${String(n).padStart(2, '0')}`
 
 /**

@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { useCcgFocus, useSeekingRole } from '@/components/ccg/CcgFocusProvider'
-import { Initials, StickyHeader } from '@/components/ccg/synago'
+import { Initials, StickyHeader, UnitDrill } from '@/components/ccg/synago'
 
 interface Graduate {
   placement_id: string
@@ -48,7 +48,7 @@ export default function CcgGraduatedPage() {
     (offset: number) => {
       const q = new URLSearchParams({ limit: String(PAGE), offset: String(offset) })
       if (role === 'seeker') q.set('seeker', 'me')
-      else if (focus?.type === 'stream' && focus.id) q.set('stream_id', focus.id)
+      else if ((focus?.type === 'stream' || focus?.type === 'campus') && focus.id) q.set(`${focus.type}_id`, focus.id)
       if (query) q.set('search', query)
       return `/seekers/graduated?${q}`
     },
@@ -78,7 +78,7 @@ export default function CcgGraduatedPage() {
   if (error) return <ErrorScreen title="Couldn’t load graduates" message={error} />
 
   const rows = [...(data?.graduates ?? []), ...more]
-  const title = role === 'seeker' ? 'My' : focus?.type === 'stream' ? focus.name : null
+  const title = role === 'seeker' ? 'My' : focus?.type === 'stream' || focus?.type === 'campus' ? focus.name : null
 
   return (
     <div className="pb-10">
@@ -102,6 +102,7 @@ export default function CcgGraduatedPage() {
           />
         </div>
       </StickyHeader>
+      {role !== 'seeker' && <UnitDrill className="mt-4" />}
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         {(

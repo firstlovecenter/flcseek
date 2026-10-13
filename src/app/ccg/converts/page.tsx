@@ -11,7 +11,7 @@ import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { useSeekingRole } from '@/components/ccg/CcgFocusProvider'
 import { ConvertMilestones, useConvertScope } from '@/components/ccg/ConvertMilestones'
 import { PeopleDirectory } from '@/components/ccg/PeopleDirectory'
-import { StickyHeader } from '@/components/ccg/synago'
+import { StickyHeader, UnitDrill } from '@/components/ccg/synago'
 
 /**
  * Converts: one page, two views. Milestones (the default) is every placed
@@ -26,6 +26,8 @@ function Converts() {
   // other Sheep Seekers their stream's.
   const mine = useSeekingRole() === 'seeker' && !!me?.liaison_ccfs?.length && !params.get('unit')
   const { name } = useConvertScope()
+  // A group's page can pin the unit in the link; otherwise the page follows the unit in focus.
+  const pinned = !!params.get('unit') || ['ccf', 'ccg', 'stream'].some((k) => !!params.get(k))
   const view = params.get('view') === 'all' || params.get('new') === '1' ? 'all' : 'milestones'
 
   const setView = (v: 'milestones' | 'all') => {
@@ -86,6 +88,7 @@ function Converts() {
         </div>
         {tabs}
       </StickyHeader>
+      {!mine && !pinned && <UnitDrill className="mt-4" />}
       <ConvertMilestones mine={mine} />
     </div>
   )

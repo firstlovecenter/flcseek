@@ -26,7 +26,7 @@ import { useCcgMe } from '@/components/ccg/CcgMeProvider'
 import { LEVEL_LABEL, focusQuery, useCcgFocus, useLeaderView, useSeekingRole } from '@/components/ccg/CcgFocusProvider'
 import { ConvertMilestones } from '@/components/ccg/ConvertMilestones'
 import { hourlyGreeting, splitName } from '@/components/ccg/greetings'
-import { FocusPicker, groupHref } from '@/components/ccg/synago'
+import { FocusPicker, UnitDrill, groupHref } from '@/components/ccg/synago'
 import { SeekerHome } from '@/components/ccg/SeekerHome'
 import { PlacementBreakdown } from '@/components/ccg/PlacementBreakdown'
 import { hasChosen } from '@/components/ccg/campus-choice'
@@ -146,6 +146,12 @@ export default function CcgHomePage() {
         <FocusPicker className="w-full shrink-0 sm:w-72" />
       </motion.header>
 
+      {!liaison && (
+        <motion.div variants={fadeUp}>
+          <UnitDrill className="mt-6" />
+        </motion.div>
+      )}
+
       {seeker && (
         <motion.div variants={fadeUp} className="mt-8 space-y-6">
           <div className="flex items-center justify-between gap-3">
@@ -162,7 +168,7 @@ export default function CcgHomePage() {
             )}
           </div>
           {/* Sheep Seeking Admins and Overseers (a stream's or a campus's): where the converts have gone. */}
-          {seekingRole === 'overseer' && has('reports.view') && <PlacementBreakdown streamId={focus?.type === 'stream' ? focus.id : null} />}
+          {seekingRole === 'overseer' && has('reports.view') && <PlacementBreakdown streamId={focus?.type === 'stream' ? focus.id : null} campusId={focus?.type === 'campus' ? focus.id : null} />}
           <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
             <ConvertMilestones mine={liaison} />
           </Suspense>

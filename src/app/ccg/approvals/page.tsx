@@ -20,8 +20,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/base/EmptyState'
 import { ErrorScreen } from '@/components/base/ErrorScreen'
 import { CcgPageHeader } from '@/components/ccg/PageHeader'
+import { UnitDrill } from '@/components/ccg/synago'
 import { ThinkingOrb } from '@/components/base/Orbs'
 import { useCcgMe } from '@/components/ccg/CcgMeProvider'
+import { focusFilter, useCcgFocus } from '@/components/ccg/CcgFocusProvider'
 
 // ---------------------------------------------------------------------------
 // Types (GET /api/ccg/placements)
@@ -234,6 +236,9 @@ function Detail({ p, aiOn }: { p: Placement; aiOn: boolean }) {
 
 export default function CcgApprovalsPage() {
   const { has, loading: meLoading } = useCcgMe()
+  // The unit in focus (or drilled into): its queue only.
+  const { focus, ready } = useCcgFocus()
+  const unit = focusFilter(focus)
   const [tab, setTab] = useState<'proposed' | 'held'>('proposed')
   const [items, setItems] = useState<Placement[] | null>(null)
   const [total, setTotal] = useState(0)
@@ -249,6 +254,7 @@ export default function CcgApprovalsPage() {
 
   const load = useCallback(
     async (quiet = false) => {
+      if (!ready) return
       if (!quiet) {
         setItems(null)
         setSelected(new Set())
@@ -258,7 +264,7 @@ export default function CcgApprovalsPage() {
       let ai = false
       let count = 0
       for (let offset = 0; ; offset += 200) {
-        const res = await ccgApi.get<{ placements: Placement[]; ai?: boolean }>(`/placements?status=${tab}&limit=200&offset=${offset}`)
+        const res = await ccgApi.get<{ placements: Placement[]; ai?: boolean }>(`/placements?status=${tab}&limit=200&offset=${offset}${unit ? `&${unit}` : ''}`)
         if (!res.ok) return quiet ? undefined : setError(res.error.message)
         all.push(...res.data.placements)
         ai = !!res.data.ai
@@ -270,7 +276,7 @@ export default function CcgApprovalsPage() {
       setItems(all)
       setTotal(count)
     },
-    [tab]
+    [tab, unit, ready]
   )
 
   useEffect(() => {
@@ -368,6 +374,7 @@ export default function CcgApprovalsPage() {
           )
         }
       />
+      <UnitDrill />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'proposed' | 'held')}>

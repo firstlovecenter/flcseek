@@ -12,7 +12,7 @@ import { assertCcgExists, ccfInclude, createWithCode, serializeCcf, serializePro
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/ccg/ccfs?ccg_id=&stream_id=&with_profile=1
+ * GET /api/ccg/ccfs?ccg_id=&council_id=&stream_id=&campus_id=&with_profile=1
  * CCFs the viewer leads. A stream's sheep seeking roles also get its CCFs (with
  * their CCG), to place converts into, but never their profiles. Profiles are
  * optional (they cost more to build).
@@ -22,6 +22,8 @@ export const GET = withCcg({}, async ({ scope, query }) => {
   const placeStreams = scope.sheepSeeking().streamIds('placements.view')
   const ccgId = query.get('ccg_id')
   const streamId = query.get('stream_id')
+  const councilId = query.get('council_id')
+  const campusId = query.get('campus_id')
   const visibility =
     led === 'all' || placeStreams === 'all'
       ? {}
@@ -29,7 +31,7 @@ export const GET = withCcg({}, async ({ scope, query }) => {
   const ccfs = await prisma.ccgFamily.findMany({
     where: {
       deletedAt: null,
-      ccg: { deletedAt: null, ...(streamId ? { streamId } : {}) },
+      ccg: { deletedAt: null, ...(streamId ? { streamId } : {}), ...(councilId ? { councilId } : {}), ...(campusId ? { stream: { campusId } } : {}) },
       ...(ccgId ? { ccgId } : {}),
       ...visibility,
     },
