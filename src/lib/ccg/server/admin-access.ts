@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { invalid, notFound } from '../errors'
+import type { Permission } from '../permissions'
 import type { CcgScope } from '../scope'
 import { isAdminLevel, type AdminLevel, type LeaderLevel } from './roles'
 
@@ -50,6 +51,39 @@ export async function canSetLeader(scope: CcgScope, level: LeaderLevel, id: stri
       return lead.canOnCcg('leaders.appoint', f.ccgId)
     }
   }
+}
+
+type UnitLevel = LeaderLevel
+
+/** `perm` on a unit, counting City Church Groups roles only (a grant covers what is beneath it). */
+function leadsUnit(scope: CcgScope, perm: Permission, level: UnitLevel, id: string | null | undefined) {
+  const lead = scope.leadership()
+  switch (level) {
+    case 'campus':
+      return lead.canOnCampus(perm, id)
+    case 'stream':
+      return lead.canOnStream(perm, id)
+    case 'council':
+      return lead.canOnCouncil(perm, id)
+    case 'ccg':
+      return lead.canOnCcg(perm, id)
+    case 'ccf':
+      return lead.canOnCcf(perm, id)
+  }
+}
+
+/**
+ * Who adds units inside this one and edits its details (and those beneath it):
+ * its admins and the admins above it (units.edit; leaders only view), or the central team.
+ * Moving a unit to another parent, deleting it, and campuses stay with the central team.
+ */
+export function canBuildIn(scope: CcgScope, level: UnitLevel, id: string | null | undefined) {
+  return scope.can('structure.manage') || (!!id && leadsUnit(scope, 'units.edit', level, id))
+}
+
+/** Who names the leader of a unit added inside this one: leaders.appoint here, or the central team. */
+export function canLeadBeneath(scope: CcgScope, level: UnitLevel, id: string | null | undefined) {
+  return scope.can('roles.manage') || (!!id && leadsUnit(scope, 'leaders.appoint', level, id))
 }
 
 export function adminLevel(type: string): AdminLevel {

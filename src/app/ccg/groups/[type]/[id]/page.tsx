@@ -60,7 +60,7 @@ interface Overview {
   } | null
   history: Array<{ id: string; text: string; at: string | null; by: string | null }>
   /** What the viewer may do here. */
-  can: { set_leader: boolean; appoint_admins: boolean }
+  can: { set_leader: boolean; appoint_admins: boolean; edit: boolean; add_groups: boolean }
 }
 
 /** The admins' roles, shown under the leader. */
@@ -95,7 +95,8 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
   const s = data?.stats
   const scope = u ? `unit=${type}:${id}&name=${encodeURIComponent(u.name)}` : ''
   // As in the admin portal, the leader is changed on the Edit page: the leaders and admins above the unit may open it for that.
-  const canEdit = hasGlobal('structure.manage') || (type === 'ccf' && has('units.edit')) || !!data?.can.set_leader
+  // Admins (and the admins above) edit its details; leaders only view.
+  const canEdit = hasGlobal('structure.manage') || !!data?.can.edit || !!data?.can.set_leader
   const canClose = hasGlobal('structure.manage')
   const child = CHILD_GROUP[type]
   const leader = data?.leaders[0]
@@ -238,7 +239,7 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
                     </Button>
                   )}
                   {/* Adds under this group: the form already knows the parent. */}
-                  {hasGlobal('structure.manage') && (
+                  {(hasGlobal('structure.manage') || data?.can.add_groups) && (
                     <Button variant="outline" size="sm" className="h-8 gap-1" asChild>
                       <Link href={`/ccg/groups/new?type=${child}&parent=${id}`}>
                         <Plus className="size-4" /> Add {UNIT_LEVEL[child]}

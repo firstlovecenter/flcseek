@@ -3,10 +3,11 @@ import { success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { conflict, notFound } from '@/lib/ccg/errors'
 import { councilUpdateSchema } from '@/lib/ccg/schemas'
-import { logCcg } from '@/lib/ccg/server/common'
+import { ccgTx, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { canBuildIn, canSetLeader } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
-import { assertStreamExists, ccgInclude, serializeCcg, serializeCouncil } from '@/lib/ccg/server/units'
+import { assertStreamExists, carryCcgsIntoStream, ccgInclude, serializeCcg, serializeCouncil } from '@/lib/ccg/server/units'
 
 export const dynamic = 'force-dynamic'
 type P = { id: string }
@@ -25,24 +26,28 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   return success({ council: serializeCouncil(c), ccgs: ccgs.map((g) => serializeCcg(g)) })
 })
 
-/** PATCH /api/ccg/councils/[id] (structure.manage; its Council Leader, `leader`, needs roles.manage) */
+/**
+ * PATCH /api/ccg/councils/[id] (the central team, or the admins of the council and above it; moving it
+ * needs units.edit on both streams; its leader as on PUT …/leader)
+ */
 export const PATCH = withCcg<z.infer<typeof councilUpdateSchema>, P>(
-  { permission: 'structure.manage', schema: councilUpdateSchema },
+  { permission: 'units.edit', schema: councilUpdateSchema },
   async ({ request, user, scope, body, params }) => {
-    ensure(scope.can('structure.manage'))
     const before = await load(params.id)
-    if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a Council Leader needs permission to manage roles')
+    ensure(canBuildIn(scope, 'council', params.id), 'Only the central team, or this council’s admins, edit it')
+    if (body.leader !== undefined) ensure(await canSetLeader(scope, 'council', params.id), 'Only the leaders and admins above this council, or the central team, change its leader')
     const { stream_id, leader, ...rest } = body
     if (stream_id !== undefined && stream_id !== before.streamId) {
+      ensure(canBuildIn(scope, 'stream', before.streamId) && canBuildIn(scope, 'stream', stream_id), 'You can only move a council between streams you run')
       await assertStreamExists(stream_id)
-      // Its CCGs, converts and members would change stream with it: move them first.
-      if (await prisma.ccgGroup.count({ where: { councilId: params.id, deletedAt: null } })) {
-        throw conflict('Move this council’s CCGs out before moving it to another stream')
-      }
     }
-    await prisma.ccgCouncil.update({
-      where: { id: params.id },
-      data: { ...rest, ...(stream_id !== undefined ? { streamId: stream_id } : {}), updatedAt: new Date() },
+    // Moved with everything in it: its CCGs, their CCFs and the converts placed there.
+    await ccgTx(async (tx) => {
+      await tx.ccgCouncil.update({
+        where: { id: params.id },
+        data: { ...rest, ...(stream_id !== undefined ? { streamId: stream_id } : {}), updatedAt: new Date() },
+      })
+      if (stream_id && stream_id !== before.streamId) await carryCcgsIntoStream(tx, { councilId: params.id }, stream_id)
     })
     const leader_invite = leader !== undefined ? await setUnitLeader('council', params.id, leader, user.id, new URL(request.url).origin) : null
     await logCcg({ userId: user.id, action: 'COUNCIL_UPDATED', entityType: 'ccg_council', entityId: params.id, oldValues: before, newValues: body })

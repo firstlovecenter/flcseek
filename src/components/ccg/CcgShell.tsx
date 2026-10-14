@@ -77,7 +77,6 @@ const PRIMARY: NavItem[] = [
 ]
 const SECONDARY: NavItem[] = [
   { href: '/ccg/choose', label: 'Choose stream', icon: Building2, accent: 'text-primary', portals: BOTH, campusOnly: true },
-  { href: '/ccg/groups', label: 'Groups', icon: Network, accent: 'text-churches', portals: CCG },
   { href: '/ccg/seekers', label: 'Sheep Seekers', icon: HeartHandshake, perm: 'reports.view', accent: 'text-members', portals: SEEKING },
   { href: '/ccg/activities', label: 'CCG activities', icon: HandHeart, perm: ['activities.record', 'reports.view'], accent: 'text-campaigns', portals: CCG },
   { href: '/ccg/milestones', label: 'Milestones', icon: Trophy, perm: 'settings.manage', accent: 'text-success', portals: BOTH },
@@ -140,16 +139,23 @@ function Item({ item, open, active, onNavigate, mobile }: { item: NavItem; open:
   )
 }
 
-/** The group in focus, as a nav item (Synago's ChurchScopeNavItem). */
+/**
+ * The church in focus, as a nav item in place of a "Groups" link (the admin portal's
+ * ChurchScopeNavItem): the role's own unit, whatever is drilled into; church-wide
+ * rights open the top of the tree.
+ */
 function FocusItem({ open, onNavigate, mobile }: { open: boolean; onNavigate?: () => void; mobile?: boolean }) {
-  const { focus, portal } = useCcgFocus()
+  const { roleFocus: focus, portal } = useCcgFocus()
   const pathname = usePathname()
   // Group pages are City Church Groups; Sheep Seeking has its own pages.
-  if (!focus?.id || focus.type === 'global' || portal === 'seeking') return null
-  const href = groupHref(focus.type, focus.id)
+  if (!focus || portal === 'seeking') return null
+  const global = focus.type === 'global' || !focus.id
+  if (global && focus.type !== 'global') return null
+  const href = global ? '/ccg/groups' : groupHref(focus.type, focus.id!)
+  const name = global ? 'First Love Church' : focus.name
   const label = (
     <>
-      <span className="truncate font-medium">{focus.name}</span>
+      <span className="truncate font-medium">{name}</span>
       <span className="shrink-0 rounded bg-sidebar-accent px-1 py-px text-[10px] text-sidebar-foreground/55">{LEVEL_LABEL[focus.type]}</span>
     </>
   )
@@ -157,12 +163,12 @@ function FocusItem({ open, onNavigate, mobile }: { open: boolean; onNavigate?: (
     <Link
       href={href}
       onClick={onNavigate}
-      aria-label={`Open ${focus.name} ${LEVEL_LABEL[focus.type]}`}
-      title={`${focus.name} ${LEVEL_LABEL[focus.type]}`}
+      aria-label={`Open ${name} ${LEVEL_LABEL[focus.type]}`}
+      title={`${name} ${LEVEL_LABEL[focus.type]}`}
       className={cn(
         'flex w-full items-center rounded-lg px-2.5 text-sm font-medium transition-colors',
         mobile ? 'min-h-11 gap-2.5' : 'h-10 gap-3',
-        pathname.startsWith(href)
+        pathname.startsWith(href) || (global && pathname.startsWith('/ccg/groups'))
           ? 'bg-sidebar-accent text-sidebar-accent-foreground'
           : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
       )}

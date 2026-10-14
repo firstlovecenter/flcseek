@@ -132,7 +132,7 @@ export function PersonSheet({
 
   const p = data?.person
   const status = p ? PERSON_STATUS[p.status] ?? { label: p.status, tone: 'secondary' as const } : null
-  // A CCF's members are edited by the Church Admin, Stream Admins, Council Leaders and Council Admins (members.edit), not by the CCF's own leaders.
+  // A CCF's members are edited by admins (members.edit: Church, Campus, Stream, Council and City Church Admins), not by leaders.
   // Converts only from the Sheep Seeking side, and their details not once placed (church-wide rights excepted).
   const convertSide = portal === 'seeking' || hasGlobal('people.manage')
   const canChange = !!p && (p.kind === 'member' ? has(p.ccf ? 'members.edit' : 'people.manage') : convertSide && has('people.manage'))
