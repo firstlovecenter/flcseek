@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import type { CcfProfile, MemberAggregate, QuestionAggregate } from '../engine'
 import { conflict, invalid, notFound } from '../errors'
-import { iso } from './common'
+import { iso, type Tx } from './common'
 import type { QuestionBank } from './questions'
 
 /** Stream → council → CCG → CCF serialisation, profiles and structural guards. */
@@ -50,6 +50,48 @@ export async function ccgPlace(body: { council_id?: string | null; stream_id?: s
   }
   if (body.stream_id) await assertStreamExists(body.stream_id)
   return { councilId: null, streamId: body.stream_id }
+}
+
+/**
+ * Moving a unit takes everything beneath it along, as in the admin portal. Role
+ * assignments name only their own unit, so they follow by themselves; what is
+ * copied down is a CCG's stream and a convert's stream. These carry CCGs (and
+ * their CCFs' converts) into a stream; Sheep Seekers are a stream's, so CCGs
+ * that change stream lose their liaisons.
+ */
+export async function carryCcgsIntoStream(tx: Tx, where: Prisma.CcgGroupWhereInput, streamId: string) {
+  const ccgs = await tx.ccgGroup.findMany({ where: { ...where, streamId: { not: streamId } }, select: { id: true } })
+  const ids = ccgs.map((g) => g.id)
+  if (!ids.length) return
+  await tx.ccgGroup.updateMany({ where: { id: { in: ids } }, data: { streamId, updatedAt: new Date() } })
+  await tx.ccgSeekingLiaisonCcg.deleteMany({ where: { ccgId: { in: ids } } })
+  const ccfs = await tx.ccgFamily.findMany({ where: { ccgId: { in: ids } }, select: { id: true } })
+  await convertsFollow(tx, ccfs.map((c) => c.id), streamId)
+}
+
+/** Converts placed in, or waiting for, these CCFs follow them into their stream (as on a transfer). */
+export async function convertsFollow(tx: Tx, ccfIds: string[], streamId: string) {
+  if (!ccfIds.length) return
+  await tx.ccgPerson.updateMany({
+    where: {
+      kind: 'convert',
+      streamId: { not: streamId },
+      OR: [
+        { ccfId: { in: ccfIds } },
+        {
+          placements: {
+            some: {
+              OR: [
+                { status: 'active', finalCcfId: { in: ccfIds } },
+                { status: { in: ['proposed', 'held'] }, proposedCcfId: { in: ccfIds } },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    data: { streamId, updatedAt: new Date() },
+  })
 }
 
 export const ccgInclude = { stream: true, council: true } satisfies Prisma.CcgGroupInclude

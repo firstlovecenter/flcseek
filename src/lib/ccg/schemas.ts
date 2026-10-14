@@ -145,7 +145,7 @@ export const ccfSchema = z.object({
 })
 export const ccfUpdateSchema = ccfSchema.partial()
 /** What a CCG's Overseer (units.edit) may change — not the CCG, code or status. */
-export const CCF_UNIT_EDIT_FIELDS = ['name', 'meeting_location', 'meeting_day', 'meeting_time', 'meeting_frequency', 'notes'] as const
+export const CCF_UNIT_EDIT_FIELDS = ['name', 'meeting_location', 'meeting_day', 'meeting_time', 'meeting_frequency', 'status', 'notes'] as const
 
 // --------------------------------------------------------------------------
 // People

@@ -5,6 +5,7 @@ import { councilSchema } from '@/lib/ccg/schemas'
 import { inFilter } from '@/lib/ccg/scope'
 import { logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { canBuildIn, canLeadBeneath } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { assertStreamExists, createWithCode, serializeCouncil } from '@/lib/ccg/server/units'
 
@@ -22,12 +23,12 @@ export const GET = withCcg({}, async ({ scope, query }) => {
   return success({ councils: councils.map((c) => serializeCouncil(c, { ccg_count: c._count.ccgs })) })
 })
 
-/** POST /api/ccg/councils (structure.manage; its Council Leader, `leader`, needs roles.manage) */
+/** POST /api/ccg/councils (the central team, or the stream's and campus's admins; its Council Leader, `leader`, needs leaders.appoint there) */
 export const POST = withCcg<z.infer<typeof councilSchema>>(
-  { permission: 'structure.manage', schema: councilSchema },
+  { permission: 'units.edit', schema: councilSchema },
   async ({ request, user, scope, body }) => {
-    ensure(scope.can('structure.manage'))
-    if (body.leader) ensure(scope.can('roles.manage'), 'Setting a Council Leader needs permission to manage roles')
+    ensure(canBuildIn(scope, 'stream', body.stream_id), 'Only the central team, or the stream’s admins, add councils')
+    if (body.leader) ensure(canLeadBeneath(scope, 'stream', body.stream_id), 'You cannot choose this council’s leader')
     await assertStreamExists(body.stream_id)
     const { leader, ...rest } = body
     const c = await createWithCode('council', rest.code, (code) =>

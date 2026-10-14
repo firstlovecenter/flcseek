@@ -5,6 +5,7 @@ import { conflict, notFound } from '@/lib/ccg/errors'
 import { streamUpdateSchema } from '@/lib/ccg/schemas'
 import { iso, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { canBuildIn, canSetLeader } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { assertCampusExists, ccgInclude, serializeCcg } from '@/lib/ccg/server/units'
 import { visibleStreamIds } from '@/lib/ccg/server/visibility'
@@ -36,13 +37,19 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   })
 })
 
-/** PATCH /api/ccg/streams/[id] (structure.manage; a leader, the Overseer, needs roles.manage) */
+/**
+ * PATCH /api/ccg/streams/[id] (the central team, or the stream's and campus's admins; moving it needs
+ * units.edit on both campuses; its leader as on PUT …/leader)
+ */
 export const PATCH = withCcg<z.infer<typeof streamUpdateSchema>, P>(
-  { permission: 'structure.manage', schema: streamUpdateSchema },
+  { permission: 'units.edit', schema: streamUpdateSchema },
   async ({ request, user, scope, body, params }) => {
-    ensure(scope.can('structure.manage'))
     const before = await load(params.id)
-    if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
+    ensure(canBuildIn(scope, 'stream', params.id), 'Only the central team, or this stream’s admins, edit it')
+    if (body.campus_id !== undefined && body.campus_id !== before.campusId) {
+      ensure(canBuildIn(scope, 'campus', before.campusId) && canBuildIn(scope, 'campus', body.campus_id), 'You can only move a stream between campuses you run')
+    }
+    if (body.leader !== undefined) ensure(await canSetLeader(scope, 'stream', params.id), 'Only the leaders and admins above this stream, or the central team, change its leader')
     await assertCampusExists(body.campus_id)
     const { campus_id, leader, ...rest } = body
     await prisma.ccgStream.update({

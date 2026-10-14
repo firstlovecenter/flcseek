@@ -5,7 +5,7 @@
  */
 export const PERMISSIONS = {
   'structure.manage': 'Create, edit and remove campuses, streams, councils, CCGs and CCFs',
-  'units.edit': 'Edit CCFs (details, meeting time) in scope',
+  'units.edit': 'Add groups inside units in scope and edit their details (admins; leaders only view)',
   'people.view': 'See members and converts in scope',
   'people.manage': 'Add members and converts, and edit converts and their answers, in scope',
   'members.confirm': 'Confirm self-registered members in scope',

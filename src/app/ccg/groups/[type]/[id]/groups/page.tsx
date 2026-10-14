@@ -12,7 +12,7 @@ import { UNIT_LEVEL, groupHref } from '@/components/ccg/synago'
 export default function SubGroupsPage({ params }: { params: Promise<{ type: string; id: string }> }) {
   const { type, id } = use(params)
   const { hasGlobal } = useCcgMe()
-  const [data, setData] = useState<{ unit: { name: string }; children: { items: GroupCardItem[] } | null } | null>(null)
+  const [data, setData] = useState<{ unit: { name: string }; children: { items: GroupCardItem[] } | null; can: { add_groups: boolean } } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function SubGroupsPage({ params }: { params: Promise<{ type: stri
       parentName={data?.unit.name ?? null}
       type={child}
       items={data ? data.children?.items ?? [] : null}
-      addHref={hasGlobal('structure.manage') ? `/ccg/groups/new?type=${child}&parent=${id}` : undefined}
+      addHref={hasGlobal('structure.manage') || data?.can.add_groups ? `/ccg/groups/new?type=${child}&parent=${id}` : undefined}
     />
   )
 }

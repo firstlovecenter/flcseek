@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { ccgCreateSchema } from '@/lib/ccg/schemas'
 import { logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { canBuildIn, canLeadBeneath } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { ccgInclude, ccgPlace, createWithCode, serializeCcg } from '@/lib/ccg/server/units'
 
@@ -35,13 +36,17 @@ export const GET = withCcg({}, async ({ scope, query }) => {
   return success({ ccgs: ccgs.map((g) => serializeCcg(g, { ccf_count: g._count.families })) })
 })
 
-/** POST /api/ccg/ccgs (structure.manage) — into a council (and its stream), or a stream with no council yet. */
+/**
+ * POST /api/ccg/ccgs — into a council (and its stream), or a stream with no council yet: by the
+ * central team, or the admins of that council or above it. Its Overseer needs leaders.appoint there.
+ */
 export const POST = withCcg<z.infer<typeof ccgCreateSchema>>(
-  { permission: 'structure.manage', schema: ccgCreateSchema },
+  { permission: 'units.edit', schema: ccgCreateSchema },
   async ({ request, user, scope, body }) => {
-    ensure(scope.can('structure.manage'))
-    if (body.leader) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
     const place = await ccgPlace(body)
+    const [level, parentId] = place.councilId ? (['council', place.councilId] as const) : (['stream', place.streamId] as const)
+    ensure(canBuildIn(scope, level, parentId), `Only the central team, or the ${level}’s admins, add CCGs here`)
+    if (body.leader) ensure(canLeadBeneath(scope, level, parentId), 'You cannot choose this CCG’s Overseer')
     const g = await createWithCode('ccg', body.code, (code) => prisma.ccgGroup.create({
       data: {
         streamId: place.streamId!,

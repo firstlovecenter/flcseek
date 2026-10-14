@@ -3,6 +3,7 @@ import { created, success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { streamSchema } from '@/lib/ccg/schemas'
 import { iso, logCcg } from '@/lib/ccg/server/common'
+import { canBuildIn, canLeadBeneath } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { assertCampusExists, createWithCode } from '@/lib/ccg/server/units'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
@@ -33,12 +34,12 @@ export const GET = withCcg({}, async ({ scope }) => {
   })
 })
 
-/** POST /api/ccg/streams (structure.manage; a leader, the Overseer, needs roles.manage) */
+/** POST /api/ccg/streams (the central team, or a Campus Admin into their campus; its Stream Leader needs leaders.appoint there) */
 export const POST = withCcg<z.infer<typeof streamSchema>>(
-  { permission: 'structure.manage', schema: streamSchema },
+  { permission: 'units.edit', schema: streamSchema },
   async ({ request, user, scope, body }) => {
-    ensure(scope.can('structure.manage'))
-    if (body.leader) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
+    ensure(canBuildIn(scope, 'campus', body.campus_id), 'Only the central team, or the campus’s admins, add streams')
+    if (body.leader) ensure(canLeadBeneath(scope, 'campus', body.campus_id), 'You cannot choose this stream’s leader')
     await assertCampusExists(body.campus_id)
     const { leader, ...rest } = body
     const s = await createWithCode('stream', rest.code, (code) =>

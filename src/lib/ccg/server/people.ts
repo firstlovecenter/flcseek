@@ -54,8 +54,8 @@ export function canOnPerson(scope: CcgScope, perm: 'people.view' | 'people.manag
 
 /**
  * Changing an existing person (transfer, remove): a CCF's members need
- * members.edit there (the CCG Admin or the stream's Stream Admin, not the CCF's
- * own leaders). Converts belong to the Sheep Seeking side: no City Church
+ * members.edit there (admins: City Church, Council, Stream, Campus or Church Admin; not
+ * leaders). Converts belong to the Sheep Seeking side: no City Church
  * Groups leader changes them, wherever they are placed.
  */
 export function canEditPerson(scope: CcgScope, p: ScopedPerson): boolean {

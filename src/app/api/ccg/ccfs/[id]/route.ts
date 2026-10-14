@@ -3,8 +3,9 @@ import { success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { notFound } from '@/lib/ccg/errors'
 import { CCF_UNIT_EDIT_FIELDS, ccfUpdateSchema } from '@/lib/ccg/schemas'
-import { getCcgConfig, logCcg } from '@/lib/ccg/server/common'
+import { ccgTx, getCcgConfig, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { canBuildIn, canSetLeader } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { personInclude, serializePerson } from '@/lib/ccg/server/people'
 import { loadProfiles } from '@/lib/ccg/server/profiles'
@@ -13,6 +14,7 @@ import {
   assertCcfEmpty,
   assertCcgExists,
   ccfInclude,
+  convertsFollow,
   serializeCcf,
   serializeProfile,
 } from '@/lib/ccg/server/units'
@@ -61,38 +63,45 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
 
 /**
  * PATCH /api/ccg/ccfs/[id]
- * structure.manage: anything. units.edit (e.g. a CCG's Overseer): details only —
- * name, meeting time/place, notes.
+ * structure.manage: anything. units.edit (the admins of its CCG and above): details —
+ * name, meeting time/place, status, notes — and moving it to another CCG they run.
+ * Its Coordinator as on PUT …/leader.
  */
 export const PATCH = withCcg<Body, P>({ schema: ccfUpdateSchema }, async ({ request, user, scope, body, params }) => {
   const before = await load(params.id)
   const full = scope.can('structure.manage')
   if (!full) {
-    ensure(scope.canOnCcf('units.edit', before.id))
-    const extra = Object.keys(body).filter((k) => !(CCF_UNIT_EDIT_FIELDS as readonly string[]).includes(k))
+    ensure(canBuildIn(scope, 'ccf', before.id), 'Only the central team, or the admins of this CCF’s CCG, edit it')
+    const extra = Object.keys(body).filter((k) => k !== 'leader' && k !== 'ccg_id' && !(CCF_UNIT_EDIT_FIELDS as readonly string[]).includes(k))
     ensure(extra.length === 0, `You can only change: ${CCF_UNIT_EDIT_FIELDS.join(', ')}`)
   }
-  if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
+  if (body.leader !== undefined) ensure(await canSetLeader(scope, 'ccf', before.id), 'Only the leaders and admins above this CCF, or the central team, change its Coordinator')
   if (body.ccg_id) await assertCcgExists(body.ccg_id)
+  if (!full && body.ccg_id && body.ccg_id !== before.ccgId) ensure(canBuildIn(scope, 'ccg', body.ccg_id), 'You can only move a CCF to a CCG you run')
   // Nobody is left behind in a CCF that no longer meets.
   if (body.status === 'inactive' && before.status !== 'inactive') {
     await assertCcfEmpty(before.id, `${before.name} still has people in it. Use Close down to move them to another CCF.`)
   }
 
-  await prisma.ccgFamily.update({
-    where: { id: params.id },
-    data: {
-      ...(body.ccg_id !== undefined ? { ccgId: body.ccg_id } : {}),
-      ...(body.code !== undefined ? { code: body.code } : {}),
-      ...(body.name !== undefined ? { name: body.name } : {}),
-      ...(body.meeting_location !== undefined ? { meetingLocation: body.meeting_location } : {}),
-      ...(body.meeting_day !== undefined ? { meetingDay: body.meeting_day } : {}),
-      ...(body.meeting_time !== undefined ? { meetingTime: body.meeting_time } : {}),
-      ...(body.meeting_frequency !== undefined ? { meetingFrequency: body.meeting_frequency } : {}),
-      ...(body.status !== undefined ? { status: body.status } : {}),
-      ...(body.notes !== undefined ? { notes: body.notes } : {}),
-      updatedAt: new Date(),
-    },
+  // Moved with everyone in it; its converts follow it into the new CCG's stream.
+  const toCcg = body.ccg_id && body.ccg_id !== before.ccgId ? await prisma.ccgGroup.findUniqueOrThrow({ where: { id: body.ccg_id }, select: { streamId: true } }) : null
+  await ccgTx(async (tx) => {
+    await tx.ccgFamily.update({
+      where: { id: params.id },
+      data: {
+        ...(body.ccg_id !== undefined ? { ccgId: body.ccg_id } : {}),
+        ...(body.code !== undefined ? { code: body.code } : {}),
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.meeting_location !== undefined ? { meetingLocation: body.meeting_location } : {}),
+        ...(body.meeting_day !== undefined ? { meetingDay: body.meeting_day } : {}),
+        ...(body.meeting_time !== undefined ? { meetingTime: body.meeting_time } : {}),
+        ...(body.meeting_frequency !== undefined ? { meetingFrequency: body.meeting_frequency } : {}),
+        ...(body.status !== undefined ? { status: body.status } : {}),
+        ...(body.notes !== undefined ? { notes: body.notes } : {}),
+        updatedAt: new Date(),
+      },
+    })
+    if (toCcg) await convertsFollow(tx, [params.id], toCcg.streamId)
   })
   const leader_invite =
     body.leader !== undefined ? await setUnitLeader('ccf', params.id, body.leader, user.id, new URL(request.url).origin) : null

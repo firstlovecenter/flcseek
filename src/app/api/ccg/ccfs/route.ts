@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { ccfSchema } from '@/lib/ccg/schemas'
 import { getCcgConfig, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { canBuildIn, canLeadBeneath } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { loadProfiles } from '@/lib/ccg/server/profiles'
 import { loadQuestionBank } from '@/lib/ccg/server/questions'
@@ -52,12 +53,12 @@ export const GET = withCcg({}, async ({ scope, query }) => {
   })
 })
 
-/** POST /api/ccg/ccfs (structure.manage) */
+/** POST /api/ccg/ccfs (the central team, or the admins of its CCG and above; its Coordinator needs leaders.appoint there) */
 export const POST = withCcg<z.infer<typeof ccfSchema>>(
-  { permission: 'structure.manage', schema: ccfSchema },
+  { permission: 'units.edit', schema: ccfSchema },
   async ({ request, user, scope, body }) => {
-    ensure(scope.can('structure.manage'))
-    if (body.leader) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
+    ensure(canBuildIn(scope, 'ccg', body.ccg_id), 'Only the central team, or the CCG’s admins, add CCFs to it')
+    if (body.leader) ensure(canLeadBeneath(scope, 'ccg', body.ccg_id), 'You cannot choose this CCF’s Coordinator')
     await assertCcgExists(body.ccg_id)
     const f = await createWithCode('ccf', body.code, (code) => prisma.ccgFamily.create({
       data: {

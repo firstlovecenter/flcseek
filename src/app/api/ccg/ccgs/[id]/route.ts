@@ -3,12 +3,14 @@ import { success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { conflict, notFound } from '@/lib/ccg/errors'
 import { ccgUpdateSchema } from '@/lib/ccg/schemas'
-import { getCcgConfig, logCcg } from '@/lib/ccg/server/common'
+import { ccgTx, getCcgConfig, logCcg } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
+import { canBuildIn, canSetLeader } from '@/lib/ccg/server/admin-access'
 import { setUnitLeader } from '@/lib/ccg/server/roles'
 import { loadProfiles } from '@/lib/ccg/server/profiles'
 import { loadQuestionBank } from '@/lib/ccg/server/questions'
 import {
+  carryCcgsIntoStream,
   ccgPlace,
   ccfInclude,
   ccgInclude,
@@ -48,13 +50,16 @@ export const GET = withCcg<undefined, P>({}, async ({ scope, params }) => {
   })
 })
 
-/** PATCH /api/ccg/ccgs/[id] (structure.manage) */
+/**
+ * PATCH /api/ccg/ccgs/[id] (the central team, or the admins of the CCG and above it; moving it needs
+ * units.edit where it is and where it goes; its Overseer as on PUT …/leader)
+ */
 export const PATCH = withCcg<z.infer<typeof ccgUpdateSchema>, P>(
-  { permission: 'structure.manage', schema: ccgUpdateSchema },
+  { permission: 'units.edit', schema: ccgUpdateSchema },
   async ({ request, user, scope, body, params }) => {
-    ensure(scope.can('structure.manage'))
     const before = await load(params.id)
-    if (body.leader !== undefined) ensure(scope.can('roles.manage'), 'Setting a leader needs permission to manage roles')
+    ensure(canBuildIn(scope, 'ccg', params.id), 'Only the central team, or this CCG’s admins, edit it')
+    if (body.leader !== undefined) ensure(await canSetLeader(scope, 'ccg', params.id), 'Only the leaders and admins above this CCG, or the central team, change its Overseer')
     // Moving it: into a council (taking the council's stream), or out of its council within a stream.
     const place = body.council_id
       ? await ccgPlace({ council_id: body.council_id })
@@ -63,17 +68,25 @@ export const PATCH = withCcg<z.infer<typeof ccgUpdateSchema>, P>(
         : body.stream_id && body.stream_id !== before.streamId
           ? await ccgPlace({ stream_id: body.stream_id })
           : null
-    await prisma.ccgGroup.update({
-      where: { id: params.id },
-      data: {
-        ...(place?.streamId ? { streamId: place.streamId } : {}),
-        ...(place ? { councilId: place.councilId } : {}),
-        ...(body.code !== undefined ? { code: body.code } : {}),
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.status !== undefined ? { status: body.status } : {}),
-        ...(body.notes !== undefined ? { notes: body.notes } : {}),
-        updatedAt: new Date(),
-      },
+    if (place && (place.councilId !== before.councilId || place.streamId !== before.streamId)) {
+      const from = before.councilId ? canBuildIn(scope, 'council', before.councilId) : canBuildIn(scope, 'stream', before.streamId)
+      const to = place.councilId ? canBuildIn(scope, 'council', place.councilId) : canBuildIn(scope, 'stream', place.streamId)
+      ensure(from && to, 'You can only move a CCG between councils and streams you run')
+    }
+    // Moved with everything in it: its CCFs, and the converts placed there follow it into its stream.
+    await ccgTx(async (tx) => {
+      await tx.ccgGroup.update({
+        where: { id: params.id },
+        data: {
+          ...(place ? { councilId: place.councilId } : {}),
+          ...(body.code !== undefined ? { code: body.code } : {}),
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.status !== undefined ? { status: body.status } : {}),
+          ...(body.notes !== undefined ? { notes: body.notes } : {}),
+          updatedAt: new Date(),
+        },
+      })
+      if (place?.streamId) await carryCcgsIntoStream(tx, { id: params.id }, place.streamId)
     })
     const leader_invite =
       body.leader !== undefined ? await setUnitLeader('ccg', params.id, body.leader, user.id, new URL(request.url).origin) : null

@@ -25,6 +25,7 @@ import { StickyHeader, UNIT_LEVEL, groupHref } from './synago'
  * from members; one without a login is emailed an invitation to set a password.
  * As in the admin portal, a unit's leader is changed here: by the central team,
  * or by the leaders and admins above the unit (who may change only the leader).
+ * Admins add groups inside their unit, and edit and move groups within it; leaders only view.
  */
 
 export type GroupType = 'campus' | 'stream' | 'council' | 'ccg' | 'ccf'
@@ -72,17 +73,19 @@ const STATUSES: Record<GroupType, Array<{ value: string; label: string }>> = {
 type Values = Record<string, string | null>
 
 export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string; parentId?: string | null }) {
-  const { has, hasGlobal } = useCcgMe()
+  const { hasGlobal } = useCcgMe()
   const router = useRouter()
   const invites = useInviteNotice()
   const editing = !!id
   const parent = PARENT[type]
-  const full = hasGlobal('structure.manage') // otherwise a CCG's Overseer editing a CCF's details
-  // Editing: the leader is for whoever may change it here (the page says); creating: the central team.
+  const full = hasGlobal('structure.manage') // otherwise an admin, within their unit
+  // Editing: the leader is for whoever may change it here (the page says); creating: the central team, or leaders.appoint on the parent.
   const [canSetLeader, setCanSetLeader] = useState(false)
-  const canLead = (editing ? canSetLeader : hasGlobal('roles.manage')) && !!LEADER_LABEL[type]
+  const [canEditUnit, setCanEditUnit] = useState(false)
+  const [canLeadNew, setCanLeadNew] = useState(false)
+  const canLead = (editing ? canSetLeader : hasGlobal('roles.manage') || canLeadNew) && !!LEADER_LABEL[type]
   // Those who may change only the leader see the rest read-only.
-  const canDetails = !editing || full || (type === 'ccf' && has('units.edit'))
+  const canDetails = !editing || full || canEditUnit
 
   const [values, setValues] = useState<Values>({ status: 'active' })
   const [leader, setLeader] = useState<PickedMember | null>(null)
@@ -111,8 +114,16 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         )
       }
     })
-    if (!editing && parentId) set(parent.field, parentId)
-  }, [parent, editing, parentId])
+    if (!editing && parentId) {
+      set(parent.field, parentId)
+      // An admin adding inside their unit names the new group's leader if they hold leaders.appoint there.
+      if (!hasGlobal('roles.manage')) {
+        ccgApi
+          .get<{ can: { lead_groups: boolean } }>(`/groups/${parent.type}/${parentId}?history=1`)
+          .then((r) => setCanLeadNew(r.ok && r.data.can.lead_groups))
+      }
+    }
+  }, [parent, editing, parentId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!id) return
@@ -121,7 +132,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         type === 'stream'
           ? ccgApi.get<{ streams: Array<Record<string, unknown>> }>('/streams')
           : ccgApi.get<Record<string, Record<string, unknown>>>(`${UNIT_PATH[type]}/${id}`),
-        ccgApi.get<{ leaders: Array<{ person_id: string | null; name: string }>; can: { set_leader: boolean } }>(`/groups/${type}/${id}?history=1`),
+        ccgApi.get<{ leaders: Array<{ person_id: string | null; name: string }>; can: { set_leader: boolean; edit: boolean } }>(`/groups/${type}/${id}?history=1`),
       ])
       setLoading(false)
       if (!detail.ok) return message.error(detail.error.message)
@@ -143,6 +154,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
         ccg_id: str((g.ccg as { id?: string } | null)?.id),
       })
       setCanSetLeader(overview.ok && overview.data.can.set_leader)
+      setCanEditUnit(overview.ok && overview.data.can.edit)
       const l = overview.ok ? overview.data.leaders[0] : null
       if (l?.person_id) {
         setLeader({ id: l.person_id, name: l.name })
@@ -156,10 +168,10 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
     e.preventDefault()
     const local: Record<string, string> = {}
     if (canDetails && !values.name?.trim()) local.name = 'Enter a name'
-    if (full && type === 'ccf' && !values.ccg_id) local.ccg_id = 'Choose its CCG'
-    if (full && type === 'council' && !values.stream_id) local.stream_id = 'Choose its stream'
+    if (canDetails && type === 'ccf' && !values.ccg_id) local.ccg_id = 'Choose its CCG'
+    if (canDetails && type === 'council' && !values.stream_id) local.stream_id = 'Choose its stream'
     // A CCG goes in a council (older CCGs may still sit straight in their stream until moved).
-    if (full && type === 'ccg' && !values.council_id && !(editing && values.stream_id)) local.council_id = 'Choose its council'
+    if (canDetails && type === 'ccg' && !values.council_id && !(editing && values.stream_id)) local.council_id = 'Choose its council'
     const addingNew = canLead && canAddNewLeader && leaderMode === 'new' && newLeaderStarted
     if (addingNew) {
       if (!newLeader.first_name.trim()) local.leader_first_name = 'Enter their first name'
@@ -172,8 +184,9 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
 
     const txt = (k: string) => (values[k]?.trim() ? values[k]!.trim() : null)
     const body: Record<string, unknown> = { name: txt('name'), notes: txt('notes') }
-    if (full) {
-      body.status = values.status ?? 'active'
+    if (canDetails) body.status = values.status ?? 'active'
+    // Where it goes: chosen when adding, and admins may move it within the groups they run.
+    if (canDetails) {
       if (parent) body[parent.field] = values[parent.field] ?? null
       // A CCG not yet in a council stays in its stream.
       if (type === 'ccg' && !values.council_id) {
@@ -269,7 +282,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                     <span className="text-muted-foreground">{fixedParent.label}: </span>
                     <span className="font-medium">{fixedParent.name ?? '…'}</span>
                   </p>
-                ) : parent && full && canDetails && (
+                ) : parent && canDetails && (
                   <Field label={`${parent.label}${type === 'ccf' || type === 'ccg' || type === 'council' ? ' *' : ''}`} htmlFor="g-parent" error={errors[parent.field]}>
                     <SearchSelect
                       id="g-parent"
@@ -372,7 +385,7 @@ export function GroupForm({ type, id, parentId }: { type: GroupType; id?: string
                   </div>
                 )}
 
-                {full && (
+                {canDetails && (
                   <Field label="Status" htmlFor="g-status">
                     <NullableSelect
                       id="g-status"
