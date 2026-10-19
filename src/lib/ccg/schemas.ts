@@ -191,8 +191,10 @@ export const personUpdateSchema = personCoreSchema.partial().extend({
   status: z.enum(['active', 'inactive', 'new']).optional(),
 })
 export type PersonUpdate = z.infer<typeof personUpdateSchema>
-/** All that anyone but a superadmin (CCG owner) may change on a member or convert (user, 2026-10-05). */
-export const PERSON_EDIT_FIELDS = ['first_name', 'middle_name', 'last_name', 'phone'] as const
+/** All that anyone but a superadmin (CCG owner) may change on a member or convert: their contact details (user, 2026-10-19). */
+export const PERSON_EDIT_FIELDS = ['phone', 'email'] as const
+/** Sheep Seekers may also correct the names of converts in their care (user, 2026-10-19). */
+export const CONVERT_NAME_FIELDS = ['first_name', 'middle_name', 'last_name'] as const
 
 // --------------------------------------------------------------------------
 // Placements
