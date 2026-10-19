@@ -74,9 +74,10 @@ export function PersonFormDialog({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const editing = !!mode?.personId
-  // Apart from a superadmin, only names and phone number can be changed.
+  // Apart from a superadmin, only phone number and email can be changed; Sheep Seekers also correct converts' names.
   const limited = editing && !me?.is_superadmin
   const kind = mode?.kind ?? 'convert'
+  const namesToo = !limited || (kind === 'convert' && !!me?.roles.some((r) => r.role.key === 'sheep_seeker'))
   const fullName = [core.first_name, core.middle_name, core.last_name].filter((x) => x?.trim()).join(' ')
 
   useEffect(() => {
@@ -141,26 +142,24 @@ export function PersonFormDialog({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const local: Record<string, string> = {}
-    if (!core.first_name.trim()) local.first_name = 'Enter their first name'
-    if (!core.last_name.trim()) local.last_name = 'Enter their last name'
-    if ((kind === 'member' || intoCcf) && !editing && !core.ccf_id) local.ccf_id = 'Choose their CCF'
-    if (kind === 'convert' && !core.phone) local.phone = 'Enter their phone number'
+    if (!core.phone) local.phone = 'Enter their phone number'
+    if (core.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(core.email)) local.email = 'Enter a valid email address'
+    if (namesToo && !core.first_name.trim()) local.first_name = 'Enter their first name'
+    if (namesToo && !core.last_name.trim()) local.last_name = 'Enter their last name'
     if (limited) {
-      if (kind === 'member' && !core.phone) local.phone = 'Enter their phone number'
       setErrors(local)
       if (Object.keys(local).length) return
-      const { first_name, middle_name, last_name, phone } = core
-      return save({ first_name, middle_name, last_name, phone })
+      const { first_name, middle_name, last_name, phone, email } = core
+      return save(namesToo ? { first_name, middle_name, last_name, phone, email } : { phone, email })
     }
+    if ((kind === 'member' || intoCcf) && !editing && !core.ccf_id) local.ccf_id = 'Choose their CCF'
     // Compulsory for members on the CCF registration form. Members may become leaders:
     // SMS goes to their phone, invitations to their email.
     if (kind === 'member' && !editing) {
-      if (!core.phone) local.phone = 'Enter their phone number'
       if (!core.email) local.email = 'Enter their email address'
       if (!core.gender) local.gender = 'Choose their gender'
       if (!core.date_of_birth) local.date_of_birth = 'Enter their date of birth'
-    } else if (kind === 'member' && !core.phone) local.phone = 'Enter their phone number'
-    if (core.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(core.email)) local.email = 'Enter a valid email address'
+    }
     Object.assign(local, missingRequired(questions, answers))
     setErrors(local)
     if (Object.keys(local).length) return
@@ -237,7 +236,7 @@ export function PersonFormDialog({
             </DialogTitle>
             <DialogDescription>
               {limited
-                ? 'Only their names and phone number can be changed. Ask a superadmin to change anything else.'
+                ? `Only their ${namesToo ? 'names, phone number' : 'phone number'} and email can be changed. Ask a superadmin to change anything else.`
                 : intoCcf
                 ? 'They are placed in your CCF straight away and follow the milestones like every convert.'
                 : kind === 'convert'
@@ -255,42 +254,44 @@ export function PersonFormDialog({
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
-                  <Field label="First name *" htmlFor="p-first" error={errors.first_name}>
-                    <Input
-                      id="p-first"
-                      autoComplete="off"
-                      value={core.first_name}
-                      onChange={(e) => set('first_name', e.target.value)}
-                      aria-invalid={!!errors.first_name}
-                    />
-                  </Field>
-                  <Field label="Middle name" htmlFor="p-middle" error={errors.middle_name}>
-                    <Input id="p-middle" autoComplete="off" {...text('middle_name')} />
-                  </Field>
-                  <Field label="Last name *" htmlFor="p-last" error={errors.last_name}>
-                    <Input
-                      id="p-last"
-                      autoComplete="off"
-                      value={core.last_name}
-                      onChange={(e) => set('last_name', e.target.value)}
-                      aria-invalid={!!errors.last_name}
-                    />
-                  </Field>
-                </div>
+                {namesToo && (
+                  <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+                    <Field label="First name *" htmlFor="p-first" error={errors.first_name}>
+                      <Input
+                        id="p-first"
+                        autoComplete="off"
+                        value={core.first_name}
+                        onChange={(e) => set('first_name', e.target.value)}
+                        aria-invalid={!!errors.first_name}
+                      />
+                    </Field>
+                    <Field label="Middle name" htmlFor="p-middle" error={errors.middle_name}>
+                      <Input id="p-middle" autoComplete="off" {...text('middle_name')} />
+                    </Field>
+                    <Field label="Last name *" htmlFor="p-last" error={errors.last_name}>
+                      <Input
+                        id="p-last"
+                        autoComplete="off"
+                        value={core.last_name}
+                        onChange={(e) => set('last_name', e.target.value)}
+                        aria-invalid={!!errors.last_name}
+                      />
+                    </Field>
+                  </div>
+                )}
                 <Field label="Phone *" htmlFor="p-phone" error={errors.phone}>
                   <Input id="p-phone" type="tel" inputMode="tel" autoComplete="off" {...text('phone')} aria-invalid={!!errors.phone} />
                 </Field>
+                <Field
+                  label={kind === 'member' ? 'Email *' : 'Email'}
+                  htmlFor="p-email"
+                  error={errors.email}
+                  hint={kind === 'member' ? 'If they are given a role, their invitation to set a password is sent here' : undefined}
+                >
+                  <Input id="p-email" type="email" inputMode="email" autoComplete="off" {...text('email')} aria-invalid={!!errors.email} />
+                </Field>
                 {!limited && (
                   <>
-                    <Field
-                      label={kind === 'member' ? 'Email *' : 'Email'}
-                      htmlFor="p-email"
-                      error={errors.email}
-                      hint={kind === 'member' ? 'If they are given a role, their invitation to set a password is sent here' : undefined}
-                    >
-                      <Input id="p-email" type="email" inputMode="email" autoComplete="off" {...text('email')} aria-invalid={!!errors.email} />
-                    </Field>
                     <Field label={kind === 'member' ? 'Gender *' : 'Gender'} htmlFor="p-gender" error={errors.gender}>
                       <NullableSelect
                         id="p-gender"

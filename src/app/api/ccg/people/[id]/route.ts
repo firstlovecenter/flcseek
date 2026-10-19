@@ -1,10 +1,10 @@
 import { success } from '@/lib/api/response'
 import { prisma } from '@/lib/prisma'
 import { invalid, notFound } from '@/lib/ccg/errors'
-import { PERSON_EDIT_FIELDS, personUpdateSchema, type PersonUpdate } from '@/lib/ccg/schemas'
+import { CONVERT_NAME_FIELDS, PERSON_EDIT_FIELDS, personUpdateSchema, type PersonUpdate } from '@/lib/ccg/schemas'
 import { iso, num } from '@/lib/ccg/server/common'
 import { ensure, withCcg } from '@/lib/ccg/server/handler'
-import { canEditDetails, canEditPerson, canOnPerson, isPlaced, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
+import { canEditContact, canEditDetails, canEditPerson, canOnPerson, isPlaced, isSeekerOf, personInclude, removePerson, serializePerson, updatePerson } from '@/lib/ccg/server/people'
 import { loadAnswerNotes, loadAnswers, loadQuestionBank } from '@/lib/ccg/server/questions'
 import { OWNER_GRANT } from '@/lib/ccg/server/scope-loader'
 
@@ -66,23 +66,32 @@ export const GET = withCcg<undefined, P>({ permission: 'people.view' }, async ({
 
 /**
  * PATCH /api/ccg/people/[id] — core fields and/or answers (keyed by question
- * key). Only a superadmin may change more than names and phone (PERSON_EDIT_FIELDS). A waiting convert whose answers change is re-matched automatically.
+ * key). Only a superadmin may change more than phone and email (PERSON_EDIT_FIELDS; Sheep Seekers also converts' names). A waiting convert whose answers change is re-matched automatically.
  * Moving a member to another CCF needs people.manage on both CCFs.
  */
 export const PATCH = withCcg<PersonUpdate, P>({ schema: personUpdateSchema }, async ({ user, scope, body, params }) => {
   const p = await load(params.id)
+  const owner = scope.roleKeys.includes(OWNER_GRANT.roleKey)
   ensure(
-    canEditDetails(scope, p),
+    owner ? canEditDetails(scope, p) : canEditContact(scope, p),
     p.kind === 'member'
-      ? 'Only the Church Admin, or a Stream Admin, Council Leader or Council Admin over this member, edits their profile'
+      ? 'Only the admins over this member edit their phone number and email'
       : isPlaced(p)
-        ? 'A convert’s details cannot be changed once they are placed'
+        ? 'Only their Sheep Seekers, the admins over this convert’s CCF, or their stream’s Sheep Seeking Admin edit their contact details'
         : 'Only Sheep Seekers edit converts in their care'
   )
-  // Apart from a superadmin, people's names and phone number are all anyone may change.
-  if (!scope.roleKeys.includes(OWNER_GRANT.roleKey)) {
-    const other = Object.keys(body).filter((k) => body[k as keyof PersonUpdate] !== undefined && !(PERSON_EDIT_FIELDS as readonly string[]).includes(k))
-    ensure(other.length === 0, 'Only names and phone numbers can be changed. Ask a superadmin to change anything else.')
+  // Apart from a superadmin, people's phone number and email are all anyone may change;
+  // Sheep Seekers may also correct the names of converts in their care.
+  if (!owner) {
+    const seeker = isSeekerOf(scope, p)
+    const allowed: readonly string[] = seeker ? [...PERSON_EDIT_FIELDS, ...CONVERT_NAME_FIELDS] : PERSON_EDIT_FIELDS
+    const other = Object.keys(body).filter((k) => body[k as keyof PersonUpdate] !== undefined && !allowed.includes(k))
+    ensure(
+      other.length === 0,
+      seeker
+        ? 'Only names, phone numbers and emails can be changed. Ask a superadmin to change anything else.'
+        : 'Only phone numbers and emails can be changed. Ask a superadmin to change anything else.'
+    )
   }
   if (p.kind === 'member' && body.ccf_id && body.ccf_id !== p.ccfId) {
     throw invalid('Use transfer to move a member to another CCF, so the move is recorded')

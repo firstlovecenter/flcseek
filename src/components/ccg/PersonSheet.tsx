@@ -59,7 +59,7 @@ export function PersonSheet({
   onEdit: (p: PersonDTO) => void
   onChanged: () => void
 }) {
-  const { has, hasGlobal } = useCcgMe()
+  const { me, has, hasGlobal } = useCcgMe()
   const { portal } = useCcgFocus()
   const opts = useCcgOptions()
   const [data, setData] = useState<Detail | null>(null)
@@ -136,7 +136,14 @@ export function PersonSheet({
   // Converts only from the Sheep Seeking side, and their details not once placed (church-wide rights excepted).
   const convertSide = portal === 'seeking' || hasGlobal('people.manage')
   const canChange = !!p && (p.kind === 'member' ? has(p.ccf ? 'members.edit' : 'people.manage') : convertSide && has('people.manage'))
-  const canEdit = canChange && !(p?.kind === 'convert' && !!p.placement &&!hasGlobal('people.manage'))
+  // A placed convert is also edited by their Sheep Seekers (names, phone, email), and their phone and email
+  // by the admins over their CCF and their stream's Sheep Seeking Admin.
+  const seeker = convertSide && !!me?.roles.some((r) => r.role.key === 'sheep_seeker')
+  const canEdit =
+    !!p &&
+    (p.kind === 'convert' && p.placement
+      ? hasGlobal('people.manage') || has('members.edit') || (convertSide && has('seekers.manage')) || (seeker && has('people.manage'))
+      : canChange)
   const canTransfer = canChange && !!p && ((p.kind === 'member' && ['active', 'pending'].includes(p.status)) || !!p.placement)
   const answered = (opts?.questions ?? []).filter((q) => p?.answers?.[q.key] !== undefined)
   const canQuarantine = useCanQuarantine(p)

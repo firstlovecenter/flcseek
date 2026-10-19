@@ -236,6 +236,7 @@ Fields and rules:
 **`POST /people` response:** `{ id, possible_duplicate_of, proposal: {placement_id, status, ccf_id, hold_reason} }`. A convert is matched straight away.
 
 **`PATCH /people/[id]`:**
+- Apart from the CCG owner, only `phone` and `email` may be sent (a Sheep Seeker may also send a convert's `first_name`, `middle_name` and `last_name`, before or after placement). A member's are changed by the admins over their CCF (members.edit). A convert's are changed by the Sheep Seeking side before placement; once placed, by the admins over their CCF (members.edit) or their stream's Sheep Seeking Admin (seekers.manage).
 - `status` accepts `active` or `inactive` for members, and `inactive` or `new` (to reopen) for converts.
 - Changing a waiting convert's answers, date of birth or connection re-matches them, and the response includes the new `proposal`.
 - Moving a member to another CCF needs people.manage on both CCFs.

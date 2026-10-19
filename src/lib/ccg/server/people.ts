@@ -76,6 +76,21 @@ export function canEditDetails(scope: CcgScope, p: ScopedPerson): boolean {
   return canEditPerson(scope, p)
 }
 
+/** A Sheep Seeker over this convert, placed or not: they correct its names, phone and email. */
+export const isSeekerOf = (scope: CcgScope, p: ScopedPerson) =>
+  p.kind === 'convert' && scope.roleKeys.includes('sheep_seeker') && canEditPerson(scope, p)
+
+/**
+ * Changing someone's phone and email (all anyone but a superadmin may change):
+ * as canEditDetails, and a placed convert's too, by their Sheep Seekers, the admins
+ * over their CCF (members.edit) and the Sheep Seeking Admins of their stream (seekers.manage).
+ */
+export function canEditContact(scope: CcgScope, p: ScopedPerson): boolean {
+  if (canEditDetails(scope, p) || isSeekerOf(scope, p)) return true
+  if (!isPlaced(p)) return false
+  return personCcfIds(p).some((id) => scope.canOnMembersOf('members.edit', id)) || scope.sheepSeeking().canOnStream('seekers.manage', p.streamId)
+}
+
 /** Prisma filter restricting people to the scope (see canOnPerson). */
 export function peopleScopeWhere(scope: CcgScope, perm: 'people.view' | 'people.manage'): Prisma.CcgPersonWhereInput {
   if (scope.can(perm)) return {}
