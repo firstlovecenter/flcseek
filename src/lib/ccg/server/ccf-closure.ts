@@ -5,6 +5,7 @@ import { convertLimitFor } from '../engine/profile'
 import type { CcgScope } from '../scope'
 import { ccgTx, dateOnly, logCcg } from './common'
 import { ensure } from './handler'
+import { canBuildIn } from './admin-access'
 import { lockRow } from './mapping'
 import { queueNewConvertSms } from './notify'
 import { rescore } from './placements'
@@ -24,8 +25,9 @@ import { LEADER_ROLE, assignRoleToMember } from './roles'
  * All or nothing: if any receiving CCF can't take the converts sent to it,
  * nothing moves.
  *
- * Who: the central team, and the Sheep Seeking Admin of the CCF's stream or
- * its campus (people may be sent to CCFs of the streams they run).
+ * Who: the central team, and the City Church, Council, Stream and Campus Admins
+ * over the CCF (units.edit, as for creating CCFs; user, 2026-10-19). People may
+ * be sent to CCFs within the units they run.
  */
 
 type CcfRef = { id: string; name: string; status: string; meetingDay: string | null; meetingTime: string | null; ccg: { id: string; name: string; streamId: string; status: string; deletedAt: Date | null; stream: { name: string } } }
@@ -39,8 +41,14 @@ const ccfSelect = {
   ccg: { select: { id: true, name: true, streamId: true, status: true, deletedAt: true, stream: { select: { name: true } } } },
 } as const
 
-/** Close it, or send people to it: church-wide, or sheep seeking run in its stream (stream or campus). */
-export const mayCloseIn = (scope: CcgScope, streamId: string) => scope.can('structure.manage') || scope.sheepSeeking().canOnStream('seekers.manage', streamId)
+/** Close a CCF of this CCG, or send people to one: the central team, or the admins over the CCG (units.edit). */
+export const mayCloseIn = (scope: CcgScope, ccgId: string) => canBuildIn(scope, 'ccg', ccgId)
+
+/** For the CCF's page: may the viewer close it down? */
+export async function mayCloseCcf(scope: CcgScope, ccfId: string) {
+  const f = await prisma.ccgFamily.findFirst({ where: { id: ccfId, deletedAt: null }, select: { ccgId: true } })
+  return !!f && mayCloseIn(scope, f.ccgId)
+}
 
 async function loadClosing(ccfId: string) {
   const ccf = await prisma.ccgFamily.findFirst({ where: { id: ccfId, deletedAt: null }, select: ccfSelect })
@@ -66,7 +74,7 @@ async function roomIn(ccfIds: string[]) {
  */
 export async function closurePreview(scope: CcgScope, ccfId: string) {
   const ccf = await loadClosing(ccfId)
-  ensure(mayCloseIn(scope, ccf.ccg.streamId), 'Only the central team, or the Sheep Seeking Admin of its stream or campus, closes a CCF')
+  ensure(mayCloseIn(scope, ccf.ccg.id), 'Only the central team, or the City Church, Council, Stream or Campus Admin over it, closes a CCF')
 
   const [members, placed, waiting, held, moves, coordinators, candidates] = await Promise.all([
     prisma.ccgPerson.findMany({
@@ -89,7 +97,7 @@ export async function closurePreview(scope: CcgScope, ccfId: string) {
       orderBy: { name: 'asc' },
     }),
   ])
-  const allowed = candidates.filter((c) => mayCloseIn(scope, c.ccg.streamId))
+  const allowed = candidates.filter((c) => mayCloseIn(scope, c.ccg.id))
   const room = await roomIn(allowed.map((c) => c.id))
   const coordinatorUsers = new Set(coordinators.map((c) => c.userId))
 
@@ -135,7 +143,7 @@ export interface ClosePlan {
 
 export async function closeCcf(scope: CcgScope, ccfId: string, plan: ClosePlan, actorId: string, origin: string) {
   const closing = await loadClosing(ccfId)
-  ensure(mayCloseIn(scope, closing.ccg.streamId), 'Only the central team, or the Sheep Seeking Admin of its stream or campus, closes a CCF')
+  ensure(mayCloseIn(scope, closing.ccg.id), 'Only the central team, or the City Church, Council, Stream or Campus Admin over it, closes a CCF')
   const moves = plan.moves ?? {}
   const targetIds = [...new Set([...(plan.to_ccf_id ? [plan.to_ccf_id] : []), ...Object.values(moves)])]
   if (targetIds.includes(ccfId)) throw invalid('Choose other CCFs to move people to')
@@ -173,7 +181,7 @@ export async function closeCcf(scope: CcgScope, ccfId: string, plan: ClosePlan, 
       const t = await tx.ccgFamily.findFirst({ where: { id, deletedAt: null }, select: ccfSelect })
       if (!t || t.ccg.deletedAt) throw notFound('CCF to move people to')
       if (t.status !== 'active' || t.ccg.status !== 'active') throw conflict(`${t.name} or its CCG is not active. Choose another CCF.`)
-      if (!mayCloseIn(scope, t.ccg.streamId)) throw conflict(`You can only move people to CCFs of the streams you run. ${t.name} is in ${t.ccg.stream.name}.`)
+      if (!mayCloseIn(scope, t.ccg.id)) throw conflict(`You can only move people to CCFs within the groups you run. ${t.name} is in ${t.ccg.name}.`)
       targets.set(id, t)
     }
 

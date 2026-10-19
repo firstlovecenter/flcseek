@@ -60,7 +60,7 @@ interface Overview {
   } | null
   history: Array<{ id: string; text: string; at: string | null; by: string | null }>
   /** What the viewer may do here. */
-  can: { set_leader: boolean; appoint_admins: boolean; edit: boolean; add_groups: boolean }
+  can: { set_leader: boolean; appoint_admins: boolean; edit: boolean; add_groups: boolean; close?: boolean }
 }
 
 /** The admins' roles, shown under the leader. */
@@ -97,7 +97,8 @@ export default function GroupPage({ params }: { params: Promise<{ type: string; 
   // As in the admin portal, the leader is changed on the Edit page: the leaders and admins above the unit may open it for that.
   // Admins (and the admins above) edit its details; leaders only view.
   const canEdit = hasGlobal('structure.manage') || !!data?.can.edit || !!data?.can.set_leader
-  const canClose = hasGlobal('structure.manage')
+  // CCFs are also closed by the admins over them (City Church, Council, Stream, Campus); other groups by the central team.
+  const canClose = hasGlobal('structure.manage') || (type === 'ccf' && !!data?.can.close)
   const child = CHILD_GROUP[type]
   const leader = data?.leaders[0]
   // Group pages are City Church Groups: Sheep Seeking roles live in the Sheep Seeking portal. Admins sit under the leader.
