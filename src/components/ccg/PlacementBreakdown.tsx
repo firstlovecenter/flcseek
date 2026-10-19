@@ -2,15 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Download, Trash2 } from 'lucide-react'
+import { ChevronRight, Download } from 'lucide-react'
 import { ccgApi } from '@/lib/ccg/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CloseCcfDialog } from './CloseCcfDialog'
-import { useCcgMe } from './CcgMeProvider'
 import { DetailTile, SectionLabel } from './synago'
 
 /**
@@ -117,15 +115,6 @@ export function PlacementBreakdown({
   const [data, setData] = useState<Breakdown | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [seekers, setSeekers] = useState<Array<{ person_id: string; name: string; streams: Ref[] }>>([])
-  const [closing, setClosing] = useState<Ref | null>(null)
-  const [reload, setReload] = useState(0)
-  const { me, hasGlobal } = useCcgMe()
-  // The central team, the stream's Sheep Seeking Admin, or its campus's, close its CCFs.
-  const canClose = (streamOf: string) =>
-    hasGlobal('structure.manage') ||
-    !!me?.roles.some(
-      (r) => (r.role.key === 'seeking_admin' && r.unit?.id === streamOf) || (r.role.key === 'campus_seeking_admin' && r.unit?.streams?.some((x) => x.id === streamOf))
-    )
 
   const { from, to } = periodDates(period, custom)
   useEffect(() => {
@@ -138,7 +127,7 @@ export function PlacementBreakdown({
     if (from) q.set('from', from)
     if (to) q.set('to', to)
     ccgApi.get<Breakdown>(`/seekers/placements?${q}`).then((r) => (r.ok ? setData(r.data) : setError(r.error.message)))
-  }, [streamId, campusId, seeker, from, to, reload])
+  }, [streamId, campusId, seeker, from, to])
 
   useEffect(() => {
     ccgApi.get<{ seekers: Array<{ person_id: string; name: string; streams: Ref[] }> }>(`/seekers/options${streamId ? `?stream_id=${streamId}` : ''}`).then((r) => {
@@ -323,11 +312,6 @@ export function PlacementBreakdown({
                         {c.inPeriod && period !== 'all' ? '*' : ''}
                       </th>
                     ))}
-                    {level === 'ccf' && (
-                      <th scope="col" className="w-10 px-2 py-3">
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -369,22 +353,6 @@ export function PlacementBreakdown({
                             </td>
                           )
                         })}
-                        {level === 'ccf' && (
-                          <td className="px-2 py-2.5 text-right">
-                            {canClose(g.stream) && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 text-muted-foreground hover:text-destructive"
-                                onClick={() => setClosing({ id: g.id, name: g.name })}
-                                aria-label={`Close down ${g.name}`}
-                                title="Close down"
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
-                            )}
-                          </td>
-                        )}
                       </tr>
                     )
                   })}
@@ -397,7 +365,6 @@ export function PlacementBreakdown({
                         {total[c.key]}
                       </td>
                     ))}
-                    {level === 'ccf' && <td />}
                   </tr>
                 </tfoot>
               </table>
@@ -406,7 +373,6 @@ export function PlacementBreakdown({
           {period !== 'all' && <p className="text-xs text-muted-foreground">* In the period chosen. The other columns are as of today.</p>}
         </>
       )}
-      {closing && <CloseCcfDialog ccfId={closing.id} ccfName={closing.name} onClose={() => setClosing(null)} onDone={() => setReload((n) => n + 1)} />}
     </section>
   )
 }
