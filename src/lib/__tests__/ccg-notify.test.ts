@@ -6,7 +6,7 @@ const GSM_ONLY = /^[@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ 
 
 describe('CCF Coordinator SMS', () => {
   it('greets by first name only, with nothing else personal', () => {
-    const text = 'you have new souls in your CCF. Please log in to the CCG app to see and welcome them.'
+    const text = 'you have new souls in your CCF. Please log in to the CCG app to see and welcome them: https://seek.codeslaw.dev'
     expect(buildLeaderSms({ firstName: 'Ama Serwaa' })).toBe(`Hi Ama, ${text}`)
     expect(buildLeaderSms({ firstName: null })).toBe(`Hi, ${text}`)
     expect(buildLeaderSms({ firstName: '  ' })).toBe(`Hi, ${text}`)
@@ -17,6 +17,7 @@ describe('CCF Coordinator SMS', () => {
       const text = buildLeaderSms({ firstName })
       expect(text.length).toBeLessThanOrEqual(SMS_SEGMENT)
       expect(text).toMatch(GSM_ONLY)
+      expect(text).toMatch(/ https:\/\/seek\.codeslaw\.dev$/)
     }
     expect(buildLeaderSms({ firstName: 'Ëmmánuel' })).toMatch(/^Hi Emmanuel, /)
   })
