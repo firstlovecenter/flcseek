@@ -44,20 +44,25 @@ export function gsmSafe(text: string): string {
   return out.replace(/ {2,}/g, ' ').trim()
 }
 
+/** Where coordinators log in; it ends every text. */
+export const APP_LINK = 'https://seek.codeslaw.dev'
+
 /**
  * The coordinator's message. The only personal detail is their first name
  * (user's choice): no count, no CCF name, the same words for any event.
  */
 export function buildLeaderSms(p: { firstName: string | null }): string {
   const first = gsmSafe(p.firstName ?? '').split(' ')[0]
-  return fit(`${first ? `Hi ${first},` : 'Hi,'} you have new souls in your CCF. Please log in to the CCG app to see and welcome them.`)
+  return fit(first, `you have new souls in your CCF. Please log in to the CCG app to see and welcome them: ${APP_LINK}`)
 }
 
-/** Last resort for a very long first name: a shorter sentence, then a hard cut. */
-function fit(text: string): string {
-  if (text.length <= SMS_SEGMENT) return text
-  const short = text.replace(' Please log in to the CCG app', ' Log in to the CCG app')
-  return short.length <= SMS_SEGMENT ? short : short.slice(0, SMS_SEGMENT)
+/** Last resort for a very long first name: a shorter sentence, then a shorter name (the link is never cut). */
+function fit(first: string, body: string): string {
+  const text = (b: string, name: string) => `${name ? `Hi ${name},` : 'Hi,'} ${b}`
+  if (text(body, first).length <= SMS_SEGMENT) return text(body, first)
+  const short = body.replace('Please log in to the CCG app', 'Log in to the CCG app')
+  const room = SMS_SEGMENT - text(short, '').length - 1
+  return text(short, first.slice(0, Math.max(0, room)))
 }
 
 export const smsKey = (event: NewConvertEvent, phone: string, placementIds: string[]) =>
