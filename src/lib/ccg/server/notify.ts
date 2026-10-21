@@ -44,8 +44,8 @@ export function gsmSafe(text: string): string {
   return out.replace(/ {2,}/g, ' ').trim()
 }
 
-/** Where coordinators log in; it ends every text. */
-export const APP_LINK = 'https://seek.codeslaw.dev'
+/** The login page (signed-in users are sent on to their landing page); it ends every text. */
+export const APP_LINK = 'https://seek.codeslaw.dev/auth'
 
 /**
  * The coordinator's message. The only personal detail is their first name
