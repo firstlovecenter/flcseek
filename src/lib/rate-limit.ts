@@ -28,10 +28,12 @@ interface RateLimitConfig {
 
 // Rate limit configurations for different endpoints
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  // Login: 5 attempts per 15 minutes — DB-enforced (brute force protection)
+  // Login: 10 attempts per account per 15 minutes — DB-enforced (brute force
+  // protection). Counted per account, not per IP: every request reaches the
+  // app from the same proxy address, so an IP limit locks everyone out at once.
   '/api/auth/login': {
     windowMs: 15 * 60 * 1000,
-    maxRequests: 5,
+    maxRequests: 10,
     message: 'Too many login attempts. Please try again in 15 minutes.',
     persist: true,
   },
@@ -221,15 +223,17 @@ async function checkDbRateLimitAtomic(
 
 /**
  * Check rate limit for a request
- * Returns null if within limit, or an error response if exceeded
+ * Returns null if within limit, or an error response if exceeded.
+ * `subject` (e.g. the account being logged into) counts per subject instead of per IP.
  */
 export async function checkRateLimit(
   request: NextRequest,
-  endpoint?: string
+  endpoint?: string,
+  subject?: string
 ): Promise<NextResponse | null> {
   const path = endpoint || new URL(request.url).pathname;
   const config = RATE_LIMITS[path] || RATE_LIMITS.default;
-  const clientId = getClientIdentifier(request);
+  const clientId = subject ? `subject:${subject}` : getClientIdentifier(request);
   const cacheKey = `${clientId}:${path}`;
 
   const now = Date.now();

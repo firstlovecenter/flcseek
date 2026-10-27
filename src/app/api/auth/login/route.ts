@@ -8,16 +8,11 @@ import { hasCcgAccess } from '@/lib/ccg/access';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check rate limit first
-    const rateLimitResponse = await checkRateLimit(request, '/api/auth/login');
-    if (rateLimitResponse) {
-      return rateLimitResponse;
-    }
-
     const body = await request.json();
     const identifier =
       typeof body.username === 'string' ? body.username.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';
+
     const { ipAddress, userAgent } = extractRequestInfo(request.headers);
 
     if (process.env.NODE_ENV === 'development') {
@@ -29,6 +24,12 @@ export async function POST(request: NextRequest) {
         { error: 'Username and password are required' },
         { status: 400 }
       );
+    }
+
+    // Rate limit per account (all requests share the proxy's IP)
+    const rateLimitResponse = await checkRateLimit(request, '/api/auth/login', identifier.toLowerCase());
+    if (rateLimitResponse) {
+      return rateLimitResponse;
     }
 
     // Match by username or email (form allows either); ignore soft-deleted users
