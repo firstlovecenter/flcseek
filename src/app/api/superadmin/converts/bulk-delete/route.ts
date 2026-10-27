@@ -8,12 +8,6 @@ import { checkRateLimit } from '@/lib/rate-limit';
  * Destructive purge is intentionally not exposed here.
  */
 export async function DELETE(request: NextRequest) {
-  const rateLimitResponse = await checkRateLimit(
-    request,
-    '/api/superadmin/converts/bulk-delete'
-  );
-  if (rateLimitResponse) return rateLimitResponse;
-
   const { user, error } = await requireSuperAdmin(request);
   if (error || !user) {
     return NextResponse.json(
@@ -21,6 +15,14 @@ export async function DELETE(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  // Rate limit per user (all requests share the proxy's IP)
+  const rateLimitResponse = await checkRateLimit(
+    request,
+    '/api/superadmin/converts/bulk-delete',
+    user.id
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const body = await request.json();

@@ -18,16 +18,16 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Rate limit before any DB work
-    const rateLimitResponse = await checkRateLimit(request, '/api/export');
-    if (rateLimitResponse) return rateLimitResponse;
-
     // Use cookie-aware auth helper (checks cookie first, then Bearer header)
     const userPayload = await getVerifiedAuthUser(request);
 
     if (!userPayload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Rate limit per user (all requests share the proxy's IP)
+    const rateLimitResponse = await checkRateLimit(request, '/api/export', userPayload.id);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Only superadmin and leadpastor can export data
     if (!['superadmin', 'leadpastor'].includes(userPayload.role)) {

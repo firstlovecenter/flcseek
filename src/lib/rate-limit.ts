@@ -37,35 +37,36 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     message: 'Too many login attempts. Please try again in 15 minutes.',
     persist: true,
   },
-  // Data exports: 10 per hour per IP (prevents bulk data exfiltration)
+  // Data exports: 10 per hour per user (prevents bulk data exfiltration)
   '/api/export': {
     windowMs: 60 * 60 * 1000,
     maxRequests: 10,
     message: 'Export rate limit exceeded. Please wait before exporting again.',
     persist: true,
   },
-  // Bulk destructive operations: 5 per hour per IP
+  // Bulk destructive operations: 5 per hour per user
   '/api/superadmin/converts/bulk-delete': {
     windowMs: 60 * 60 * 1000,
     maxRequests: 5,
     message: 'Bulk delete rate limit exceeded. Please wait before retrying.',
     persist: true,
   },
-  // City Church Group public forms: submissions are unauthenticated.
+  // City Church Group public forms: submissions are unauthenticated. Per form
+  // link, which a whole crowd may fill in at once.
   '/api/ccg/public/submit': {
     windowMs: 60 * 60 * 1000,
-    maxRequests: 20,
+    maxRequests: 300,
     message: 'Too many form submissions. Please try again later.',
     persist: true,
   },
-  // "Forgot password" requests (each sends an email).
+  // "Forgot password" requests (each sends an email), per email.
   '/api/ccg/public/forgot': {
     windowMs: 60 * 60 * 1000,
     maxRequests: 5,
     message: 'Too many reset requests. Please try again later.',
     persist: true,
   },
-  // Setting a password from an invitation link.
+  // Setting a password from an invitation link, per link.
   '/api/ccg/public/invite': {
     windowMs: 60 * 60 * 1000,
     maxRequests: 10,

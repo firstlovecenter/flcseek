@@ -95,19 +95,28 @@ export interface PublicContext<B, P> {
   params: P
 }
 
-/** Unauthenticated CCG routes (self-service forms). Always rate-limited. */
+/**
+ * Unauthenticated CCG routes (self-service forms). Always rate-limited, counted
+ * per `rateLimitBy` (the link's token, the email…): every request reaches the
+ * app from the same proxy IP, so a per-IP count would block everyone at once.
+ */
 export function withCcgPublic<B = undefined, P = Record<string, string>>(
-  options: { rateLimitKey: string; schema?: ZodType<B, ZodTypeDef, unknown> },
+  options: {
+    rateLimitKey: string
+    rateLimitBy: (ctx: { body: B; params: P }) => string
+    schema?: ZodType<B, ZodTypeDef, unknown>
+  },
   handler: (ctx: PublicContext<B, P>) => Promise<NextResponse>
 ) {
   return async (request: NextRequest, routeCtx: RouteContext<P>): Promise<NextResponse> => {
     try {
-      const limited = await checkRateLimit(request, options.rateLimitKey)
-      if (limited) return limited
       const parsed = await parseBody(request, options.schema)
       if ('error' in parsed && parsed.error) return parsed.error
+      const body = parsed.body as B
       const params = ((await routeCtx?.params) ?? {}) as P
-      return await handler({ request, body: parsed.body as B, params })
+      const limited = await checkRateLimit(request, options.rateLimitKey, options.rateLimitBy({ body, params }) || undefined)
+      if (limited) return limited
+      return await handler({ request, body, params })
     } catch (err) {
       return handleError(err, 'withCcgPublic')
     }
