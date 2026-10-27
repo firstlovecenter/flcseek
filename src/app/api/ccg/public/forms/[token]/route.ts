@@ -12,7 +12,7 @@ type P = { token: string }
  * and the questions for this link's audience (plus current answers for
  * a person_update link). An invalid, expired, used-up or revoked link → 404.
  */
-export const GET = withCcgPublic<undefined, P>({ rateLimitKey: '/api/ccg/public/view' }, async ({ params }) =>
+export const GET = withCcgPublic<undefined, P>({ rateLimitKey: '/api/ccg/public/view', rateLimitBy: ({ params }) => params.token }, async ({ params }) =>
   success(await getPublicForm(params.token))
 )
 
@@ -22,7 +22,7 @@ export const GET = withCcgPublic<undefined, P>({ rateLimitKey: '/api/ccg/public/
  * Returns only a short reference — never matching results.
  */
 export const POST = withCcgPublic<PublicSubmission, P>(
-  { rateLimitKey: '/api/ccg/public/submit', schema: publicSubmissionSchema },
+  { rateLimitKey: '/api/ccg/public/submit', rateLimitBy: ({ params }) => params.token, schema: publicSubmissionSchema },
   async ({ request, body, params }) =>
     success(
       await submitPublicForm(params.token, body, {

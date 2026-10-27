@@ -7,12 +7,12 @@ export const dynamic = 'force-dynamic'
 type P = { token: string }
 
 /** GET /api/ccg/public/invites/[token] — no login. Who the invitation is for; 404 when used, expired or revoked. */
-export const GET = withCcgPublic<undefined, P>({ rateLimitKey: '/api/ccg/public/view' }, async ({ params }) =>
+export const GET = withCcgPublic<undefined, P>({ rateLimitKey: '/api/ccg/public/view', rateLimitBy: ({ params }) => params.token }, async ({ params }) =>
   success(await describeInvite(params.token))
 )
 
 /** POST /api/ccg/public/invites/[token] — no login. Choose a password; the link then stops working. */
 export const POST = withCcgPublic<{ password: string }, P>(
-  { rateLimitKey: '/api/ccg/public/invite', schema: acceptInviteSchema },
+  { rateLimitKey: '/api/ccg/public/invite', rateLimitBy: ({ params }) => params.token, schema: acceptInviteSchema },
   async ({ body, params }) => success(await acceptInvite(params.token, body.password))
 )

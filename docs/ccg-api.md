@@ -365,7 +365,7 @@ Links open the public page `/join/[token]`, which needs no login and is shown wi
 **`POST /public/forms/[token]`:**
 - Body: `{ client_submission_id (a UUID created once per form fill), person{…}, answers{} }`
 - Response: `{ ok, reference }`. A retry with the same `client_submission_id` returns `duplicate_submission: true`.
-- Required questions are enforced. Rate limits: 20 submissions per hour and 60 views per minute, per IP.
+- Required questions are enforced. Rate limits: 300 submissions per hour and 60 views per minute, per link (not per IP: every request arrives from the same proxy address).
 - What each link kind does on submission:
   - `member_ccf` creates a `pending` member.
   - `convert_intake` creates a convert and matches them straight away.

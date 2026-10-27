@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
  * answer is always the same, so it cannot be used to find out who has an account.
  */
 export const POST = withCcgPublic<{ email: string }>(
-  { rateLimitKey: '/api/ccg/public/forgot', schema: forgotPasswordSchema },
+  { rateLimitKey: '/api/ccg/public/forgot', rateLimitBy: ({ body }) => body.email.toLowerCase(), schema: forgotPasswordSchema },
   async ({ request, body }) => {
     try {
       await requestPasswordReset(body.email, new URL(request.url).origin)

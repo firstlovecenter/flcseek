@@ -252,7 +252,7 @@ Notable behaviors:
 - Attendance can only be recorded for Sundays; non-superadmins only for the
   most recent Sunday (`src/lib/utils/attendance-validation.ts`)
 - List endpoints cap `limit` at 500
-- Login is rate-limited to 5 attempts / 15 min per IP (DB-enforced);
+- Login is rate-limited to 10 attempts / 15 min per account (DB-enforced; not per IP, as every request arrives from the same proxy address);
   exports 10/hour; bulk deletes 5/hour
 
 ---
