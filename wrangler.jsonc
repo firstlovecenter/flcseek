@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flcseek",
+  "main": "worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "flcseek" }
+  ],
+  "observability": { "enabled": true },
+  "vars": {
+    "NODE_ENV": "production"
+  },
+  // Replaces the Netlify scheduled functions. Keep in sync with CRON_JOBS in worker.ts.
+  "triggers": {
+    "crons": ["0 2 * * *", "0 3 * * SUN", "15 0 1 1 *"]
+  }
+  // Secrets (set with `wrangler secret put` / `wrangler secret bulk`, never here):
+  // NEON_DATABASE_URL, JWT_SECRET, CRON_SECRET, RESEND_API_KEY, CCG_EMAIL_FROM,
+  // FLASHSMS_API_KEY, FLASHSMS_BASE_URL, FLASHSMS_SENDER_ID, ANTHROPIC_API_KEY
+}

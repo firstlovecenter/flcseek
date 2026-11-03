@@ -55,3 +55,8 @@ LOGINS.txt
 *passwords*
 
 /src/generated/prisma
+
+# cloudflare
+.open-next
+.wrangler
+.dev.vars*

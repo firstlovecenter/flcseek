@@ -8,6 +8,8 @@ const nextConfig = {
   },
   compress: true, // Enable gzip/brotli compression (reduces payload by 70-80%)
   poweredByHeader: false, // Remove X-Powered-By header for security
+  // Cloudflare (OpenNext): Prisma must be external so the workerd build is used.
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   experimental: {
     // Tree-shake large libraries so pages only bundle the components/icons they use.
     // Cuts first-load JS for icon/chart-heavy pages.

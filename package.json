@@ -16,7 +16,10 @@
     "setup-db": "tsx scripts/setup-database.ts",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
-    "test:ccg-db": "node scripts/ccg-test-db.mjs"
+    "test:ccg-db": "node scripts/ccg-test-db.mjs",
+    "cf:build": "npx opennextjs-cloudflare build",
+    "cf:preview": "npx opennextjs-cloudflare build && npx opennextjs-cloudflare preview",
+    "cf:deploy": "npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -57,14 +60,14 @@
     "dayjs": "^1.11.21",
     "dotenv": "^17.2.3",
     "eslint": "^8.49.0",
-    "eslint-config-next": "^15.0.0",
+    "eslint-config-next": "~15.5.28",
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.446.0",
     "motion": "^12.40.0",
-    "next": "^15.0.0",
+    "next": "~15.5.28",
     "next-pwa": "^5.6.0",
     "node-cron": "^4.2.1",
     "pg": "^8.16.3",
@@ -83,10 +86,12 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.15",
     "@types/qrcode": "^1.5.6",
     "prisma": "^7.2.0",
     "tsx": "^4.20.6",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wrangler": "^4.156.2"
   },
   "overrides": {
     "react-is": "$react"
