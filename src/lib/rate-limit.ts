@@ -160,8 +160,7 @@ function buildLimitResponse(config: RateLimitConfig, windowStart: number, now: n
  * Shared, cross-instance rate limit check backed by rate_limit_records.
  * Atomic: a single upsert increments and returns the current window's count,
  * so concurrent instances cannot race past the limit.
- * Fails open on DB errors (rate limiting must not take down login entirely),
- * leaving the in-memory check as backstop.
+ * Fails closed on DB errors — returns 503 to prevent overload cascades.
  */
 async function checkDbRateLimitAtomic(
   clientId: string,

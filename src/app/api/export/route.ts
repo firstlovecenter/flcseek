@@ -211,9 +211,9 @@ export async function GET(request: NextRequest) {
       data,
     });
   } catch (error) {
-    console.error('Export error:', error);
+    console.error('[export]:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

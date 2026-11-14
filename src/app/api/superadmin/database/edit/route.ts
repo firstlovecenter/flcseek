@@ -164,10 +164,9 @@ export async function PATCH(request: NextRequest) {
       record,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error updating record:', error);
+    console.error('[superadmin/database/edit PATCH]:', error);
     return NextResponse.json(
-      { error: 'Failed to update record', details: message },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -232,10 +231,9 @@ export async function DELETE(request: NextRequest) {
       record,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error deleting record:', error);
+    console.error('[superadmin/database/edit DELETE]:', error);
     return NextResponse.json(
-      { error: 'Failed to delete record', details: message },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

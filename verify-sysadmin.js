@@ -7,6 +7,12 @@ if (!process.env.NEON_DATABASE_URL) {
   process.exit(1);
 }
 
+const password = process.env.SYSADMIN_PASSWORD;
+if (!password) {
+  console.error('Error: SYSADMIN_PASSWORD environment variable is required');
+  process.exit(1);
+}
+
 const sql = neon(process.env.NEON_DATABASE_URL);
 
 async function verifySysadmin() {
@@ -32,24 +38,21 @@ async function verifySysadmin() {
     console.log('\nStored password hash:', result[0].password);
     
     // Test password
-    const testPassword = 'REDACTED_PASSWORD';
-    const isValid = await bcrypt.compare(testPassword, result[0].password);
-    
+    const isValid = await bcrypt.compare(password, result[0].password);
+
     console.log('\n🔐 Password verification:');
-    console.log('Testing password:', testPassword);
     console.log('Match:', isValid ? '✅ YES' : '❌ NO');
-    
+
     if (!isValid) {
       console.log('\n⚠️  Password does not match. Updating to correct hash...');
-      const newHash = await bcrypt.hash(testPassword, 10);
-      console.log('New hash:', newHash);
-      
+      const newHash = await bcrypt.hash(password, 10);
+
       await sql`
-        UPDATE users 
+        UPDATE users
         SET password = ${newHash}
         WHERE username = 'sysadmin'
       `;
-      
+
       console.log('✅ Password updated successfully!');
     }
     
