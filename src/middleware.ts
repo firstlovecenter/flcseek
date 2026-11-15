@@ -42,6 +42,8 @@ export async function middleware(request: NextRequest) {
     '/api/auth/logout',
     '/api/auth/me',
     '/api/health',
+    // Scheduled jobs — guarded by CRON_SECRET inside the route
+    '/api/cron/',
     // City Church Group self-service forms (token-gated, rate-limited per route)
     '/api/ccg/public/',
     '/api/_next',

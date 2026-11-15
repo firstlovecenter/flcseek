@@ -25,5 +25,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "scripts", "netlify"]
+  "exclude": ["node_modules", "scripts", "netlify", "worker.ts", ".open-next", "open-next.config.ts"]
 }

@@ -114,8 +114,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    console.error('[register]:', error)
     return NextResponse.json(
-      { error: `Internal server error: ${err.message || 'Unknown error'}` },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

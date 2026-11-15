@@ -8,6 +8,8 @@ const nextConfig = {
   },
   compress: true, // Enable gzip/brotli compression (reduces payload by 70-80%)
   poweredByHeader: false, // Remove X-Powered-By header for security
+  // Cloudflare (OpenNext): Prisma must be external so the workerd build is used.
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   experimental: {
     // Tree-shake large libraries so pages only bundle the components/icons they use.
     // Cuts first-load JS for icon/chart-heavy pages.
@@ -16,6 +18,20 @@ const nextConfig = {
       'lucide-react',
       'date-fns',
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ]
   },
 };
 
