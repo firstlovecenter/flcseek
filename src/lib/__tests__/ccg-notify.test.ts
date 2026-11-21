@@ -23,7 +23,7 @@ describe('CCF Coordinator SMS', () => {
   })
 
   it('keeps names readable in the GSM set', () => {
-    expect(gsmSafe('Ëmmánuel’s “CCF” — [A]')).toBe('Emmanuel\'s "CCF" - (A)')
+    expect(gsmSafe('Ëmmánuel’s "CCF" — [A]')).toBe('Emmanuel\'s "CCF" - (A)')
     expect(gsmSafe('Adéla')).toBe('Adéla')
   })
 
@@ -33,38 +33,38 @@ describe('CCF Coordinator SMS', () => {
   })
 })
 
-describe('FlashSMS client', () => {
+describe('FLC Notify SMS client', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
   })
   const configure = () => {
     vi.stubEnv('VITEST', '')
-    vi.stubEnv('FLASHSMS_API_KEY', 'bms_live_test')
-    vi.stubEnv('FLASHSMS_BASE_URL', 'https://api.flashsms.africa/api/v2/')
-    vi.stubEnv('FLASHSMS_SENDER_ID', 'FLCSeek')
+    vi.stubEnv('FLC_NOTIFY_KEY', 'test_key')
+    vi.stubEnv('FLC_NOTIFY_URL', 'https://notify.example.com')
+    vi.stubEnv('FLC_NOTIFY_SENDER_ID', 'FLCSeek')
   }
 
   it('never sends under tests', () => {
     expect(smsConfigured()).toBe(false)
   })
 
-  it('posts to /sms/send with the key, sender and idempotency key', async () => {
+  it('posts to /send-sms with the key and sender', async () => {
     configure()
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { id: 'msg_1', status: 'PENDING' } }), { status: 202 }))
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: true, data: { id: 'msg_1', status: 'PENDING' } }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     await expect(sendSms({ phones: ['233241234567'], message: 'Hi', idempotencyKey: 'k1' })).resolves.toEqual({ sent: true, id: 'msg_1' })
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.flashsms.africa/api/v2/sms/send')
-    expect((init.headers as Record<string, string>)['Idempotency-Key']).toBe('k1')
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer bms_live_test')
-    expect(JSON.parse(init.body as string)).toEqual({ message: 'Hi', phones: ['233241234567'], senderId: 'FLCSeek' })
+    expect(url).toBe('https://notify.example.com/send-sms')
+    expect((init.headers as Record<string, string>)['x-secret-key']).toBe('test_key')
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
+    expect(JSON.parse(init.body as string)).toEqual({ recipient: ['233241234567'], message: 'Hi', sender: 'FLCSeek' })
   })
 
   it('reports provider errors and network failures without throwing', async () => {
     configure()
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 'INSUFFICIENT_CREDITS', message: 'Insufficient credits' } }), { status: 402 })))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: false, error: 'Insufficient credits', message: 'Insufficient credits' }), { status: 400 })))
     await expect(sendSms({ phones: ['1'], message: 'Hi', idempotencyKey: 'k' })).resolves.toEqual({ sent: false, reason: 'Insufficient credits' })
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
     await expect(sendSms({ phones: ['1'], message: 'Hi', idempotencyKey: 'k' })).resolves.toEqual({ sent: false, reason: 'Could not reach the SMS provider' })
