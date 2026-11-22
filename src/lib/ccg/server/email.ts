@@ -1,11 +1,14 @@
 /**
- * Outgoing email for the CCG app, through Resend's HTTP API (no SDK).
+ * Outgoing email for the CCG app, via FLC notify service (relay to Resend).
  *
- *   RESEND_API_KEY   Resend API key
- *   CCG_EMAIL_FROM   sender, e.g. "City Church Group <ccg@yourdomain.org>" (a verified Resend domain)
+ *   FLC_NOTIFY_URL   FLC notify base URL
+ *   FLC_NOTIFY_KEY   FLC notify secret key
+ *   CCG_EMAIL_FROM   optional sender, e.g. "FLC Sheep Seeking <noreply@updates.firstlovecenter.com>"
+ *                    (omit to use FLC notify's verified default sender)
  *
- * When either is missing, nothing is sent and { sent: false } is returned, so
- * callers can fall back (e.g. show an invite link for the admin to share).
+ * When FLC notify is not configured, nothing is sent and { sent: false } is
+ * returned, so callers can fall back (e.g. show an invite link for the admin
+ * to share).
  */
 
 export interface EmailResult {
@@ -15,21 +18,31 @@ export interface EmailResult {
 }
 
 export function emailConfigured(): boolean {
-  return !!process.env.RESEND_API_KEY && !!process.env.CCG_EMAIL_FROM
+  if (process.env.VITEST) return false
+  return !!process.env.FLC_NOTIFY_URL && !!process.env.FLC_NOTIFY_KEY
 }
 
 export async function sendEmail(msg: { to: string; subject: string; text: string; html: string }): Promise<EmailResult> {
-  if (!emailConfigured()) return { sent: false, reason: 'Email is not set up yet (RESEND_API_KEY, CCG_EMAIL_FROM)' }
+  if (!emailConfigured()) return { sent: false, reason: 'Email is not set up yet (FLC_NOTIFY_URL, FLC_NOTIFY_KEY)' }
+  const url = process.env.FLC_NOTIFY_URL!.replace(/\/+$/, '')
+  const key = process.env.FLC_NOTIFY_KEY!
+  const from = process.env.CCG_EMAIL_FROM
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch(`${url}/send-email`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: process.env.CCG_EMAIL_FROM, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html }),
+      headers: { 'x-secret-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(from ? { from } : {}),
+        to: msg.to,
+        subject: msg.subject,
+        text: msg.text,
+        html: msg.html,
+      }),
     })
-    if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      console.error('[ccg] email failed:', res.status, body?.message ?? '')
-      return { sent: false, reason: body?.message ?? `Email provider returned ${res.status}` }
+    const body = await res.json().catch(() => null)
+    if (!res.ok || !body?.success) {
+      console.error('[ccg] email failed:', res.status, body?.error ?? body?.message ?? '')
+      return { sent: false, reason: body?.message ?? body?.error ?? `Email provider returned ${res.status}` }
     }
     return { sent: true }
   } catch (err) {

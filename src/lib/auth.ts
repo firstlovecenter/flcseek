@@ -5,8 +5,9 @@ import { type NextRequest } from 'next/server';
 // Security: Validate JWT_SECRET strength at startup
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  // Only throw in runtime, not during build
-  if (typeof window === 'undefined' && process.env.NODE_ENV !== 'development') {
+  // Skip during next build (NEXT_PHASE is set to 'phase-production-build') and development
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+  if (!isBuild && process.env.NODE_ENV !== 'development') {
     throw new Error('JWT_SECRET must be at least 32 characters of random data');
   }
 }
