@@ -2,26 +2,18 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { type NextRequest } from 'next/server';
 
-// Security: Validate JWT_SECRET strength at startup
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  // Skip during next build (NEXT_PHASE is set to 'phase-production-build') and development
-  const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
-  if (!isBuild && process.env.NODE_ENV !== 'development') {
-    throw new Error('JWT_SECRET must be at least 32 characters of random data');
-  }
-}
-
-// Fallback only for build time, runtime will use actual secret
+// Read lazily at request time — Cloudflare Workers secrets are not available on
+// process.env during module initialisation, only during request handling.
 const getJwtSecret = (): string => {
-  if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('JWT_SECRET must be at least 32 characters of random data');
     }
     // Development fallback
     return 'development-secret-change-in-production-32chars';
   }
-  return JWT_SECRET;
+  return secret;
 };
 
 export type SeekRole = 'superadmin' | 'leadpastor' | 'overseer' | 'admin' | 'leader';
